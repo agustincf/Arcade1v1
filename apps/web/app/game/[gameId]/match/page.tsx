@@ -58,8 +58,8 @@ export default function MatchPage({
         <div className="text-6xl">{game.emoji}</div>
         <p className="mt-4 max-w-sm text-slate-400">
           Aca va a vivir el juego de <b>{game.name}</b>.
-          {game.id === "chess"
-            ? " El tablero jugable se construye en la Fase 2."
+          {game.id === "tetris"
+            ? " El Tetris jugable se construye en la Fase 2."
             : " El juego jugable se construye en la Fase 3."}
         </p>
         {!result && (

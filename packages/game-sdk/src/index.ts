@@ -4,55 +4,72 @@
  * Pensalo como la forma del cartucho: si tu juego encaja en estas formas,
  * la consola (frontend + backend + escrow) lo sabe usar sin cambios.
  *
- * En la Fase 0 esto es solo el "contrato" (las formas). La logica real de
- * cada juego se completa en sus fases (Ajedrez = Fase 2, Flappy = Fase 3).
+ * MODELO DE JUEGO (regla general del arcade):
+ *   - Todos los juegos son ASINCRONICOS y POR PUNTAJE.
+ *   - Cada jugador juega su propio intento ("run") cuando quiere, dentro de
+ *     una ventana de tiempo (ej: 1 hora desde que se emparejan).
+ *   - Gana el que hace MAS PUNTOS. Empate -> reembolso a ambos.
+ *   - Si un jugador no juega su intento a tiempo -> reembolso a ambos.
  */
-
-/** Resultado posible de una partida. */
-export type MatchOutcome =
-  | { kind: "winner"; winner: PlayerId } // gano un jugador
-  | { kind: "draw" } //                    empate (en ajedrez: tablas)
-  | { kind: "cancelled"; reason: string }; // se cancelo / falto alguien
 
 export type PlayerId = "player1" | "player2";
 
+/** Resultado posible de una partida. */
+export type MatchOutcome =
+  | { kind: "winner"; winner: PlayerId } // gano el de mayor puntaje
+  | { kind: "draw" } //                    empate de puntaje -> reembolso
+  | { kind: "cancelled"; reason: string }; // se cancelo / falto un jugador
+
 /** Identidad de un juego dentro del arcade. */
 export interface GameMeta {
-  /** id unico y estable, ej: "chess" o "flappy". */
+  /** id unico y estable, ej: "tetris" o "flappy". */
   id: string;
-  /** nombre lindo para mostrar, ej: "Ajedrez". */
+  /** nombre lindo para mostrar, ej: "Tetris". */
   name: string;
   /** descripcion corta para la card del home. */
   description: string;
+  /** como se llama el puntaje en este juego, ej: "puntos", "lineas". */
+  scoreUnit: string;
   /** siempre 2 por ahora (1v1), pero queda explicito. */
   players: 2;
 }
 
 /**
- * La parte del juego que corre en el SERVIDOR (la "autoridad").
- * El servidor es quien decide la verdad: valida jugadas y dicta el resultado.
- * Asi un jugador no puede hacer trampa desde su navegador.
+ * Un "intento" (run) de un jugador: su puntaje + la informacion necesaria
+ * para que el SERVIDOR pueda re-verificarlo y evitar trampa.
  */
-export interface GameServerModule<State = unknown, Move = unknown> {
-  meta: GameMeta;
-  /** crea el estado inicial de una partida nueva. */
-  createInitialState(): State;
-  /** aplica una jugada de un jugador y devuelve el nuevo estado (o un error). */
-  applyMove(
-    state: State,
-    player: PlayerId,
-    move: Move,
-  ): { ok: true; state: State } | { ok: false; error: string };
-  /** mira el estado y dice si la partida termino y como. */
-  getOutcome(state: State): MatchOutcome | null;
+export interface GameRun {
+  /** puntaje final que dice el jugador haber hecho. */
+  score: number;
+  /**
+   * "replay": semilla + registro de jugadas/eventos del intento.
+   * El servidor lo re-juega para confirmar que el puntaje es real.
+   * Cada juego define su forma concreta.
+   */
+  replay: unknown;
 }
 
 /**
- * La parte del juego que corre en el NAVEGADOR (lo que ve el jugador).
- * En la Fase 1 esto sera un componente de React. Se define mas adelante
- * para no atarnos todavia a una libreria concreta.
+ * La parte del juego que corre en el SERVIDOR (la "autoridad").
+ * En async, el servidor re-verifica cada intento para que un jugador no pueda
+ * inventar su puntaje desde el navegador, y luego decide quien gano.
+ */
+export interface GameServerModule {
+  meta: GameMeta;
+  /** Re-juega el replay y confirma el puntaje real (anti-trampa). */
+  verifyRun(
+    run: GameRun,
+  ): { ok: true; score: number } | { ok: false; error: string };
+  /** Compara dos puntajes ya verificados y dicta el resultado. */
+  decide(scoreP1: number, scoreP2: number): MatchOutcome;
+}
+
+/**
+ * La parte del juego que corre en el NAVEGADOR (lo que ve y juega la persona).
+ * Renderiza el juego de UN jugador y, al terminar, entrega un GameRun.
+ * El componente concreto (React) lo define cada juego en su fase.
  */
 export interface GameClientModule {
   meta: GameMeta;
-  // render(...) y demas se definen en la Fase 1/2/3.
+  // render(...) que termina llamando onFinish(run: GameRun) — se define por juego.
 }

@@ -13,11 +13,11 @@ export interface GameInfo {
 
 export const GAMES: GameInfo[] = [
   {
-    id: "chess",
-    name: "Ajedrez",
-    tagline: "Clasico 1v1",
-    description: "Partida de ajedrez con todas las reglas. Gana el que da jaque mate.",
-    emoji: "♟️",
+    id: "tetris",
+    name: "Tetris",
+    tagline: "Clasico de puntaje",
+    description: "Apila piezas y hace lineas. El que mas puntos hace se lleva el pozo.",
+    emoji: "🟦",
     status: "live",
   },
   {

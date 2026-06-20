@@ -1,7 +1,7 @@
 // Configuracion central de la plataforma (datos de mentira por ahora).
 
 /** Mesas de apuesta fijas, en USDC. */
-export const BET_AMOUNTS = [1, 5, 10, 20] as const;
+export const BET_AMOUNTS = [5, 10, 20, 50, 100] as const;
 export type BetAmount = (typeof BET_AMOUNTS)[number];
 
 /** Comision de la plataforma: 10% del pozo. */
