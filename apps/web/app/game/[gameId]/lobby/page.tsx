@@ -18,59 +18,75 @@ export default function LobbyPage({
   const bet = Number(search.get("bet") ?? 0);
 
   const [status, setStatus] = useState<"searching" | "found">("searching");
+  const [dots, setDots] = useState("");
 
-  // Simulacion: "encuentra" un rival despues de unos segundos.
   useEffect(() => {
     const t = setTimeout(() => setStatus("found"), 3000);
-    return () => clearTimeout(t);
+    const d = setInterval(() => setDots((x) => (x.length >= 3 ? "" : x + ".")), 400);
+    return () => {
+      clearTimeout(t);
+      clearInterval(d);
+    };
   }, []);
 
   if (!game) return null;
 
   return (
-    <div className="mx-auto max-w-md text-center">
+    <div className="mx-auto max-w-md">
       <Link
         href={`/game/${gameId}`}
-        className="text-sm text-slate-400 hover:text-white"
+        className="font-screen text-xl text-[--color-accent-2] hover:underline"
       >
-        ← Cancelar y volver
+        ← Cancelar
       </Link>
 
-      <div className="mt-10 rounded-2xl border border-[--color-border] bg-[--color-surface] p-8">
-        <div className="text-5xl">{game.emoji}</div>
-        <p className="mt-2 text-sm text-slate-400">
-          {game.name} · Mesa de {bet} USDC · Pozo {getPayout(bet).pot} USDC
-        </p>
+      <div className="win mt-3">
+        <div className="win-title">
+          <span>MATCHMAKING.EXE</span>
+          <span className="win-dots">
+            <span className="win-dot" />
+            <span className="win-dot" />
+            <span className="win-dot" />
+          </span>
+        </div>
 
-        {status === "searching" ? (
-          <>
-            {/* Spinner */}
-            <div className="relative mx-auto mt-8 h-16 w-16">
-              <span className="absolute inset-0 animate-spin rounded-full border-4 border-[--color-border] border-t-[--color-accent]" />
-            </div>
-            <h1 className="mt-6 text-xl font-bold">Buscando rival...</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Te emparejamos con alguien que apuesta lo mismo.
-            </p>
-          </>
-        ) : (
-          <>
-            <div className="mt-8 flex items-center justify-center gap-4">
-              <Avatar label="Vos" you />
-              <span className="text-2xl font-black text-slate-500">VS</span>
-              <Avatar label="Rival" />
-            </div>
-            <h1 className="mt-6 text-xl font-bold text-[--color-win]">
-              ¡Rival encontrado!
-            </h1>
-            <button
-              onClick={() => router.push(`/game/${gameId}/match?bet=${bet}`)}
-              className="mt-6 w-full rounded-xl bg-[--color-accent] px-5 py-4 font-semibold text-white hover:opacity-90"
-            >
-              Empezar partida →
-            </button>
-          </>
-        )}
+        <div className="p-8 text-center">
+          <div className="text-6xl">{game.emoji}</div>
+          <p className="font-screen mt-2 text-lg text-slate-300">
+            {game.name} · Mesa {bet} USDC · Pozo {getPayout(bet).pot} USDC
+          </p>
+
+          {status === "searching" ? (
+            <>
+              <div className="relative mx-auto mt-8 h-16 w-16">
+                <span className="absolute inset-0 animate-spin rounded-full border-4 border-[--color-border] border-t-[--color-accent]" />
+              </div>
+              <h1 className="font-pixel mt-6 text-sm text-[--color-accent-2] neon-cyan">
+                BUSCANDO RIVAL{dots}
+              </h1>
+              <p className="font-screen mt-2 text-lg text-slate-400">
+                Esperando a alguien que apueste lo mismo...
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="mt-8 flex items-center justify-center gap-4">
+                <Avatar label="VOS" you />
+                <span className="font-pixel text-base text-[--color-gold] blink">VS</span>
+                <Avatar label="RIVAL" />
+              </div>
+              <h1 className="font-pixel mt-6 text-sm text-[--color-win]">
+                ¡RIVAL ENCONTRADO!
+              </h1>
+              <button
+                onClick={() => router.push(`/game/${gameId}/match?bet=${bet}`)}
+                className="btn3d btn3d--magenta mt-6 w-full"
+              >
+                ► EMPEZAR PARTIDA
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -80,15 +96,13 @@ function Avatar({ label, you }: { label: string; you?: boolean }) {
   return (
     <div className="flex flex-col items-center gap-2">
       <div
-        className={`flex h-14 w-14 items-center justify-center rounded-full text-xl font-bold ${
-          you
-            ? "bg-[--color-accent] text-white"
-            : "bg-[--color-surface-2] text-slate-300"
+        className={`flex h-16 w-16 items-center justify-center rounded-lg border-2 border-[#0a0518] text-2xl ${
+          you ? "bg-[--color-accent]" : "bg-[--color-surface-2]"
         }`}
       >
         {you ? "🙂" : "👤"}
       </div>
-      <span className="text-sm">{label}</span>
+      <span className="font-pixel text-[10px] text-slate-200">{label}</span>
     </div>
   );
 }
