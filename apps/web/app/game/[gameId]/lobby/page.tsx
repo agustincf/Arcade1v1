@@ -65,7 +65,7 @@ export default function LobbyPage({
                 BUSCANDO RIVAL{dots}
               </h1>
               <p className="font-screen mt-2 text-lg text-slate-400">
-                Esperando a alguien que apueste lo mismo...
+                Cruzándote con alguien que se la banca igual que vos...
               </p>
             </>
           ) : (
@@ -76,13 +76,13 @@ export default function LobbyPage({
                 <Avatar label="RIVAL" />
               </div>
               <h1 className="font-pixel mt-6 text-sm text-[--color-win]">
-                ¡RIVAL ENCONTRADO!
+                ¡APARECIÓ TU RIVAL!
               </h1>
               <button
                 onClick={() => router.push(`/game/${gameId}/match?bet=${bet}`)}
                 className="btn3d btn3d--magenta mt-6 w-full"
               >
-                ► EMPEZAR PARTIDA
+                ► AL ATAQUE
               </button>
             </>
           )}

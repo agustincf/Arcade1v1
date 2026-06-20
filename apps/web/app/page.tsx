@@ -8,10 +8,10 @@ export default function HomePage() {
       {/* Hero */}
       <section className="mb-8 text-center">
         <h1 className="font-pixel text-2xl text-[--color-accent] neon sm:text-4xl">
-          DUELOS 1v1
+          JUGÁ. GANÁ. COBRÁ.
         </h1>
         <p className="font-screen mt-3 text-xl text-[--color-accent-2] neon-cyan">
-          &gt;&gt; Elegí tu juego · poné USDC · que gane el mejor &lt;&lt;
+          &gt;&gt; Retá a un rival 1v1 y jugate el pozo en USDC. Que gane el mejor &lt;&lt;
         </p>
 
         {/* Cinta de mesas disponibles */}
@@ -57,7 +57,7 @@ export default function HomePage() {
                 {isLive && (
                   <div className="mt-5 text-center">
                     <span className="btn3d btn3d--magenta inline-block">
-                      ► JUGAR
+                      ► JUGAR Y GANAR
                     </span>
                   </div>
                 )}
@@ -85,10 +85,14 @@ export default function HomePage() {
           </span>
         </div>
         <div className="font-screen grid grid-cols-1 gap-3 p-5 text-lg sm:grid-cols-3">
-          <Step n="1" text="Conectá tu billetera y elegí una mesa (mismo monto los dos)." />
-          <Step n="2" text="Te emparejamos con un rival. Cada uno juega su intento." />
-          <Step n="3" text="Gana el de más puntos: se lleva el pozo menos 10%." />
+          <Step n="1" text="Elegí un juego y una mesa. Los dos ponen lo mismo en USDC." />
+          <Step n="2" text="Te cruzamos con un rival. Cada uno juega su mejor intento." />
+          <Step n="3" text="¿Más puntos que el rival? Te llevás el pozo entero." />
         </div>
+        <p className="font-screen px-5 pb-4 text-sm text-slate-500">
+          * La plataforma retiene una comisión del 10% del pozo. Si nadie aparece
+          en 1 hora, se te devuelve todo.
+        </p>
       </section>
     </div>
   );

@@ -14,8 +14,6 @@ import {
   onlinePlayers,
   type MatchSpeed,
 } from "@/app/lib/config";
-import { useWallet } from "@/app/lib/wallet";
-
 export default function TableSelectPage({
   params,
 }: {
@@ -24,7 +22,6 @@ export default function TableSelectPage({
   const { gameId } = use(params);
   const game = getGame(gameId);
   const router = useRouter();
-  const { connected, connect } = useWallet();
   // CRO: arrancamos con la mesa recomendada ya elegida.
   const [selected, setSelected] = useState<number>(DEFAULT_BET);
 
@@ -42,7 +39,6 @@ export default function TableSelectPage({
   const meta = TABLE_META[selected];
 
   function buscarRival() {
-    if (!connected) return;
     router.push(`/game/${gameId}/lobby?bet=${selected}`);
   }
 
@@ -64,8 +60,8 @@ export default function TableSelectPage({
         <div className="p-5">
           <div className="mb-4 flex items-center gap-3">
             <span className="text-5xl">{game.emoji}</span>
-            <p className="font-screen text-xl text-slate-300">
-              ¿Cuánto querés apostar? Los dos ponen lo mismo.
+            <p className="font-screen text-xl text-slate-200">
+              ¿De cuánto va el duelo? Los dos ponen lo mismo. El que gana, se lo lleva.
             </p>
           </div>
 
@@ -80,14 +76,12 @@ export default function TableSelectPage({
                   key={bet}
                   onClick={() => setSelected(bet)}
                   className={`win relative p-3 text-center transition ${
-                    active
-                      ? "!border-[--color-gold] -translate-y-1"
-                      : "hover:-translate-y-0.5"
-                  }`}
+                    m.recommended ? "win--hot mt-2" : ""
+                  } ${active ? "-translate-y-1" : "hover:-translate-y-0.5"}`}
                 >
                   {m.recommended && (
-                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border-2 border-[#0a0518] bg-[--color-gold] px-1.5 py-0.5 font-pixel text-[7px] text-[#1a0033]">
-                      ★ POPULAR
+                    <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-[#0a0518] bg-[--color-gold] px-2 py-0.5 font-screen text-lg font-bold leading-none text-[#1a0033]">
+                      🔥 MÁS ELEGIDA
                     </span>
                   )}
                   <div className="font-pixel text-base text-[--color-gold]">{bet}</div>
@@ -110,11 +104,11 @@ export default function TableSelectPage({
           <div className="mt-4 rounded border-2 border-[#0a0518] bg-[#0a0518] p-3 text-center">
             <p className="font-screen text-lg text-[--color-accent-2]">
               {meta.speed === "rapido" ? (
-                <>⚡ Mesa de {selected} USDC: <b className="text-[--color-gold]">emparejamiento más rápido</b> — {meta.playersWaiting} jugadores buscando ahora.</>
+                <>🔥 La mesa de {selected} USDC está que arde: <b className="text-[--color-gold]">{meta.playersWaiting} rivales buscando ahora</b>. Entrá antes de que la agarre otro.</>
               ) : meta.speed === "lento" ? (
-                <>🐢 Mesa de {selected} USDC: pocos jugadores ({meta.playersWaiting}). Probá la de <b className="text-[--color-gold]">20 USDC</b> para emparejar más rápido.</>
+                <>🐢 En la mesa de {selected} USDC hay pocos jugadores ({meta.playersWaiting}). Saltá a la de <b className="text-[--color-gold]">20 USDC</b> y conseguí rival al toque.</>
               ) : (
-                <>👍 Mesa de {selected} USDC: {meta.playersWaiting} buscando. La de <b className="text-[--color-gold]">20 USDC</b> es la que más rápido empareja.</>
+                <>👀 {meta.playersWaiting} buscando en la mesa de {selected} USDC. ¿Querés rival ya? La de <b className="text-[--color-gold]">20 USDC</b> es la más caliente.</>
               )}
             </p>
           </div>
@@ -143,17 +137,11 @@ export default function TableSelectPage({
 
           {/* Accion */}
           <div className="mt-5">
-            {!connected ? (
-              <button onClick={connect} className="btn3d btn3d--magenta w-full">
-                CONECTÁ TU BILLETERA
-              </button>
-            ) : (
-              <button onClick={buscarRival} className="btn3d btn3d--magenta w-full">
-                ► BUSCAR RIVAL ({selected} USDC)
-              </button>
-            )}
-            <p className="font-screen mt-2 text-center text-base text-slate-500">
-              Sin riesgo: si no aparece rival en 1 hora, se te devuelve todo.
+            <button onClick={buscarRival} className="btn3d btn3d--magenta w-full">
+              ► QUIERO JUGAR · {selected} USDC
+            </button>
+            <p className="font-screen mt-2 text-center text-base text-slate-400">
+              Si no aparece rival en 1 hora, te devolvemos todo. Cero riesgo.
             </p>
           </div>
         </div>

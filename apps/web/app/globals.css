@@ -88,6 +88,33 @@ body::after {
     0 8px 0 rgba(0, 0, 0, 0.35),
     0 0 0 1px rgba(255, 61, 240, 0.25);
 }
+/* Variante "destacada" (mesa recomendada): glow dorado */
+.win--hot {
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.12),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.4),
+    0 0 0 2px var(--color-gold),
+    0 0 22px rgba(255, 210, 61, 0.7);
+  animation: hotpulse 1.6s ease-in-out infinite;
+}
+@keyframes hotpulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 2px 2px 0 rgba(255, 255, 255, 0.12),
+      inset -2px -2px 0 rgba(0, 0, 0, 0.4),
+      0 0 0 2px var(--color-gold),
+      0 0 16px rgba(255, 210, 61, 0.5);
+  }
+  50% {
+    box-shadow:
+      inset 2px 2px 0 rgba(255, 255, 255, 0.12),
+      inset -2px -2px 0 rgba(0, 0, 0, 0.4),
+      0 0 0 2px var(--color-gold),
+      0 0 30px rgba(255, 210, 61, 0.9);
+  }
+}
+
 .win-title {
   display: flex;
   align-items: center;

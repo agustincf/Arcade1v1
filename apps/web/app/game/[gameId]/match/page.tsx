@@ -142,7 +142,9 @@ export default function MatchPage({
                     </>
                   )}
                   {outcome === "lose" && (
-                    <p className="text-slate-300">Perdiste tu apuesta de {bet} USDC.</p>
+                    <p className="text-slate-300">
+                      Esta vez se llevó {bet} USDC. La revancha te espera. 😤
+                    </p>
                   )}
                   {outcome === "draw" && (
                     <p className="text-slate-300">
@@ -157,7 +159,7 @@ export default function MatchPage({
                   onClick={() => router.push(`/game/${gameId}`)}
                   className="btn3d btn3d--magenta flex-1"
                 >
-                  OTRA VEZ
+                  REVANCHA
                 </button>
                 <button
                   onClick={() => router.push("/")}

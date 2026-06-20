@@ -34,8 +34,9 @@ export default function RootLayout({
           {/* Marquesina retro */}
           <div className="marquee">
             <span>
-              ★ BIENVENIDO A ARCADE1V1 ★ JUGÁ 1v1 ★ GANÁ USDC ★ TETRIS ★ FLAPPY
-              ★ SOLO TESTNET (DINERO DE PRUEBA) ★ QUE GANE EL MEJOR ★
+              ★ DUELOS 1v1 POR USDC ★ EL QUE GANA SE LLEVA TODO ★ TETRIS · FLAPPY
+              · CARRERA ★ ¿SIN RIVAL EN 1 HORA? TE DEVOLVEMOS TODO ★ DEMOSTRÁ
+              QUIÉN MANDA ★ (JUGANDO EN TESTNET) ★
             </span>
           </div>
 

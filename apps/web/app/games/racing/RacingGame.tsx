@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { RacingEngine, RACING_CONST, laneX } from "./engine";
+import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 
 const { WIDTH, HEIGHT, CAR_W, CAR_H, OBST_W, OBST_H } = RACING_CONST;
 
@@ -59,16 +60,19 @@ export function RacingGame({
     const draw = () => {
       const eng = engineRef.current!;
 
-      // Asfalto
-      ctx.fillStyle = "#1b1b24";
+      // Asfalto (noche neon)
+      const road = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+      road.addColorStop(0, "#1a0f33");
+      road.addColorStop(1, "#2a1450");
+      ctx.fillStyle = road;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      // Bordes (pasto)
-      ctx.fillStyle = "#143d1f";
-      ctx.fillRect(0, 0, 8, HEIGHT);
-      ctx.fillRect(WIDTH - 8, 0, 8, HEIGHT);
+      // Bordes neon
+      ctx.fillStyle = "#ff3df0";
+      ctx.fillRect(0, 0, 5, HEIGHT);
+      ctx.fillRect(WIDTH - 5, 0, 5, HEIGHT);
 
-      // Lineas de carril (animadas)
-      ctx.fillStyle = "#5a5a6e";
+      // Lineas de carril (animadas, neon cyan)
+      ctx.fillStyle = "#27e8ff";
       for (let lane = 1; lane < 3; lane++) {
         const x = (WIDTH / 3) * lane - 2;
         for (let y = -40 + eng.roadOffset; y < HEIGHT; y += 40) {
@@ -86,9 +90,12 @@ export function RacingGame({
 
       // Puntaje
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 30px ui-sans-serif, system-ui";
+      ctx.strokeStyle = "#0a0518";
+      ctx.lineWidth = 4;
+      ctx.font = "bold 36px ui-sans-serif, system-ui";
       ctx.textAlign = "center";
-      ctx.fillText(String(eng.score), WIDTH / 2, 44);
+      ctx.strokeText(String(eng.score), WIDTH / 2, 50);
+      ctx.fillText(String(eng.score), WIDTH / 2, 50);
     };
 
     const loop = (t: number) => {
@@ -141,27 +148,20 @@ export function RacingGame({
         />
 
         {!started && (
-          <Overlay>
-            <h3 className="font-pixel text-sm text-[--color-win]">CARRERA</h3>
-            <p className="font-screen mt-2 max-w-[220px] text-center text-lg text-slate-200">
-              Esquivá los autos cambiando de carril. +1 por cada uno que esquivás.
-              ¡Acelera con el tiempo!
-            </p>
-            <button onClick={() => setStarted(true)} className="btn3d btn3d--magenta mt-4">
-              EMPEZAR ▶
-            </button>
-          </Overlay>
+          <StartScreen
+            emoji="🏎️"
+            title="CARRERA"
+            instructions="Cambiá de carril para esquivar los autos. +1 por cada uno que dejás atrás. ¡Y acelera!"
+            onStart={() => setStarted(true)}
+          />
         )}
 
         {over && (
-          <Overlay>
-            <h3 className="font-pixel text-base">CHOCASTE 💥</h3>
-            <p className="font-screen mt-2 text-lg text-slate-200">Tu puntaje</p>
-            <p className="font-pixel text-2xl text-[--color-accent-2]">{score}</p>
-            <button onClick={() => onFinish({ score })} className="btn3d btn3d--magenta mt-4">
-              CONFIRMAR ▶
-            </button>
-          </Overlay>
+          <GameOverScreen
+            headline="¡CHOCASTE! 💥"
+            score={score}
+            onConfirm={() => onFinish({ score })}
+          />
         )}
       </div>
 
@@ -186,14 +186,6 @@ export function RacingGame({
       <p className="font-screen text-center text-base text-slate-500">
         Flechas ← → (o los botones) para cambiar de carril.
       </p>
-    </div>
-  );
-}
-
-function Overlay({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 p-4">
-      {children}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer, useRef, useState } from "react";
 import { TetrisEngine, COLS, ROWS, PIECE_COLORS } from "./engine";
+import { StartScreen, GameOverScreen, GameOverlay } from "@/app/games/_shared/ui";
 
 export interface TetrisResult {
   score: number;
@@ -149,56 +150,42 @@ export function TetrisGame({
           )}
         </div>
 
-        {/* Overlay: antes de empezar */}
+        {/* Pantalla: antes de empezar */}
         {!started && (
-          <Overlay>
-            <h3 className="text-lg font-bold">Tu intento de Tetris</h3>
-            <p className="mt-2 max-w-[220px] text-center text-sm text-slate-300">
-              Hace la mayor cantidad de puntos. La dificultad sube cada 10 lineas.
-            </p>
-            <button
-              onClick={() => setStarted(true)}
-              className="mt-4 rounded-xl bg-[--color-accent] px-6 py-3 font-semibold text-white hover:opacity-90"
-            >
-              Empezar ▶
-            </button>
-          </Overlay>
+          <StartScreen
+            emoji="🟦"
+            title="TETRIS"
+            instructions="Apilá las piezas y hacé líneas. Cuantos más puntos, mejor. ¡Se pone más rápido!"
+            onStart={() => setStarted(true)}
+          />
         )}
 
-        {/* Overlay: pausa */}
+        {/* Pantalla: pausa */}
         {started && paused && !over && (
-          <Overlay>
-            <h3 className="text-lg font-bold">Pausa</h3>
+          <GameOverlay>
+            <h3 className="font-pixel text-base text-[--color-gold]">PAUSA</h3>
             <button
               onClick={() => setPaused(false)}
-              className="mt-4 rounded-xl bg-[--color-accent] px-6 py-3 font-semibold text-white hover:opacity-90"
+              className="btn3d btn3d--magenta mt-4"
             >
-              Seguir
+              SEGUIR ▶
             </button>
-          </Overlay>
+          </GameOverlay>
         )}
 
-        {/* Overlay: game over */}
+        {/* Pantalla: game over */}
         {over && (
-          <Overlay>
-            <h3 className="text-xl font-extrabold">Game Over</h3>
-            <p className="mt-2 text-sm text-slate-300">Tu puntaje</p>
-            <p className="text-3xl font-black text-[--color-accent-2]">
-              {engine.score}
-            </p>
-            <button
-              onClick={() =>
-                onFinish({
-                  score: engine.score,
-                  lines: engine.lines,
-                  level: engine.level,
-                })
-              }
-              className="mt-4 rounded-xl bg-[--color-accent] px-6 py-3 font-semibold text-white hover:opacity-90"
-            >
-              Confirmar puntaje →
-            </button>
-          </Overlay>
+          <GameOverScreen
+            headline="¡GAME OVER! 💥"
+            score={engine.score}
+            onConfirm={() =>
+              onFinish({
+                score: engine.score,
+                lines: engine.lines,
+                level: engine.level,
+              })
+            }
+          />
         )}
       </div>
 
@@ -283,10 +270,3 @@ function TouchBtn({
   );
 }
 
-function Overlay({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center rounded-lg bg-black/80 p-4">
-      {children}
-    </div>
-  );
-}

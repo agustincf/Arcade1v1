@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FlappyEngine, FLAPPY_CONST } from "./engine";
+import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 
 const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
 const GROUND_Y = HEIGHT - GROUND_H;
@@ -240,40 +241,26 @@ export function FlappyGame({
         />
 
         {!started && (
-          <Overlay>
-            <h3 className="font-pixel text-sm text-[--color-gold]">FLAPPY 1v1</h3>
-            <p className="font-screen mt-2 max-w-[230px] text-center text-lg text-slate-100">
-              Tocá (o espacio) para aletear y esquivá los tubos. Cada tubo = 1 punto.
-            </p>
-            <button onClick={() => setStarted(true)} className="btn3d btn3d--magenta mt-4">
-              EMPEZAR ▶
-            </button>
-          </Overlay>
+          <StartScreen
+            emoji="🐤"
+            title="FLAPPY 1v1"
+            instructions="Tocá (o espacio) para aletear y esquivá los tubos. Cada tubo suma 1 punto. ¡No toques nada!"
+            onStart={() => setStarted(true)}
+          />
         )}
 
         {over && (
-          <Overlay>
-            <h3 className="font-pixel text-base">¡TE CAÍSTE! 💥</h3>
-            <p className="font-screen mt-2 text-lg text-slate-100">Tu puntaje</p>
-            <p className="font-pixel text-2xl text-[--color-accent-2]">{score}</p>
-            <button onClick={() => onFinish({ score })} className="btn3d btn3d--magenta mt-4">
-              CONFIRMAR ▶
-            </button>
-          </Overlay>
+          <GameOverScreen
+            headline="¡TE CAÍSTE! 💥"
+            score={score}
+            onConfirm={() => onFinish({ score })}
+          />
         )}
       </div>
 
       <p className="font-screen text-center text-base text-slate-500">
         Tocá la pantalla o la barra espaciadora para aletear.
       </p>
-    </div>
-  );
-}
-
-function Overlay({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 p-4">
-      {children}
     </div>
   );
 }
