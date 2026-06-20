@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { WalletProvider } from "@/app/lib/wallet";
+import { Providers } from "@/app/providers";
 import { Header } from "@/app/components/Header";
 
 export const metadata: Metadata = {
@@ -16,13 +16,13 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body>
-        <WalletProvider>
+        <Providers>
           <Header />
           <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
           <footer className="mx-auto max-w-5xl px-4 py-8 text-center text-xs text-slate-500">
-            Arcade1v1 · Maqueta de demostracion (datos de mentira) · Solo testnet
+            Arcade1v1 · Demostracion en testnet (dinero de prueba)
           </footer>
-        </WalletProvider>
+        </Providers>
       </body>
     </html>
   );
