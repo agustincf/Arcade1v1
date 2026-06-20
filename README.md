@@ -65,8 +65,8 @@ celular por QR), via wagmi + RainbowKit. Se monta en la Fase 4.
 
 - [x] **Fase 0** — Estructura del proyecto y herramientas.
 - [x] **Fase 1** — Pantallas navegables (datos de mentira).
-- [ ] **Fase 2** — Tetris (asincronico, por puntaje).
-- [ ] **Fase 3** — Flappy 1v1 (asincronico, por puntaje).
+- [x] **Fase 2** — Tetris (asincronico, por puntaje).
+- [x] **Fase 3** — Flappy 1v1 (asincronico, por puntaje).
 - [ ] **Fase 4** — Contrato escrow en testnet + billetera + USDC de prueba.
 - [ ] **Fase 5** — Backend arbitro (resultado real → pago en testnet).
 - [ ] **Fase 6** — Seguridad, pruebas y checklist pre-dinero-real.

@@ -117,6 +117,7 @@ export class TetrisEngine {
   lines = 0;
   level = 0;
   over = false;
+  elapsedMs = 0; // tiempo jugado (para acelerar con el tiempo)
 
   private rng: () => number;
   private queue: number[] = [];
@@ -227,6 +228,17 @@ export class TetrisEngine {
     this.stepDown();
   }
 
+  /** Suma el tiempo transcurrido (lo llama el reloj del juego mientras se juega). */
+  addTime(dt: number) {
+    this.elapsedMs += dt;
+  }
+
+  /** Nivel "efectivo" que define la velocidad: sube por lineas Y por tiempo
+   *  (cada 12 segundos jugados, un nivel mas de velocidad). */
+  effectiveLevel(): number {
+    return this.level + Math.floor(this.elapsedMs / 12000);
+  }
+
   /** Bajada manual del jugador (suma 1 punto si baja). */
   softDrop() {
     if (this.stepDown()) this.score += 1;
@@ -283,11 +295,11 @@ export class TetrisEngine {
     }
   }
 
-  /** Milisegundos entre cada caida automatica, segun el nivel.
-   *  Empieza ~1 seg y se acelera gradualmente (como el clasico). */
+  /** Milisegundos entre cada caida automatica, segun el nivel efectivo.
+   *  Arranca mas rapido que antes y se acelera con lineas y con el tiempo. */
   gravityMs(): number {
-    const ms = 1000 * Math.pow(0.8 - this.level * 0.007, this.level);
-    return Math.max(30, ms);
+    const ms = 800 * Math.pow(0.8, this.effectiveLevel());
+    return Math.max(40, ms);
   }
 
   /** Devuelve el tablero con la pieza actual "dibujada" encima, para mostrarlo. */

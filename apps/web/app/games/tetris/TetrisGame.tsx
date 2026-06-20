@@ -44,6 +44,7 @@ export function TetrisGame({
       last = t;
       const eng = engineRef.current!;
       if (!eng.over && !pausedRef.current) {
+        eng.addTime(dt);
         acc += dt;
         const g = eng.gravityMs();
         while (acc >= g) {
@@ -122,7 +123,7 @@ export function TetrisGame({
       <div className="flex w-full max-w-[320px] items-stretch justify-between gap-3 text-sm">
         <Stat label="Puntaje" value={engine.score} big />
         <Stat label="Lineas" value={engine.lines} />
-        <Stat label="Nivel" value={engine.level} />
+        <Stat label="Nivel" value={engine.effectiveLevel()} />
         <NextPreview matrix={nextMatrix} />
       </div>
 

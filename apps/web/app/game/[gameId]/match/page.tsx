@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getGame } from "@/app/lib/games";
 import { getPayout } from "@/app/lib/config";
 import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
+import { FlappyGame, type FlappyResult } from "@/app/games/flappy/FlappyGame";
 
 type Outcome = "win" | "lose" | "draw" | null;
 
@@ -63,21 +64,16 @@ export default function MatchPage({
           <div className="rounded-2xl border border-[--color-border] bg-[--color-surface]/50 p-5">
             <TetrisGame seed={seed} onFinish={(r: TetrisResult) => finishMatch(r.score)} />
           </div>
+        ) : game.id === "flappy" ? (
+          <div className="rounded-2xl border border-[--color-border] bg-[--color-surface]/50 p-5">
+            <FlappyGame seed={seed} onFinish={(r: FlappyResult) => finishMatch(r.score)} />
+          </div>
         ) : (
-          // Flappy todavia no esta hecho (Fase 3): placeholder + simulacion.
           <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-[--color-border] bg-[--color-surface]/50 p-8 text-center">
             <div className="text-6xl">{game.emoji}</div>
             <p className="mt-4 max-w-sm text-slate-400">
-              El juego de <b>{game.name}</b> se construye en la Fase 3.
+              Este juego todavia no esta disponible.
             </p>
-            {outcome === null && (
-              <button
-                onClick={() => finishMatch(Math.floor(Math.random() * 50))}
-                className="mt-6 rounded-xl bg-[--color-accent] px-6 py-3 font-semibold text-white hover:opacity-90"
-              >
-                Simular resultado
-              </button>
-            )}
           </div>
         )}
       </div>
