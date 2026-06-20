@@ -7,6 +7,7 @@ import { getGame } from "@/app/lib/games";
 import { getPayout } from "@/app/lib/config";
 import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
 import { FlappyGame, type FlappyResult } from "@/app/games/flappy/FlappyGame";
+import { RacingGame, type RacingResult } from "@/app/games/racing/RacingGame";
 
 type Outcome = "win" | "lose" | "draw" | null;
 
@@ -70,6 +71,8 @@ export default function MatchPage({
             <TetrisGame seed={seed} onFinish={(r: TetrisResult) => finishMatch(r.score)} />
           ) : game.id === "flappy" ? (
             <FlappyGame seed={seed} onFinish={(r: FlappyResult) => finishMatch(r.score)} />
+          ) : game.id === "racing" ? (
+            <RacingGame seed={seed} onFinish={(r: RacingResult) => finishMatch(r.score)} />
           ) : (
             <p className="font-screen py-10 text-center text-xl text-slate-400">
               Este juego todavía no está disponible.

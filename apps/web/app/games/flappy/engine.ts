@@ -8,13 +8,14 @@ export const HEIGHT = 480;
 const BIRD_X = 70;
 const BIRD_R = 12; // radio del pajaro
 
-const GRAVITY = 1500; // px por segundo al cuadrado
-const FLAP_VY = -430; // impulso hacia arriba al aletear
+const GRAVITY = 1350; // px por segundo al cuadrado
+const FLAP_VY = -400; // impulso hacia arriba al aletear
 
-const PIPE_W = 56;
-const GAP = 140; // hueco entre tubo de arriba y de abajo
-const PIPE_SPACING = 200; // distancia horizontal entre tubos
-const MARGIN = 60; // margen para que el hueco no quede pegado a los bordes
+const PIPE_W = 58;
+const GAP = 158; // hueco entre tubo de arriba y de abajo (un poco mas amable)
+const PIPE_SPACING = 215; // distancia horizontal entre tubos
+const MARGIN = 72; // margen para que el hueco no quede pegado a los bordes
+const GROUND_H = 36; // alto del suelo (visual)
 
 /** Numeros al azar con semilla: misma semilla = mismos tubos para los dos. */
 function mulberry32(seed: number) {
@@ -51,7 +52,8 @@ export class FlappyEngine {
   }
 
   private randomGapY(): number {
-    return MARGIN + this.rng() * (HEIGHT - 2 * MARGIN);
+    const usable = HEIGHT - GROUND_H - 2 * MARGIN;
+    return MARGIN + this.rng() * usable;
   }
 
   private addPipe(x: number) {
@@ -66,8 +68,8 @@ export class FlappyEngine {
   }
 
   /** Velocidad horizontal de los tubos (sube un poco con el puntaje). */
-  private pipeSpeed(): number {
-    return 130 + this.score * 4;
+  pipeSpeed(): number {
+    return 120 + this.score * 3;
   }
 
   /** Avanza la fisica. dt en segundos. */
@@ -97,8 +99,8 @@ export class FlappyEngine {
       }
     }
 
-    // Choque con techo o piso
-    if (this.birdY - BIRD_R < 0 || this.birdY + BIRD_R > HEIGHT) {
+    // Choque con techo o suelo
+    if (this.birdY - BIRD_R < 0 || this.birdY + BIRD_R > HEIGHT - GROUND_H) {
       this.over = true;
       return;
     }
@@ -117,4 +119,12 @@ export class FlappyEngine {
   }
 }
 
-export const FLAPPY_CONST = { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP };
+export const FLAPPY_CONST = {
+  WIDTH,
+  HEIGHT,
+  BIRD_X,
+  BIRD_R,
+  PIPE_W,
+  GAP,
+  GROUND_H,
+};

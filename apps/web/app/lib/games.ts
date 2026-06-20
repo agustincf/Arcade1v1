@@ -29,6 +29,14 @@ export const GAMES: GameInfo[] = [
     status: "live",
   },
   {
+    id: "racing",
+    name: "Carrera",
+    tagline: "Esquiva y acelera",
+    description: "Manejas y esquivas autos. Gana el que mas obstaculos esquiva.",
+    emoji: "🏎️",
+    status: "live",
+  },
+  {
     id: "coming-soon",
     name: "Proximamente",
     tagline: "Mas juegos en camino",

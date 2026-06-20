@@ -17,3 +17,34 @@ export function getPayout(bet: number) {
 
 /** Estamos en testnet (dinero de prueba). */
 export const NETWORK_LABEL = "Base Sepolia (testnet)";
+
+/** Mesa recomendada por defecto (CRO: la pre-seleccionamos y la destacamos). */
+export const DEFAULT_BET = 20;
+
+/** Velocidad de emparejamiento de una mesa (para los indicadores de CRO). */
+export type MatchSpeed = "rapido" | "medio" | "lento";
+
+/** Metadatos por mesa para los empujones de conversion (CRO).
+ *  La de 20 es la mas popular: mas gente buscando = empareja mas rapido. */
+export const TABLE_META: Record<
+  number,
+  { playersWaiting: number; speed: MatchSpeed; recommended?: boolean }
+> = {
+  5: { playersWaiting: 9, speed: "medio" },
+  10: { playersWaiting: 16, speed: "medio" },
+  20: { playersWaiting: 31, speed: "rapido", recommended: true },
+  50: { playersWaiting: 7, speed: "medio" },
+  100: { playersWaiting: 3, speed: "lento" },
+};
+
+/** Barras de señal segun la velocidad de emparejamiento (1 a 3). */
+export function matchBars(speed: MatchSpeed): number {
+  return speed === "rapido" ? 3 : speed === "medio" ? 2 : 1;
+}
+
+/** "Jugadores en linea" (prueba social). Varia un poco para sentirse vivo. */
+export function onlinePlayers(): number {
+  const base = 128;
+  const wave = Math.floor((Date.now() / 60000) % 40);
+  return base + wave;
+}

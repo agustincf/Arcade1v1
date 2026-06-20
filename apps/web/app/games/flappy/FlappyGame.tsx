@@ -3,10 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import { FlappyEngine, FLAPPY_CONST } from "./engine";
 
-const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP } = FLAPPY_CONST;
+const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
+const GROUND_Y = HEIGHT - GROUND_H;
 
 export interface FlappyResult {
   score: number;
+}
+
+interface Cloud {
+  x: number;
+  y: number;
+  s: number;
 }
 
 export function FlappyGame({
@@ -24,55 +31,166 @@ export function FlappyGame({
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
 
-  // Reloj + dibujo del juego.
   useEffect(() => {
     if (!started) return;
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     let raf = 0;
     let last = performance.now();
+    let groundX = 0;
+    const clouds: Cloud[] = [
+      { x: 60, y: 70, s: 1 },
+      { x: 200, y: 130, s: 0.7 },
+      { x: 300, y: 50, s: 0.85 },
+    ];
+    let flapAnim = 0;
+
+    function roundRect(
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      r: number,
+    ) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function drawPipe(x: number, gapY: number) {
+      const topH = gapY - GAP / 2;
+      const botY = gapY + GAP / 2;
+      const grad = ctx.createLinearGradient(x, 0, x + PIPE_W, 0);
+      grad.addColorStop(0, "#39ff7a");
+      grad.addColorStop(0.5, "#1fcf5c");
+      grad.addColorStop(1, "#0b8c3a");
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = "#063d1c";
+      ctx.lineWidth = 3;
+      // cuerpos
+      ctx.fillRect(x, 0, PIPE_W, topH);
+      ctx.strokeRect(x, 0, PIPE_W, topH);
+      ctx.fillRect(x, botY, PIPE_W, GROUND_Y - botY);
+      ctx.strokeRect(x, botY, PIPE_W, GROUND_Y - botY);
+      // "labios"
+      ctx.fillRect(x - 4, topH - 16, PIPE_W + 8, 16);
+      ctx.strokeRect(x - 4, topH - 16, PIPE_W + 8, 16);
+      ctx.fillRect(x - 4, botY, PIPE_W + 8, 16);
+      ctx.strokeRect(x - 4, botY, PIPE_W + 8, 16);
+    }
+
+    function drawBird(y: number, vy: number) {
+      ctx.save();
+      ctx.translate(BIRD_X, y);
+      const tilt = Math.max(-0.5, Math.min(1.1, vy / 600));
+      ctx.rotate(tilt);
+      // cuerpo
+      ctx.fillStyle = "#ffd23d";
+      ctx.beginPath();
+      ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#a8780b";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // ala (aletea)
+      ctx.fillStyle = "#ffae00";
+      const wing = Math.sin(flapAnim) * 5;
+      ctx.beginPath();
+      ctx.ellipse(-3, 2 + wing, 7, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // ojo
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(5, -4, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#0a0518";
+      ctx.beginPath();
+      ctx.arc(6, -4, 2, 0, Math.PI * 2);
+      ctx.fill();
+      // pico
+      ctx.fillStyle = "#ff7a00";
+      ctx.beginPath();
+      ctx.moveTo(BIRD_R - 2, -1);
+      ctx.lineTo(BIRD_R + 7, 1);
+      ctx.lineTo(BIRD_R - 2, 4);
+      ctx.fill();
+      ctx.restore();
+    }
 
     const draw = () => {
       const eng = engineRef.current!;
+      flapAnim += 0.3;
 
-      // Fondo
-      ctx.fillStyle = "#0d1320";
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      // Cielo synthwave
+      const sky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+      sky.addColorStop(0, "#2a1054");
+      sky.addColorStop(0.5, "#7a1f8f");
+      sky.addColorStop(1, "#ff5fa2");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, WIDTH, GROUND_Y);
 
-      // Tubos
-      ctx.fillStyle = "#22c55e";
-      for (const p of eng.pipes) {
-        const topH = p.gapY - GAP / 2;
-        const bottomY = p.gapY + GAP / 2;
-        ctx.fillRect(p.x, 0, PIPE_W, topH);
-        ctx.fillRect(p.x, bottomY, PIPE_W, HEIGHT - bottomY);
+      // Sol
+      ctx.fillStyle = "rgba(255,210,61,0.9)";
+      ctx.beginPath();
+      ctx.arc(WIDTH / 2, GROUND_Y - 40, 46, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Nubes (parallax)
+      if (eng.started && !eng.over) {
+        for (const c of clouds) {
+          c.x -= 18 * c.s * (1 / 60);
+          if (c.x < -40) c.x = WIDTH + 40;
+        }
+      }
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      for (const c of clouds) {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 12 * c.s, 0, Math.PI * 2);
+        ctx.arc(c.x + 12 * c.s, c.y + 3, 9 * c.s, 0, Math.PI * 2);
+        ctx.arc(c.x - 12 * c.s, c.y + 3, 9 * c.s, 0, Math.PI * 2);
+        ctx.fill();
       }
 
+      // Tubos
+      for (const p of eng.pipes) drawPipe(p.x, p.gapY);
+
+      // Suelo (rayado, se desplaza)
+      if (eng.started && !eng.over) groundX = (groundX + eng.pipeSpeed() / 60) % 24;
+      ctx.fillStyle = "#3a2a12";
+      ctx.fillRect(0, GROUND_Y, WIDTH, GROUND_H);
+      ctx.fillStyle = "#5a4220";
+      for (let x = -24 + groundX; x < WIDTH; x += 24) {
+        ctx.fillRect(x, GROUND_Y, 12, GROUND_H);
+      }
+      ctx.fillStyle = "#b6ff3d";
+      ctx.fillRect(0, GROUND_Y, WIDTH, 3);
+
       // Pajaro
-      ctx.fillStyle = "#facc15";
-      ctx.beginPath();
-      ctx.arc(BIRD_X, eng.birdY, BIRD_R, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#0d1320";
-      ctx.beginPath();
-      ctx.arc(BIRD_X + 4, eng.birdY - 3, 2.5, 0, Math.PI * 2);
-      ctx.fill();
+      drawBird(eng.birdY, eng.birdVy);
 
       // Puntaje
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 36px ui-sans-serif, system-ui";
+      ctx.strokeStyle = "#0a0518";
+      ctx.lineWidth = 4;
+      ctx.font = "bold 40px ui-sans-serif, system-ui";
       ctx.textAlign = "center";
-      ctx.fillText(String(eng.score), WIDTH / 2, 60);
+      ctx.strokeText(String(eng.score), WIDTH / 2, 64);
+      ctx.fillText(String(eng.score), WIDTH / 2, 64);
 
       if (!eng.started) {
-        ctx.font = "bold 16px ui-sans-serif, system-ui";
-        ctx.fillStyle = "#cbd5e1";
-        ctx.fillText("Toca para aletear", WIDTH / 2, HEIGHT / 2 + 60);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 15px ui-sans-serif, system-ui";
+        ctx.fillText("▲ Tocá para aletear ▲", WIDTH / 2, HEIGHT / 2 + 70);
       }
     };
 
     const loop = (t: number) => {
-      const dt = Math.min((t - last) / 1000, 0.05); // segundos (cap por si se traba)
+      const dt = Math.min((t - last) / 1000, 0.05);
       last = t;
       const eng = engineRef.current!;
       eng.update(dt);
@@ -89,17 +207,13 @@ export function FlappyGame({
     return () => cancelAnimationFrame(raf);
   }, [started]);
 
-  // Controles: tocar/click o espacio = aletear.
   useEffect(() => {
     if (!started) return;
-    function flap() {
-      const eng = engineRef.current!;
-      if (!eng.over) eng.flap();
-    }
     function onKey(e: KeyboardEvent) {
       if (e.key === " ") {
         e.preventDefault();
-        flap();
+        const eng = engineRef.current!;
+        if (!eng.over) eng.flap();
       }
     }
     window.addEventListener("keydown", onKey);
@@ -114,7 +228,7 @@ export function FlappyGame({
   return (
     <div className="flex flex-col items-center gap-3">
       <div
-        className="relative overflow-hidden rounded-lg border border-[--color-border]"
+        className="relative overflow-hidden rounded-lg border-2 border-[#0a0518]"
         style={{ width: "min(86vw, 320px)" }}
         onPointerDown={started && !over ? handleTap : undefined}
       >
@@ -125,41 +239,32 @@ export function FlappyGame({
           className="block h-auto w-full touch-none"
         />
 
-        {/* Overlay: antes de empezar */}
         {!started && (
           <Overlay>
-            <h3 className="text-lg font-bold">Tu intento de Flappy</h3>
-            <p className="mt-2 max-w-[220px] text-center text-sm text-slate-300">
-              Toca (o barra espaciadora) para aletear y esquiva los tubos. Cada
-              tubo = 1 punto.
+            <h3 className="font-pixel text-sm text-[--color-gold]">FLAPPY 1v1</h3>
+            <p className="font-screen mt-2 max-w-[230px] text-center text-lg text-slate-100">
+              Tocá (o espacio) para aletear y esquivá los tubos. Cada tubo = 1 punto.
             </p>
-            <button
-              onClick={() => setStarted(true)}
-              className="mt-4 rounded-xl bg-[--color-accent] px-6 py-3 font-semibold text-white hover:opacity-90"
-            >
-              Empezar ▶
+            <button onClick={() => setStarted(true)} className="btn3d btn3d--magenta mt-4">
+              EMPEZAR ▶
             </button>
           </Overlay>
         )}
 
-        {/* Overlay: game over */}
         {over && (
           <Overlay>
-            <h3 className="text-xl font-extrabold">Game Over</h3>
-            <p className="mt-2 text-sm text-slate-300">Tu puntaje</p>
-            <p className="text-3xl font-black text-[--color-accent-2]">{score}</p>
-            <button
-              onClick={() => onFinish({ score })}
-              className="mt-4 rounded-xl bg-[--color-accent] px-6 py-3 font-semibold text-white hover:opacity-90"
-            >
-              Confirmar puntaje →
+            <h3 className="font-pixel text-base">¡TE CAÍSTE! 💥</h3>
+            <p className="font-screen mt-2 text-lg text-slate-100">Tu puntaje</p>
+            <p className="font-pixel text-2xl text-[--color-accent-2]">{score}</p>
+            <button onClick={() => onFinish({ score })} className="btn3d btn3d--magenta mt-4">
+              CONFIRMAR ▶
             </button>
           </Overlay>
         )}
       </div>
 
-      <p className="text-center text-xs text-slate-500">
-        Toca la pantalla o usa la barra espaciadora para aletear.
+      <p className="font-screen text-center text-base text-slate-500">
+        Tocá la pantalla o la barra espaciadora para aletear.
       </p>
     </div>
   );
