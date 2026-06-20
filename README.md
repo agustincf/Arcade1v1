@@ -70,3 +70,9 @@ celular por QR), via wagmi + RainbowKit. Se monta en la Fase 4.
 - [ ] **Fase 4** — Contrato escrow en testnet + billetera + USDC de prueba.
 - [ ] **Fase 5** — Backend arbitro (resultado real → pago en testnet).
 - [ ] **Fase 6** — Seguridad, pruebas y checklist pre-dinero-real.
+
+## Mejoras pendientes (polish, para mas adelante)
+
+- **Flappy:** jugabilidad mejorable (se siente dificil y basico). Ajustar
+  fisica/dificultad y mejorar el aspecto visual.
+- **Tetris:** opcional, agregar "pieza fantasma" (muestra donde va a caer).

@@ -20,3 +20,7 @@ out/
 cache/
 artifacts/
 broadcast/
+
+# Librerias y artefactos de Foundry
+packages/contracts/lib/
+packages/contracts/out/
