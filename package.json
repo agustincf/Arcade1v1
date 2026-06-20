@@ -1,0 +1,15 @@
+{
+  "name": "arcade1v1",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Arcade de apuestas 1v1 sobre Base (USDC). Cada juego es un modulo enchufable.",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "packages/games/*"
+  ],
+  "scripts": {
+    "web": "npm run dev --workspace apps/web",
+    "server": "npm run dev --workspace apps/server"
+  }
+}

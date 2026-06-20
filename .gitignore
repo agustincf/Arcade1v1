@@ -1,0 +1,22 @@
+# Dependencias (se vuelven a bajar con "npm install", no se guardan)
+node_modules/
+
+# Builds y archivos generados
+dist/
+build/
+.next/
+out/
+
+# Secretos y configuracion local (NUNCA subir esto)
+.env
+.env.local
+*.local
+
+# Logs y basura del sistema
+*.log
+.DS_Store
+
+# Artefactos de contratos (Foundry/Hardhat)
+cache/
+artifacts/
+broadcast/
