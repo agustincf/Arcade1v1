@@ -12,19 +12,19 @@ export function GameOverlay({ children }: { children: React.ReactNode }) {
 }
 
 export function StartScreen({
-  emoji,
+  icon,
   title,
   instructions,
   onStart,
 }: {
-  emoji: string;
+  icon: React.ReactNode;
   title: string;
   instructions: string;
   onStart: () => void;
 }) {
   return (
     <GameOverlay>
-      <div className="text-5xl">{emoji}</div>
+      <div>{icon}</div>
       <h3 className="font-pixel mt-2 text-sm text-[--color-gold] neon">{title}</h3>
       <p className="font-screen mt-2 max-w-[240px] text-lg text-slate-100">
         {instructions}

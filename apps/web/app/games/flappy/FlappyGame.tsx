@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { FlappyEngine, FLAPPY_CONST } from "./engine";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
+import { GameIcon } from "@/app/components/GameIcon";
 
 const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
 const GROUND_Y = HEIGHT - GROUND_H;
@@ -21,9 +22,11 @@ interface Cloud {
 export function FlappyGame({
   seed,
   onFinish,
+  onStarted,
 }: {
   seed: number;
   onFinish: (result: FlappyResult) => void;
+  onStarted?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<FlappyEngine | null>(null);
@@ -255,11 +258,12 @@ export function FlappyGame({
 
         {!started && (
           <StartScreen
-            emoji="🐤"
+            icon={<GameIcon id="flappy" size={56} />}
             title="FLAPPY 1v1"
             instructions="Tocá (o espacio) para aletear y esquivá los tubos. Cada tubo suma 1 punto. ¡No toques nada!"
             onStart={() => {
               ensureAudio();
+              onStarted?.();
               setStarted(true);
             }}
           />

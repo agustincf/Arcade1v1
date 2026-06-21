@@ -1,14 +1,11 @@
-// Motor de sonido chiptune (estilo arcade) usando Web Audio API.
-// No usa archivos: genera los sonidos en vivo, asi pegan con la estetica Y2K.
-// La musica y los efectos arrancan recien con la primera interaccion del
-// usuario (los navegadores bloquean el audio automatico).
+// Efectos de sonido chiptune (estilo arcade) usando Web Audio API.
+// Sin musica de fondo: solo SFX dentro de los juegos. No usa archivos.
+// El audio se "desbloquea" con la primera interaccion del usuario.
 
 let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let muted = false;
-let volume = 0.5;
-let musicInterval: ReturnType<typeof setInterval> | null = null;
-let step = 0;
+let volume = 0.6;
 
 function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -86,33 +83,6 @@ export const sfx = {
   },
   crash: () => slide(300, 70, 0.32, "sawtooth", 0.22), // choque
 };
-
-// Melodia de fondo (loop, tono bajo para no molestar).
-const MELODY = [
-  440, 0, 523, 659, 523, 0, 440, 0, 392, 0, 523, 587, 494, 0, 392, 0,
-];
-const BASS = [110, 0, 0, 0, 82, 0, 0, 0, 98, 0, 0, 0, 73, 0, 0, 0];
-
-export function startMusic() {
-  if (musicInterval) return;
-  getCtx();
-  step = 0;
-  musicInterval = setInterval(() => {
-    if (muted) return;
-    const m = MELODY[step % MELODY.length];
-    const b = BASS[step % BASS.length];
-    if (m) tone(m, 0.18, "square", 0.05);
-    if (b) tone(b, 0.22, "triangle", 0.08);
-    step++;
-  }, 165);
-}
-
-export function stopMusic() {
-  if (musicInterval) {
-    clearInterval(musicInterval);
-    musicInterval = null;
-  }
-}
 
 export function setMuted(m: boolean) {
   muted = m;

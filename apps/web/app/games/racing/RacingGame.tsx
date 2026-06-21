@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { RacingEngine, RACING_CONST } from "./engine";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
+import { GameIcon } from "@/app/components/GameIcon";
 
 const { WIDTH, HEIGHT } = RACING_CONST;
 const HORIZON = 150; // linea del horizonte (donde "nace" la ruta)
@@ -17,9 +18,11 @@ const OBST_COLORS = ["#ff4d6d", "#ffd23d", "#27e8ff"];
 export function RacingGame({
   seed,
   onFinish,
+  onStarted,
 }: {
   seed: number;
   onFinish: (result: RacingResult) => void;
+  onStarted?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<RacingEngine | null>(null);
@@ -44,11 +47,13 @@ export function RacingGame({
     };
     const laneCenterAt = (lane: number, y: number) =>
       WIDTH / 2 + (lane - 1) * (roadWidthAt(y) / 3.1);
+    // Proyeccion con perspectiva real: lejos se mueve lento, cerca acelera.
     const projY = (engineY: number) =>
-      HORIZON + (engineY / HEIGHT) * (HEIGHT - HORIZON);
+      HORIZON +
+      Math.pow(Math.max(0, engineY) / HEIGHT, 1.9) * (HEIGHT - HORIZON);
     const depthScale = (y: number) => {
       const t = (y - HORIZON) / (HEIGHT - HORIZON);
-      return 0.32 + t * 0.85;
+      return 0.3 + t * 1.0;
     };
 
     const rr = (x: number, y: number, w: number, h: number, r: number) => {
@@ -139,31 +144,54 @@ export function RacingGame({
       ctx.lineTo(WIDTH, HORIZON);
       ctx.fill();
 
-      // --- Suelo (pasto + ruta en perspectiva, con rayas que se mueven) ---
-      const phase = eng.roadOffset * 0.25;
-      for (let y = HORIZON; y < HEIGHT; y++) {
-        const t = (y - HORIZON) / (HEIGHT - HORIZON);
-        const z = 1 / (t + 0.06);
-        const stripe = Math.floor(z * 3.4 - phase);
-        const odd = ((stripe % 2) + 2) % 2 === 1;
+      // --- Suelo (pasto + ruta en perspectiva, en bandas que se mueven) ---
+      const cx = WIDTH / 2;
+      const quad = (
+        lt: number,
+        rt: number,
+        lb: number,
+        rb: number,
+        yTop: number,
+        yBot: number,
+        color: string,
+      ) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(lt, yTop);
+        ctx.lineTo(rt, yTop);
+        ctx.lineTo(rb, yBot);
+        ctx.lineTo(lb, yBot);
+        ctx.closePath();
+        ctx.fill();
+      };
+      let yb = HEIGHT;
+      let dy = 44;
+      let band = Math.floor(eng.roadOffset / 3); // desplaza las bandas
+      while (yb > HORIZON) {
+        const yTop = Math.max(HORIZON, yb - dy);
+        const odd = (((band % 2) + 2) % 2) === 0;
+        const rwT = roadWidthAt(yTop);
+        const rwB = roadWidthAt(yb);
         // pasto
         ctx.fillStyle = odd ? "#173d24" : "#123018";
-        ctx.fillRect(0, y, WIDTH, 1);
+        ctx.fillRect(0, yTop, WIDTH, yb - yTop);
         // ruta
-        const rw = roadWidthAt(y);
-        const rl = WIDTH / 2 - rw / 2;
-        ctx.fillStyle = odd ? "#3a3550" : "#322c48";
-        ctx.fillRect(rl, y, rw, 1);
-        // rumble (bordes)
-        const rb = Math.max(2, rw * 0.07);
-        ctx.fillStyle = odd ? "#ff3df0" : "#ffffff";
-        ctx.fillRect(rl, y, rb, 1);
-        ctx.fillRect(rl + rw - rb, y, rb, 1);
-        // linea central punteada
+        quad(cx - rwT / 2, cx + rwT / 2, cx - rwB / 2, cx + rwB / 2, yTop, yb, odd ? "#3a3550" : "#322c48");
+        // rumble (bordes neon)
+        const rbT = Math.max(2, rwT * 0.08);
+        const rbB = Math.max(2, rwB * 0.08);
+        const rc = odd ? "#ff3df0" : "#ffffff";
+        quad(cx - rwT / 2, cx - rwT / 2 + rbT, cx - rwB / 2, cx - rwB / 2 + rbB, yTop, yb, rc);
+        quad(cx + rwT / 2 - rbT, cx + rwT / 2, cx + rwB / 2 - rbB, cx + rwB / 2, yTop, yb, rc);
+        // linea central
         if (odd) {
-          ctx.fillStyle = "#ffd23d";
-          ctx.fillRect(WIDTH / 2 - rw * 0.012 - 1, y, Math.max(1, rw * 0.024), 1);
+          const dwT = Math.max(1, rwT * 0.03);
+          const dwB = Math.max(1, rwB * 0.03);
+          quad(cx - dwT / 2, cx + dwT / 2, cx - dwB / 2, cx + dwB / 2, yTop, yb, "#ffd23d");
         }
+        yb = yTop;
+        dy = Math.max(6, dy * 0.86);
+        band++;
       }
 
       // --- Obstaculos (de lejos a cerca para que se tapen bien) ---
@@ -248,11 +276,12 @@ export function RacingGame({
 
         {!started && (
           <StartScreen
-            emoji="🏎️"
+            icon={<GameIcon id="racing" size={56} />}
             title="CARRERA"
             instructions="Cambiá de carril para esquivar los autos. +1 por cada uno que dejás atrás. ¡Y acelera!"
             onStart={() => {
               ensureAudio();
+              onStarted?.();
               setStarted(true);
             }}
           />

@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getGame } from "@/app/lib/games";
+import { GameIcon } from "@/app/components/GameIcon";
 import {
   BET_AMOUNTS,
   getPayout,
@@ -49,7 +50,8 @@ export default function TableSelectPage({
   const meta = TABLE_META[selected];
 
   function buscarRival() {
-    router.push(`/game/${gameId}/lobby?bet=${selected}`);
+    // Juego asincronico: vas directo a jugar tu intento (te emparejamos por orden de llegada).
+    router.push(`/game/${gameId}/match?bet=${selected}`);
   }
 
   return (
@@ -68,7 +70,7 @@ export default function TableSelectPage({
 
         <div className="p-5">
           <div className="mb-4 flex items-center gap-3">
-            <span className="text-5xl">{game.emoji}</span>
+            <GameIcon id={game.id} size={52} />
             <p className="font-screen text-xl text-slate-200">
               ¿De cuánto va el duelo? Los dos ponen lo mismo. El que gana, se lo lleva.
             </p>

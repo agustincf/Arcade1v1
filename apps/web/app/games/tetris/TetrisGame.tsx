@@ -4,6 +4,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { TetrisEngine, COLS, ROWS, PIECE_COLORS } from "./engine";
 import { StartScreen, GameOverScreen, GameOverlay } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
+import { GameIcon } from "@/app/components/GameIcon";
 
 export interface TetrisResult {
   score: number;
@@ -14,9 +15,11 @@ export interface TetrisResult {
 export function TetrisGame({
   seed,
   onFinish,
+  onStarted,
 }: {
   seed: number;
   onFinish: (result: TetrisResult) => void;
+  onStarted?: () => void;
 }) {
   const engineRef = useRef<TetrisEngine | null>(null);
   if (engineRef.current === null) engineRef.current = new TetrisEngine(seed);
@@ -165,11 +168,12 @@ export function TetrisGame({
         {/* Pantalla: antes de empezar */}
         {!started && (
           <StartScreen
-            emoji="🟦"
+            icon={<GameIcon id="tetris" size={56} />}
             title="TETRIS"
             instructions="Apilá las piezas y hacé líneas. Cuantos más puntos, mejor. La dificultad sube cada 10 líneas, como el clásico."
             onStart={() => {
               ensureAudio();
+              onStarted?.();
               setStarted(true);
             }}
           />

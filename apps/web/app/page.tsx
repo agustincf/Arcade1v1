@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { GAMES } from "@/app/lib/games";
 import { BetQuickPlay } from "@/app/components/BetQuickPlay";
+import { GameIcon } from "@/app/components/GameIcon";
 
 export default function HomePage() {
   return (
@@ -35,7 +36,9 @@ export default function HomePage() {
                 </span>
               </div>
               <div className="p-5">
-                <div className="mb-3 text-center text-6xl">{game.emoji}</div>
+                <div className="mb-3 flex justify-center">
+                  <GameIcon id={game.id} size={64} />
+                </div>
                 <div className="flex items-center justify-center gap-2">
                   {isLive ? (
                     <span className="chip">

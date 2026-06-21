@@ -32,7 +32,7 @@ export function Header() {
                   onClick={connected ? openAccountModal : openConnectModal}
                   className="btn3d btn3d--cyan !px-3 !py-2 !text-[10px]"
                 >
-                  {connected ? `🟢 ${account.displayName}` : "CONECTAR"}
+                  {connected ? `🟢 ${account.displayName}` : "👛 CONECTAR WALLET"}
                 </button>
               );
             }}
