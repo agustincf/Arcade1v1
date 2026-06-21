@@ -40,6 +40,7 @@ export function FlappyGame({
     let raf = 0;
     let last = performance.now();
     let groundX = 0;
+    let cityX = 0;
     const clouds: Cloud[] = [
       { x: 60, y: 70, s: 1 },
       { x: 200, y: 130, s: 0.7 },
@@ -140,6 +141,24 @@ export function FlappyGame({
         ctx.arc(c.x + 12 * c.s, c.y + 3, 9 * c.s, 0, Math.PI * 2);
         ctx.arc(c.x - 12 * c.s, c.y + 3, 9 * c.s, 0, Math.PI * 2);
         ctx.fill();
+      }
+
+      // Skyline lejano (parallax, da profundidad)
+      if (eng.started && !eng.over) cityX = (cityX + 0.4) % 48;
+      ctx.fillStyle = "#3a1a5e";
+      const baseY = GROUND_Y;
+      const heights = [34, 52, 24, 44, 30, 60, 28, 40, 50, 22];
+      for (let i = -1; i < 8; i++) {
+        const bx = i * 48 - cityX;
+        const h = heights[((i % heights.length) + heights.length) % heights.length];
+        ctx.fillRect(bx, baseY - h, 30, h);
+        // ventanitas
+        ctx.fillStyle = "rgba(255,210,61,0.25)";
+        for (let wy = baseY - h + 6; wy < baseY - 6; wy += 10) {
+          ctx.fillRect(bx + 6, wy, 4, 4);
+          ctx.fillRect(bx + 18, wy, 4, 4);
+        }
+        ctx.fillStyle = "#3a1a5e";
       }
 
       // Tubos

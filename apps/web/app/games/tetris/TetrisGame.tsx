@@ -123,6 +123,10 @@ export function TetrisGame({
 
   const grid = engine.render();
   const nextMatrix = engine.nextPieceMatrix();
+  const ghost = engine.ghost();
+  const ghostSet = new Set(
+    ghost?.cells.map(([r, c]) => `${r},${c}`) ?? [],
+  );
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -148,6 +152,8 @@ export function TetrisGame({
               <div key={`${r}-${c}`} className="aspect-square">
                 {cell ? (
                   <Block color={PIECE_COLORS[cell - 1]} />
+                ) : ghostSet.has(`${r},${c}`) && ghost ? (
+                  <Ghost color={ghost.color} />
                 ) : (
                   <div className="h-full w-full rounded-[2px] bg-[rgba(75,59,128,0.12)] shadow-[inset_0_0_0_1px_rgba(75,59,128,0.25)]" />
                 )}
@@ -236,6 +242,19 @@ function Stat({
         {value}
       </div>
     </div>
+  );
+}
+
+/** Pieza fantasma: contorno tenue donde va a caer la pieza actual. */
+function Ghost({ color }: { color: string }) {
+  return (
+    <div
+      className="h-full w-full rounded-[3px]"
+      style={{
+        backgroundColor: `${color}22`,
+        boxShadow: `inset 0 0 0 1.5px ${color}99`,
+      }}
+    />
   );
 }
 

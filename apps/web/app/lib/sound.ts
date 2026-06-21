@@ -6,6 +6,7 @@
 let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let muted = false;
+let volume = 0.5;
 let musicInterval: ReturnType<typeof setInterval> | null = null;
 let step = 0;
 
@@ -18,7 +19,7 @@ function getCtx(): AudioContext | null {
         .webkitAudioContext;
     ctx = new AC();
     masterGain = ctx.createGain();
-    masterGain.gain.value = muted ? 0 : 0.5;
+    masterGain.gain.value = muted ? 0 : volume;
     masterGain.connect(ctx.destination);
   }
   return ctx;
@@ -115,9 +116,19 @@ export function stopMusic() {
 
 export function setMuted(m: boolean) {
   muted = m;
-  if (masterGain) masterGain.gain.value = m ? 0 : 0.5;
+  if (masterGain) masterGain.gain.value = m ? 0 : volume;
 }
 
 export function isMuted() {
   return muted;
+}
+
+/** Volumen general 0..1. */
+export function setVolume(v: number) {
+  volume = Math.max(0, Math.min(1, v));
+  if (masterGain && !muted) masterGain.gain.value = volume;
+}
+
+export function getVolume() {
+  return volume;
 }

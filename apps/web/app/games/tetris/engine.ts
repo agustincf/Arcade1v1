@@ -316,4 +316,18 @@ export class TetrisEngine {
   nextPieceMatrix(): number[][] {
     return ROTATIONS[this.peekNextType()][0];
   }
+
+  /** Celdas (absolutas) donde caeria la pieza actual: la "pieza fantasma". */
+  ghost(): { cells: [number, number][]; color: string } | null {
+    if (!this.cur) return null;
+    let gy = this.cur.y;
+    while (!this.collides(this.cur.type, this.cur.rot, this.cur.x, gy + 1)) {
+      gy++;
+    }
+    const cells: [number, number][] = [];
+    for (const [r, c] of this.cellsOf(this.cur.type, this.cur.rot)) {
+      cells.push([gy + r, this.cur.x + c]);
+    }
+    return { cells, color: PIECE_COLORS[this.cur.type] };
+  }
 }
