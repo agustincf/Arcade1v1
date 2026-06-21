@@ -28,13 +28,20 @@ export type MatchSpeed = "rapido" | "medio" | "lento";
  *  La de 20 es la mas popular: mas gente buscando = empareja mas rapido. */
 export const TABLE_META: Record<
   number,
-  { playersWaiting: number; speed: MatchSpeed; recommended?: boolean }
+  {
+    playersWaiting: number;
+    speed: MatchSpeed;
+    recommended?: boolean;
+    premium?: boolean;
+  }
 > = {
-  5: { playersWaiting: 9, speed: "medio" },
-  10: { playersWaiting: 16, speed: "medio" },
-  20: { playersWaiting: 31, speed: "rapido", recommended: true },
-  50: { playersWaiting: 7, speed: "medio" },
-  100: { playersWaiting: 3, speed: "lento" },
+  // La actividad ESCALA con la apuesta: a mas plata, mas accion (nada de mesas
+  // "muertas"). La de 20 es la recomendada para arrancar; 50 y 100 son VIP.
+  5: { playersWaiting: 18, speed: "medio" },
+  10: { playersWaiting: 27, speed: "rapido" },
+  20: { playersWaiting: 36, speed: "rapido", recommended: true },
+  50: { playersWaiting: 49, speed: "rapido", premium: true },
+  100: { playersWaiting: 63, speed: "rapido", premium: true },
 };
 
 /** Barras de señal segun la velocidad de emparejamiento (1 a 3). */

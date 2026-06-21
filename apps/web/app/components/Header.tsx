@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { NETWORK_LABEL } from "@/app/lib/config";
+import { SoundToggle } from "@/app/components/SoundToggle";
 
 export function Header() {
   return (
@@ -19,6 +20,8 @@ export function Header() {
           <span className="chip hidden sm:inline-flex">
             <span className="blink">●</span> {NETWORK_LABEL}
           </span>
+
+          <SoundToggle />
 
           {/* Boton de conexion retro (MetaMask / WalletConnect) */}
           <ConnectButton.Custom>

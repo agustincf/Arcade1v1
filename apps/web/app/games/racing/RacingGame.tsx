@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { RacingEngine, RACING_CONST, laneX } from "./engine";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
+import { sfx, ensureAudio } from "@/app/lib/sound";
 
 const { WIDTH, HEIGHT, CAR_W, CAR_H, OBST_W, OBST_H } = RACING_CONST;
 
@@ -125,9 +126,11 @@ export function RacingGame({
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         eng.moveLeft();
+        sfx.move();
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         eng.moveRight();
+        sfx.move();
       }
     }
     window.addEventListener("keydown", onKey);
@@ -152,7 +155,10 @@ export function RacingGame({
             emoji="🏎️"
             title="CARRERA"
             instructions="Cambiá de carril para esquivar los autos. +1 por cada uno que dejás atrás. ¡Y acelera!"
-            onStart={() => setStarted(true)}
+            onStart={() => {
+              ensureAudio();
+              setStarted(true);
+            }}
           />
         )}
 
@@ -169,13 +175,19 @@ export function RacingGame({
       {started && !over && (
         <div className="grid w-full max-w-[320px] grid-cols-2 gap-3">
           <button
-            onClick={() => engineRef.current!.moveLeft()}
+            onClick={() => {
+              engineRef.current!.moveLeft();
+              sfx.move();
+            }}
             className="btn3d btn3d--cyan !text-2xl"
           >
             ◀
           </button>
           <button
-            onClick={() => engineRef.current!.moveRight()}
+            onClick={() => {
+              engineRef.current!.moveRight();
+              sfx.move();
+            }}
             className="btn3d btn3d--cyan !text-2xl"
           >
             ▶

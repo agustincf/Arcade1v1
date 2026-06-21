@@ -3,6 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { TetrisEngine, COLS, ROWS, PIECE_COLORS } from "./engine";
 import { StartScreen, GameOverScreen, GameOverlay } from "@/app/games/_shared/ui";
+import { sfx, ensureAudio } from "@/app/lib/sound";
 
 export interface TetrisResult {
   score: number;
@@ -45,7 +46,6 @@ export function TetrisGame({
       last = t;
       const eng = engineRef.current!;
       if (!eng.over && !pausedRef.current) {
-        eng.addTime(dt);
         acc += dt;
         const g = eng.gravityMs();
         while (acc >= g) {
@@ -92,17 +92,20 @@ export function TetrisGame({
         case "X":
           e.preventDefault();
           eng.rotate(1);
+          sfx.rotate();
           afterInput();
           break;
         case "z":
         case "Z":
           e.preventDefault();
           eng.rotate(-1);
+          sfx.rotate();
           afterInput();
           break;
         case " ":
           e.preventDefault();
           eng.hardDrop();
+          sfx.drop();
           afterInput();
           break;
         case "p":
@@ -124,8 +127,8 @@ export function TetrisGame({
       <div className="flex w-full max-w-[320px] items-stretch justify-between gap-3 text-sm">
         <Stat label="Puntaje" value={engine.score} big />
         <Stat label="Lineas" value={engine.lines} />
-        <Stat label="Nivel" value={engine.effectiveLevel()} />
-        <NextPreview matrix={nextMatrix} />
+        <Stat label="Nivel" value={engine.level} />
+        <NextPreview matrix={nextMatrix} color={PIECE_COLORS[engine.peekNextType()]} />
       </div>
 
       {/* Tablero */}
@@ -139,13 +142,13 @@ export function TetrisGame({
         >
           {grid.map((row, r) =>
             row.map((cell, c) => (
-              <div
-                key={`${r}-${c}`}
-                className="aspect-square rounded-[2px]"
-                style={{
-                  backgroundColor: cell ? PIECE_COLORS[cell - 1] : "#10141f",
-                }}
-              />
+              <div key={`${r}-${c}`} className="aspect-square">
+                {cell ? (
+                  <Block color={PIECE_COLORS[cell - 1]} />
+                ) : (
+                  <div className="h-full w-full rounded-[2px] bg-[rgba(75,59,128,0.12)] shadow-[inset_0_0_0_1px_rgba(75,59,128,0.25)]" />
+                )}
+              </div>
             )),
           )}
         </div>
@@ -155,8 +158,11 @@ export function TetrisGame({
           <StartScreen
             emoji="🟦"
             title="TETRIS"
-            instructions="Apilá las piezas y hacé líneas. Cuantos más puntos, mejor. ¡Se pone más rápido!"
-            onStart={() => setStarted(true)}
+            instructions="Apilá las piezas y hacé líneas. Cuantos más puntos, mejor. La dificultad sube cada 10 líneas, como el clásico."
+            onStart={() => {
+              ensureAudio();
+              setStarted(true);
+            }}
           />
         )}
 
@@ -193,10 +199,10 @@ export function TetrisGame({
       {started && !over && (
         <div className="grid w-full max-w-[320px] grid-cols-5 gap-2">
           <TouchBtn onClick={() => { engine.move(-1); afterInput(); }} label="◀" />
-          <TouchBtn onClick={() => { engine.rotate(1); afterInput(); }} label="↻" />
+          <TouchBtn onClick={() => { engine.rotate(1); sfx.rotate(); afterInput(); }} label="↻" />
           <TouchBtn onClick={() => { engine.move(1); afterInput(); }} label="▶" />
           <TouchBtn onClick={() => { engine.softDrop(); afterInput(); }} label="▼" />
-          <TouchBtn onClick={() => { engine.hardDrop(); afterInput(); }} label="⤓" />
+          <TouchBtn onClick={() => { engine.hardDrop(); sfx.drop(); afterInput(); }} label="⤓" />
         </div>
       )}
 
@@ -230,7 +236,28 @@ function Stat({
   );
 }
 
-function NextPreview({ matrix }: { matrix: number[][] }) {
+/** Una ficha glossy con brillo neon (mismo lenguaje visual que la plataforma). */
+function Block({ color }: { color: string }) {
+  return (
+    <div
+      className="h-full w-full rounded-[3px]"
+      style={{
+        backgroundColor: color,
+        backgroundImage:
+          "linear-gradient(140deg, rgba(255,255,255,0.6), rgba(255,255,255,0) 42%, rgba(0,0,0,0.42))",
+        boxShadow: `inset 1.5px 1.5px 0 rgba(255,255,255,0.5), inset -1.5px -1.5px 0 rgba(0,0,0,0.45), 0 0 5px ${color}`,
+      }}
+    />
+  );
+}
+
+function NextPreview({
+  matrix,
+  color,
+}: {
+  matrix: number[][];
+  color: string;
+}) {
   return (
     <div className="rounded-lg border border-[--color-border] bg-[--color-surface] px-2 py-1 text-center">
       <div className="text-[10px] uppercase tracking-wide text-slate-500">
@@ -243,7 +270,12 @@ function NextPreview({ matrix }: { matrix: number[][] }) {
               <div
                 key={c}
                 className="h-2 w-2 rounded-[1px]"
-                style={{ backgroundColor: cell ? "#8b93a7" : "transparent" }}
+                style={{
+                  backgroundColor: cell ? color : "transparent",
+                  boxShadow: cell
+                    ? "inset 0.5px 0.5px 0 rgba(255,255,255,0.5)"
+                    : undefined,
+                }}
               />
             ))}
           </div>

@@ -53,15 +53,15 @@ const BASE_SHAPES: number[][][] = [
   ],
 ];
 
-/** Color (id 1..7) de cada tipo de pieza, en el mismo orden que BASE_SHAPES. */
+/** Color (id 1..7) de cada pieza (paleta neon, a tono con la plataforma). */
 export const PIECE_COLORS = [
-  "#22d3ee", // I - celeste
-  "#facc15", // O - amarillo
-  "#a855f7", // T - violeta
-  "#22c55e", // S - verde
-  "#ef4444", // Z - rojo
-  "#3b82f6", // J - azul
-  "#f97316", // L - naranja
+  "#27e8ff", // I - cyan
+  "#ffd23d", // O - dorado
+  "#c06bff", // T - violeta
+  "#39ff7a", // S - verde lima
+  "#ff4d6d", // Z - rojo-rosa
+  "#4d8bff", // J - azul
+  "#ff9f1c", // L - naranja
 ];
 
 /** Rota una matriz cuadrada 90 grados en sentido horario. */
@@ -117,7 +117,6 @@ export class TetrisEngine {
   lines = 0;
   level = 0;
   over = false;
-  elapsedMs = 0; // tiempo jugado (para acelerar con el tiempo)
 
   private rng: () => number;
   private queue: number[] = [];
@@ -228,17 +227,6 @@ export class TetrisEngine {
     this.stepDown();
   }
 
-  /** Suma el tiempo transcurrido (lo llama el reloj del juego mientras se juega). */
-  addTime(dt: number) {
-    this.elapsedMs += dt;
-  }
-
-  /** Nivel "efectivo" que define la velocidad: sube por lineas Y por tiempo
-   *  (cada 12 segundos jugados, un nivel mas de velocidad). */
-  effectiveLevel(): number {
-    return this.level + Math.floor(this.elapsedMs / 12000);
-  }
-
   /** Bajada manual del jugador (suma 1 punto si baja). */
   softDrop() {
     if (this.stepDown()) this.score += 1;
@@ -295,11 +283,17 @@ export class TetrisEngine {
     }
   }
 
-  /** Milisegundos entre cada caida automatica, segun el nivel efectivo.
-   *  Arranca mas rapido que antes y se acelera con lineas y con el tiempo. */
+  /** Milisegundos entre cada caida automatica.
+   *  Velocidad CLASICA del Tetris de arcade (tabla NES): la dificultad sube
+   *  SOLO por nivel (cada 10 lineas), no por tiempo. Asi no es frustrante. */
   gravityMs(): number {
-    const ms = 800 * Math.pow(0.8, this.effectiveLevel());
-    return Math.max(40, ms);
+    // Cuadros (a 60fps) que tarda en bajar una fila, por nivel 0..28.
+    const FRAMES = [
+      48, 43, 38, 33, 28, 23, 18, 13, 8, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3, 2, 2, 2,
+      2, 2, 2, 2, 2, 2, 2,
+    ];
+    const f = this.level <= 28 ? FRAMES[this.level] : 1;
+    return f * (1000 / 60);
   }
 
   /** Devuelve el tablero con la pieza actual "dibujada" encima, para mostrarlo. */

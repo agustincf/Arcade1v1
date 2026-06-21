@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FlappyEngine, FLAPPY_CONST } from "./engine";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
+import { sfx, ensureAudio } from "@/app/lib/sound";
 
 const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
 const GROUND_Y = HEIGHT - GROUND_H;
@@ -214,7 +215,10 @@ export function FlappyGame({
       if (e.key === " ") {
         e.preventDefault();
         const eng = engineRef.current!;
-        if (!eng.over) eng.flap();
+        if (!eng.over) {
+          eng.flap();
+          sfx.flap();
+        }
       }
     }
     window.addEventListener("keydown", onKey);
@@ -223,7 +227,10 @@ export function FlappyGame({
 
   function handleTap() {
     const eng = engineRef.current!;
-    if (!eng.over) eng.flap();
+    if (!eng.over) {
+      eng.flap();
+      sfx.flap();
+    }
   }
 
   return (
@@ -245,7 +252,10 @@ export function FlappyGame({
             emoji="🐤"
             title="FLAPPY 1v1"
             instructions="Tocá (o espacio) para aletear y esquivá los tubos. Cada tubo suma 1 punto. ¡No toques nada!"
-            onStart={() => setStarted(true)}
+            onStart={() => {
+              ensureAudio();
+              setStarted(true);
+            }}
           />
         )}
 
