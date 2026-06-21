@@ -31,8 +31,13 @@ export function matchmake(game: string, stake: number, address: string) {
   return post("/matchmake", { game, stake, address });
 }
 
-export function submitScore(id: string, address: string, score: number) {
-  return post(`/match/${id}/score`, { address, score });
+export function submitScore(
+  id: string,
+  address: string,
+  score: number,
+  replay?: unknown,
+) {
+  return post(`/match/${id}/score`, { address, score, replay });
 }
 
 export function playBot(id: string) {

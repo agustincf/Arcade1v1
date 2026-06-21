@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useReducer, useRef, useState } from "react";
-import { Game2048 as Engine, SIZE, type Dir } from "./engine";
+import { Game2048 as Engine, SIZE, type Dir, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
@@ -9,6 +9,7 @@ import { useT } from "@/app/lib/i18n";
 
 export interface Result2048 {
   score: number;
+  replay?: Replay2048; // semilla + movimientos, para que el servidor verifique
 }
 
 const TILE_COLORS: Record<number, string> = {
@@ -46,6 +47,7 @@ export function Game2048Component({
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
+  const moves = useRef<Dir[]>([]); // se graba cada movimiento (para el replay)
 
   const engine = engineRef.current;
 
@@ -53,6 +55,7 @@ export function Game2048Component({
     const eng = engineRef.current!;
     if (eng.over) return;
     if (eng.move(dir)) {
+      moves.current.push(dir);
       sfx.move();
       force();
       if (eng.over) setOver(true);
@@ -140,7 +143,12 @@ export function Game2048Component({
           <GameOverScreen
             headline={t("g.2048.over")}
             score={engine.score}
-            onConfirm={() => onFinish({ score: engine.score })}
+            onConfirm={() =>
+              onFinish({
+                score: engine.score,
+                replay: { seed, moves: moves.current },
+              })
+            }
           />
         )}
       </div>

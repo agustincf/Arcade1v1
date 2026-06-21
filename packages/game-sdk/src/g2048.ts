@@ -1,5 +1,6 @@
-// Motor del 2048: grilla 4x4. Deslizas y las fichas iguales se combinan.
-// Puntaje = suma de las combinaciones (asincronico: gana el de mas puntos).
+// Motor del 2048 COMPARTIDO entre la web y el servidor (árbitro).
+// Al ser el mismo codigo en los dos lados, el servidor puede re-jugar el
+// "replay" del jugador y verificar el puntaje (anti-trampa) sin diferencias.
 
 export const SIZE = 4;
 export type Dir = "left" | "right" | "up" | "down";
@@ -43,7 +44,6 @@ export class Game2048 {
     this.board[r][c] = this.rng() < 0.9 ? 2 : 4;
   }
 
-  /** Desliza una fila a la izquierda combinando iguales. */
   private slide(row: number[]): { row: number[]; gained: number; changed: boolean } {
     const arr = row.filter((v) => v !== 0);
     const out: number[] = [];
@@ -80,7 +80,6 @@ export class Game2048 {
     return out;
   }
 
-  /** Mueve en una direccion. Devuelve true si algo cambio. */
   move(dir: Dir): boolean {
     const b = this.board;
     let rows: number[][];
@@ -123,4 +122,18 @@ export class Game2048 {
       }
     return false;
   }
+}
+
+/** Un "replay": la semilla + los movimientos que hizo el jugador. */
+export interface Replay2048 {
+  seed: number;
+  moves: Dir[];
+}
+
+/** ANTI-TRAMPA: re-juega el replay y devuelve el puntaje real.
+ *  El servidor compara este puntaje con el que dijo el jugador. */
+export function verify2048(replay: Replay2048): number {
+  const g = new Game2048(replay.seed);
+  for (const m of replay.moves) g.move(m);
+  return g.score;
 }

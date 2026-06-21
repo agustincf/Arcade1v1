@@ -122,7 +122,7 @@ export default function MatchPage({
     setOutcome(score > rival ? "win" : score < rival ? "lose" : "draw");
   }
 
-  async function finishMatch(score: number) {
+  async function finishMatch(score: number, replay?: unknown) {
     setPlaying(false);
     setYouScore(score);
     if (free) {
@@ -134,7 +134,7 @@ export default function MatchPage({
       return;
     }
     try {
-      const v = await submitScore(matchId, pidRef.current, score);
+      const v = await submitScore(matchId, pidRef.current, score, replay);
       if (v.status === "settled" || v.status === "draw") applyResult(v);
       else setWaiting(true);
     } catch {
@@ -236,7 +236,7 @@ export default function MatchPage({
           ) : game.id === "racing" ? (
             <RacingGame key={round} seed={seed} {...gameProps} onFinish={(r: RacingResult) => finishMatch(r.score)} />
           ) : (
-            <Game2048Component key={round} seed={seed} {...gameProps} onFinish={(r: Result2048) => finishMatch(r.score)} />
+            <Game2048Component key={round} seed={seed} {...gameProps} onFinish={(r: Result2048) => finishMatch(r.score, r.replay)} />
           )}
         </div>
       </div>

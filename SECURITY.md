@@ -39,11 +39,12 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 ## Hallazgos (priorizados)
 
 ### 🔴 Críticos — bloquean el dinero real
-1. **Puntaje sin verificar (anti-trampa).** El backend confía en el puntaje que
-   reporta el navegador del jugador. Alguien podría enviar un puntaje inventado y
-   "ganar". **Falta:** verificación por *replay* (el servidor re-juega el intento
-   con la misma semilla y confirma el puntaje), o correr el juego autoritativo en
-   el servidor.
+1. **Puntaje sin verificar (anti-trampa).** ✅ **RESUELTO para 2048** (el juego y
+   el servidor comparten el mismo motor; el servidor re-juega el *replay* y
+   rechaza cualquier puntaje inventado — verificado en `selftest`). ⚠️ **Falta
+   para los juegos en tiempo real** (Tetris, Flappy, Carrera): necesitan que su
+   motor corra con paso de tiempo fijo y se grabe la secuencia de entradas para
+   poder re-simularlos igual. Hasta entonces, esos tres no son verificables.
 2. **El flujo de dinero on-chain NO está conectado todavía.** Hoy no hay depósito
    real de USDC ni llamada a `settle` desde la web; el dinero se simula. **Falta:**
    integrar depósito + `settle` con la firma del árbitro + reembolso en empate.
@@ -86,7 +87,8 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 
 ## Checklist "antes de pensar en dinero real"
 
-- [ ] **Anti-trampa** (verificación por replay) — *crítico*
+- [~] **Anti-trampa** (verificación por replay) — *crítico* — hecho en 2048;
+  falta en Tetris/Flappy/Carrera (requiere motor con paso de tiempo fijo)
 - [ ] **Conectar el flujo on-chain real** (depósito USDC + `settle` + reembolso en empate) — *crítico*
 - [ ] **Autenticación de jugadores** (firmar los envíos con la wallet) — *crítico*
 - [ ] **Asesoría legal + licencias + KYC/AML + edad + geobloqueo** — *crítico (legal)*

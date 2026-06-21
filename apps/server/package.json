@@ -15,6 +15,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
+    "@arcade1v1/game-sdk": "*",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "viem": "^2.53.1"

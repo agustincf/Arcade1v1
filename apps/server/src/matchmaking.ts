@@ -5,6 +5,7 @@
 import { randomBytes } from "node:crypto";
 import type { Hex } from "viem";
 import { signResult } from "./sign.js";
+import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
 
@@ -62,33 +63,61 @@ export function matchmake(game: string, stake: number, address: string) {
   return view(m, address);
 }
 
-export async function submitScore(id: string, address: string, score: number) {
+export async function submitScore(
+  id: string,
+  address: string,
+  score: number,
+  replay?: unknown,
+) {
   const m = matches.get(id);
   if (!m) throw new Error("match not found");
   if (address !== m.p1 && address !== m.p2) throw new Error("not a player");
-  m.scores[address] = Math.max(0, Math.floor(score));
 
-  const ready =
-    m.p2 &&
-    m.scores[m.p1] !== undefined &&
-    m.scores[m.p2] !== undefined &&
-    (m.status === "ready" || m.status === "waiting");
+  let finalScore = Math.max(0, Math.floor(score));
 
-  if (ready) {
-    const s1 = m.scores[m.p1];
-    const s2 = m.scores[m.p2!];
-    if (s1 === s2) {
-      m.status = "draw";
-      m.outcome = "draw"; // empate -> reembolso (el arbitro cancela en el contrato)
-    } else {
-      const winner = s1 > s2 ? m.p1 : m.p2!;
-      m.winner = winner;
-      m.outcome = winner === m.p1 ? "p1" : "p2";
-      m.signature = await signResult(m.id, winner as Hex);
-      m.status = "settled";
+  // ANTI-TRAMPA: para juegos verificables (2048), re-jugamos el replay y
+  // confirmamos el puntaje. Si no coincide, es trampa: se rechaza.
+  if (m.game === "2048") {
+    const r = replay as Replay2048 | undefined;
+    if (!r || !Array.isArray(r.moves) || typeof r.seed !== "number") {
+      throw new Error("replay required");
     }
+    const verified = verify2048(r);
+    if (verified !== finalScore) {
+      throw new Error(
+        `score mismatch (claimed ${finalScore}, verified ${verified})`,
+      );
+    }
+    finalScore = verified;
   }
+
+  m.scores[address] = finalScore;
+  await settleIfReady(m);
   return view(m, address);
+}
+
+/** Si ya estan los dos puntajes, decide el ganador y firma (o marca empate). */
+async function settleIfReady(m: Match) {
+  if (
+    !m.p2 ||
+    m.scores[m.p1] === undefined ||
+    m.scores[m.p2] === undefined ||
+    (m.status !== "ready" && m.status !== "waiting")
+  ) {
+    return;
+  }
+  const s1 = m.scores[m.p1];
+  const s2 = m.scores[m.p2];
+  if (s1 === s2) {
+    m.status = "draw";
+    m.outcome = "draw"; // empate -> reembolso (el arbitro cancela en el contrato)
+  } else {
+    const winner = s1 > s2 ? m.p1 : m.p2;
+    m.winner = winner;
+    m.outcome = winner === m.p1 ? "p1" : "p2";
+    m.signature = await signResult(m.id, winner as Hex);
+    m.status = "settled";
+  }
 }
 
 /** Pruebas en solitario: completa la partida con un "bot" y la liquida. */
@@ -104,9 +133,8 @@ export async function addBot(id: string) {
     p1score !== undefined
       ? Math.max(0, Math.round(p1score * (0.6 + Math.random() * 0.9)))
       : Math.floor(Math.random() * 1000);
-  // Si el jugador ya envio su puntaje, liquidamos ahora.
-  if (p1score !== undefined) return submitScore(id, m.p1, p1score);
-  m.status = "ready";
+  if (m.status === "waiting") m.status = "ready";
+  await settleIfReady(m); // si el jugador ya envio su puntaje, liquida ahora
   return view(m, m.p1);
 }
 

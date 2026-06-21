@@ -6,6 +6,20 @@ import "dotenv/config";
 import { recoverTypedDataAddress, type Hex } from "viem";
 import { matchmake, submitScore } from "./matchmaking.js";
 import { arbiterAddress, RESULT_TYPES, resultDomain } from "./sign.js";
+import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
+
+// Juega un 2048 (mismo motor que la web) y devuelve los movimientos + puntaje.
+function play2048(seed: number, maxMoves = 500) {
+  const g = new Game2048(seed);
+  const moves: Dir[] = [];
+  const dirs: Dir[] = ["left", "up", "right", "down"];
+  let i = 0;
+  while (!g.over && moves.length < maxMoves && i < 4000) {
+    if (g.move(dirs[i % 4])) moves.push(dirs[i % 4]);
+    i++;
+  }
+  return { moves, score: g.score };
+}
 
 const A = "0x1111111111111111111111111111111111111111";
 const B = "0x2222222222222222222222222222222222222222";
@@ -42,7 +56,34 @@ async function main() {
   const draw = await submitScore(e1.matchId, B, 50);
   console.log("✓ empate -> reembolso:", draw.outcome === "draw");
 
-  if (!ok) process.exit(1);
+  // 5) ANTI-TRAMPA en 2048: replay legitimo se acepta, puntaje inventado se rechaza.
+  const cA = matchmake("2048", 5, A);
+  const pA = play2048(cA.seed, 500); // A juega bien
+  const rA = await submitScore(cA.matchId, A, pA.score, {
+    seed: cA.seed,
+    moves: pA.moves,
+  });
+  console.log("✓ replay legitimo aceptado:", rA.scores[A] === pA.score);
+
+  const cB = matchmake("2048", 5, B); // se empareja con A (misma semilla)
+  let cheatRejected = false;
+  try {
+    // B intenta hacer trampa: dice 999999 con un replay que no lo respalda.
+    await submitScore(cB.matchId, B, 999999, { seed: cB.seed, moves: [] });
+  } catch {
+    cheatRejected = true;
+  }
+  console.log("✓ puntaje inventado RECHAZADO:", cheatRejected);
+
+  const pB = play2048(cB.seed, 12); // B juega menos -> menos puntos
+  const rB = await submitScore(cB.matchId, B, pB.score, {
+    seed: cB.seed,
+    moves: pB.moves,
+  });
+  const settled = rB.status === "settled" || rB.status === "draw";
+  console.log("✓ 2048 verificado y liquidado:", settled);
+
+  if (!ok || !cheatRejected || !settled) process.exit(1);
   console.log("\nTODO OK ✅");
 }
 
