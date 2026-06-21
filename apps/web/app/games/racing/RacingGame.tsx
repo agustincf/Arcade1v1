@@ -57,6 +57,7 @@ export function RacingGame({
     const ctx = canvas.getContext("2d")!;
     let raf = 0;
     let last = performance.now();
+    let lastScore = -1;
 
     const draw = () => {
       const eng = engineRef.current!;
@@ -104,7 +105,10 @@ export function RacingGame({
       last = t;
       const eng = engineRef.current!;
       eng.update(dt);
-      setScore(eng.score);
+      if (eng.score !== lastScore) {
+        lastScore = eng.score;
+        setScore(eng.score); // re-render solo cuando cambia el puntaje
+      }
       draw();
       if (eng.over) {
         setOver(true);

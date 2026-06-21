@@ -22,6 +22,19 @@ export function SoundToggle() {
     return () => window.removeEventListener("pointerdown", first);
   }, []);
 
+  // Pausa la musica cuando la pestaña queda en segundo plano; la retoma al volver.
+  useEffect(() => {
+    function onVis() {
+      if (document.hidden) stopMusic();
+      else if (on) {
+        ensureAudio();
+        startMusic();
+      }
+    }
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [on]);
+
   function toggle() {
     const next = !on;
     setOn(next);

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getGame } from "@/app/lib/games";
@@ -31,6 +31,9 @@ export default function TableSelectPage({
     ? betParam
     : DEFAULT_BET;
   const [selected, setSelected] = useState<number>(initial);
+  // Se calcula solo en el cliente (evita desajuste de hidratacion).
+  const [online, setOnline] = useState<number | null>(null);
+  useEffect(() => setOnline(onlinePlayers()), []);
 
   if (!game || game.status !== "live") {
     return (
@@ -59,7 +62,7 @@ export default function TableSelectPage({
         <div className="win-title">
           <span>{game.name.toUpperCase()} · ELEGIR MESA</span>
           <span className="chip">
-            <span className="blink">🟢</span> {onlinePlayers()} en línea
+            <span className="blink">🟢</span> {online ?? "···"} en línea
           </span>
         </div>
 

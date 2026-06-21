@@ -42,18 +42,21 @@ export function TetrisGame({
     let last = performance.now();
     let acc = 0;
     const loop = (t: number) => {
-      const dt = t - last;
+      // Tope: si la pestaña estuvo en segundo plano, evita un "salto" de piezas.
+      const dt = Math.min(t - last, 100);
       last = t;
       const eng = engineRef.current!;
       if (!eng.over && !pausedRef.current) {
         acc += dt;
         const g = eng.gravityMs();
+        let moved = false;
         while (acc >= g) {
           eng.gravityTick();
           acc -= g;
+          moved = true;
           if (eng.over) break;
         }
-        force();
+        if (moved) force(); // re-render solo cuando algo cambió
       }
       if (eng.over) {
         setOver(true);

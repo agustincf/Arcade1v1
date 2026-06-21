@@ -46,23 +46,7 @@ export function FlappyGame({
       { x: 300, y: 50, s: 0.85 },
     ];
     let flapAnim = 0;
-
-    function roundRect(
-      ctx: CanvasRenderingContext2D,
-      x: number,
-      y: number,
-      w: number,
-      h: number,
-      r: number,
-    ) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-    }
+    let lastScore = -1;
 
     function drawPipe(x: number, gapY: number) {
       const topH = gapY - GAP / 2;
@@ -196,7 +180,10 @@ export function FlappyGame({
       last = t;
       const eng = engineRef.current!;
       eng.update(dt);
-      setScore(eng.score);
+      if (eng.score !== lastScore) {
+        lastScore = eng.score;
+        setScore(eng.score); // re-render solo cuando cambia el puntaje
+      }
       draw();
       if (eng.over) {
         setOver(true);
