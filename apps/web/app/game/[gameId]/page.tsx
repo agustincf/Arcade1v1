@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getGame } from "@/app/lib/games";
 import {
@@ -14,6 +14,7 @@ import {
   onlinePlayers,
   type MatchSpeed,
 } from "@/app/lib/config";
+
 export default function TableSelectPage({
   params,
 }: {
@@ -22,8 +23,14 @@ export default function TableSelectPage({
   const { gameId } = use(params);
   const game = getGame(gameId);
   const router = useRouter();
-  // CRO: arrancamos con la mesa recomendada ya elegida.
-  const [selected, setSelected] = useState<number>(DEFAULT_BET);
+  const search = useSearchParams();
+
+  // Si viene un monto del home, arrancamos con ese; si no, la recomendada.
+  const betParam = Number(search.get("bet"));
+  const initial = BET_AMOUNTS.includes(betParam as (typeof BET_AMOUNTS)[number])
+    ? betParam
+    : DEFAULT_BET;
+  const [selected, setSelected] = useState<number>(initial);
 
   if (!game || game.status !== "live") {
     return (
@@ -51,7 +58,6 @@ export default function TableSelectPage({
       <div className="win mt-3">
         <div className="win-title">
           <span>{game.name.toUpperCase()} · ELEGIR MESA</span>
-          {/* Prueba social */}
           <span className="chip">
             <span className="blink">🟢</span> {onlinePlayers()} en línea
           </span>
@@ -66,7 +72,7 @@ export default function TableSelectPage({
           </div>
 
           {/* Mesas */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 pt-3 sm:grid-cols-3 lg:grid-cols-5">
             {BET_AMOUNTS.map((bet) => {
               const { prize } = getPayout(bet);
               const m = TABLE_META[bet];
@@ -76,16 +82,28 @@ export default function TableSelectPage({
                   key={bet}
                   onClick={() => setSelected(bet)}
                   className={`win relative p-3 text-center transition ${
-                    m.recommended ? "win--hot mt-2" : ""
-                  } ${active ? "-translate-y-1" : "hover:-translate-y-0.5"}`}
+                    m.recommended ? "win--hot" : ""
+                  } ${
+                    active
+                      ? "-translate-y-1 outline outline-[3px] outline-[--color-gold] outline-offset-2"
+                      : "hover:-translate-y-0.5"
+                  }`}
                 >
                   {m.recommended && (
-                    <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-[#0a0518] bg-[--color-gold] px-2 py-0.5 font-screen text-lg font-bold leading-none text-[#1a0033]">
-                      🔥 MÁS ELEGIDA
+                    <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-[#0a0518] bg-[--color-gold] px-2 py-0.5 font-screen text-base font-bold leading-none text-[#1a0033]">
+                      🔥 RECOMENDADA
+                    </span>
+                  )}
+                  {active && (
+                    <span className="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[#0a0518] bg-[--color-gold] text-xs font-extrabold text-[#1a0033]">
+                      ✓
                     </span>
                   )}
                   <div className="font-pixel text-base text-[--color-gold]">{bet}</div>
                   <div className="font-screen text-base text-slate-400">USDC</div>
+                  {m.premium && (
+                    <div className="font-screen text-sm text-[--color-accent]">👑 VIP</div>
+                  )}
                   <div className="font-screen text-base text-[--color-win]">
                     ganás {prize}
                   </div>
@@ -100,20 +118,30 @@ export default function TableSelectPage({
             })}
           </div>
 
-          {/* Nudge de CRO segun la mesa elegida */}
+          {/* Nudge de CRO */}
           <div className="mt-4 rounded border-2 border-[#0a0518] bg-[#0a0518] p-3 text-center">
             <p className="font-screen text-lg text-[--color-accent-2]">
-              {meta.speed === "rapido" ? (
-                <>🔥 La mesa de {selected} USDC está que arde: <b className="text-[--color-gold]">{meta.playersWaiting} rivales buscando ahora</b>. Entrá antes de que la agarre otro.</>
-              ) : meta.speed === "lento" ? (
-                <>🐢 En la mesa de {selected} USDC hay pocos jugadores ({meta.playersWaiting}). Saltá a la de <b className="text-[--color-gold]">20 USDC</b> y conseguí rival al toque.</>
+              {meta.premium ? (
+                <>👑 Mesa VIP: <b className="text-[--color-gold]">{meta.playersWaiting} jugadores que van por todo</b>. Acá se cobra en serio.</>
+              ) : meta.recommended ? (
+                <>🔥 La más elegida para arrancar: <b className="text-[--color-gold]">{meta.playersWaiting} rivales buscando ahora</b>. ¡Entrá!</>
               ) : (
-                <>👀 {meta.playersWaiting} buscando en la mesa de {selected} USDC. ¿Querés rival ya? La de <b className="text-[--color-gold]">20 USDC</b> es la más caliente.</>
+                <>👀 {meta.playersWaiting} buscando en la mesa de {selected} USDC. Cuanto más alta la mesa, más acción.</>
               )}
             </p>
           </div>
 
-          {/* Desglose del pozo */}
+          {/* CTA (arriba, sin scroll) */}
+          <div className="mt-4">
+            <button onClick={buscarRival} className="btn3d btn3d--magenta w-full">
+              ► QUIERO JUGAR · {selected} USDC
+            </button>
+            <p className="font-screen mt-2 text-center text-base text-slate-400">
+              Si no aparece rival en 1 hora, te devolvemos todo. Cero riesgo.
+            </p>
+          </div>
+
+          {/* Desglose del pozo (referencia, abajo) */}
           <div className="win mt-4">
             <div className="win-title win-title--cyan">
               <span>POZO.LOG</span>
@@ -133,16 +161,6 @@ export default function TableSelectPage({
                 highlight
               />
             </div>
-          </div>
-
-          {/* Accion */}
-          <div className="mt-5">
-            <button onClick={buscarRival} className="btn3d btn3d--magenta w-full">
-              ► QUIERO JUGAR · {selected} USDC
-            </button>
-            <p className="font-screen mt-2 text-center text-base text-slate-400">
-              Si no aparece rival en 1 hora, te devolvemos todo. Cero riesgo.
-            </p>
           </div>
         </div>
       </div>

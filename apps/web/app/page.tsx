@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { GAMES } from "@/app/lib/games";
-import { BET_AMOUNTS } from "@/app/lib/config";
+import { BetQuickPlay } from "@/app/components/BetQuickPlay";
 
 export default function HomePage() {
   return (
@@ -14,14 +14,8 @@ export default function HomePage() {
           &gt;&gt; Retá a un rival 1v1 y jugate el pozo en USDC. Que gane el mejor &lt;&lt;
         </p>
 
-        {/* Cinta de mesas disponibles */}
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          {BET_AMOUNTS.map((b) => (
-            <span key={b} className="chip">
-              💰 {b} USDC
-            </span>
-          ))}
-        </div>
+        {/* Montos clickeables (atajo para jugar rapido) */}
+        <BetQuickPlay />
       </section>
 
       {/* Tarjetas de juego (estilo "mercado") */}
