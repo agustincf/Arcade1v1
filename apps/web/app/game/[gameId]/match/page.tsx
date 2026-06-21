@@ -3,11 +3,12 @@
 import { use, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getGame } from "@/app/lib/games";
-import { getPayout } from "@/app/lib/config";
+import { getPayout, PLATFORM_FEE } from "@/app/lib/config";
 import { GameIcon } from "@/app/components/GameIcon";
 import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
 import { FlappyGame, type FlappyResult } from "@/app/games/flappy/FlappyGame";
 import { RacingGame, type RacingResult } from "@/app/games/racing/RacingGame";
+import { Game2048Component, type Result2048 } from "@/app/games/g2048/Game2048";
 
 type Outcome = "win" | "lose" | "draw" | null;
 
@@ -140,6 +141,8 @@ export default function MatchPage({
             <FlappyGame key={round} {...gameProps} onFinish={(r: FlappyResult) => finishMatch(r.score)} />
           ) : game.id === "racing" ? (
             <RacingGame key={round} {...gameProps} onFinish={(r: RacingResult) => finishMatch(r.score)} />
+          ) : game.id === "2048" ? (
+            <Game2048Component key={round} {...gameProps} onFinish={(r: Result2048) => finishMatch(r.score)} />
           ) : (
             <p className="font-screen py-10 text-center text-xl text-slate-400">
               Este juego todavía no está disponible.
@@ -228,7 +231,7 @@ export default function MatchPage({
                   {outcome === "win" && (
                     <>
                       <Money label="Pozo" value={`${payout.pot} USDC`} />
-                      <Money label="Comisión (10%)" value={`- ${payout.fee} USDC`} />
+                      <Money label={`Comisión (${PLATFORM_FEE * 100}%)`} value={`- ${payout.fee} USDC`} />
                       <div className="my-2 border-t-2 border-dashed border-[--color-border]" />
                       <div className="flex justify-between">
                         <span className="text-slate-300">Cobrás</span>

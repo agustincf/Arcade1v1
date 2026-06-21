@@ -30,7 +30,9 @@ export function GameIcon({
         ? "#ffd23d"
         : id === "racing"
           ? "#39ff7a"
-          : "#ff3df0";
+          : id === "2048"
+            ? "#ffd23d"
+            : "#ff3df0";
 
   return (
     <svg
@@ -78,6 +80,33 @@ export function GameIcon({
           {/* luces */}
           <rect x="16" y="39" width="6" height="3" rx="1" fill="#ff3b3b" />
           <rect x="26" y="39" width="6" height="3" rx="1" fill="#ff3b3b" />
+        </>
+      )}
+
+      {id === "2048" && (
+        <>
+          {[
+            { x: 4, y: 4, c: "#27e8ff", n: "2" },
+            { x: 26, y: 4, c: "#ffd23d", n: "0" },
+            { x: 4, y: 26, c: "#39ff7a", n: "4" },
+            { x: 26, y: 26, c: "#ff3df0", n: "8" },
+          ].map((t, i) => (
+            <g key={i}>
+              <rect x={t.x} y={t.y} width={18} height={18} rx={3} fill={t.c} />
+              <rect x={t.x + 1} y={t.y + 1} width={16} height={7} rx={2} fill="rgba(255,255,255,0.4)" />
+              <text
+                x={t.x + 9}
+                y={t.y + 14}
+                textAnchor="middle"
+                fontSize={13}
+                fontWeight="bold"
+                fontFamily="VT323, monospace"
+                fill="#1a0033"
+              >
+                {t.n}
+              </text>
+            </g>
+          ))}
         </>
       )}
 

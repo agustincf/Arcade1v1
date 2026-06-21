@@ -77,7 +77,7 @@ export default function TableSelectPage({
           </div>
 
           {/* Mesas */}
-          <div className="grid grid-cols-2 gap-3 pt-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {BET_AMOUNTS.map((bet) => {
               const { prize } = getPayout(bet);
               const m = TABLE_META[bet];
@@ -86,19 +86,12 @@ export default function TableSelectPage({
                 <button
                   key={bet}
                   onClick={() => setSelected(bet)}
-                  className={`win relative overflow-hidden p-3 text-center transition ${
-                    m.recommended ? "win--hot" : ""
-                  } ${
+                  className={`win relative p-3 text-center transition ${
                     active
                       ? "-translate-y-1 outline outline-[3px] outline-[--color-gold] outline-offset-2"
                       : "hover:-translate-y-0.5"
                   }`}
                 >
-                  {m.recommended && (
-                    <div className="-mx-3 -mt-3 mb-2 bg-[--color-gold] py-1 font-screen text-base font-bold leading-none text-[#1a0033]">
-                      🔥 RECOMENDADA
-                    </div>
-                  )}
                   {active && (
                     <span className="absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[#0a0518] bg-[--color-gold] text-xs font-extrabold text-[#1a0033]">
                       ✓
@@ -128,10 +121,8 @@ export default function TableSelectPage({
             <p className="font-screen text-lg text-[--color-accent-2]">
               {meta.premium ? (
                 <>👑 Mesa VIP: <b className="text-[--color-gold]">{meta.playersWaiting} jugadores que van por todo</b>. Acá se cobra en serio.</>
-              ) : meta.recommended ? (
-                <>🔥 La más elegida para arrancar: <b className="text-[--color-gold]">{meta.playersWaiting} rivales buscando ahora</b>. ¡Entrá!</>
               ) : (
-                <>👀 {meta.playersWaiting} buscando en la mesa de {selected} USDC. Cuanto más alta la mesa, más acción.</>
+                <>👀 <b className="text-[--color-gold]">{meta.playersWaiting} rivales buscando</b> en la mesa de {selected} USDC. ¡Entrá!</>
               )}
             </p>
           </div>

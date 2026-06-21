@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BET_AMOUNTS, TABLE_META } from "@/app/lib/config";
+import { BET_AMOUNTS } from "@/app/lib/config";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
 
@@ -31,7 +31,7 @@ export function BetQuickPlay() {
             onClick={() => setPicker({ mode: "bet", bet: b })}
             className="chip cursor-pointer transition hover:brightness-125"
           >
-            💰 {b} USDC {TABLE_META[b]?.recommended ? "🔥" : ""}
+            💰 {b} USDC
           </button>
         ))}
       </div>

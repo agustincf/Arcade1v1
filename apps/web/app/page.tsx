@@ -87,7 +87,7 @@ export default function HomePage() {
           <Step n="3" text="¿Más puntos que el rival? Te llevás el pozo entero." />
         </div>
         <p className="font-screen px-5 pb-4 text-sm text-slate-500">
-          * La plataforma retiene una comisión del 10% del pozo. Si nadie aparece
+          * La plataforma retiene una comisión del 15% del pozo. Si nadie aparece
           en 1 hora, se te devuelve todo.
         </p>
       </section>

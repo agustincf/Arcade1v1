@@ -1,0 +1,195 @@
+"use client";
+
+import { useEffect, useReducer, useRef, useState } from "react";
+import { Game2048 as Engine, SIZE, type Dir } from "./engine";
+import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
+import { sfx, ensureAudio } from "@/app/lib/sound";
+import { GameIcon } from "@/app/components/GameIcon";
+
+export interface Result2048 {
+  score: number;
+}
+
+const TILE_COLORS: Record<number, string> = {
+  2: "#3b3566",
+  4: "#574a8f",
+  8: "#27e8ff",
+  16: "#39ff7a",
+  32: "#ffd23d",
+  64: "#ff9f1c",
+  128: "#ff4d6d",
+  256: "#c06bff",
+  512: "#ff3df0",
+  1024: "#27e8ff",
+  2048: "#ffd23d",
+};
+
+function tileColor(v: number) {
+  return TILE_COLORS[v] ?? "#ffd23d";
+}
+
+export function Game2048Component({
+  seed,
+  onFinish,
+  onStarted,
+}: {
+  seed: number;
+  onFinish: (result: Result2048) => void;
+  onStarted?: () => void;
+}) {
+  const engineRef = useRef<Engine | null>(null);
+  if (engineRef.current === null) engineRef.current = new Engine(seed);
+
+  const [, force] = useReducer((x) => x + 1, 0);
+  const [started, setStarted] = useState(false);
+  const [over, setOver] = useState(false);
+  const touch = useRef<{ x: number; y: number } | null>(null);
+
+  const engine = engineRef.current;
+
+  function doMove(dir: Dir) {
+    const eng = engineRef.current!;
+    if (eng.over) return;
+    if (eng.move(dir)) {
+      sfx.move();
+      force();
+      if (eng.over) setOver(true);
+    }
+  }
+
+  useEffect(() => {
+    if (!started) return;
+    function onKey(e: KeyboardEvent) {
+      const map: Record<string, Dir> = {
+        ArrowLeft: "left",
+        ArrowRight: "right",
+        ArrowUp: "up",
+        ArrowDown: "down",
+      };
+      const dir = map[e.key];
+      if (dir) {
+        e.preventDefault();
+        doMove(dir);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [started]);
+
+  function onPointerDown(e: React.PointerEvent) {
+    touch.current = { x: e.clientX, y: e.clientY };
+  }
+  function onPointerUp(e: React.PointerEvent) {
+    if (!touch.current) return;
+    const dx = e.clientX - touch.current.x;
+    const dy = e.clientY - touch.current.y;
+    touch.current = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+    if (Math.abs(dx) > Math.abs(dy)) doMove(dx > 0 ? "right" : "left");
+    else doMove(dy > 0 ? "down" : "up");
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <div className="flex w-full max-w-[320px] items-center justify-between">
+        <span className="font-pixel text-sm text-[--color-gold]">2048</span>
+        <span className="font-screen text-xl text-slate-200">
+          Puntaje: <b className="text-[--color-accent-2]">{engine.score}</b>
+        </span>
+      </div>
+
+      <div className="relative">
+        <div
+          className="grid touch-none gap-2 rounded-lg border-2 border-[#0a0518] bg-[#0a0518] p-2"
+          style={{
+            width: "min(86vw, 320px)",
+            gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
+          }}
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUp}
+        >
+          {engine.board.map((row, r) =>
+            row.map((v, c) => (
+              <div key={`${r}-${c}`} className="aspect-square">
+                {v === 0 ? (
+                  <div className="h-full w-full rounded-[4px] bg-[rgba(75,59,128,0.18)]" />
+                ) : (
+                  <Tile value={v} />
+                )}
+              </div>
+            )),
+          )}
+        </div>
+
+        {!started && (
+          <StartScreen
+            icon={<GameIcon id="2048" size={56} />}
+            title="2048"
+            instructions="Deslizá para juntar fichas iguales y sumá. Cuanto más alto el número, más puntos. ¡Jugá hasta que no entren más!"
+            onStart={() => {
+              ensureAudio();
+              onStarted?.();
+              setStarted(true);
+            }}
+          />
+        )}
+
+        {over && (
+          <GameOverScreen
+            headline="¡SIN MOVIMIENTOS! 🧩"
+            score={engine.score}
+            onConfirm={() => onFinish({ score: engine.score })}
+          />
+        )}
+      </div>
+
+      {/* Controles tactiles */}
+      {started && !over && (
+        <div className="grid w-full max-w-[200px] grid-cols-3 grid-rows-2 gap-2">
+          <span />
+          <DirBtn onClick={() => doMove("up")} label="▲" />
+          <span />
+          <DirBtn onClick={() => doMove("left")} label="◀" />
+          <DirBtn onClick={() => doMove("down")} label="▼" />
+          <DirBtn onClick={() => doMove("right")} label="▶" />
+        </div>
+      )}
+
+      <p className="font-screen text-center text-base text-slate-500">
+        Flechas del teclado o deslizá en el tablero.
+      </p>
+    </div>
+  );
+}
+
+function Tile({ value }: { value: number }) {
+  const color = tileColor(value);
+  const dark = value <= 4;
+  const size = value >= 1000 ? "text-base" : value >= 100 ? "text-xl" : "text-2xl";
+  return (
+    <div
+      className="flex h-full w-full items-center justify-center rounded-[4px]"
+      style={{
+        backgroundColor: color,
+        backgroundImage:
+          "linear-gradient(140deg, rgba(255,255,255,0.5), rgba(255,255,255,0) 45%, rgba(0,0,0,0.4))",
+        boxShadow: `inset 1.5px 1.5px 0 rgba(255,255,255,0.4), inset -1.5px -1.5px 0 rgba(0,0,0,0.4), 0 0 6px ${color}`,
+      }}
+    >
+      <span
+        className={`font-screen font-bold ${size}`}
+        style={{ color: dark ? "#e8e2ff" : "#1a0033" }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function DirBtn({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button onClick={onClick} className="btn3d btn3d--cyan !py-3 !text-xl">
+      {label}
+    </button>
+  );
+}

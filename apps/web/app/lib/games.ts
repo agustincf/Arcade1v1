@@ -37,12 +37,12 @@ export const GAMES: GameInfo[] = [
     status: "live",
   },
   {
-    id: "coming-soon",
-    name: "Proximamente",
-    tagline: "Se viene mas accion",
-    description: "Nuevos duelos en camino. Quedate cerca: el que avisa no traiciona.",
-    emoji: "✨",
-    status: "soon",
+    id: "2048",
+    name: "2048",
+    tagline: "Sumá y dominá",
+    description: "Desliza, combina fichas iguales y hace el numero mas alto. Mas puntaje, te llevas el pozo.",
+    emoji: "🔢",
+    status: "live",
   },
 ];
 
