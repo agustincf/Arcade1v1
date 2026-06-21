@@ -64,15 +64,18 @@ celular por QR), via wagmi + RainbowKit. Se monta en la Fase 4.
 ## Plan por fases
 
 - [x] **Fase 0** — Estructura del proyecto y herramientas.
-- [x] **Fase 1** — Pantallas navegables (datos de mentira).
+- [x] **Fase 1** — Pantallas navegables.
 - [x] **Fase 2** — Tetris (asincronico, por puntaje).
-- [x] **Fase 3** — Flappy 1v1 (asincronico, por puntaje).
-- [ ] **Fase 4** — Contrato escrow en testnet + billetera + USDC de prueba.
-- [ ] **Fase 5** — Backend arbitro (resultado real → pago en testnet).
-- [ ] **Fase 6** — Seguridad, pruebas y checklist pre-dinero-real.
+- [x] **Fase 3** — Flappy 1v1 (asincronico, por puntaje). + Carrera + 2048.
+- [~] **Fase 4** — Contrato escrow (escrito + probado 8/8) + billetera. Falta
+  desplegar a testnet y conectar deposito/pago real con USDC.
+- [~] **Fase 5** — Backend arbitro (emparejamiento + semilla + firma, OK). Falta
+  anti-trampa por replay y conectar el pago on-chain.
+- [x] **Fase 6** — Repaso de seguridad y checklist pre-dinero-real → ver
+  [SECURITY.md](SECURITY.md).
 
-## Mejoras pendientes (polish, para mas adelante)
+## Estado actual
 
-- **Flappy:** jugabilidad mejorable (se siente dificil y basico). Ajustar
-  fisica/dificultad y mejorar el aspecto visual.
-- **Tetris:** opcional, agregar "pieza fantasma" (muestra donde va a caer).
+Frontend completo (4 juegos, modo libre, multi-idioma, SEO). Contrato y backend
+arbitro construidos y verificados. **No opera con dinero real:** ver los puntos
+criticos en [SECURITY.md](SECURITY.md) antes de activarlo.

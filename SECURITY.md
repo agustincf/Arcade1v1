@@ -1,0 +1,102 @@
+# Repaso de seguridad — Arcade1v1 (Fase 6)
+
+Fecha: 2026-06-21 · Estado: **testnet / demo** (no opera con dinero real).
+
+Este documento es el resultado de revisar el **contrato** (`packages/contracts`),
+el **backend árbitro** (`apps/server`) y la **arquitectura** completa. La idea es
+ser honestos sobre lo que falta **antes de pensar en dinero real**.
+
+---
+
+## Modelo de confianza (quién puede hacer qué)
+
+- **Jugadores:** depositan USDC y juegan. No pueden sacar fondos salvo según las
+  reglas (premio, reembolso).
+- **Árbitro (backend):** decide quién ganó y **firma** el resultado. Es el punto
+  central de confianza: si su llave se filtra, puede decidir partidas
+  (aunque el ganador siempre debe ser uno de los dos jugadores).
+- **Dueño (owner del contrato):** configura árbitro, comisión (tope 20%), wallet
+  de comisión y mesas permitidas. **No** puede enviar fondos a una dirección
+  arbitraria.
+- **El contrato:** custodia el pozo y solo lo mueve según las reglas verificadas.
+
+---
+
+## Lo que el contrato YA garantiza (lo bueno) ✅
+
+- **Nunca paga más de lo depositado** (premio = pozo solo si los dos depositaron).
+- **El premio va solo a un jugador real** (p1 o p2); la **comisión está topeada
+  al 20%** y el dueño no puede subirla más.
+- **Protección anti-reentrada** y patrón "estado antes de transferir".
+- **Firmas EIP-712** atadas a la red (chainId) y al contrato → no se pueden
+  reusar en otra red/contrato; `matchId` único → no se puede liquidar dos veces.
+- **Reembolsos** por: no llenarse a tiempo, vencimiento del plazo de juego (1h)
+  o cancelación del árbitro/dueño.
+- **8/8 pruebas automáticas pasan.**
+
+---
+
+## Hallazgos (priorizados)
+
+### 🔴 Críticos — bloquean el dinero real
+1. **Puntaje sin verificar (anti-trampa).** El backend confía en el puntaje que
+   reporta el navegador del jugador. Alguien podría enviar un puntaje inventado y
+   "ganar". **Falta:** verificación por *replay* (el servidor re-juega el intento
+   con la misma semilla y confirma el puntaje), o correr el juego autoritativo en
+   el servidor.
+2. **El flujo de dinero on-chain NO está conectado todavía.** Hoy no hay depósito
+   real de USDC ni llamada a `settle` desde la web; el dinero se simula. **Falta:**
+   integrar depósito + `settle` con la firma del árbitro + reembolso en empate.
+3. **Sin autenticación en el backend.** Quien conozca el `matchId` podría enviar
+   un puntaje "haciéndose pasar" por un jugador (no se prueba que controla la
+   dirección). **Falta:** que el jugador **firme** su envío con la wallet (o
+   sesión autenticada).
+4. **Legal / regulatorio.** Apuestas con dinero real = licencias, **KYC/AML**,
+   verificación de **edad** y **restricciones por país**. Sin esto no se puede
+   operar legalmente. (Bloqueante no técnico, el más importante.)
+
+### 🟠 Altos
+5. **Endpoint `/bot` de prueba.** Debe **eliminarse o bloquearse** en producción
+   (permite forzar la liquidación contra un bot).
+6. **Fallback "offline" simulado en el frontend.** En una partida de plata jamás
+   debe mostrar un rival/resultado inventado. Dejarlo **solo para el modo libre**.
+7. **Llave del árbitro = único punto de confianza.** Guardarla en un KMS/HSM,
+   con mínimos privilegios; considerar un **árbitro multi-firma**.
+8. **Estado en memoria (sin persistencia).** Si el servidor se reinicia, se
+   pierden las partidas en curso. (On-chain queda mitigado por el reembolso a la
+   hora, pero hay que **persistir** y tener recuperación.)
+9. **Auditoría externa del contrato** por un tercero profesional antes de dinero
+   real.
+
+### 🟡 Medios
+10. **Sin rate limiting** en el backend → spam / DoS. Agregar límites.
+11. **Semilla por `Math.random`.** Sirve para que sea igual para ambos, pero un
+    esquema *commit-reveal* sería más robusto contra predicción/grinding.
+12. **Empate no dispara el reembolso on-chain** (falta integrar `cancelMatch`).
+13. **Poderes del dueño.** Mucha confianza concentrada. Considerar **timelock /
+    multisig** para el owner.
+
+### 🟢 Bajos
+14. **Sin pausa de emergencia** en el contrato (es inmutable; bueno para la
+    confianza, pero no hay "freno" si algo sale mal). Evaluar una pausa acotada.
+15. **CORS abierto (`*`)** — aceptable para API pública, pero combinar con auth.
+16. **HTTPS obligatorio** en producción (en local es OK sin él).
+
+---
+
+## Checklist "antes de pensar en dinero real"
+
+- [ ] **Anti-trampa** (verificación por replay) — *crítico*
+- [ ] **Conectar el flujo on-chain real** (depósito USDC + `settle` + reembolso en empate) — *crítico*
+- [ ] **Autenticación de jugadores** (firmar los envíos con la wallet) — *crítico*
+- [ ] **Asesoría legal + licencias + KYC/AML + edad + geobloqueo** — *crítico (legal)*
+- [ ] Quitar `/bot` y el fallback simulado de producción — *alto*
+- [ ] Proteger la llave del árbitro (KMS/HSM, multisig) — *alto*
+- [ ] Persistencia + recuperación del backend — *alto*
+- [ ] **Auditoría externa** del contrato — *alto*
+- [ ] Rate limiting + HTTPS + monitoreo — *medio*
+- [ ] Pruebas de extremo a extremo en testnet con varios usuarios reales — *medio*
+
+> **Conclusión:** la base está sólida y el contrato es seguro en lo que cubre,
+> pero **NO se debe activar dinero real** hasta cerrar al menos los 4 puntos
+> críticos (con la parte legal a la cabeza).
