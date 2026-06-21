@@ -34,13 +34,15 @@ export function resultDomain() {
   };
 }
 
-/** Firma (matchId, winner). El ganador presenta esta firma al contrato. */
+/** Firma (matchId, winner). El ganador presenta esta firma al contrato.
+ *  La direccion se normaliza a minusculas (mismo valor de 20 bytes, evita
+ *  el chequeo de checksum de viem; el contrato la compara por valor). */
 export async function signResult(matchId: Hex, winner: Hex): Promise<Hex> {
   const account = arbiterAccount();
   return account.signTypedData({
     domain: resultDomain(),
     types: RESULT_TYPES,
     primaryType: "Result",
-    message: { matchId, winner },
+    message: { matchId, winner: winner.toLowerCase() as Hex },
   });
 }

@@ -20,7 +20,10 @@ interface Match {
   winner?: string;
   outcome?: "p1" | "p2" | "draw";
   signature?: Hex;
+  isBot?: boolean;
 }
+
+const BOT = "0x000000000000000000000000000000000000b07a";
 
 const matches = new Map<string, Match>();
 const queue = new Map<string, Hex>(); // "game:stake" -> id de la partida esperando rival
@@ -88,6 +91,25 @@ export async function submitScore(id: string, address: string, score: number) {
   return view(m, address);
 }
 
+/** Pruebas en solitario: completa la partida con un "bot" y la liquida. */
+export async function addBot(id: string) {
+  const m = matches.get(id);
+  if (!m) throw new Error("match not found");
+  if (m.p2) return view(m, m.p1); // ya tiene rival real
+  m.p2 = BOT;
+  m.isBot = true;
+  queue.delete(qkey(m.game, m.stake));
+  const p1score = m.scores[m.p1];
+  m.scores[BOT] =
+    p1score !== undefined
+      ? Math.max(0, Math.round(p1score * (0.6 + Math.random() * 0.9)))
+      : Math.floor(Math.random() * 1000);
+  // Si el jugador ya envio su puntaje, liquidamos ahora.
+  if (p1score !== undefined) return submitScore(id, m.p1, p1score);
+  m.status = "ready";
+  return view(m, m.p1);
+}
+
 export function getMatch(id: string, address?: string) {
   const m = matches.get(id);
   if (!m) return null;
@@ -107,5 +129,6 @@ function view(m: Match, address?: string) {
     outcome: m.outcome,
     winner: m.winner,
     signature: m.signature, // el ganador la presenta al contrato
+    isBot: m.isBot,
   };
 }

@@ -3,7 +3,7 @@
 
 import "dotenv/config";
 import express from "express";
-import { matchmake, submitScore, getMatch } from "./matchmaking.js";
+import { matchmake, submitScore, getMatch, addBot } from "./matchmaking.js";
 import { arbiterAddress } from "./sign.js";
 
 const app = express();
@@ -38,6 +38,15 @@ app.post("/match/:id/score", async (req, res) => {
     const { address, score } = req.body ?? {};
     const out = await submitScore(req.params.id, String(address), Number(score));
     res.json(out);
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+// Completar la partida contra un bot (solo para pruebas en solitario).
+app.post("/match/:id/bot", async (req, res) => {
+  try {
+    res.json(await addBot(req.params.id));
   } catch (e) {
     res.status(400).json({ error: (e as Error).message });
   }

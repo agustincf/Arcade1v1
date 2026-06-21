@@ -1,17 +1,27 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getGame } from "@/app/lib/games";
 import { getPayout, PLATFORM_FEE } from "@/app/lib/config";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
+import { useWallet } from "@/app/lib/wallet";
+import {
+  matchmake,
+  submitScore,
+  getMatch,
+  playBot,
+  playerId,
+  type MatchView,
+} from "@/app/lib/arbiter";
 import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
 import { FlappyGame, type FlappyResult } from "@/app/games/flappy/FlappyGame";
 import { RacingGame, type RacingResult } from "@/app/games/racing/RacingGame";
 import { Game2048Component, type Result2048 } from "@/app/games/g2048/Game2048";
 
 type Outcome = "win" | "lose" | "draw" | null;
+const rnd = () => Math.floor(Math.random() * 1e9);
 
 export default function MatchPage({
   params,
@@ -23,19 +33,49 @@ export default function MatchPage({
   const router = useRouter();
   const search = useSearchParams();
   const { t } = useT();
+  const { address } = useWallet();
   const free = search.get("free") === "1";
   const bet = Number(search.get("bet") ?? 0);
   const payout = getPayout(bet);
 
-  const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1e9));
+  const [seed, setSeed] = useState<number | null>(free ? rnd() : null);
   const [round, setRound] = useState(0);
+  const [matchId, setMatchId] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const [youScore, setYouScore] = useState<number | null>(null);
   const [rivalScore, setRivalScore] = useState<number | null>(null);
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [freeDone, setFreeDone] = useState(false);
   const [forfeit, setForfeit] = useState(false);
+  const pidRef = useRef<string>("");
 
+  // Emparejamiento con el arbitro (solo partidas de plata). Si el servidor no
+  // responde, seguimos en modo "offline" con rival simulado (no se cuelga).
+  useEffect(() => {
+    if (free) return;
+    pidRef.current = playerId(address ?? null);
+    let cancel = false;
+    (async () => {
+      try {
+        const v = await matchmake(game!.id, bet, pidRef.current);
+        if (cancel) return;
+        setMatchId(v.matchId);
+        setSeed(v.seed);
+      } catch {
+        if (cancel) return;
+        setOffline(true);
+        setSeed(rnd());
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Aviso del navegador si cierra/recarga durante el intento (de plata).
   useEffect(() => {
     if (free) return;
     function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -48,18 +88,71 @@ export default function MatchPage({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [playing, outcome, free]);
 
+  // Mientras esperamos que el rival juegue, consultamos el resultado.
+  useEffect(() => {
+    if (!waiting || !matchId) return;
+    const iv = setInterval(async () => {
+      try {
+        const v = await getMatch(matchId, pidRef.current);
+        if (v.status === "settled" || v.status === "draw") {
+          applyResult(v);
+          setWaiting(false);
+        }
+      } catch {
+        /* reintenta */
+      }
+    }, 2500);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waiting, matchId]);
+
   if (!game) return null;
 
-  function finishMatch(score: number) {
+  function applyResult(v: MatchView) {
+    const opp = v.opponent;
+    setRivalScore(opp ? (v.scores[opp] ?? 0) : 0);
+    if (v.outcome === "draw") setOutcome("draw");
+    else if (v.outcome && v.role === v.outcome) setOutcome("win");
+    else setOutcome("lose");
+  }
+
+  function simulate(score: number) {
+    const rival = Math.max(0, Math.round(score * (0.6 + Math.random() * 0.9)));
+    setRivalScore(rival);
+    setOutcome(score > rival ? "win" : score < rival ? "lose" : "draw");
+  }
+
+  async function finishMatch(score: number) {
     setPlaying(false);
     setYouScore(score);
     if (free) {
       setFreeDone(true);
       return;
     }
-    const rival = Math.max(0, Math.round(score * (0.6 + Math.random() * 0.9)));
-    setRivalScore(rival);
-    setOutcome(score > rival ? "win" : score < rival ? "lose" : "draw");
+    if (offline || !matchId) {
+      simulate(score);
+      return;
+    }
+    try {
+      const v = await submitScore(matchId, pidRef.current, score);
+      if (v.status === "settled" || v.status === "draw") applyResult(v);
+      else setWaiting(true);
+    } catch {
+      simulate(score);
+    }
+  }
+
+  async function tryBot() {
+    if (!matchId) return;
+    try {
+      const v = await playBot(matchId);
+      if (v.status === "settled" || v.status === "draw") {
+        applyResult(v);
+        setWaiting(false);
+      }
+    } catch {
+      /* noop */
+    }
   }
 
   function handleExit() {
@@ -75,14 +168,14 @@ export default function MatchPage({
   }
 
   function replayFree() {
-    setSeed(Math.floor(Math.random() * 1e9));
+    setSeed(rnd());
     setRound((r) => r + 1);
     setYouScore(null);
     setFreeDone(false);
     setPlaying(false);
   }
 
-  const gameProps = { seed, onStarted: () => setPlaying(true) };
+  const gameProps = { onStarted: () => setPlaying(true) };
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -132,15 +225,19 @@ export default function MatchPage({
           </span>
         </div>
         <div className="p-5">
-          {game.id === "tetris" ? (
-            <TetrisGame key={round} {...gameProps} onFinish={(r: TetrisResult) => finishMatch(r.score)} />
+          {seed === null ? (
+            <p className="font-screen py-10 text-center text-xl text-[--color-accent-2]">
+              {t("match.connecting")}
+            </p>
+          ) : game.id === "tetris" ? (
+            <TetrisGame key={round} seed={seed} {...gameProps} onFinish={(r: TetrisResult) => finishMatch(r.score)} />
           ) : game.id === "flappy" ? (
-            <FlappyGame key={round} {...gameProps} onFinish={(r: FlappyResult) => finishMatch(r.score)} />
+            <FlappyGame key={round} seed={seed} {...gameProps} onFinish={(r: FlappyResult) => finishMatch(r.score)} />
           ) : game.id === "racing" ? (
-            <RacingGame key={round} {...gameProps} onFinish={(r: RacingResult) => finishMatch(r.score)} />
-          ) : game.id === "2048" ? (
-            <Game2048Component key={round} {...gameProps} onFinish={(r: Result2048) => finishMatch(r.score)} />
-          ) : null}
+            <RacingGame key={round} seed={seed} {...gameProps} onFinish={(r: RacingResult) => finishMatch(r.score)} />
+          ) : (
+            <Game2048Component key={round} seed={seed} {...gameProps} onFinish={(r: Result2048) => finishMatch(r.score)} />
+          )}
         </div>
       </div>
 
@@ -148,6 +245,30 @@ export default function MatchPage({
         <p className="font-screen mt-3 text-center text-base text-slate-500">
           {t("match.pairNote")}
         </p>
+      )}
+
+      {/* Esperando que el rival juegue (asincronico) */}
+      {waiting && outcome === null && (
+        <Modal title={t("match.playing")}>
+          <div className="relative mx-auto h-14 w-14">
+            <span className="absolute inset-0 animate-spin rounded-full border-4 border-[--color-border] border-t-[--color-accent]" />
+          </div>
+          <p className="font-screen mt-4 text-lg text-slate-200">
+            {t("match.waitingRival")}
+          </p>
+          <p className="font-screen mt-2 text-lg text-slate-400">
+            {t("match.yourScore")}:{" "}
+            <b className="text-[--color-gold]">{youScore}</b>
+          </p>
+          <div className="mt-5 flex flex-col gap-3">
+            <button onClick={tryBot} className="btn3d btn3d--cyan w-full">
+              🤖 {t("match.vsBot")}
+            </button>
+            <button onClick={() => router.push("/")} className="btn3d btn3d--magenta w-full">
+              {t("home")}
+            </button>
+          </div>
+        </Modal>
       )}
 
       {/* Resultado MODO LIBRE */}
