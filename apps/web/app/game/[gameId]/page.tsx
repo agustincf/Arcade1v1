@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getGame } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
+import { useT } from "@/app/lib/i18n";
 import {
   BET_AMOUNTS,
   getPayout,
@@ -25,23 +26,21 @@ export default function TableSelectPage({
   const game = getGame(gameId);
   const router = useRouter();
   const search = useSearchParams();
+  const { t } = useT();
 
-  // Si viene un monto del home, arrancamos con ese; si no, la recomendada.
   const betParam = Number(search.get("bet"));
   const initial = BET_AMOUNTS.includes(betParam as (typeof BET_AMOUNTS)[number])
     ? betParam
     : DEFAULT_BET;
   const [selected, setSelected] = useState<number>(initial);
-  // Se calcula solo en el cliente (evita desajuste de hidratacion).
   const [online, setOnline] = useState<number | null>(null);
   useEffect(() => setOnline(onlinePlayers()), []);
 
   if (!game || game.status !== "live") {
     return (
       <div className="text-center">
-        <p className="font-screen text-xl text-slate-300">Ese juego no existe.</p>
         <Link href="/" className="font-screen mt-4 inline-block text-xl text-[--color-accent-2]">
-          ← Volver al inicio
+          {t("back")}
         </Link>
       </div>
     );
@@ -50,30 +49,29 @@ export default function TableSelectPage({
   const meta = TABLE_META[selected];
 
   function buscarRival() {
-    // Juego asincronico: vas directo a jugar tu intento (te emparejamos por orden de llegada).
     router.push(`/game/${gameId}/match?bet=${selected}`);
   }
 
   return (
     <div className="mx-auto max-w-2xl">
       <Link href="/" className="font-screen text-xl text-[--color-accent-2] hover:underline">
-        ← Volver
+        {t("back")}
       </Link>
 
       <div className="win mt-3">
         <div className="win-title">
-          <span>{game.name.toUpperCase()} · ELEGIR MESA</span>
+          <span>
+            {t(`game.${game.id}.name`).toUpperCase()} · {t("table.choose")}
+          </span>
           <span className="chip">
-            <span className="blink">🟢</span> {online ?? "···"} en línea
+            <span className="blink">🟢</span> {t("table.online", { n: online ?? "···" })}
           </span>
         </div>
 
         <div className="p-5">
           <div className="mb-4 flex items-center gap-3">
             <GameIcon id={game.id} size={52} />
-            <p className="font-screen text-xl text-slate-200">
-              ¿De cuánto va el duelo? Los dos ponen lo mismo. El que gana, se lo lleva.
-            </p>
+            <p className="font-screen text-xl text-slate-200">{t("table.q")}</p>
           </div>
 
           {/* Mesas */}
@@ -100,10 +98,10 @@ export default function TableSelectPage({
                   <div className="font-pixel text-base text-[--color-gold]">{bet}</div>
                   <div className="font-screen text-base text-slate-400">USDC</div>
                   {m.premium && (
-                    <div className="font-screen text-sm text-[--color-accent]">👑 VIP</div>
+                    <div className="font-screen text-sm text-[--color-accent]">{t("table.vip")}</div>
                   )}
                   <div className="font-screen text-base text-[--color-win]">
-                    ganás {prize}
+                    {t("table.win", { n: prize })}
                   </div>
                   <div className="mt-2 flex items-center justify-center gap-1">
                     <SignalBars speed={m.speed} />
@@ -119,40 +117,38 @@ export default function TableSelectPage({
           {/* Nudge de CRO */}
           <div className="mt-4 rounded border-2 border-[#0a0518] bg-[#0a0518] p-3 text-center">
             <p className="font-screen text-lg text-[--color-accent-2]">
-              {meta.premium ? (
-                <>👑 Mesa VIP: <b className="text-[--color-gold]">{meta.playersWaiting} jugadores que van por todo</b>. Acá se cobra en serio.</>
-              ) : (
-                <>👀 <b className="text-[--color-gold]">{meta.playersWaiting} rivales buscando</b> en la mesa de {selected} USDC. ¡Entrá!</>
-              )}
+              {meta.premium
+                ? t("table.nudgeVip", { n: meta.playersWaiting })
+                : t("table.nudgeNormal", { n: meta.playersWaiting, bet: selected })}
             </p>
           </div>
 
-          {/* CTA (arriba, sin scroll) */}
+          {/* CTA */}
           <div className="mt-4">
             <button onClick={buscarRival} className="btn3d btn3d--magenta w-full">
-              ► QUIERO JUGAR · {selected} USDC
+              {t("table.cta", { bet: selected })}
             </button>
             <p className="font-screen mt-2 text-center text-base text-slate-400">
-              Si no aparece rival en 1 hora, te devolvemos todo. Cero riesgo.
+              {t("table.norisk")}
             </p>
           </div>
 
-          {/* Desglose del pozo (referencia, abajo) */}
+          {/* Desglose del pozo */}
           <div className="win mt-4">
             <div className="win-title win-title--cyan">
-              <span>POZO.LOG</span>
+              <span>{t("table.pot")}</span>
             </div>
             <div className="font-screen p-4 text-lg">
-              <Row label="Tu apuesta" value={`${selected} USDC`} />
-              <Row label="Apuesta del rival" value={`${selected} USDC`} />
-              <Row label="Pozo total" value={`${getPayout(selected).pot} USDC`} />
+              <Row label={t("table.yourBet")} value={`${selected} USDC`} />
+              <Row label={t("table.rivalBet")} value={`${selected} USDC`} />
+              <Row label={t("table.totalPot")} value={`${getPayout(selected).pot} USDC`} />
               <Row
-                label={`Comisión (${PLATFORM_FEE * 100}%)`}
+                label={t("table.fee", { pct: PLATFORM_FEE * 100 })}
                 value={`- ${getPayout(selected).fee} USDC`}
               />
               <div className="my-2 border-t-2 border-dashed border-[--color-border]" />
               <Row
-                label="Premio al ganador"
+                label={t("table.prize")}
                 value={`${getPayout(selected).prize} USDC`}
                 highlight
               />
@@ -173,7 +169,7 @@ function SignalBars({ speed }: { speed: MatchSpeed }) {
         ? "var(--color-gold)"
         : "var(--color-lose)";
   return (
-    <span className="flex items-end gap-0.5" title={`Emparejamiento ${speed}`}>
+    <span className="flex items-end gap-0.5">
       {[1, 2, 3].map((i) => (
         <span
           key={i}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/app/lib/i18n";
+
 // Piezas visuales COMPARTIDAS por todos los juegos, para que tengan el mismo
 // lenguaje: misma caja de overlay, mismos botones, misma pantalla de fin.
 
@@ -22,6 +24,7 @@ export function StartScreen({
   instructions: string;
   onStart: () => void;
 }) {
+  const { t } = useT();
   return (
     <GameOverlay>
       <div>{icon}</div>
@@ -30,7 +33,7 @@ export function StartScreen({
         {instructions}
       </p>
       <button onClick={onStart} className="btn3d btn3d--magenta mt-4">
-        EMPEZAR ▶
+        {t("g.start")}
       </button>
     </GameOverlay>
   );
@@ -45,13 +48,14 @@ export function GameOverScreen({
   score: number;
   onConfirm: () => void;
 }) {
+  const { t } = useT();
   return (
     <GameOverlay>
       <h3 className="font-pixel text-base text-[--color-lose]">{headline}</h3>
-      <p className="font-screen mt-3 text-lg text-slate-200">Tu puntaje</p>
+      <p className="font-screen mt-3 text-lg text-slate-200">{t("g.yourScore")}</p>
       <p className="font-pixel text-3xl text-[--color-accent-2] neon-cyan">{score}</p>
       <button onClick={onConfirm} className="btn3d btn3d--magenta mt-4">
-        CONFIRMAR ▶
+        {t("g.confirm")}
       </button>
     </GameOverlay>
   );

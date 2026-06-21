@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 import { Header } from "@/app/components/Header";
+import { Marquee } from "@/app/components/Marquee";
+import { SiteFooter } from "@/app/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Arcade1v1 — Duelos 1v1 por USDC",
@@ -30,27 +32,9 @@ export default function RootLayout({
       <body>
         <Providers>
           <Header />
-
-          {/* Marquesina retro */}
-          <div className="marquee">
-            <span>
-              ★ DUELOS 1v1 POR USDC ★ EL QUE GANA SE LLEVA TODO ★ TETRIS · FLAPPY
-              · CARRERA ★ ¿SIN RIVAL EN 1 HORA? TE DEVOLVEMOS TODO ★ DEMOSTRÁ
-              QUIÉN MANDA ★ (JUGANDO EN TESTNET) ★
-            </span>
-          </div>
-
+          <Marquee />
           <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
-
-          <footer className="mx-auto max-w-5xl px-4 py-10 text-center">
-            <p className="font-screen text-lg text-[--color-accent-2]">
-              Best viewed in 800×600 · Arcade1v1 © 2026
-            </p>
-            <p className="font-screen text-base text-slate-400">
-              Demostración en testnet · dinero de prueba ·{" "}
-              <span className="blink text-[--color-gold]">● REC</span>
-            </p>
-          </footer>
+          <SiteFooter />
         </Providers>
       </body>
     </html>

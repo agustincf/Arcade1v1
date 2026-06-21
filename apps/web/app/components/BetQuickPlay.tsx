@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { BET_AMOUNTS } from "@/app/lib/config";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
+import { useT } from "@/app/lib/i18n";
 
 type Picker = { mode: "bet"; bet: number } | { mode: "free" } | null;
 
 export function BetQuickPlay() {
   const router = useRouter();
+  const { t } = useT();
   const [picker, setPicker] = useState<Picker>(null);
   const live = GAMES.filter((g) => g.status === "live");
 
@@ -22,7 +24,7 @@ export function BetQuickPlay() {
   return (
     <>
       <p className="font-screen mt-5 text-center text-lg text-slate-400">
-        Jugá rápido — elegí un monto:
+        {t("quick.prompt")}
       </p>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         {BET_AMOUNTS.map((b) => (
@@ -36,17 +38,11 @@ export function BetQuickPlay() {
         ))}
       </div>
 
-      {/* Modo libre: probar sin plata */}
       <div className="mt-4 text-center">
-        <button
-          onClick={() => setPicker({ mode: "free" })}
-          className="btn3d btn3d--cyan"
-        >
-          🎮 PROBAR GRATIS (sin plata)
+        <button onClick={() => setPicker({ mode: "free" })} className="btn3d btn3d--cyan">
+          {t("free.btn")}
         </button>
-        <p className="font-screen mt-1 text-base text-slate-500">
-          Probá los juegos, sin riesgo. Después jugás por USDC.
-        </p>
+        <p className="font-screen mt-1 text-base text-slate-500">{t("free.sub")}</p>
       </div>
 
       {picker !== null && (
@@ -58,8 +54,8 @@ export function BetQuickPlay() {
             <div className="win-title">
               <span>
                 {picker.mode === "free"
-                  ? "PROBAR GRATIS · ¿QUÉ JUEGO?"
-                  : `¿A QUÉ JUGÁS · ${picker.bet} USDC?`}
+                  ? t("quick.titleFree")
+                  : t("quick.titleBet", { bet: picker.bet })}
               </span>
             </div>
             <div className="p-5">
@@ -72,16 +68,13 @@ export function BetQuickPlay() {
                   >
                     <GameIcon id={g.id} size={34} />
                     <span className="font-pixel text-sm text-[--color-accent]">
-                      {g.name}
+                      {t(`game.${g.id}.name`)}
                     </span>
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => setPicker(null)}
-                className="btn3d btn3d--cyan mt-4 w-full"
-              >
-                CANCELAR
+              <button onClick={() => setPicker(null)} className="btn3d btn3d--cyan mt-4 w-full">
+                {t("cancel")}
               </button>
             </div>
           </div>

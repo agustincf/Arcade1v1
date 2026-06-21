@@ -5,6 +5,7 @@ import { FlappyEngine, FLAPPY_CONST } from "./engine";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
+import { useT } from "@/app/lib/i18n";
 
 const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
 const GROUND_Y = HEIGHT - GROUND_H;
@@ -32,6 +33,7 @@ export function FlappyGame({
   const engineRef = useRef<FlappyEngine | null>(null);
   if (engineRef.current === null) engineRef.current = new FlappyEngine(seed);
 
+  const { t } = useT();
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
@@ -259,8 +261,8 @@ export function FlappyGame({
         {!started && (
           <StartScreen
             icon={<GameIcon id="flappy" size={56} />}
-            title="FLAPPY 1v1"
-            instructions="Tocá (o espacio) para aletear y esquivá los tubos. Cada tubo suma 1 punto. ¡No toques nada!"
+            title={t("g.flappy.title")}
+            instructions={t("g.flappy.instr")}
             onStart={() => {
               ensureAudio();
               onStarted?.();
@@ -271,7 +273,7 @@ export function FlappyGame({
 
         {over && (
           <GameOverScreen
-            headline="¡TE CAÍSTE! 💥"
+            headline={t("g.flappy.over")}
             score={score}
             onConfirm={() => onFinish({ score })}
           />
@@ -279,7 +281,7 @@ export function FlappyGame({
       </div>
 
       <p className="font-screen text-center text-base text-slate-500">
-        Tocá la pantalla o la barra espaciadora para aletear.
+        {t("g.flappy.hint")}
       </p>
     </div>
   );

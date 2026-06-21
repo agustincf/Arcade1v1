@@ -1,0 +1,562 @@
+"use client";
+
+// Sistema de idiomas (i18n). Idioma por defecto: ingles.
+// Soporta EN / ES / HI / FR, con autodeteccion por navegador y selector manual.
+
+import { createContext, useContext, useEffect, useState } from "react";
+
+export const LANGS = ["en", "es", "hi", "fr"] as const;
+export type Lang = (typeof LANGS)[number];
+
+export const LANG_LABELS: Record<Lang, string> = {
+  en: "EN",
+  es: "ES",
+  hi: "हि",
+  fr: "FR",
+};
+
+type Dict = Record<string, string>;
+
+const en: Dict = {
+  back: "← Back",
+  cancel: "Cancel",
+  home: "HOME",
+  connect: "👛 CONNECT WALLET",
+  marquee:
+    "★ 1v1 DUELS FOR USDC ★ WINNER TAKES ALL ★ TETRIS · FLAPPY · RACING · 2048 ★ NO RIVAL IN 1 HOUR? FULL REFUND ★ SHOW WHO'S BOSS ★ (PLAYING ON TESTNET) ★",
+  "footer.best": "Best viewed in 800×600 · Arcade1v1 © 2026",
+  "footer.demo": "Demo on testnet · play money ·",
+  "hero.title": "PLAY. WIN. CASH OUT.",
+  "hero.sub":
+    ">> Challenge a rival 1v1 and play for the pot in USDC. May the best win <<",
+  "quick.prompt": "Quick play — pick an amount:",
+  "free.btn": "🎮 TRY FREE (no money)",
+  "free.sub": "Try the games, risk-free. Then play for USDC.",
+  "card.cta": "► PLAY & WIN",
+  "card.open": "OPEN",
+  "how.title": "HOW_IT_WORKS.TXT",
+  "how.s1": "Pick a game and a table. Both put up the same in USDC.",
+  "how.s2": "We match you with a rival. Each plays their best run.",
+  "how.s3": "More points than your rival? You take the whole pot.",
+  "how.fee":
+    "* The platform keeps a 15% commission of the pot. If no one shows up within 1 hour, you get everything back.",
+  "quick.titleBet": "WHICH GAME · {bet} USDC?",
+  "quick.titleFree": "TRY FREE · WHICH GAME?",
+  "game.tetris.name": "Tetris",
+  "game.tetris.tagline": "The scoring king",
+  "game.tetris.desc":
+    "Stack, clear lines and blow up the board. Outscore your rival = take the pot.",
+  "game.flappy.name": "Flappy 1v1",
+  "game.flappy.tagline": "One tap, all nerves",
+  "game.flappy.desc":
+    "Dodge the pipes and last longer than your rival. Steel nerves, full pockets.",
+  "game.racing.name": "Racing",
+  "game.racing.tagline": "Pedal to the metal",
+  "game.racing.desc":
+    "Drive, dodge and never stop accelerating. Last to crash wins the bet.",
+  "game.2048.name": "2048",
+  "game.2048.tagline": "Add up & rule",
+  "game.2048.desc":
+    "Swipe, merge equal tiles and reach the highest number. More points, you take the pot.",
+  "table.choose": "CHOOSE TABLE",
+  "table.online": "{n} online",
+  "table.q": "How big is the duel? Both put up the same. Winner takes it.",
+  "table.win": "win {n}",
+  "table.vip": "👑 VIP",
+  "table.nudgeVip":
+    "👑 VIP table: {n} players going all in. Real money moves here.",
+  "table.nudgeNormal": "👀 {n} rivals searching on the {bet} USDC table. Jump in!",
+  "table.pot": "POT.LOG",
+  "table.yourBet": "Your bet",
+  "table.rivalBet": "Rival's bet",
+  "table.totalPot": "Total pot",
+  "table.fee": "Commission ({pct}%)",
+  "table.prize": "Winner's prize",
+  "table.cta": "► I WANT TO PLAY · {bet} USDC",
+  "table.norisk": "No rival in 1 hour? Full refund. Zero risk.",
+  "match.exit": "← Exit",
+  "match.modeFree": "FREE MODE",
+  "match.gratis": "FREE",
+  "match.pot": "POT {n}",
+  "match.freeIntro": "Try the game for free, no bets. Play for USDC whenever you want.",
+  "match.playing": "PLAYING.EXE",
+  "match.pairNote":
+    "We match you with a rival in arrival order. If no one shows up within 1 hour, you get everything back.",
+  "match.you": "YOU",
+  "match.rival": "RIVAL",
+  "match.freeHead": "NICE RUN!",
+  "match.yourScore": "Your score",
+  "match.freeUpsell": "Ready to play for real? Bet and win actual USDC.",
+  "match.playUsdc": "💰 PLAY FOR USDC",
+  "match.playAgain": "PLAY AGAIN",
+  "match.win": "YOU WON!",
+  "match.lose": "YOU LOST",
+  "match.draw": "DRAW",
+  "match.forfeit": "YOU LEFT",
+  "match.forfeitText": "You left the match. The {pot} USDC pot goes to your rival.",
+  "match.cashlog": "CASH.LOG",
+  "match.cobras": "You get",
+  "match.loseText": "It took {bet} USDC this time. Your rematch awaits. 😤",
+  "match.drawText": "Draw: {bet} USDC back to each player (no commission).",
+  "match.rematch": "REMATCH",
+  "match.confirmExit":
+    "If you leave now you FORFEIT and lose: the pot goes to your rival. Leave anyway?",
+  "result.exe": "RESULT.EXE",
+  "g.start": "START ▶",
+  "g.confirm": "CONFIRM ▶",
+  "g.yourScore": "Your score",
+  "g.pause": "PAUSE",
+  "g.resume": "RESUME ▶",
+  "g.tetris.title": "TETRIS",
+  "g.tetris.instr":
+    "Stack the pieces and clear lines. The more points, the better. It speeds up every 10 lines, like the classic.",
+  "g.tetris.over": "GAME OVER! 💥",
+  "g.flappy.title": "FLAPPY 1v1",
+  "g.flappy.instr":
+    "Tap (or space) to flap and dodge the pipes. Each pipe = 1 point. Don't touch a thing!",
+  "g.flappy.over": "YOU FELL! 💥",
+  "g.racing.title": "RACING",
+  "g.racing.instr":
+    "Switch lanes to dodge the cars. +1 for each one you leave behind. And it accelerates!",
+  "g.racing.over": "YOU CRASHED! 💥",
+  "g.2048.title": "2048",
+  "g.2048.instr":
+    "Swipe to merge equal tiles and add up. The higher the number, the more points. Play until nothing fits!",
+  "g.2048.over": "NO MOVES LEFT! 🧩",
+  "g.score": "Score",
+  "g.lines": "Lines",
+  "g.level": "Level",
+  "g.next": "Next",
+  "g.tetris.keys":
+    "Keyboard: ← → move · ↑/X rotate · ↓ down · Space = hard drop · P = pause",
+  "g.flappy.hint": "Tap the screen or hit space to flap.",
+  "g.racing.hint": "Arrows ← → (or the buttons) to change lanes.",
+  "g.2048.hint": "Arrow keys or swipe on the board.",
+  "err.title": "ERROR.SYS",
+  "err.head": "SOMETHING BROKE",
+  "err.body": "Don't worry: no funds were touched. Try again.",
+  "err.retry": "RETRY ▶",
+  "loading": "LOADING...",
+};
+
+const es: Dict = {
+  back: "← Volver",
+  cancel: "Cancelar",
+  home: "INICIO",
+  connect: "👛 CONECTAR WALLET",
+  marquee:
+    "★ DUELOS 1v1 POR USDC ★ EL QUE GANA SE LLEVA TODO ★ TETRIS · FLAPPY · CARRERA · 2048 ★ ¿SIN RIVAL EN 1 HORA? TE DEVOLVEMOS TODO ★ DEMOSTRÁ QUIÉN MANDA ★ (JUGANDO EN TESTNET) ★",
+  "footer.best": "Mejor visto en 800×600 · Arcade1v1 © 2026",
+  "footer.demo": "Demostración en testnet · dinero de prueba ·",
+  "hero.title": "JUGÁ. GANÁ. COBRÁ.",
+  "hero.sub":
+    ">> Retá a un rival 1v1 y jugate el pozo en USDC. Que gane el mejor <<",
+  "quick.prompt": "Jugá rápido — elegí un monto:",
+  "free.btn": "🎮 PROBAR GRATIS (sin plata)",
+  "free.sub": "Probá los juegos, sin riesgo. Después jugás por USDC.",
+  "card.cta": "► JUGAR Y GANAR",
+  "card.open": "ABIERTO",
+  "how.title": "COMO_FUNCIONA.TXT",
+  "how.s1": "Elegí un juego y una mesa. Los dos ponen lo mismo en USDC.",
+  "how.s2": "Te cruzamos con un rival. Cada uno juega su mejor intento.",
+  "how.s3": "¿Más puntos que el rival? Te llevás el pozo entero.",
+  "how.fee":
+    "* La plataforma retiene una comisión del 15% del pozo. Si nadie aparece en 1 hora, se te devuelve todo.",
+  "quick.titleBet": "¿A QUÉ JUGÁS · {bet} USDC?",
+  "quick.titleFree": "PROBAR GRATIS · ¿QUÉ JUEGO?",
+  "game.tetris.name": "Tetris",
+  "game.tetris.tagline": "El rey del puntaje",
+  "game.tetris.desc":
+    "Apila, hace líneas y revienta el tablero. Más puntaje que tu rival = te llevás el pozo.",
+  "game.flappy.name": "Flappy 1v1",
+  "game.flappy.tagline": "Un toque, mil nervios",
+  "game.flappy.desc":
+    "Esquiva los tubos y aguanta más que el rival. Pulso de acero, bolsillo lleno.",
+  "game.racing.name": "Carrera",
+  "game.racing.tagline": "Pisá a fondo",
+  "game.racing.desc":
+    "Manejás, esquivás y acelera sin parar. El último en chocar gana la apuesta.",
+  "game.2048.name": "2048",
+  "game.2048.tagline": "Sumá y dominá",
+  "game.2048.desc":
+    "Desliza, combina fichas iguales y hace el número más alto. Más puntaje, te llevás el pozo.",
+  "table.choose": "ELEGIR MESA",
+  "table.online": "{n} en línea",
+  "table.q": "¿De cuánto va el duelo? Los dos ponen lo mismo. El que gana, se lo lleva.",
+  "table.win": "ganás {n}",
+  "table.vip": "👑 VIP",
+  "table.nudgeVip":
+    "👑 Mesa VIP: {n} jugadores que van por todo. Acá se cobra en serio.",
+  "table.nudgeNormal": "👀 {n} rivales buscando en la mesa de {bet} USDC. ¡Entrá!",
+  "table.pot": "POZO.LOG",
+  "table.yourBet": "Tu apuesta",
+  "table.rivalBet": "Apuesta del rival",
+  "table.totalPot": "Pozo total",
+  "table.fee": "Comisión ({pct}%)",
+  "table.prize": "Premio al ganador",
+  "table.cta": "► QUIERO JUGAR · {bet} USDC",
+  "table.norisk": "Si no aparece rival en 1 hora, te devolvemos todo. Cero riesgo.",
+  "match.exit": "← Salir",
+  "match.modeFree": "MODO LIBRE",
+  "match.gratis": "GRATIS",
+  "match.pot": "POZO {n}",
+  "match.freeIntro": "Probá el juego gratis, sin apostar. Cuando quieras, jugá por USDC.",
+  "match.playing": "JUGANDO.EXE",
+  "match.pairNote":
+    "Te emparejamos con un rival por orden de llegada. Si nadie aparece en 1 hora, se te devuelve todo.",
+  "match.you": "VOS",
+  "match.rival": "RIVAL",
+  "match.freeHead": "¡BUEN INTENTO!",
+  "match.yourScore": "Tu puntaje",
+  "match.freeUpsell": "¿Listo para jugártelo en serio? Apostá y ganá USDC de verdad.",
+  "match.playUsdc": "💰 JUGAR POR USDC",
+  "match.playAgain": "JUGAR DE NUEVO",
+  "match.win": "¡GANASTE!",
+  "match.lose": "PERDISTE",
+  "match.draw": "EMPATE",
+  "match.forfeit": "ABANDONASTE",
+  "match.forfeitText": "Dejaste la partida. El pozo de {pot} USDC va para tu rival.",
+  "match.cashlog": "CAJA.LOG",
+  "match.cobras": "Cobrás",
+  "match.loseText": "Esta vez se llevó {bet} USDC. La revancha te espera. 😤",
+  "match.drawText": "Empate: se devuelve {bet} USDC a cada uno (sin comisión).",
+  "match.rematch": "REVANCHA",
+  "match.confirmExit":
+    "Si salís ahora ABANDONÁS la partida y perdés: el pozo va para tu rival. ¿Salir igual?",
+  "result.exe": "RESULTADO.EXE",
+  "g.start": "EMPEZAR ▶",
+  "g.confirm": "CONFIRMAR ▶",
+  "g.yourScore": "Tu puntaje",
+  "g.pause": "PAUSA",
+  "g.resume": "SEGUIR ▶",
+  "g.tetris.title": "TETRIS",
+  "g.tetris.instr":
+    "Apilá las piezas y hacé líneas. Cuantos más puntos, mejor. La dificultad sube cada 10 líneas, como el clásico.",
+  "g.tetris.over": "¡GAME OVER! 💥",
+  "g.flappy.title": "FLAPPY 1v1",
+  "g.flappy.instr":
+    "Tocá (o espacio) para aletear y esquivá los tubos. Cada tubo suma 1 punto. ¡No toques nada!",
+  "g.flappy.over": "¡TE CAÍSTE! 💥",
+  "g.racing.title": "CARRERA",
+  "g.racing.instr":
+    "Cambiá de carril para esquivar los autos. +1 por cada uno que dejás atrás. ¡Y acelera!",
+  "g.racing.over": "¡CHOCASTE! 💥",
+  "g.2048.title": "2048",
+  "g.2048.instr":
+    "Deslizá para juntar fichas iguales y sumá. Cuanto más alto el número, más puntos. ¡Jugá hasta que no entren más!",
+  "g.2048.over": "¡SIN MOVIMIENTOS! 🧩",
+  "g.score": "Puntaje",
+  "g.lines": "Líneas",
+  "g.level": "Nivel",
+  "g.next": "Sigue",
+  "g.tetris.keys":
+    "Teclado: ← → mover · ↑/X rotar · ↓ bajar · Espacio = caída rápida · P = pausa",
+  "g.flappy.hint": "Tocá la pantalla o la barra espaciadora para aletear.",
+  "g.racing.hint": "Flechas ← → (o los botones) para cambiar de carril.",
+  "g.2048.hint": "Flechas del teclado o deslizá en el tablero.",
+  "err.title": "ERROR.SYS",
+  "err.head": "ALGO SE ROMPIÓ",
+  "err.body": "Tranqui: no se tocó ningún fondo. Probá de nuevo.",
+  "err.retry": "REINTENTAR ▶",
+  "loading": "CARGANDO...",
+};
+
+const hi: Dict = {
+  back: "← वापस",
+  cancel: "रद्द करें",
+  home: "होम",
+  connect: "👛 वॉलेट कनेक्ट करें",
+  marquee:
+    "★ USDC के लिए 1v1 मुकाबले ★ जीतने वाला सब कुछ ले जाए ★ TETRIS · FLAPPY · RACING · 2048 ★ 1 घंटे में कोई प्रतिद्वंद्वी नहीं? पूरा रिफंड ★ दिखाओ कौन है बॉस ★ (टेस्टनेट पर) ★",
+  "footer.best": "800×600 में सबसे अच्छा · Arcade1v1 © 2026",
+  "footer.demo": "टेस्टनेट डेमो · नकली पैसा ·",
+  "hero.title": "खेलो. जीतो. कमाओ.",
+  "hero.sub":
+    ">> किसी प्रतिद्वंद्वी को 1v1 चुनौती दो और USDC में दांव खेलो। सबसे अच्छा जीते <<",
+  "quick.prompt": "जल्दी खेलो — एक रकम चुनो:",
+  "free.btn": "🎮 मुफ़्त आज़माओ (बिना पैसे)",
+  "free.sub": "बिना जोखिम खेल आज़माओ। फिर USDC में खेलो।",
+  "card.cta": "► खेलो और जीतो",
+  "card.open": "खुला",
+  "how.title": "कैसे_काम_करता_है.TXT",
+  "how.s1": "एक गेम और टेबल चुनो। दोनों USDC में बराबर लगाते हैं।",
+  "how.s2": "हम तुम्हें एक प्रतिद्वंद्वी से मिलाते हैं। हर कोई अपना सर्वश्रेष्ठ खेलता है।",
+  "how.s3": "प्रतिद्वंद्वी से ज़्यादा अंक? पूरा दांव तुम्हारा।",
+  "how.fee":
+    "* प्लेटफ़ॉर्म दांव का 15% कमीशन रखता है। अगर 1 घंटे में कोई नहीं आता, सब वापस मिल जाता है।",
+  "quick.titleBet": "कौन सा गेम · {bet} USDC?",
+  "quick.titleFree": "मुफ़्त आज़माओ · कौन सा गेम?",
+  "game.tetris.name": "Tetris",
+  "game.tetris.tagline": "स्कोर का राजा",
+  "game.tetris.desc":
+    "ब्लॉक जमाओ, लाइनें बनाओ और बोर्ड साफ़ करो। प्रतिद्वंद्वी से ज़्यादा स्कोर = दांव तुम्हारा।",
+  "game.flappy.name": "Flappy 1v1",
+  "game.flappy.tagline": "एक टैप, पूरी हिम्मत",
+  "game.flappy.desc":
+    "पाइपों से बचो और प्रतिद्वंद्वी से ज़्यादा टिको। मज़बूत नसें, भरी जेब।",
+  "game.racing.name": "रेसिंग",
+  "game.racing.tagline": "पूरी रफ़्तार",
+  "game.racing.desc":
+    "चलाओ, बचो और रफ़्तार बढ़ाते रहो। आख़िरी में टकराने वाला जीतता है।",
+  "game.2048.name": "2048",
+  "game.2048.tagline": "जोड़ो और राज करो",
+  "game.2048.desc":
+    "स्वाइप करो, बराबर टाइलें मिलाओ और सबसे बड़ा नंबर बनाओ। ज़्यादा अंक, दांव तुम्हारा।",
+  "table.choose": "टेबल चुनो",
+  "table.online": "{n} ऑनलाइन",
+  "table.q": "मुक़ाबला कितने का? दोनों बराबर लगाते हैं। जीतने वाला ले जाता है।",
+  "table.win": "जीतो {n}",
+  "table.vip": "👑 VIP",
+  "table.nudgeVip": "👑 VIP टेबल: {n} खिलाड़ी सब कुछ दांव पर। यहाँ असली खेल है।",
+  "table.nudgeNormal": "👀 {bet} USDC टेबल पर {n} प्रतिद्वंद्वी ढूँढ रहे हैं। आ जाओ!",
+  "table.pot": "दांव.LOG",
+  "table.yourBet": "तुम्हारा दांव",
+  "table.rivalBet": "प्रतिद्वंद्वी का दांव",
+  "table.totalPot": "कुल दांव",
+  "table.fee": "कमीशन ({pct}%)",
+  "table.prize": "विजेता का इनाम",
+  "table.cta": "► मुझे खेलना है · {bet} USDC",
+  "table.norisk": "1 घंटे में कोई प्रतिद्वंद्वी नहीं? पूरा रिफंड। शून्य जोखिम।",
+  "match.exit": "← बाहर",
+  "match.modeFree": "मुफ़्त मोड",
+  "match.gratis": "मुफ़्त",
+  "match.pot": "दांव {n}",
+  "match.freeIntro": "गेम मुफ़्त आज़माओ, बिना दांव। जब चाहो USDC में खेलो।",
+  "match.playing": "खेल.EXE",
+  "match.pairNote":
+    "हम तुम्हें आने के क्रम में प्रतिद्वंद्वी से मिलाते हैं। अगर 1 घंटे में कोई नहीं आता, सब वापस।",
+  "match.you": "तुम",
+  "match.rival": "प्रतिद्वंद्वी",
+  "match.freeHead": "बढ़िया कोशिश!",
+  "match.yourScore": "तुम्हारा स्कोर",
+  "match.freeUpsell": "असली में खेलने को तैयार? दांव लगाओ और असली USDC जीतो।",
+  "match.playUsdc": "💰 USDC में खेलो",
+  "match.playAgain": "फिर से खेलो",
+  "match.win": "तुम जीते!",
+  "match.lose": "तुम हारे",
+  "match.draw": "बराबरी",
+  "match.forfeit": "तुमने छोड़ा",
+  "match.forfeitText": "तुमने मैच छोड़ा। {pot} USDC का दांव तुम्हारे प्रतिद्वंद्वी को।",
+  "match.cashlog": "कैश.LOG",
+  "match.cobras": "तुम्हें मिलेगा",
+  "match.loseText": "इस बार {bet} USDC गया। बदला बाक़ी है। 😤",
+  "match.drawText": "बराबरी: हर खिलाड़ी को {bet} USDC वापस (कोई कमीशन नहीं)।",
+  "match.rematch": "बदला",
+  "match.confirmExit":
+    "अभी निकले तो मैच छोड़ोगे और हारोगे: दांव प्रतिद्वंद्वी को जाएगा। फिर भी निकलें?",
+  "result.exe": "रिज़ल्ट.EXE",
+  "g.start": "शुरू ▶",
+  "g.confirm": "पुष्टि ▶",
+  "g.yourScore": "तुम्हारा स्कोर",
+  "g.pause": "रुको",
+  "g.resume": "जारी ▶",
+  "g.tetris.title": "TETRIS",
+  "g.tetris.instr":
+    "टुकड़े जमाओ और लाइनें बनाओ। जितने ज़्यादा अंक, उतना अच्छा। हर 10 लाइनों पर रफ़्तार बढ़ती है।",
+  "g.tetris.over": "गेम ओवर! 💥",
+  "g.flappy.title": "FLAPPY 1v1",
+  "g.flappy.instr":
+    "फ्लैप के लिए टैप (या स्पेस)। पाइपों से बचो। हर पाइप = 1 अंक। कुछ मत छुओ!",
+  "g.flappy.over": "तुम गिर गए! 💥",
+  "g.racing.title": "रेसिंग",
+  "g.racing.instr":
+    "कारों से बचने के लिए लेन बदलो। हर एक को पीछे छोड़ने पर +1। और रफ़्तार बढ़ती है!",
+  "g.racing.over": "तुम टकरा गए! 💥",
+  "g.2048.title": "2048",
+  "g.2048.instr":
+    "बराबर टाइलें मिलाने के लिए स्वाइप करो। नंबर जितना बड़ा, उतने अंक। जब तक जगह है खेलो!",
+  "g.2048.over": "कोई चाल नहीं! 🧩",
+  "g.score": "स्कोर",
+  "g.lines": "लाइनें",
+  "g.level": "लेवल",
+  "g.next": "अगला",
+  "g.tetris.keys":
+    "कीबोर्ड: ← → चलाओ · ↑/X घुमाओ · ↓ नीचे · स्पेस = तेज़ गिराओ · P = रुको",
+  "g.flappy.hint": "फ्लैप के लिए स्क्रीन टैप करो या स्पेस दबाओ।",
+  "g.racing.hint": "लेन बदलने के लिए ← → (या बटन)।",
+  "g.2048.hint": "कीबोर्ड के तीर या बोर्ड पर स्वाइप।",
+  "err.title": "ERROR.SYS",
+  "err.head": "कुछ टूट गया",
+  "err.body": "चिंता मत करो: कोई पैसा नहीं छुआ गया। फिर कोशिश करो।",
+  "err.retry": "फिर कोशिश ▶",
+  "loading": "लोड हो रहा है...",
+};
+
+const fr: Dict = {
+  back: "← Retour",
+  cancel: "Annuler",
+  home: "ACCUEIL",
+  connect: "👛 CONNECTER WALLET",
+  marquee:
+    "★ DUELS 1v1 POUR USDC ★ LE GAGNANT RAFLE TOUT ★ TETRIS · FLAPPY · COURSE · 2048 ★ PAS D'ADVERSAIRE EN 1 HEURE ? REMBOURSÉ ★ MONTRE QUI COMMANDE ★ (EN TESTNET) ★",
+  "footer.best": "Optimisé pour 800×600 · Arcade1v1 © 2026",
+  "footer.demo": "Démo en testnet · argent fictif ·",
+  "hero.title": "JOUE. GAGNE. ENCAISSE.",
+  "hero.sub":
+    ">> Défie un rival en 1v1 et joue la cagnotte en USDC. Que le meilleur gagne <<",
+  "quick.prompt": "Jouer vite — choisis un montant :",
+  "free.btn": "🎮 ESSAYER GRATUIT (sans argent)",
+  "free.sub": "Essaie les jeux, sans risque. Puis joue pour des USDC.",
+  "card.cta": "► JOUER & GAGNER",
+  "card.open": "OUVERT",
+  "how.title": "COMMENT_CA_MARCHE.TXT",
+  "how.s1": "Choisis un jeu et une table. Chacun mise pareil en USDC.",
+  "how.s2": "On te trouve un rival. Chacun joue son meilleur essai.",
+  "how.s3": "Plus de points que ton rival ? Tu rafles toute la cagnotte.",
+  "how.fee":
+    "* La plateforme garde une commission de 15% de la cagnotte. Si personne ne vient en 1 heure, tout est remboursé.",
+  "quick.titleBet": "QUEL JEU · {bet} USDC ?",
+  "quick.titleFree": "ESSAYER GRATUIT · QUEL JEU ?",
+  "game.tetris.name": "Tetris",
+  "game.tetris.tagline": "Le roi du score",
+  "game.tetris.desc":
+    "Empile, fais des lignes et explose le plateau. Plus de points que ton rival = la cagnotte.",
+  "game.flappy.name": "Flappy 1v1",
+  "game.flappy.tagline": "Un tap, max de nerfs",
+  "game.flappy.desc":
+    "Évite les tuyaux et tiens plus longtemps. Nerfs d'acier, poches pleines.",
+  "game.racing.name": "Course",
+  "game.racing.tagline": "À fond la caisse",
+  "game.racing.desc":
+    "Conduis, esquive et accélère sans cesse. Le dernier à crasher gagne.",
+  "game.2048.name": "2048",
+  "game.2048.tagline": "Additionne & règne",
+  "game.2048.desc":
+    "Glisse, fusionne les tuiles égales et atteins le plus grand nombre. Plus de points, la cagnotte.",
+  "table.choose": "CHOISIR TABLE",
+  "table.online": "{n} en ligne",
+  "table.q": "Le duel monte à combien ? Mise égale. Le gagnant rafle tout.",
+  "table.win": "gagne {n}",
+  "table.vip": "👑 VIP",
+  "table.nudgeVip":
+    "👑 Table VIP : {n} joueurs prêts à tout. Ça joue gros ici.",
+  "table.nudgeNormal": "👀 {n} rivaux en recherche sur la table {bet} USDC. Rejoins !",
+  "table.pot": "CAGNOTTE.LOG",
+  "table.yourBet": "Ta mise",
+  "table.rivalBet": "Mise du rival",
+  "table.totalPot": "Cagnotte totale",
+  "table.fee": "Commission ({pct}%)",
+  "table.prize": "Prix du gagnant",
+  "table.cta": "► JE VEUX JOUER · {bet} USDC",
+  "table.norisk": "Pas d'adversaire en 1 h ? Remboursé. Zéro risque.",
+  "match.exit": "← Quitter",
+  "match.modeFree": "MODE LIBRE",
+  "match.gratis": "GRATUIT",
+  "match.pot": "CAGN. {n}",
+  "match.freeIntro": "Essaie le jeu gratuitement, sans mise. Joue pour des USDC quand tu veux.",
+  "match.playing": "EN_JEU.EXE",
+  "match.pairNote":
+    "On te trouve un rival par ordre d'arrivée. Si personne ne vient en 1 heure, tout est remboursé.",
+  "match.you": "TOI",
+  "match.rival": "RIVAL",
+  "match.freeHead": "BEL ESSAI !",
+  "match.yourScore": "Ton score",
+  "match.freeUpsell": "Prêt à jouer pour de vrai ? Mise et gagne de vrais USDC.",
+  "match.playUsdc": "💰 JOUER POUR USDC",
+  "match.playAgain": "REJOUER",
+  "match.win": "GAGNÉ !",
+  "match.lose": "PERDU",
+  "match.draw": "ÉGALITÉ",
+  "match.forfeit": "TU AS QUITTÉ",
+  "match.forfeitText": "Tu as quitté le match. La cagnotte de {pot} USDC va à ton rival.",
+  "match.cashlog": "CAISSE.LOG",
+  "match.cobras": "Tu encaisses",
+  "match.loseText": "Cette fois ça prend {bet} USDC. La revanche t'attend. 😤",
+  "match.drawText": "Égalité : {bet} USDC rendus à chacun (sans commission).",
+  "match.rematch": "REVANCHE",
+  "match.confirmExit":
+    "Si tu pars maintenant tu ABANDONNES et perds : la cagnotte va à ton rival. Quitter quand même ?",
+  "result.exe": "RÉSULTAT.EXE",
+  "g.start": "DÉMARRER ▶",
+  "g.confirm": "VALIDER ▶",
+  "g.yourScore": "Ton score",
+  "g.pause": "PAUSE",
+  "g.resume": "REPRENDRE ▶",
+  "g.tetris.title": "TETRIS",
+  "g.tetris.instr":
+    "Empile les pièces et fais des lignes. Plus de points, mieux c'est. Ça accélère toutes les 10 lignes, comme le classique.",
+  "g.tetris.over": "GAME OVER ! 💥",
+  "g.flappy.title": "FLAPPY 1v1",
+  "g.flappy.instr":
+    "Tape (ou espace) pour voler et évite les tuyaux. Chaque tuyau = 1 point. Ne touche à rien !",
+  "g.flappy.over": "TU ES TOMBÉ ! 💥",
+  "g.racing.title": "COURSE",
+  "g.racing.instr":
+    "Change de voie pour éviter les voitures. +1 par voiture dépassée. Et ça accélère !",
+  "g.racing.over": "TU AS CRASHÉ ! 💥",
+  "g.2048.title": "2048",
+  "g.2048.instr":
+    "Glisse pour fusionner les tuiles égales et additionne. Plus le nombre est grand, plus de points. Joue jusqu'à saturation !",
+  "g.2048.over": "PLUS DE COUPS ! 🧩",
+  "g.score": "Score",
+  "g.lines": "Lignes",
+  "g.level": "Niveau",
+  "g.next": "Suivant",
+  "g.tetris.keys":
+    "Clavier : ← → bouger · ↑/X tourner · ↓ descendre · Espace = chute rapide · P = pause",
+  "g.flappy.hint": "Tape l'écran ou appuie sur espace pour voler.",
+  "g.racing.hint": "Flèches ← → (ou les boutons) pour changer de voie.",
+  "g.2048.hint": "Flèches du clavier ou glisse sur le plateau.",
+  "err.title": "ERROR.SYS",
+  "err.head": "QUELQUE CHOSE A CASSÉ",
+  "err.body": "Pas de panique : aucun fonds touché. Réessaie.",
+  "err.retry": "RÉESSAYER ▶",
+  "loading": "CHARGEMENT...",
+};
+
+const DICT: Record<Lang, Dict> = { en, es, hi, fr };
+
+interface I18nState {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}
+
+const I18nContext = createContext<I18nState | null>(null);
+
+function detect(): Lang {
+  if (typeof window === "undefined") return "en";
+  const saved = localStorage.getItem("arcade.lang") as Lang | null;
+  if (saved && LANGS.includes(saved)) return saved;
+  const nav = navigator.language.slice(0, 2).toLowerCase() as Lang;
+  return LANGS.includes(nav) ? nav : "en";
+}
+
+export function I18nProvider({ children }: { children: React.ReactNode }) {
+  // Empieza en "en" (igual que el servidor) y detecta en el cliente.
+  const [lang, setLangState] = useState<Lang>("en");
+
+  useEffect(() => {
+    const d = detect();
+    setLangState(d);
+    document.documentElement.lang = d;
+  }, []);
+
+  function setLang(l: Lang) {
+    setLangState(l);
+    localStorage.setItem("arcade.lang", l);
+    document.documentElement.lang = l;
+  }
+
+  function t(key: string, vars?: Record<string, string | number>) {
+    let s = DICT[lang][key] ?? DICT.en[key] ?? key;
+    if (vars) {
+      for (const k of Object.keys(vars)) {
+        s = s.replace(new RegExp(`\\{${k}\\}`, "g"), String(vars[k]));
+      }
+    }
+    return s;
+  }
+
+  return (
+    <I18nContext.Provider value={{ lang, setLang, t }}>
+      {children}
+    </I18nContext.Provider>
+  );
+}
+
+export function useT() {
+  const ctx = useContext(I18nContext);
+  if (!ctx) throw new Error("useT debe usarse dentro de <I18nProvider>");
+  return ctx;
+}

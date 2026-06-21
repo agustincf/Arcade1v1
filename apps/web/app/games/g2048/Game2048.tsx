@@ -5,6 +5,7 @@ import { Game2048 as Engine, SIZE, type Dir } from "./engine";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
+import { useT } from "@/app/lib/i18n";
 
 export interface Result2048 {
   score: number;
@@ -40,6 +41,7 @@ export function Game2048Component({
   const engineRef = useRef<Engine | null>(null);
   if (engineRef.current === null) engineRef.current = new Engine(seed);
 
+  const { t } = useT();
   const [, force] = useReducer((x) => x + 1, 0);
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
@@ -94,7 +96,7 @@ export function Game2048Component({
       <div className="flex w-full max-w-[320px] items-center justify-between">
         <span className="font-pixel text-sm text-[--color-gold]">2048</span>
         <span className="font-screen text-xl text-slate-200">
-          Puntaje: <b className="text-[--color-accent-2]">{engine.score}</b>
+          {t("g.score")}: <b className="text-[--color-accent-2]">{engine.score}</b>
         </span>
       </div>
 
@@ -124,8 +126,8 @@ export function Game2048Component({
         {!started && (
           <StartScreen
             icon={<GameIcon id="2048" size={56} />}
-            title="2048"
-            instructions="Deslizá para juntar fichas iguales y sumá. Cuanto más alto el número, más puntos. ¡Jugá hasta que no entren más!"
+            title={t("g.2048.title")}
+            instructions={t("g.2048.instr")}
             onStart={() => {
               ensureAudio();
               onStarted?.();
@@ -136,7 +138,7 @@ export function Game2048Component({
 
         {over && (
           <GameOverScreen
-            headline="¡SIN MOVIMIENTOS! 🧩"
+            headline={t("g.2048.over")}
             score={engine.score}
             onConfirm={() => onFinish({ score: engine.score })}
           />
@@ -156,7 +158,7 @@ export function Game2048Component({
       )}
 
       <p className="font-screen text-center text-base text-slate-500">
-        Flechas del teclado o deslizá en el tablero.
+        {t("g.2048.hint")}
       </p>
     </div>
   );

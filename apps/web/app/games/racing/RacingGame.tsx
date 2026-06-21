@@ -5,6 +5,7 @@ import { RacingEngine, RACING_CONST } from "./engine";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
+import { useT } from "@/app/lib/i18n";
 
 const { WIDTH, HEIGHT } = RACING_CONST;
 const HORIZON = 150; // linea del horizonte (donde "nace" la ruta)
@@ -28,6 +29,7 @@ export function RacingGame({
   const engineRef = useRef<RacingEngine | null>(null);
   if (engineRef.current === null) engineRef.current = new RacingEngine(seed);
 
+  const { t } = useT();
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
@@ -277,8 +279,8 @@ export function RacingGame({
         {!started && (
           <StartScreen
             icon={<GameIcon id="racing" size={56} />}
-            title="CARRERA"
-            instructions="Cambiá de carril para esquivar los autos. +1 por cada uno que dejás atrás. ¡Y acelera!"
+            title={t("g.racing.title")}
+            instructions={t("g.racing.instr")}
             onStart={() => {
               ensureAudio();
               onStarted?.();
@@ -289,7 +291,7 @@ export function RacingGame({
 
         {over && (
           <GameOverScreen
-            headline="¡CHOCASTE! 💥"
+            headline={t("g.racing.over")}
             score={score}
             onConfirm={() => onFinish({ score })}
           />
@@ -321,7 +323,7 @@ export function RacingGame({
       )}
 
       <p className="font-screen text-center text-base text-slate-500">
-        Flechas ← → (o los botones) para cambiar de carril.
+        {t("g.racing.hint")}
       </p>
     </div>
   );

@@ -4,8 +4,11 @@ import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { NETWORK_LABEL } from "@/app/lib/config";
 import { SoundToggle } from "@/app/components/SoundToggle";
+import { LanguageSelector } from "@/app/components/LanguageSelector";
+import { useT } from "@/app/lib/i18n";
 
 export function Header() {
+  const { t } = useT();
   return (
     <header className="sticky top-0 z-40 border-b-2 border-[#0a0518] bg-[#0a0518]/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
@@ -22,6 +25,7 @@ export function Header() {
           </span>
 
           <SoundToggle />
+          <LanguageSelector />
 
           {/* Boton de conexion retro (MetaMask / WalletConnect) */}
           <ConnectButton.Custom>
@@ -32,7 +36,7 @@ export function Header() {
                   onClick={connected ? openAccountModal : openConnectModal}
                   className="btn3d btn3d--cyan !px-3 !py-2 !text-[10px]"
                 >
-                  {connected ? `🟢 ${account.displayName}` : "👛 CONECTAR WALLET"}
+                  {connected ? `🟢 ${account.displayName}` : t("connect")}
                 </button>
               );
             }}

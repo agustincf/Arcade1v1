@@ -6,6 +6,7 @@ import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import { wagmiConfig } from "@/app/lib/wagmi";
+import { I18nProvider } from "@/app/lib/i18n";
 
 // Envoltorio que da soporte de billetera real a toda la app.
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -20,7 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             borderRadius: "medium",
           })}
         >
-          {children}
+          <I18nProvider>{children}</I18nProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

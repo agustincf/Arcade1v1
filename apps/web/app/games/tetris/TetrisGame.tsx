@@ -5,6 +5,7 @@ import { TetrisEngine, COLS, ROWS, PIECE_COLORS } from "./engine";
 import { StartScreen, GameOverScreen, GameOverlay } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
+import { useT } from "@/app/lib/i18n";
 
 export interface TetrisResult {
   score: number;
@@ -24,6 +25,7 @@ export function TetrisGame({
   const engineRef = useRef<TetrisEngine | null>(null);
   if (engineRef.current === null) engineRef.current = new TetrisEngine(seed);
 
+  const { t } = useT();
   const [, force] = useReducer((x) => x + 1, 0);
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
@@ -135,10 +137,10 @@ export function TetrisGame({
     <div className="flex flex-col items-center gap-4">
       {/* HUD: puntaje / lineas / nivel + proxima pieza */}
       <div className="flex w-full max-w-[320px] items-stretch justify-between gap-3 text-sm">
-        <Stat label="Puntaje" value={engine.score} big />
-        <Stat label="Lineas" value={engine.lines} />
-        <Stat label="Nivel" value={engine.level} />
-        <NextPreview matrix={nextMatrix} color={PIECE_COLORS[engine.peekNextType()]} />
+        <Stat label={t("g.score")} value={engine.score} big />
+        <Stat label={t("g.lines")} value={engine.lines} />
+        <Stat label={t("g.level")} value={engine.level} />
+        <NextPreview matrix={nextMatrix} color={PIECE_COLORS[engine.peekNextType()]} label={t("g.next")} />
       </div>
 
       {/* Tablero */}
@@ -169,8 +171,8 @@ export function TetrisGame({
         {!started && (
           <StartScreen
             icon={<GameIcon id="tetris" size={56} />}
-            title="TETRIS"
-            instructions="Apilá las piezas y hacé líneas. Cuantos más puntos, mejor. La dificultad sube cada 10 líneas, como el clásico."
+            title={t("g.tetris.title")}
+            instructions={t("g.tetris.instr")}
             onStart={() => {
               ensureAudio();
               onStarted?.();
@@ -182,12 +184,12 @@ export function TetrisGame({
         {/* Pantalla: pausa */}
         {started && paused && !over && (
           <GameOverlay>
-            <h3 className="font-pixel text-base text-[--color-gold]">PAUSA</h3>
+            <h3 className="font-pixel text-base text-[--color-gold]">{t("g.pause")}</h3>
             <button
               onClick={() => setPaused(false)}
               className="btn3d btn3d--magenta mt-4"
             >
-              SEGUIR ▶
+              {t("g.resume")}
             </button>
           </GameOverlay>
         )}
@@ -195,7 +197,7 @@ export function TetrisGame({
         {/* Pantalla: game over */}
         {over && (
           <GameOverScreen
-            headline="¡GAME OVER! 💥"
+            headline={t("g.tetris.over")}
             score={engine.score}
             onConfirm={() =>
               onFinish({
@@ -221,8 +223,7 @@ export function TetrisGame({
 
       {/* Ayuda de teclado (en compu) */}
       <p className="hidden text-center text-xs text-slate-500 sm:block">
-        Teclado: ← → mover · ↑/X rotar · ↓ bajar · Espacio = caida rapida · P =
-        pausa
+        {t("g.tetris.keys")}
       </p>
     </div>
   );
@@ -280,14 +281,16 @@ function Block({ color }: { color: string }) {
 function NextPreview({
   matrix,
   color,
+  label,
 }: {
   matrix: number[][];
   color: string;
+  label: string;
 }) {
   return (
     <div className="rounded-lg border border-[--color-border] bg-[--color-surface] px-2 py-1 text-center">
       <div className="text-[10px] uppercase tracking-wide text-slate-500">
-        Sigue
+        {label}
       </div>
       <div className="mt-1 flex flex-col items-center gap-px">
         {matrix.map((row, r) => (

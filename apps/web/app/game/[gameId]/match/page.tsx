@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getGame } from "@/app/lib/games";
 import { getPayout, PLATFORM_FEE } from "@/app/lib/config";
 import { GameIcon } from "@/app/components/GameIcon";
+import { useT } from "@/app/lib/i18n";
 import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
 import { FlappyGame, type FlappyResult } from "@/app/games/flappy/FlappyGame";
 import { RacingGame, type RacingResult } from "@/app/games/racing/RacingGame";
@@ -21,12 +22,13 @@ export default function MatchPage({
   const game = getGame(gameId);
   const router = useRouter();
   const search = useSearchParams();
+  const { t } = useT();
   const free = search.get("free") === "1";
   const bet = Number(search.get("bet") ?? 0);
   const payout = getPayout(bet);
 
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1e9));
-  const [round, setRound] = useState(0); // para reiniciar el juego en "jugar de nuevo"
+  const [round, setRound] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [youScore, setYouScore] = useState<number | null>(null);
   const [rivalScore, setRivalScore] = useState<number | null>(null);
@@ -34,7 +36,6 @@ export default function MatchPage({
   const [freeDone, setFreeDone] = useState(false);
   const [forfeit, setForfeit] = useState(false);
 
-  // Aviso del navegador si intenta cerrar/recargar con la partida (de plata) en curso.
   useEffect(() => {
     if (free) return;
     function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -61,16 +62,12 @@ export default function MatchPage({
     setOutcome(score > rival ? "win" : score < rival ? "lose" : "draw");
   }
 
-  // Salir de la pantalla. Si abandonás una partida de plata empezada -> perdés.
   function handleExit() {
     if (free || !playing || outcome !== null) {
       router.push("/");
       return;
     }
-    const ok = window.confirm(
-      "Si salís ahora ABANDONÁS la partida y perdés: el pozo va para tu rival. ¿Salir igual?",
-    );
-    if (!ok) return;
+    if (!window.confirm(t("match.confirmExit"))) return;
     setPlaying(false);
     setForfeit(true);
     setRivalScore(youScore ?? 0);
@@ -85,10 +82,7 @@ export default function MatchPage({
     setPlaying(false);
   }
 
-  const gameProps = {
-    seed,
-    onStarted: () => setPlaying(true),
-  };
+  const gameProps = { seed, onStarted: () => setPlaying(true) };
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -96,31 +90,34 @@ export default function MatchPage({
         onClick={handleExit}
         className="font-screen text-xl text-[--color-accent-2] hover:underline"
       >
-        ← Salir
+        {t("match.exit")}
       </button>
 
       {/* Marcador */}
       <div className="win mt-3">
         <div className="win-title">
           <span>
-            {game.name.toUpperCase()} · {free ? "MODO LIBRE" : `MESA ${bet} USDC`}
+            {t(`game.${game.id}.name`).toUpperCase()} ·{" "}
+            {free ? t("match.modeFree") : `${bet} USDC`}
           </span>
           {free ? (
-            <span className="chip !text-[--color-lime]">GRATIS</span>
+            <span className="chip !text-[--color-lime]">{t("match.gratis")}</span>
           ) : (
-            <span className="chip !text-[--color-gold]">POZO {payout.pot}</span>
+            <span className="chip !text-[--color-gold]">
+              {t("match.pot", { n: payout.pot })}
+            </span>
           )}
         </div>
         {!free && (
           <div className="flex items-center justify-between p-4">
-            <ScoreSide label="VOS" score={youScore} />
+            <ScoreSide label={t("match.you")} score={youScore} />
             <span className="font-pixel text-base text-[--color-gold] blink">VS</span>
-            <ScoreSide label="RIVAL" score={rivalScore} right />
+            <ScoreSide label={t("match.rival")} score={rivalScore} right />
           </div>
         )}
         {free && (
           <p className="font-screen px-4 py-3 text-center text-lg text-slate-300">
-            Probá el juego gratis, sin apostar. Cuando quieras, jugá por USDC.
+            {t("match.freeIntro")}
           </p>
         )}
       </div>
@@ -128,7 +125,7 @@ export default function MatchPage({
       {/* Area de juego */}
       <div className="win mt-4">
         <div className="win-title win-title--cyan">
-          <span>JUGANDO.EXE</span>
+          <span>{t("match.playing")}</span>
           <span className="win-dots">
             <span className="win-dot" />
             <span className="win-dot" />
@@ -143,51 +140,38 @@ export default function MatchPage({
             <RacingGame key={round} {...gameProps} onFinish={(r: RacingResult) => finishMatch(r.score)} />
           ) : game.id === "2048" ? (
             <Game2048Component key={round} {...gameProps} onFinish={(r: Result2048) => finishMatch(r.score)} />
-          ) : (
-            <p className="font-screen py-10 text-center text-xl text-slate-400">
-              Este juego todavía no está disponible.
-            </p>
-          )}
+          ) : null}
         </div>
       </div>
 
       {!free && (
         <p className="font-screen mt-3 text-center text-base text-slate-500">
-          Te emparejamos con un rival por orden de llegada. Si nadie aparece en 1
-          hora, se te devuelve todo.
+          {t("match.pairNote")}
         </p>
       )}
 
       {/* Resultado MODO LIBRE */}
       {freeDone && (
-        <Modal>
+        <Modal title={t("result.exe")}>
           <div className="flex justify-center">
             <GameIcon id={game.id} size={56} />
           </div>
           <h2 className="font-pixel mt-3 text-lg text-[--color-accent-2] neon-cyan">
-            ¡BUEN INTENTO!
+            {t("match.freeHead")}
           </h2>
-          <p className="font-screen mt-3 text-xl text-slate-200">Tu puntaje</p>
+          <p className="font-screen mt-3 text-xl text-slate-200">{t("match.yourScore")}</p>
           <p className="font-pixel text-3xl text-[--color-gold]">{youScore}</p>
-          <p className="font-screen mt-3 text-lg text-slate-300">
-            ¿Listo para jugártelo en serio? Apostá y ganá USDC de verdad.
-          </p>
+          <p className="font-screen mt-3 text-lg text-slate-300">{t("match.freeUpsell")}</p>
           <div className="mt-5 flex flex-col gap-3">
-            <button
-              onClick={() => router.push(`/game/${gameId}`)}
-              className="btn3d btn3d--magenta w-full"
-            >
-              💰 JUGAR POR USDC
+            <button onClick={() => router.push(`/game/${gameId}`)} className="btn3d btn3d--magenta w-full">
+              {t("match.playUsdc")}
             </button>
             <div className="flex gap-3">
               <button onClick={replayFree} className="btn3d btn3d--cyan flex-1">
-                JUGAR DE NUEVO
+                {t("match.playAgain")}
               </button>
-              <button
-                onClick={() => router.push("/")}
-                className="btn3d btn3d--cyan flex-1"
-              >
-                INICIO
+              <button onClick={() => router.push("/")} className="btn3d btn3d--cyan flex-1">
+                {t("home")}
               </button>
             </div>
           </div>
@@ -196,7 +180,7 @@ export default function MatchPage({
 
       {/* Resultado partida de plata */}
       {outcome !== null && (
-        <Modal>
+        <Modal title={t("result.exe")}>
           <div className="text-6xl">
             {forfeit ? "🏳️" : outcome === "win" ? "🏆" : outcome === "lose" ? "💀" : "🤝"}
           </div>
@@ -205,45 +189,45 @@ export default function MatchPage({
               outcome === "win" ? "text-[--color-win]" : outcome === "draw" ? "text-slate-100" : "text-[--color-lose]"
             }`}
           >
-            {forfeit ? "ABANDONASTE" : outcome === "win" ? "¡GANASTE!" : outcome === "lose" ? "PERDISTE" : "EMPATE"}
+            {forfeit ? t("match.forfeit") : outcome === "win" ? t("match.win") : outcome === "lose" ? t("match.lose") : t("match.draw")}
           </h2>
 
           {forfeit ? (
             <p className="font-screen mt-4 text-lg text-slate-300">
-              Dejaste la partida. El pozo de {payout.pot} USDC va para tu rival.
+              {t("match.forfeitText", { pot: payout.pot })}
             </p>
           ) : (
             <>
               <div className="font-screen mt-4 flex items-center justify-center gap-6 text-xl">
                 <div>
-                  <div className="text-slate-400">VOS</div>
+                  <div className="text-slate-400">{t("match.you")}</div>
                   <div className="font-pixel text-base text-[--color-accent-2]">{youScore}</div>
                 </div>
                 <div className="text-slate-500">vs</div>
                 <div>
-                  <div className="text-slate-400">RIVAL</div>
+                  <div className="text-slate-400">{t("match.rival")}</div>
                   <div className="font-pixel text-base text-slate-200">{rivalScore}</div>
                 </div>
               </div>
               <div className="win mt-5">
-                <div className="win-title"><span>CAJA.LOG</span></div>
+                <div className="win-title"><span>{t("match.cashlog")}</span></div>
                 <div className="font-screen p-4 text-lg">
                   {outcome === "win" && (
                     <>
-                      <Money label="Pozo" value={`${payout.pot} USDC`} />
-                      <Money label={`Comisión (${PLATFORM_FEE * 100}%)`} value={`- ${payout.fee} USDC`} />
+                      <Money label={t("table.totalPot")} value={`${payout.pot} USDC`} />
+                      <Money label={t("table.fee", { pct: PLATFORM_FEE * 100 })} value={`- ${payout.fee} USDC`} />
                       <div className="my-2 border-t-2 border-dashed border-[--color-border]" />
                       <div className="flex justify-between">
-                        <span className="text-slate-300">Cobrás</span>
+                        <span className="text-slate-300">{t("match.cobras")}</span>
                         <span className="font-pixel text-sm text-[--color-win]">{payout.prize} USDC</span>
                       </div>
                     </>
                   )}
                   {outcome === "lose" && (
-                    <p className="text-slate-300">Esta vez se llevó {bet} USDC. La revancha te espera. 😤</p>
+                    <p className="text-slate-300">{t("match.loseText", { bet })}</p>
                   )}
                   {outcome === "draw" && (
-                    <p className="text-slate-300">Empate: se devuelve {bet} USDC a cada uno (sin comisión).</p>
+                    <p className="text-slate-300">{t("match.drawText", { bet })}</p>
                   )}
                 </div>
               </div>
@@ -253,11 +237,11 @@ export default function MatchPage({
           <div className="mt-5 flex gap-3">
             {!forfeit && (
               <button onClick={() => router.push(`/game/${gameId}`)} className="btn3d btn3d--magenta flex-1">
-                REVANCHA
+                {t("match.rematch")}
               </button>
             )}
             <button onClick={() => router.push("/")} className="btn3d btn3d--cyan flex-1">
-              INICIO
+              {t("home")}
             </button>
           </div>
         </Modal>
@@ -266,12 +250,12 @@ export default function MatchPage({
   );
 }
 
-function Modal({ children }: { children: React.ReactNode }) {
+function Modal({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-4">
       <div className="win w-full max-w-sm">
         <div className="win-title">
-          <span>RESULTADO.EXE</span>
+          <span>{title}</span>
           <span className="win-dots">
             <span className="win-dot" />
           </span>
