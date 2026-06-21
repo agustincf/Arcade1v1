@@ -1,0 +1,31 @@
+# Arcade1v1
+
+> Arcade1v1 is a 1v1 skill-game arena where two players each bet the same amount
+> of USDC (a US-dollar stablecoin) and the higher score wins the pot, minus a
+> 15% platform commission. Built on the Base blockchain. Currently a testnet demo.
+
+## How it works
+- Pick a game and a table (bet amounts: 1, 2, 5 or 10 USDC). Both players bet the same.
+- Players are matched by arrival order (asynchronous — no live waiting).
+- Both receive the same seed, so games are fair (skill, not luck).
+- Each plays their run; the higher score wins. A trusted arbiter signs the result
+  and a smart-contract escrow pays the winner automatically.
+- If no rival appears within 1 hour, you are fully refunded.
+
+## Games
+- Tetris — stack and clear lines; highest score wins.
+- Flappy 1v1 — dodge pipes; outscore your rival.
+- Racing — neon arcade racer; dodge traffic and beat their score.
+- 2048 — merge tiles to the highest number.
+
+## Key pages
+- Home: /
+- Tetris: /game/tetris
+- Flappy: /game/flappy
+- Racing: /game/racing
+- 2048: /game/2048
+
+## Notes
+- Free practice mode is available (no money) so players can try the games first.
+- Languages: English, Spanish, Hindi, French.
+- Status: testnet (Base Sepolia) with play money; not live with real funds yet.

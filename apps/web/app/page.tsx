@@ -5,6 +5,7 @@ import { GAMES } from "@/app/lib/games";
 import { BetQuickPlay } from "@/app/components/BetQuickPlay";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
+import { FAQ } from "@/app/lib/seo";
 
 export default function HomePage() {
   const { t } = useT();
@@ -77,6 +78,46 @@ export default function HomePage() {
         </div>
         <p className="font-screen px-5 pb-4 text-sm text-slate-500">{t("how.fee")}</p>
       </section>
+
+      {/* Preguntas frecuentes (SEO + motores de IA) */}
+      <section className="win mt-8">
+        <div className="win-title">
+          <span>{t("faq.title")}</span>
+          <span className="win-dots">
+            <span className="win-dot" />
+            <span className="win-dot" />
+          </span>
+        </div>
+        <div className="font-screen p-5 text-lg">
+          {[1, 2, 3, 4].map((n) => (
+            <div
+              key={n}
+              className="border-b-2 border-dashed border-[--color-border] py-3 last:border-0"
+            >
+              <h2 className="font-pixel text-[11px] text-[--color-accent-2]">
+                {t(`faq.q${n}`)}
+              </h2>
+              <p className="mt-2 text-slate-300">{t(`faq.a${n}`)}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Dato estructurado FAQPage (schema.org) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: FAQ.map((f) => ({
+              "@type": "Question",
+              name: f.q,
+              acceptedAnswer: { "@type": "Answer", text: f.a },
+            })),
+          }),
+        }}
+      />
     </div>
   );
 }
