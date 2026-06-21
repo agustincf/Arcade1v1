@@ -46,6 +46,7 @@ export class RacingEngine {
   private rng: () => number;
   private spawnTimer = 0;
   private lastLane = -1;
+  private lastFree = -1;
 
   constructor(seed: number) {
     this.rng = mulberry32(seed);
@@ -79,17 +80,36 @@ export class RacingEngine {
     return Math.max(0.5, 1.15 - this.level() * 0.07); // segundos
   }
 
-  private spawn() {
-    // Elegir un carril distinto al ultimo (para que sea esquivable).
-    let lane = Math.floor(this.rng() * LANES);
-    if (lane === this.lastLane) lane = (lane + 1) % LANES;
-    this.lastLane = lane;
+  private addObstacle(lane: number) {
     this.obstacles.push({
       lane,
       y: -OBST_H,
       kind: Math.floor(this.rng() * 3),
       passed: false,
     });
+  }
+
+  private spawn() {
+    // Cada tanto (mas seguido a mayor nivel) vienen DOS autos a la vez en dos
+    // carriles, dejando uno solo libre: obliga a usar los tres carriles.
+    const doubleChance = Math.min(0.5, 0.14 + this.level() * 0.06);
+    if (this.rng() < doubleChance) {
+      // Carril libre distinto al ultimo libre (para que vaya rotando).
+      let free = Math.floor(this.rng() * LANES);
+      if (free === this.lastFree) free = (free + 1) % LANES;
+      this.lastFree = free;
+      this.lastLane = -1;
+      for (let lane = 0; lane < LANES; lane++) {
+        if (lane !== free) this.addObstacle(lane);
+      }
+    } else {
+      // Uno solo, en un carril distinto al ultimo.
+      let lane = Math.floor(this.rng() * LANES);
+      if (lane === this.lastLane) lane = (lane + 1) % LANES;
+      this.lastLane = lane;
+      this.lastFree = -1;
+      this.addObstacle(lane);
+    }
   }
 
   update(dt: number) {

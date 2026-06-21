@@ -86,7 +86,7 @@ export default function TableSelectPage({
                 <button
                   key={bet}
                   onClick={() => setSelected(bet)}
-                  className={`win relative p-3 text-center transition ${
+                  className={`win relative overflow-hidden p-3 text-center transition ${
                     m.recommended ? "win--hot" : ""
                   } ${
                     active
@@ -95,12 +95,12 @@ export default function TableSelectPage({
                   }`}
                 >
                   {m.recommended && (
-                    <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-[#0a0518] bg-[--color-gold] px-2 py-0.5 font-screen text-base font-bold leading-none text-[#1a0033]">
+                    <div className="-mx-3 -mt-3 mb-2 bg-[--color-gold] py-1 font-screen text-base font-bold leading-none text-[#1a0033]">
                       🔥 RECOMENDADA
-                    </span>
+                    </div>
                   )}
                   {active && (
-                    <span className="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[#0a0518] bg-[--color-gold] text-xs font-extrabold text-[#1a0033]">
+                    <span className="absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[#0a0518] bg-[--color-gold] text-xs font-extrabold text-[#1a0033]">
                       ✓
                     </span>
                   )}
