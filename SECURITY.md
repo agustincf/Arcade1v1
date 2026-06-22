@@ -65,10 +65,11 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    operar legalmente. (Bloqueante no técnico, el más importante.)
 
 ### 🟠 Altos
-5. **Endpoint `/bot` de prueba.** Debe **eliminarse o bloquearse** en producción
-   (permite forzar la liquidación contra un bot).
-6. **Fallback "offline" simulado en el frontend.** En una partida de plata jamás
-   debe mostrar un rival/resultado inventado. Dejarlo **solo para el modo libre**.
+5. **Endpoint `/bot` de prueba.** ✅ **RESUELTO.** Queda **apagado en producción**
+   (`NODE_ENV=production`, salvo `ENABLE_TEST_BOT=true`).
+6. **Fallback "offline" simulado en el frontend.** ✅ **RESUELTO.** En producción
+   **nunca** se muestra un rival/resultado inventado: si el árbitro no responde,
+   se muestra un error (la simulación queda solo en desarrollo).
 7. **Llave del árbitro = único punto de confianza.** Guardarla en un KMS/HSM,
    con mínimos privilegios; considerar un **árbitro multi-firma**.
 8. **Estado en memoria (sin persistencia).** Si el servidor se reinicia, se

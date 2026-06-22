@@ -69,8 +69,15 @@ app.post("/match/:id/score", async (req, res) => {
   }
 });
 
-// Completar la partida contra un bot (solo para pruebas en solitario).
+// Completar la partida contra un bot (SOLO pruebas en solitario).
+// Apagado en produccion salvo que se active con ENABLE_TEST_BOT=true.
 app.post("/match/:id/bot", async (req, res) => {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ENABLE_TEST_BOT !== "true"
+  ) {
+    return res.status(403).json({ error: "test bot disabled in production" });
+  }
   try {
     res.json(await addBot(req.params.id));
   } catch (e) {

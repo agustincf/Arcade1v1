@@ -45,6 +45,9 @@ export default function MatchPage({
   const [round, setRound] = useState(0);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const [error, setError] = useState(false);
+  // En produccion NUNCA simulamos un rival: si el arbitro no responde, error.
+  const devMode = process.env.NODE_ENV !== "production";
   const [playing, setPlaying] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [youScore, setYouScore] = useState<number | null>(null);
@@ -68,8 +71,12 @@ export default function MatchPage({
         setSeed(v.seed);
       } catch {
         if (cancel) return;
-        setOffline(true);
-        setSeed(rnd());
+        if (devMode) {
+          setOffline(true);
+          setSeed(rnd());
+        } else {
+          setError(true);
+        }
       }
     })();
     return () => {
@@ -133,7 +140,8 @@ export default function MatchPage({
       return;
     }
     if (offline || !matchId) {
-      simulate(score);
+      if (devMode) simulate(score);
+      else setError(true);
       return;
     }
     try {
@@ -152,7 +160,8 @@ export default function MatchPage({
       if (v.status === "settled" || v.status === "draw") applyResult(v);
       else setWaiting(true);
     } catch {
-      simulate(score);
+      if (devMode) simulate(score);
+      else setError(true);
     }
   }
 
@@ -239,7 +248,11 @@ export default function MatchPage({
           </span>
         </div>
         <div className="p-5">
-          {seed === null ? (
+          {error ? (
+            <p className="font-screen py-10 text-center text-xl text-[--color-lose]">
+              {t("match.error")}
+            </p>
+          ) : seed === null ? (
             <p className="font-screen py-10 text-center text-xl text-[--color-accent-2]">
               {t("match.connecting")}
             </p>
