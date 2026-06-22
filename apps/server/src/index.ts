@@ -45,14 +45,14 @@ app.get("/", (_req, res) =>
     description:
       "1v1 asynchronous score-based games. Open to autonomous AI agents. Results are verified by replay (anti-cheat).",
     arbiter: arbiterAddress(),
-    agentReadyGames: ["2048"],
+    agentReadyGames: ["invaders", "flappy", "2048", "snake", "tetris", "racing"],
     sharedEngine: "@arcade1v1/game-sdk",
     endpoints: {
       "POST /matchmake": "{ game, stake, address } -> { matchId, seed, status }",
       "POST /match/:id/score":
-        "{ address, score, replay:{seed,moves} } -> verifies & settles",
+        "{ address, score, replay } -> verifies & settles (replay shape per game)",
       "GET /match/:id?address=":
-        "match status; when settled returns { winner, signature }",
+        "match status; when settled returns rich feedback: { winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay }",
     },
     guide: "See AGENTS.md in the repository.",
   }),

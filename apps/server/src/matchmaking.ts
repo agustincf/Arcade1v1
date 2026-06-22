@@ -29,6 +29,7 @@ interface Match {
   p1: string;
   p2?: string;
   scores: Record<string, number>;
+  replays: Record<string, unknown>; // replay verificado de cada jugador
   status: Status;
   winner?: string;
   outcome?: "p1" | "p2" | "draw";
@@ -37,6 +38,9 @@ interface Match {
   createPromise?: Promise<void>; // creacion de la partida on-chain (si aplica)
   refundPromise?: Promise<void>; // cancelacion/reembolso on-chain en empate
 }
+
+// Comision (basis points) para calcular el PnL neto que se le informa al jugador.
+const FEE_BPS = Number(process.env.FEE_BPS ?? 1500);
 
 const BOT = "0x000000000000000000000000000000000000b07a";
 
@@ -99,6 +103,7 @@ export async function matchmake(game: string, stake: number, address: string) {
     seed: randomSeed(),
     p1: address,
     scores: {},
+    replays: {},
     status: "waiting",
   };
   matches.set(m.id, m);
@@ -198,6 +203,7 @@ export async function submitScore(
   }
 
   m.scores[address] = finalScore;
+  m.replays[address] = replay; // guardamos el replay (feedback para el rival/agente)
   await settleIfReady(m);
   return view(m, address);
 }
@@ -265,8 +271,18 @@ export function getMatch(id: string, address?: string) {
   return view(m, address);
 }
 
+/** PnL neto (en USDC) para `address` segun el resultado. */
+function netPnl(m: Match, address: string): number {
+  if (m.outcome === "draw" || !m.outcome) return 0; // empate -> reembolso
+  const pot = m.stake * 2;
+  const fee = (pot * FEE_BPS) / 10000;
+  const prize = pot - fee;
+  const won = m.winner === address;
+  return Math.round((won ? prize - m.stake : -m.stake) * 100) / 100;
+}
+
 function view(m: Match, address?: string) {
-  return {
+  const base: Record<string, unknown> = {
     matchId: m.id,
     game: m.game,
     stake: m.stake,
@@ -280,4 +296,23 @@ function view(m: Match, address?: string) {
     signature: m.signature, // el ganador la presenta al contrato
     isBot: m.isBot,
   };
+
+  // FEEDBACK RICO para jugadores/agentes: solo cuando la partida YA termino,
+  // asi nadie ve el puntaje ni el replay del rival antes de jugar (ventaja).
+  const decided = m.status === "settled" || m.status === "draw";
+  const isPlayer = address === m.p1 || address === m.p2;
+  if (decided && address && isPlayer) {
+    const rival = address === m.p1 ? m.p2 : m.p1;
+    const yourScore = m.scores[address];
+    const rivalScore = rival ? m.scores[rival] : undefined;
+    base.yourScore = yourScore;
+    base.rivalScore = rivalScore;
+    base.margin =
+      yourScore !== undefined && rivalScore !== undefined
+        ? yourScore - rivalScore
+        : undefined;
+    base.netPnl = netPnl(m, address); // recompensa del agente (USDC)
+    base.rivalReplay = rival ? m.replays[rival] : undefined; // para aprender del rival
+  }
+  return base;
 }

@@ -20,6 +20,23 @@ async function api(path: string, body: unknown) {
   return r.json();
 }
 
+async function getView(id: string, address: string) {
+  const r = await fetch(`${BASE}/match/${id}?address=${address}`);
+  if (!r.ok) throw new Error(`get ${id} -> ${r.status}`);
+  return r.json();
+}
+
+/** Muestra el FEEDBACK que recibe un agente al terminar (mas alla del puntaje). */
+function showFeedback(name: string, v: any) {
+  const rivalMoves = Array.isArray(v.rivalReplay?.moves)
+    ? v.rivalReplay.moves.length
+    : "?";
+  console.log(`📊 ${name}:`);
+  console.log(`   tu score ${v.yourScore} · rival ${v.rivalScore} · margen ${v.margin}`);
+  console.log(`   PnL neto: ${v.netPnl >= 0 ? "+" : ""}${v.netPnl} USDC`);
+  console.log(`   replay del rival: ${rivalMoves} movimientos (para analizar y mejorar)`);
+}
+
 /** "Cerebro" del agente: juega 2048 con una estrategia de prioridades.
  *  Devuelve los movimientos (replay) y el puntaje, listos para enviar. */
 function playAgent(seed: number, priority: Dir[]) {
@@ -84,15 +101,25 @@ async function main() {
     signature: sigB,
   });
 
-  // 4) El arbitro decidio y firmo el resultado.
+  // 4) El arbitro decidio y firmo. Cada agente recibe FEEDBACK RICO (no solo el punto).
   const winner =
     res.outcome === "p1" ? "Agente A" : res.outcome === "p2" ? "Agente B" : "Empate";
   console.log("🏆 Resultado:", res.status, "· ganador:", winner);
   console.log(
     "✍️  Firma del arbitro:",
     res.signature ? res.signature.slice(0, 22) + "..." : "(empate, sin firma)",
+    "\n",
   );
-  console.log("\nDos agentes compitieron de forma justa y verificable ✅");
+
+  // El Agente B (cerro la partida) ya tiene el feedback en su respuesta.
+  showFeedback("Agente B", res);
+  // El Agente A consulta su resultado y recibe el mismo feedback completo.
+  showFeedback("Agente A", await getView(mA.matchId, A));
+
+  console.log(
+    "\nCada agente recibe score propio y del rival, margen, PnL neto y el REPLAY",
+  );
+  console.log("del oponente -> puede analizarlo y mejorar. Competencia con datos ✅");
 }
 
 main().catch((e) => {

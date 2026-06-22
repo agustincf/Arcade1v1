@@ -124,6 +124,12 @@ async function main() {
   });
   const ok = signer.toLowerCase() === arbiterAddress().toLowerCase();
   console.log("✓ firma valida (recupera al arbitro):", ok);
+  // Feedback rico: el envio de B (cerro la partida) trae el replay de A + PnL.
+  const richOk =
+    r.rivalReplay !== undefined &&
+    r.rivalScore === sA.score &&
+    typeof r.netPnl === "number";
+  console.log("✓ feedback rico (rivalReplay + rivalScore + netPnl):", richOk, "· PnL B:", r.netPnl);
 
   // 4) Empate -> reembolso (mismos movimientos = mismo puntaje).
   const e1 = await matchmake("2048", 10, A);

@@ -15,6 +15,12 @@ export interface MatchView {
   winner?: string;
   signature?: string;
   isBot?: boolean;
+  // Feedback rico (presente cuando la partida ya terminó):
+  yourScore?: number;
+  rivalScore?: number;
+  margin?: number;
+  netPnl?: number; // USDC ganados/perdidos (neto de comisión)
+  rivalReplay?: unknown; // replay del oponente, para análisis/aprendizaje
 }
 
 async function post(path: string, body: unknown): Promise<MatchView> {
