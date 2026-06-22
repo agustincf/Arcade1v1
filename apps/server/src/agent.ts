@@ -5,6 +5,8 @@
 // Correr (con el servidor arbitro prendido):  npm run agent -w @arcade1v1/server
 
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
+import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 const BASE = process.env.ARBITER_URL || "http://localhost:4000";
 
@@ -40,9 +42,11 @@ function playAgent(seed: number, priority: Dir[]) {
 }
 
 async function main() {
-  // Dos agentes con distinta "personalidad" (orden de prioridades).
-  const A = "0x" + "a".repeat(40);
-  const B = "0x" + "b".repeat(40);
+  // Cada agente tiene su propia wallet (llave) — firma sus envios.
+  const walletA = privateKeyToAccount(generatePrivateKey());
+  const walletB = privateKeyToAccount(generatePrivateKey());
+  const A = walletA.address;
+  const B = walletB.address;
   const stratA: Dir[] = ["down", "left", "right", "up"];
   const stratB: Dir[] = ["left", "down", "up", "right"];
 
@@ -60,16 +64,24 @@ async function main() {
   console.log(`Agente A → ${pA.score} pts (${pA.moves.length} movimientos)`);
   console.log(`Agente B → ${pB.score} pts (${pB.moves.length} movimientos)\n`);
 
-  // 3) Cada agente envia su puntaje + replay (el arbitro lo verifica).
+  // 3) Cada agente FIRMA y envia su puntaje + replay (el arbitro verifica ambos).
+  const sigA = await walletA.signMessage({
+    message: scoreAuthMessage(mA.matchId, A, pA.score),
+  });
+  const sigB = await walletB.signMessage({
+    message: scoreAuthMessage(mB.matchId, B, pB.score),
+  });
   await api(`/match/${mA.matchId}/score`, {
     address: A,
     score: pA.score,
     replay: { seed: mA.seed, moves: pA.moves },
+    signature: sigA,
   });
   const res = await api(`/match/${mB.matchId}/score`, {
     address: B,
     score: pB.score,
     replay: { seed: mB.seed, moves: pB.moves },
+    signature: sigB,
   });
 
   // 4) El arbitro decidio y firmo el resultado.

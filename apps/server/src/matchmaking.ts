@@ -3,9 +3,10 @@
 // su intento (misma semilla) y al tener los dos puntajes se decide y se firma.
 
 import { randomBytes } from "node:crypto";
-import type { Hex } from "viem";
+import { recoverMessageAddress, type Hex } from "viem";
 import { signResult } from "./sign.js";
 import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
+import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
 
@@ -68,10 +69,25 @@ export async function submitScore(
   address: string,
   score: number,
   replay?: unknown,
+  signature?: string,
 ) {
   const m = matches.get(id);
   if (!m) throw new Error("match not found");
   if (address !== m.p1 && address !== m.p2) throw new Error("not a player");
+
+  // AUTENTICACION: el jugador firma su envio con la wallet -> probamos que
+  // controla su direccion. Si se exige (REQUIRE_AUTH) y no hay firma, se rechaza.
+  if (signature) {
+    const signer = await recoverMessageAddress({
+      message: scoreAuthMessage(id, address, score),
+      signature: signature as Hex,
+    });
+    if (signer.toLowerCase() !== address.toLowerCase()) {
+      throw new Error("bad signature");
+    }
+  } else if (process.env.REQUIRE_AUTH === "true") {
+    throw new Error("signature required");
+  }
 
   let finalScore = Math.max(0, Math.floor(score));
 

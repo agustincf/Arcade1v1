@@ -7,6 +7,8 @@ import { recoverTypedDataAddress, type Hex } from "viem";
 import { matchmake, submitScore } from "./matchmaking.js";
 import { arbiterAddress, RESULT_TYPES, resultDomain } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
+import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 // Juega un 2048 (mismo motor que la web) y devuelve los movimientos + puntaje.
 function play2048(seed: number, maxMoves = 500) {
@@ -83,7 +85,46 @@ async function main() {
   const settled = rB.status === "settled" || rB.status === "draw";
   console.log("✓ 2048 verificado y liquidado:", settled);
 
-  if (!ok || !cheatRejected || !settled) process.exit(1);
+  // 6) AUTENTICACION: firma valida aceptada, firma que no corresponde rechazada.
+  const wC = privateKeyToAccount(generatePrivateKey());
+  const wD = privateKeyToAccount(generatePrivateKey());
+  const C = wC.address;
+  const D = wD.address;
+  const cm = matchmake("2048", 5, C);
+  matchmake("2048", 5, D);
+  const pC = play2048(cm.seed, 30);
+  const sigC = await wC.signMessage({
+    message: scoreAuthMessage(cm.matchId, C, pC.score),
+  });
+  const authOk = await submitScore(
+    cm.matchId,
+    C,
+    pC.score,
+    { seed: cm.seed, moves: pC.moves },
+    sigC,
+  );
+  console.log("✓ firma valida aceptada:", authOk.scores[C] === pC.score);
+
+  const pD = play2048(cm.seed, 30);
+  // D firma un mensaje que NO corresponde al envio -> debe rechazarse.
+  const badSig = await wD.signMessage({
+    message: scoreAuthMessage(cm.matchId, D, 999999),
+  });
+  let badRejected = false;
+  try {
+    await submitScore(cm.matchId, D, pD.score, { seed: cm.seed, moves: pD.moves }, badSig);
+  } catch {
+    badRejected = true;
+  }
+  console.log("✓ firma que no corresponde RECHAZADA:", badRejected);
+
+  const allOk =
+    ok &&
+    cheatRejected &&
+    settled &&
+    authOk.scores[C] === pC.score &&
+    badRejected;
+  if (!allOk) process.exit(1);
   console.log("\nTODO OK ✅");
 }
 

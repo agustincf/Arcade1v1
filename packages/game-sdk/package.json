@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./g2048": "./src/g2048.ts"
+    "./g2048": "./src/g2048.ts",
+    "./auth": "./src/auth.ts"
   }
 }

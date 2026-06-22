@@ -48,10 +48,12 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 2. **El flujo de dinero on-chain NO está conectado todavía.** Hoy no hay depósito
    real de USDC ni llamada a `settle` desde la web; el dinero se simula. **Falta:**
    integrar depósito + `settle` con la firma del árbitro + reembolso en empate.
-3. **Sin autenticación en el backend.** Quien conozca el `matchId` podría enviar
-   un puntaje "haciéndose pasar" por un jugador (no se prueba que controla la
-   dirección). **Falta:** que el jugador **firme** su envío con la wallet (o
-   sesión autenticada).
+3. **Autenticación en el backend.** ✅ **RESUELTO.** El jugador (y los agentes)
+   **firman su envío con la wallet**; el árbitro verifica que la firma recupere
+   su dirección (verificado en `selftest`: firma válida aceptada, firma que no
+   corresponde rechazada). Con `REQUIRE_AUTH=true` la firma es **obligatoria** en
+   producción; en dev queda opcional para permitir invitados de prueba.
+   *(Pendiente menor: exigir firma también al emparejar.)*
 4. **Legal / regulatorio.** Apuestas con dinero real = licencias, **KYC/AML**,
    verificación de **edad** y **restricciones por país**. Sin esto no se puede
    operar legalmente. (Bloqueante no técnico, el más importante.)
@@ -90,7 +92,8 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 - [~] **Anti-trampa** (verificación por replay) — *crítico* — hecho en 2048;
   falta en Tetris/Flappy/Carrera (requiere motor con paso de tiempo fijo)
 - [ ] **Conectar el flujo on-chain real** (depósito USDC + `settle` + reembolso en empate) — *crítico*
-- [ ] **Autenticación de jugadores** (firmar los envíos con la wallet) — *crítico*
+- [x] **Autenticación de jugadores** (firmar los envíos con la wallet) — *crítico*
+  — hecho; activar con `REQUIRE_AUTH=true` en producción
 - [ ] **Asesoría legal + licencias + KYC/AML + edad + geobloqueo** — *crítico (legal)*
 - [ ] Quitar `/bot` y el fallback simulado de producción — *alto*
 - [ ] Proteger la llave del árbitro (KMS/HSM, multisig) — *alto*

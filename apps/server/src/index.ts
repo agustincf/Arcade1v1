@@ -55,12 +55,13 @@ app.post("/matchmake", (req, res) => {
 // Enviar puntaje. Cuando estan los dos, decide y firma.
 app.post("/match/:id/score", async (req, res) => {
   try {
-    const { address, score, replay } = req.body ?? {};
+    const { address, score, replay, signature } = req.body ?? {};
     const out = await submitScore(
       req.params.id,
       String(address),
       Number(score),
       replay,
+      signature,
     );
     res.json(out);
   } catch (e) {

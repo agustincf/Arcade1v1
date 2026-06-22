@@ -36,8 +36,9 @@ export function submitScore(
   address: string,
   score: number,
   replay?: unknown,
+  signature?: string,
 ) {
-  return post(`/match/${id}/score`, { address, score, replay });
+  return post(`/match/${id}/score`, { address, score, replay, signature });
 }
 
 export function playBot(id: string) {

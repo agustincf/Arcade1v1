@@ -7,6 +7,8 @@ import { getPayout, PLATFORM_FEE } from "@/app/lib/config";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
+import { useSignMessage } from "wagmi";
+import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
 import {
   matchmake,
   submitScore,
@@ -34,6 +36,7 @@ export default function MatchPage({
   const search = useSearchParams();
   const { t } = useT();
   const { address } = useWallet();
+  const { signMessageAsync } = useSignMessage();
   const free = search.get("free") === "1";
   const bet = Number(search.get("bet") ?? 0);
   const payout = getPayout(bet);
@@ -134,7 +137,18 @@ export default function MatchPage({
       return;
     }
     try {
-      const v = await submitScore(matchId, pidRef.current, score, replay);
+      // Si hay wallet conectada, firmamos el envio (autenticacion).
+      let signature: string | undefined;
+      if (address) {
+        try {
+          signature = await signMessageAsync({
+            message: scoreAuthMessage(matchId, pidRef.current, score),
+          });
+        } catch {
+          /* el usuario rechazo la firma: se envia sin firma (dev) */
+        }
+      }
+      const v = await submitScore(matchId, pidRef.current, score, replay, signature);
       if (v.status === "settled" || v.status === "draw") applyResult(v);
       else setWaiting(true);
     } catch {
