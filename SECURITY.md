@@ -79,7 +79,8 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    real.
 
 ### 🟡 Medios
-10. **Sin rate limiting** en el backend → spam / DoS. Agregar límites.
+10. **Rate limiting** en el backend. ✅ **HECHO** — límite por IP (120 pedidos
+    cada 10s) que devuelve 429. Ajustable.
 11. **Semilla por `Math.random`.** Sirve para que sea igual para ambos, pero un
     esquema *commit-reveal* sería más robusto contra predicción/grinding.
 12. **Empate no dispara el reembolso on-chain** (falta integrar `cancelMatch`).
@@ -89,7 +90,8 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 ### 🟢 Bajos
 14. **Sin pausa de emergencia** en el contrato (es inmutable; bueno para la
     confianza, pero no hay "freno" si algo sale mal). Evaluar una pausa acotada.
-15. **CORS abierto (`*`)** — aceptable para API pública, pero combinar con auth.
+15. **CORS** — ✅ **configurable** con `ALLOWED_ORIGIN` (en producción se
+    restringe a tu dominio; en dev queda abierto).
 16. **HTTPS obligatorio** en producción (en local es OK sin él).
 
 ---

@@ -7,16 +7,34 @@ import { matchmake, submitScore, getMatch, addBot } from "./matchmaking.js";
 import { arbiterAddress } from "./sign.js";
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "256kb" }));
 
-// CORS basico para el frontend (localhost durante el desarrollo).
+// CORS: en produccion restringir a tu dominio con ALLOWED_ORIGIN. En dev, abierto.
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 app.use((_req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type");
   next();
 });
 app.options("/*splat", (_req, res) => res.sendStatus(204));
+
+// Rate limiting simple por IP (anti-spam / DoS): 120 pedidos cada 10s.
+const RL_WINDOW = 10_000;
+const RL_MAX = 120;
+const hits = new Map<string, number[]>();
+app.use((req, res, next) => {
+  const ip = req.ip || req.socket.remoteAddress || "?";
+  const now = Date.now();
+  const arr = (hits.get(ip) || []).filter((t) => now - t < RL_WINDOW);
+  arr.push(now);
+  hits.set(ip, arr);
+  if (arr.length > RL_MAX) {
+    res.status(429).json({ error: "demasiados pedidos, esperá un momento" });
+    return;
+  }
+  next();
+});
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 

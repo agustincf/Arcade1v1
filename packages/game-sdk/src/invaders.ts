@@ -15,7 +15,8 @@ const CELL_X = 40; // separacion horizontal entre aliens
 const ROW_H = 28;
 const START_X = 30;
 const START_Y = 46;
-const STEP_DOWN = 14;
+// Cuanto baja la formacion al rebotar en un borde (mas chico = mas gradual).
+const STEP_DOWN = 9;
 
 export const PLAYER_W = 28;
 export const PLAYER_H = 12;
@@ -146,7 +147,8 @@ export class InvadersEngine {
   private formationSpeed(): number {
     const total = ROWS * COLS;
     const destroyed = total - this.aliveCount();
-    return (0.3 + (destroyed / total) * 1.9) * (1 + (this.wave - 1) * 0.25);
+    // Arranca lento, acelera de a poco al limpiar y solo un poco por oleada.
+    return (0.22 + (destroyed / total) * 1.1) * (1 + (this.wave - 1) * 0.1);
   }
 
   private nextWave() {
@@ -231,7 +233,7 @@ export class InvadersEngine {
     }
 
     // Bombas de los aliens (rng con semilla)
-    const chance = 0.012 + (this.wave - 1) * 0.004;
+    const chance = 0.01 + (this.wave - 1) * 0.0025;
     if (this.rng() < chance) this.dropBomb();
 
     // OVNI bonus: aparece de a ratos y cruza la pantalla.
