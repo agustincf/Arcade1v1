@@ -11,17 +11,34 @@ Hay **3 piezas** que se publican por separado:
 
 ---
 
-## Paso 1 — Desplegar el contrato (Base Sepolia)
-Necesita una wallet de prueba con fondos gratis de un faucet (te puedo generar una
-descartable). El comando está en [packages/contracts/README.md](packages/contracts/README.md).
-Al terminar, anotá la **dirección del contrato** y la del **USDC de prueba**.
+## Paso 1 — Desplegar el contrato (Base Sepolia) — **llave en mano**
+Un solo script hace todo. Corrés **dos veces**:
+
+```bash
+bash packages/contracts/deploy-base-sepolia.sh
+```
+
+- **1ra corrida:** crea una wallet de deploy **descartable** (la clave queda solo en
+  `packages/contracts/.env`, nunca se comparte) y te imprime su **dirección**.
+  Fondeala con ETH de prueba en un **faucet de Base Sepolia** (ese paso necesita un
+  humano: captcha/login).
+- **2da corrida (ya con gas):** despliega un **USDC de prueba con `mint` abierto**
+  (cualquiera acuña fichas gratis) + el escrow con las mesas 1/2/5/10, y te imprime
+  las **variables listas para pegar** (`NEXT_PUBLIC_ESCROW_ADDRESS`,
+  `NEXT_PUBLIC_USDC_ADDRESS`, `ESCROW_ADDRESS`, `CHAIN_ID`).
+
+> Probado de punta a punta en cadena local (anvil): despliegue + mint + mesas +
+> pago + reembolso. Ver `packages/contracts/check-payment-e2e.sh`.
 
 ## Paso 2 — Publicar el árbitro (backend)
 En un hosting de Node (ej. Render), apuntando a `apps/server`:
 - Build/Start: `npm install` y `npm run start -w @arcade1v1/server`.
 - Variables de entorno (en los "secrets" del hosting, **no** en el código):
-  - `ARBITER_PRIVATE_KEY` — la llave del árbitro (guardar como secreto).
-  - `CHAIN_ID=84532` y `ESCROW_ADDRESS=` (la del Paso 1).
+  - `ARBITER_PRIVATE_KEY` — la llave del árbitro (guardar como secreto). Debe ser
+    la cuenta que figura como **arbiter** en el contrato (Paso 1).
+  - `CHAIN_ID=84532` y `ESCROW_ADDRESS=` (las del Paso 1).
+  - `RPC_URL=https://sepolia.base.org` — para que el árbitro cree las partidas on-chain.
+  - `ALLOWED_ORIGIN=https://tudominio.com` — restringe el CORS a tu web.
   - `REQUIRE_AUTH=true` — exige que jugadores/agentes firmen.
   - `NODE_ENV=production` — apaga el bot de prueba.
 - Anotá la **URL pública** del árbitro (ej. `https://arcade1v1-arbiter.onrender.com`).
@@ -35,7 +52,8 @@ Importá el repo en Vercel, raíz `apps/web`. Variables de entorno:
 
 ## Después de publicar
 - Registrá el dominio en **Google Search Console** y mandá `/sitemap.xml`.
-- Probá una partida real de 2048 de punta a punta (con dos wallets / dos agentes).
+- Acuñá fichas de prueba (el USDC tiene `mint` abierto) y jugá una partida real de
+  cualquiera de los **6 juegos** de punta a punta (con dos wallets / dos agentes).
 
 ---
 
@@ -45,8 +63,9 @@ Importá el repo en Vercel, raíz `apps/web`. Variables de entorno:
 - [ ] La web en producción **no** muestra rival simulado (ya gateado por `NODE_ENV`).
 - [ ] Llave del árbitro en los **secrets** del hosting (nunca en el repo).
 - [ ] HTTPS en la web y en el árbitro.
-- [ ] CORS del árbitro restringido a tu dominio (hoy es abierto para dev).
-- [ ] Rate limiting en el árbitro.
+- [ ] CORS del árbitro restringido con `ALLOWED_ORIGIN` (el código ya lo soporta).
+- [x] Rate limiting en el árbitro (ya implementado: 120 pedidos/10s por IP → 429).
 - [ ] Auditoría externa del contrato.
-- [ ] **Anti-trampa:** la arena de plata/agentes arranca con **2048** (verificable).
+- [x] **Anti-trampa:** los **6 juegos** verifican el replay (legítimo aceptado,
+      inventado rechazado en `selftest`).
 - [ ] **Legal:** asesoría + licencias + KYC/AML + edad + geobloqueo.

@@ -74,7 +74,10 @@ export default function MatchPage({
   // Emparejamiento con el arbitro (solo partidas de plata). Si el servidor no
   // responde, seguimos en modo "offline" con rival simulado (no se cuelga).
   useEffect(() => {
-    if (free) return;
+    if (free || matchId) return;
+    // En modo plata on-chain hay que tener la wallet conectada ANTES de emparejar
+    // (el jugador es su direccion; con ella deposita y cobra).
+    if (needsDeposit && !address) return;
     pidRef.current = playerId(address ?? null);
     let cancel = false;
     (async () => {
@@ -97,7 +100,7 @@ export default function MatchPage({
       cancel = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [address]);
 
   // Aviso del navegador si cierra/recarga durante el intento (de plata).
   useEffect(() => {
@@ -304,6 +307,10 @@ export default function MatchPage({
           {error ? (
             <p className="font-screen py-10 text-center text-xl text-[--color-lose]">
               {t("match.error")}
+            </p>
+          ) : needsDeposit && !address ? (
+            <p className="font-screen py-10 text-center text-xl text-[--color-accent-2]">
+              {t("match.connectFirst")}
             </p>
           ) : seed === null ? (
             <p className="font-screen py-10 text-center text-xl text-[--color-accent-2]">
