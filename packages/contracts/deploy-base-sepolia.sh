@@ -7,6 +7,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Asegura que forge/cast esten en el PATH (instalacion estandar de Foundry).
+[ -d "$HOME/.foundry/bin" ] && PATH="$HOME/.foundry/bin:$PATH"
+
 ENV_FILE=".env"
 RPC="${RPC_URL:-https://sepolia.base.org}"
 
