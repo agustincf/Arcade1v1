@@ -29,6 +29,13 @@ const BOMB_SPEED = 2.6;
 const MAX_BULLETS = 3;
 
 const ROW_VALUE = [30, 20, 15, 10]; // puntos por fila (arriba vale mas)
+const SB = 5; // tamaño de bloque de escudo (bunker)
+const UFO_W = 22;
+const UFO_H = 9;
+const UFO_Y = 24;
+const UFO_SPEED = 1.6;
+const UFO_BONUS = 100;
+const UFO_CHANCE = 0.0016; // probabilidad por tick de que aparezca el OVNI
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -68,6 +75,10 @@ export class InvadersEngine {
   offsetY = START_Y;
   dir = 1;
 
+  // Escudos (bunkers) y OVNI bonus
+  shields: { x: number; y: number }[] = [];
+  ufo: { x: number; dir: number } | null = null;
+
   private rng: () => number;
   private movingLeft = false;
   private movingRight = false;
@@ -75,6 +86,26 @@ export class InvadersEngine {
   constructor(seed: number) {
     this.rng = mulberry32(seed);
     this.alive = Array.from({ length: ROWS }, () => Array(COLS).fill(true));
+    this.shields = this.buildShields();
+  }
+
+  private buildShields(): { x: number; y: number }[] {
+    const blocks: { x: number; y: number }[] = [];
+    const cols = 6;
+    const rows = 4;
+    const bw = cols * SB;
+    const n = 3;
+    const gap = (WIDTH - n * bw) / (n + 1);
+    const by = PLAYER_Y - 58;
+    for (let b = 0; b < n; b++) {
+      const bx = gap + b * (bw + gap);
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++) {
+          if (r === rows - 1 && (c === 2 || c === 3)) continue; // arco
+          blocks.push({ x: bx + c * SB, y: by + r * SB });
+        }
+    }
+    return blocks;
   }
 
   private alienPos(row: number, col: number) {
@@ -125,6 +156,7 @@ export class InvadersEngine {
     this.dir = 1;
     this.bullets = [];
     this.bombs = [];
+    this.shields = this.buildShields(); // escudos nuevos cada oleada
   }
 
   private dropBomb() {
@@ -194,10 +226,39 @@ export class InvadersEngine {
     const chance = 0.012 + (this.wave - 1) * 0.004;
     if (this.rng() < chance) this.dropBomb();
 
-    // Colision: balas del jugador vs aliens
+    // OVNI bonus: aparece de a ratos y cruza la pantalla.
+    if (this.ufo) {
+      this.ufo.x += this.ufo.dir * UFO_SPEED;
+      if (this.ufo.x < -UFO_W || this.ufo.x > WIDTH) this.ufo = null;
+    } else if (this.rng() < UFO_CHANCE) {
+      const dir = this.rng() < 0.5 ? 1 : -1;
+      this.ufo = { x: dir > 0 ? -UFO_W : WIDTH, dir };
+    }
+
+    // Colision: balas del jugador (OVNI -> escudo -> aliens)
     const usedBullets = new Set<number>();
     for (let bi = 0; bi < this.bullets.length; bi++) {
       const b = this.bullets[bi];
+      if (
+        this.ufo &&
+        b.x >= this.ufo.x &&
+        b.x <= this.ufo.x + UFO_W &&
+        b.y <= UFO_Y + UFO_H &&
+        b.y >= UFO_Y
+      ) {
+        this.score += UFO_BONUS;
+        this.ufo = null;
+        usedBullets.add(bi);
+        continue;
+      }
+      const si = this.shields.findIndex(
+        (s) => b.x >= s.x && b.x <= s.x + SB && b.y <= s.y + SB && b.y >= s.y,
+      );
+      if (si >= 0) {
+        this.shields.splice(si, 1);
+        usedBullets.add(bi);
+        continue;
+      }
       let hit = false;
       for (let r = 0; r < ROWS && !hit; r++)
         for (let c = 0; c < COLS && !hit; c++) {
@@ -219,14 +280,23 @@ export class InvadersEngine {
     if (usedBullets.size)
       this.bullets = this.bullets.filter((_, i) => !usedBullets.has(i));
 
-    // Colision: bombas vs jugador
+    // Colision: bombas vs escudo y vs jugador
     const px = this.playerX - PLAYER_W / 2;
     const remaining: Shot[] = [];
     for (const bomb of this.bombs) {
+      const si = this.shields.findIndex(
+        (s) =>
+          bomb.x >= s.x &&
+          bomb.x <= s.x + SB &&
+          bomb.y + BOMB_H >= s.y &&
+          bomb.y <= s.y + SB,
+      );
+      if (si >= 0) {
+        this.shields.splice(si, 1);
+        continue; // la bomba se consume en el escudo
+      }
       const hit =
-        bomb.y + BOMB_H >= PLAYER_Y &&
-        bomb.x >= px &&
-        bomb.x <= px + PLAYER_W;
+        bomb.y + BOMB_H >= PLAYER_Y && bomb.x >= px && bomb.x <= px + PLAYER_W;
       if (hit) {
         this.lives -= 1;
         if (this.lives <= 0) {
@@ -253,6 +323,10 @@ export const INVADERS_CONST = {
   PLAYER_Y,
   BULLET_H,
   BOMB_H,
+  SB,
+  UFO_W,
+  UFO_H,
+  UFO_Y,
 };
 
 export interface ReplayInvaders {

@@ -13,7 +13,7 @@ import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 
-const { WIDTH, HEIGHT, ALIEN_W, ALIEN_H, PLAYER_W, PLAYER_H, PLAYER_Y, BULLET_H, BOMB_H } =
+const { WIDTH, HEIGHT, ALIEN_W, ALIEN_H, PLAYER_W, PLAYER_H, PLAYER_Y, BULLET_H, BOMB_H, SB, UFO_W, UFO_H, UFO_Y } =
   INVADERS_CONST;
 const STEP = INVADERS_DT * 1000;
 const ROW_COLOR = ["#ff3df0", "#27e8ff", "#ffd23d", "#39ff7a"];
@@ -94,8 +94,19 @@ export function InvadersGame({
         ctx.fillStyle = (tickRef.current + st.x) % 90 < 45 ? "#4b3b80" : "#6d5efc";
         ctx.fillRect(st.x, st.y, st.s, st.s);
       }
+      // OVNI bonus
+      if (eng.ufo) {
+        ctx.fillStyle = "#ff3df0";
+        ctx.fillRect(eng.ufo.x, UFO_Y + 3, UFO_W, UFO_H - 3);
+        ctx.fillRect(eng.ufo.x + 5, UFO_Y, UFO_W - 10, 4);
+        ctx.fillStyle = "#ffd23d";
+        for (let i = 2; i < UFO_W - 2; i += 5) ctx.fillRect(eng.ufo.x + i, UFO_Y + 6, 2, 2);
+      }
       // aliens
       for (const al of eng.aliveAliens()) drawAlien(al.x, al.y, ROW_COLOR[al.row], frame);
+      // escudos (bunkers)
+      ctx.fillStyle = "#39ff7a";
+      for (const s of eng.shields) ctx.fillRect(s.x, s.y, SB, SB);
       // balas del jugador
       ctx.fillStyle = "#27e8ff";
       for (const b of eng.bullets) ctx.fillRect(b.x - 1, b.y, 2, BULLET_H);

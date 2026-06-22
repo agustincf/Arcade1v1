@@ -11,13 +11,14 @@ export interface GameInfo {
   status: "live" | "soon";
 }
 
+// Orden de exhibicion: Space Invaders (la perla) primero.
 export const GAMES: GameInfo[] = [
   {
-    id: "tetris",
-    name: "Tetris",
-    tagline: "El rey del puntaje",
-    description: "Apila, hace lineas y revienta el tablero. Mas puntaje que tu rival = te llevas el pozo.",
-    emoji: "🟦",
+    id: "invaders",
+    name: "Space Invaders",
+    tagline: "Defendé la galaxia",
+    description: "Destrui oleadas de aliens antes de que te invadan. Mas naves abatidas = mas pozo.",
+    emoji: "👾",
     status: "live",
   },
   {
@@ -26,14 +27,6 @@ export const GAMES: GameInfo[] = [
     tagline: "Un toque, mil nervios",
     description: "Esquiva los tubos y aguanta mas que el rival. Pulso de acero, bolsillo lleno.",
     emoji: "🐤",
-    status: "live",
-  },
-  {
-    id: "racing",
-    name: "Carrera",
-    tagline: "Pisa a fondo",
-    description: "Manejas, esquivas y acelera sin parar. El ultimo en chocar gana la apuesta.",
-    emoji: "🏎️",
     status: "live",
   },
   {
@@ -53,11 +46,19 @@ export const GAMES: GameInfo[] = [
     status: "live",
   },
   {
-    id: "invaders",
-    name: "Space Invaders",
-    tagline: "Defendé la galaxia",
-    description: "Destrui oleadas de aliens antes de que te invadan. Mas naves abatidas = mas pozo.",
-    emoji: "👾",
+    id: "tetris",
+    name: "Tetris",
+    tagline: "El rey del puntaje",
+    description: "Apila, hace lineas y revienta el tablero. Mas puntaje que tu rival = te llevas el pozo.",
+    emoji: "🟦",
+    status: "live",
+  },
+  {
+    id: "racing",
+    name: "Carrera",
+    tagline: "Pisa a fondo",
+    description: "Manejas, esquivas y acelera sin parar. El ultimo en chocar gana la apuesta.",
+    emoji: "🏎️",
     status: "live",
   },
 ];
