@@ -45,9 +45,14 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    para los juegos en tiempo real** (Tetris, Flappy, Carrera): necesitan que su
    motor corra con paso de tiempo fijo y se grabe la secuencia de entradas para
    poder re-simularlos igual. Hasta entonces, esos tres no son verificables.
-2. **El flujo de dinero on-chain NO está conectado todavía.** Hoy no hay depósito
-   real de USDC ni llamada a `settle` desde la web; el dinero se simula. **Falta:**
-   integrar depósito + `settle` con la firma del árbitro + reembolso en empate.
+2. **El flujo de dinero on-chain todavía no está enchufado a la web.** 🟡 La
+   **integración árbitro ↔ contrato ya está verificada** en cadena local: la
+   firma del árbitro (viem) produce el mismo digest EIP-712 que calcula el
+   contrato desplegado, así que `settle` la acepta (ver
+   `packages/contracts/check-integration.sh`, + tests 8/8 + selftest). **Falta:**
+   (a) **desplegar** a Base Sepolia (necesita tu wallet), (b) las llamadas de
+   **depósito de USDC y `settle`** desde la web, y (c) disparar el **reembolso en
+   empate** (`cancelMatch`).
 3. **Autenticación en el backend.** ✅ **RESUELTO.** El jugador (y los agentes)
    **firman su envío con la wallet**; el árbitro verifica que la firma recupere
    su dirección (verificado en `selftest`: firma válida aceptada, firma que no
