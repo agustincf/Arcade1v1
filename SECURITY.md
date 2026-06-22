@@ -56,9 +56,12 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    - **Empate:** el árbitro **cancela on-chain** (`cancelMatch`) y el contrato
      **reembolsa a ambos** (balances vuelven al inicio, sin comisión). ✅
 
-   El **código de pago de la web** ya existe (`app/lib/escrow.ts` +
-   `app/lib/useEscrow.tsx`). **Falta solo:** (a) **desplegar** a Base Sepolia
-   (necesita tu wallet) y (b) **conectar depósito/cobro a la UI** de la partida.
+   La **UI de pago ya está enchufada** a la pantalla de partida (`match/page.tsx`):
+   con contrato configurado, antes de jugar pide **depositar** (aprobar + deposit)
+   y al ganar muestra el botón **COBRAR** (settle con la firma del árbitro). Queda
+   **dormida** mientras no haya `NEXT_PUBLIC_ESCROW_ADDRESS` (el modo de prueba no
+   cambia). **Falta solo:** **desplegar** a Base Sepolia y setear las direcciones
+   (`NEXT_PUBLIC_ESCROW_ADDRESS` / `NEXT_PUBLIC_USDC_ADDRESS`) — necesita tu wallet.
 3. **Autenticación en el backend.** ✅ **RESUELTO.** El jugador (y los agentes)
    **firman su envío con la wallet**; el árbitro verifica que la firma recupere
    su dirección (verificado en `selftest`: firma válida aceptada, firma que no

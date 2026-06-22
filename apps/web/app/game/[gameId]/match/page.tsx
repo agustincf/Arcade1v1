@@ -7,6 +7,8 @@ import { getPayout, PLATFORM_FEE } from "@/app/lib/config";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
+import { useEscrow } from "@/app/lib/useEscrow";
+import { onchainEnabled } from "@/app/lib/escrow";
 import { useSignMessage } from "wagmi";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
 import {
@@ -42,6 +44,9 @@ export default function MatchPage({
   const free = search.get("free") === "1";
   const bet = Number(search.get("bet") ?? 0);
   const payout = getPayout(bet);
+  const escrow = useEscrow();
+  // Si hay contrato configurado y es partida de plata, hay que depositar antes.
+  const needsDeposit = onchainEnabled && !free;
 
   const [seed, setSeed] = useState<number | null>(free ? rnd() : null);
   const [round, setRound] = useState(0);
@@ -57,6 +62,13 @@ export default function MatchPage({
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [freeDone, setFreeDone] = useState(false);
   const [forfeit, setForfeit] = useState(false);
+  // Estado on-chain (deposito previo + cobro del ganador).
+  const [deposited, setDeposited] = useState(false);
+  const [depositing, setDepositing] = useState(false);
+  const [depositErr, setDepositErr] = useState(false);
+  const [winnerSig, setWinnerSig] = useState<string | null>(null);
+  const [winnerAddr, setWinnerAddr] = useState<string | null>(null);
+  const [claimState, setClaimState] = useState<"idle" | "claiming" | "done" | "error">("idle");
   const pidRef = useRef<string>("");
 
   // Emparejamiento con el arbitro (solo partidas de plata). Si el servidor no
@@ -124,8 +136,47 @@ export default function MatchPage({
     const opp = v.opponent;
     setRivalScore(opp ? (v.scores[opp] ?? 0) : 0);
     if (v.outcome === "draw") setOutcome("draw");
-    else if (v.outcome && v.role === v.outcome) setOutcome("win");
-    else setOutcome("lose");
+    else if (v.outcome && v.role === v.outcome) {
+      setOutcome("win");
+      // Guardamos la firma del arbitro para que el ganador pueda cobrar on-chain.
+      if (v.signature && v.winner) {
+        setWinnerSig(v.signature);
+        setWinnerAddr(v.winner);
+      }
+    } else setOutcome("lose");
+  }
+
+  async function doDeposit() {
+    if (!matchId || !address) return;
+    setDepositing(true);
+    setDepositErr(false);
+    try {
+      await escrow.approveAndDeposit(
+        matchId as `0x${string}`,
+        address as `0x${string}`,
+        bet,
+      );
+      setDeposited(true);
+    } catch {
+      setDepositErr(true);
+    } finally {
+      setDepositing(false);
+    }
+  }
+
+  async function doClaim() {
+    if (!matchId || !winnerSig || !winnerAddr) return;
+    setClaimState("claiming");
+    try {
+      await escrow.claim(
+        matchId as `0x${string}`,
+        winnerAddr as `0x${string}`,
+        winnerSig as `0x${string}`,
+      );
+      setClaimState("done");
+    } catch {
+      setClaimState("error");
+    }
   }
 
   function simulate(score: number) {
@@ -258,6 +309,33 @@ export default function MatchPage({
             <p className="font-screen py-10 text-center text-xl text-[--color-accent-2]">
               {t("match.connecting")}
             </p>
+          ) : needsDeposit && !deposited ? (
+            <div className="py-6 text-center">
+              <p className="font-pixel text-sm text-[--color-gold]">{t("match.depositGate")}</p>
+              <p className="font-screen mx-auto mt-3 max-w-sm text-lg text-slate-300">
+                {t("match.depositInfo", { bet })}
+              </p>
+              {!address ? (
+                <p className="font-screen mt-5 text-lg text-[--color-accent-2]">
+                  {t("match.connectFirst")}
+                </p>
+              ) : (
+                <>
+                  <button
+                    onClick={doDeposit}
+                    disabled={depositing}
+                    className="btn3d btn3d--magenta mt-5 w-full disabled:opacity-60"
+                  >
+                    {depositing ? t("match.depositWait") : t("match.depositBtn")}
+                  </button>
+                  {depositErr && (
+                    <p className="font-screen mt-3 text-base text-[--color-lose]">
+                      {t("match.depositRetry")}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           ) : game.id === "tetris" ? (
             <TetrisGame key={round} seed={seed} {...gameProps} onFinish={(r: TetrisResult) => finishMatch(r.score, r.replay)} />
           ) : game.id === "flappy" ? (
@@ -385,6 +463,32 @@ export default function MatchPage({
                   )}
                 </div>
               </div>
+              {outcome === "win" && onchainEnabled && winnerSig && (
+                <div className="mt-4">
+                  {claimState === "done" ? (
+                    <p className="font-screen text-lg text-[--color-win]">
+                      {t("match.claimDone")}
+                    </p>
+                  ) : (
+                    <>
+                      <button
+                        onClick={doClaim}
+                        disabled={claimState === "claiming"}
+                        className="btn3d btn3d--magenta w-full disabled:opacity-60"
+                      >
+                        {claimState === "claiming"
+                          ? t("match.depositWait")
+                          : t("match.claimBtn", { prize: payout.prize })}
+                      </button>
+                      {claimState === "error" && (
+                        <p className="font-screen mt-2 text-base text-[--color-lose]">
+                          {t("match.claimErr")}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </>
           )}
 
