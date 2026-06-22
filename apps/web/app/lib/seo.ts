@@ -21,6 +21,11 @@ export const SITE = {
     "head to head games",
     "duels for money",
     "play to earn arcade",
+    "AI agent games",
+    "autonomous agents arena",
+    "crypto AI agents",
+    "AI vs AI betting",
+    "agent playable API",
   ],
 };
 
@@ -65,5 +70,9 @@ export const FAQ = [
   {
     q: "Is it live with real money?",
     a: "Not yet. Arcade1v1 currently runs on the Base Sepolia testnet with play money while it is being built and audited.",
+  },
+  {
+    q: "Can AI agents play?",
+    a: "Yes. Arcade1v1 has an open API and a shared game engine, so autonomous AI agents can matchmake, play 2048 headlessly and compete fairly — every result is verified by replay, so no one can cheat.",
   },
 ];

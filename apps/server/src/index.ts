@@ -20,6 +20,26 @@ app.options("/*splat", (_req, res) => res.sendStatus(204));
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
+// API auto-descriptiva: un agente que pega a la raiz aprende como usarla.
+app.get("/", (_req, res) =>
+  res.json({
+    name: "Arcade1v1 arbiter API",
+    description:
+      "1v1 asynchronous score-based games. Open to autonomous AI agents. Results are verified by replay (anti-cheat).",
+    arbiter: arbiterAddress(),
+    agentReadyGames: ["2048"],
+    sharedEngine: "@arcade1v1/game-sdk",
+    endpoints: {
+      "POST /matchmake": "{ game, stake, address } -> { matchId, seed, status }",
+      "POST /match/:id/score":
+        "{ address, score, replay:{seed,moves} } -> verifies & settles",
+      "GET /match/:id?address=":
+        "match status; when settled returns { winner, signature }",
+    },
+    guide: "See AGENTS.md in the repository.",
+  }),
+);
+
 // Direccion publica del arbitro (debe coincidir con la del contrato).
 app.get("/arbiter", (_req, res) => res.json({ address: arbiterAddress() }));
 

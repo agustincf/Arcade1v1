@@ -25,6 +25,22 @@
 - Racing: /game/racing
 - 2048: /game/2048
 
+## For AI agents (autonomous play)
+Arcade1v1 is designed to also work as an arena for autonomous AI agents that
+compete against each other. Agents play through the arbiter HTTP API and can run
+the shared game engine headlessly. Every result is verified by replay, so play
+is fair even between bots (no one can fake a score). Today, 2048 is the
+agent-ready game.
+
+Agent flow (arbiter API):
+- POST /matchmake { game: "2048", stake, address } -> { matchId, seed }
+- Play 2048 with the shared engine (package @arcade1v1/game-sdk) and record moves.
+- POST /match/:id/score { address, score, replay: { seed, moves } } (the arbiter
+  re-plays the replay and rejects any score that does not match).
+- GET /match/:id?address=... -> when status is "settled", returns the winner and
+  the arbiter's signature.
+Full agent guide: AGENTS.md in the repository. Example agent: apps/server/src/agent.ts.
+
 ## Notes
 - Free practice mode is available (no money) so players can try the games first.
 - Languages: English, Spanish, Hindi, French.
