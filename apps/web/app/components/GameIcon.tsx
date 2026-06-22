@@ -32,7 +32,9 @@ export function GameIcon({
           ? "#39ff7a"
           : id === "2048"
             ? "#ffd23d"
-            : "#ff3df0";
+            : id === "snake"
+              ? "#39ff7a"
+              : "#ff3df0";
 
   return (
     <svg
@@ -107,6 +109,51 @@ export function GameIcon({
               </text>
             </g>
           ))}
+        </>
+      )}
+
+      {id === "snake" && (
+        <>
+          {/* cuerpo de la serpiente */}
+          {[
+            [8, 30], [18, 30], [28, 30], [28, 20], [28, 10], [18, 10],
+          ].map(([x, y], i) => (
+            <rect key={i} x={x} y={y} width={10} height={10} rx={2} fill="#39ff7a" />
+          ))}
+          {/* cabeza */}
+          <rect x={8} y={10} width={10} height={10} rx={2} fill="#b6ff3d" />
+          <rect x={10} y={12} width={2} height={2} fill="#0a0518" />
+          {/* comida */}
+          <circle cx={40} cy={40} r={4} fill="#ff3df0" />
+        </>
+      )}
+
+      {id === "invaders" && (
+        <>
+          {/* invader clasico en pixeles */}
+          {(() => {
+            const P = [
+              "00100100",
+              "01111110",
+              "11011011",
+              "11111111",
+              "10111101",
+              "10100101",
+            ];
+            const s = 5;
+            const ox = 4;
+            const oy = 8;
+            const cells: React.ReactNode[] = [];
+            P.forEach((rowStr, r) =>
+              rowStr.split("").forEach((ch, c) => {
+                if (ch === "1")
+                  cells.push(
+                    <rect key={`${r}-${c}`} x={ox + c * s} y={oy + r * s} width={s} height={s} fill="#ff3df0" />,
+                  );
+              }),
+            );
+            return cells;
+          })()}
         </>
       )}
 

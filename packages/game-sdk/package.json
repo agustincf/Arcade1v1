@@ -9,6 +9,8 @@
     "./tetris": "./src/tetris.ts",
     "./flappy": "./src/flappy.ts",
     "./racing": "./src/racing.ts",
+    "./snake": "./src/snake.ts",
+    "./invaders": "./src/invaders.ts",
     "./auth": "./src/auth.ts"
   }
 }

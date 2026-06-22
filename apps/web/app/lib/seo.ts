@@ -51,6 +51,16 @@ export const GAME_SEO: Record<string, { title: string; description: string }> = 
     description:
       "Merge tiles, hit the highest number and beat your rival to win the USDC pot in 1v1 2048. Asynchronous and fair. Testnet demo on Base.",
   },
+  snake: {
+    title: "Play Snake 1v1 for USDC",
+    description:
+      "Eat, grow and outscore your rival in 1v1 Snake. Asynchronous and fair — every result verified by replay. Testnet demo on Base.",
+  },
+  invaders: {
+    title: "Play Space Invaders 1v1 for USDC",
+    description:
+      "Blast alien waves and beat your rival's score in 1v1 Space Invaders. Asynchronous, fair (verified by replay). Testnet demo on Base.",
+  },
 };
 
 /** Preguntas frecuentes (en ingles, para el schema FAQPage / motores de IA). */

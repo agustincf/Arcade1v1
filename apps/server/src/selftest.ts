@@ -10,6 +10,8 @@ import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { TetrisEngine, type TetrisAction } from "@arcade1v1/game-sdk/tetris";
 import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
 import { RacingEngine, RACING_DT, type RaceAction } from "@arcade1v1/game-sdk/racing";
+import { SnakeEngine } from "@arcade1v1/game-sdk/snake";
+import { InvadersEngine, type InvaderAction } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
 
 function play2048(seed: number, maxMoves = 500) {
@@ -67,6 +69,33 @@ function playRacing(seed: number) {
       inputs.push({ t, a: "l" });
     }
     g.update(RACING_DT);
+    t++;
+  }
+  return { score: g.score, replay: { seed, ticks: t, inputs } };
+}
+
+function playSnake(seed: number) {
+  const g = new SnakeEngine(seed);
+  let t = 0;
+  while (!g.over && t < 2000) {
+    g.tick();
+    t++;
+  }
+  return { score: g.score, replay: { seed, ticks: t, inputs: [] } };
+}
+
+function playInvaders(seed: number) {
+  const g = new InvadersEngine(seed);
+  const inputs: { t: number; a: InvaderAction }[] = [];
+  let t = 0;
+  g.apply("r1");
+  inputs.push({ t: 0, a: "r1" });
+  while (!g.over && t < 3000) {
+    if (t % 10 === 0) {
+      g.apply("f");
+      inputs.push({ t, a: "f" });
+    }
+    g.tick();
     t++;
   }
   return { score: g.score, replay: { seed, ticks: t, inputs } };
@@ -143,10 +172,12 @@ async function main() {
   console.log("✓ firma que no corresponde RECHAZADA:", badRejected);
 
   // 7) ANTI-TRAMPA en los juegos de TIEMPO REAL (paso fijo determinístico).
-  const games: { name: "tetris" | "flappy" | "racing"; play: (s: number) => { score: number; replay: unknown } }[] = [
+  const games: { name: "tetris" | "flappy" | "racing" | "snake" | "invaders"; play: (s: number) => { score: number; replay: unknown } }[] = [
     { name: "tetris", play: playTetris },
     { name: "flappy", play: playFlappy },
     { name: "racing", play: playRacing },
+    { name: "snake", play: playSnake },
+    { name: "invaders", play: playInvaders },
   ];
   let realtimeOk = true;
   for (const g of games) {

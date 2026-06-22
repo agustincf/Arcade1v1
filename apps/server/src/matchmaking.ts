@@ -9,6 +9,8 @@ import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
 import { verifyTetris, type ReplayTetris } from "@arcade1v1/game-sdk/tetris";
 import { verifyFlappy, type ReplayFlappy } from "@arcade1v1/game-sdk/flappy";
 import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
+import { verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
+import { verifyInvaders, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
@@ -132,6 +134,26 @@ export async function submitScore(
       throw new Error("replay required");
     }
     const verified = verifyRacing(r);
+    if (verified !== finalScore) {
+      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
+    }
+    finalScore = verified;
+  } else if (m.game === "snake") {
+    const r = replay as ReplaySnake | undefined;
+    if (!r || !Array.isArray(r.inputs) || typeof r.seed !== "number" || typeof r.ticks !== "number") {
+      throw new Error("replay required");
+    }
+    const verified = verifySnake(r);
+    if (verified !== finalScore) {
+      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
+    }
+    finalScore = verified;
+  } else if (m.game === "invaders") {
+    const r = replay as ReplayInvaders | undefined;
+    if (!r || !Array.isArray(r.inputs) || typeof r.seed !== "number" || typeof r.ticks !== "number") {
+      throw new Error("replay required");
+    }
+    const verified = verifyInvaders(r);
     if (verified !== finalScore) {
       throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
     }

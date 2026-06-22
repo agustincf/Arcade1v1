@@ -44,6 +44,22 @@ export const GAMES: GameInfo[] = [
     emoji: "🔢",
     status: "live",
   },
+  {
+    id: "snake",
+    name: "Snake",
+    tagline: "Crecé sin chocar",
+    description: "Comé, crecé y no te choques. Cuanto mas largo, mas puntos: el que mas come gana.",
+    emoji: "🐍",
+    status: "live",
+  },
+  {
+    id: "invaders",
+    name: "Space Invaders",
+    tagline: "Defendé la galaxia",
+    description: "Destrui oleadas de aliens antes de que te invadan. Mas naves abatidas = mas pozo.",
+    emoji: "👾",
+    status: "live",
+  },
 ];
 
 export function getGame(id: string): GameInfo | undefined {

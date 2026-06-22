@@ -21,6 +21,8 @@ import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
 import { FlappyGame, type FlappyResult } from "@/app/games/flappy/FlappyGame";
 import { RacingGame, type RacingResult } from "@/app/games/racing/RacingGame";
 import { Game2048Component, type Result2048 } from "@/app/games/g2048/Game2048";
+import { SnakeGame, type SnakeResult } from "@/app/games/snake/SnakeGame";
+import { InvadersGame, type InvadersResult } from "@/app/games/invaders/InvadersGame";
 
 type Outcome = "win" | "lose" | "draw" | null;
 const rnd = () => Math.floor(Math.random() * 1e9);
@@ -262,6 +264,10 @@ export default function MatchPage({
             <FlappyGame key={round} seed={seed} {...gameProps} onFinish={(r: FlappyResult) => finishMatch(r.score, r.replay)} />
           ) : game.id === "racing" ? (
             <RacingGame key={round} seed={seed} {...gameProps} onFinish={(r: RacingResult) => finishMatch(r.score, r.replay)} />
+          ) : game.id === "snake" ? (
+            <SnakeGame key={round} seed={seed} {...gameProps} onFinish={(r: SnakeResult) => finishMatch(r.score, r.replay)} />
+          ) : game.id === "invaders" ? (
+            <InvadersGame key={round} seed={seed} {...gameProps} onFinish={(r: InvadersResult) => finishMatch(r.score, r.replay)} />
           ) : (
             <Game2048Component key={round} seed={seed} {...gameProps} onFinish={(r: Result2048) => finishMatch(r.score, r.replay)} />
           )}
