@@ -7,13 +7,13 @@ export const WIDTH = 320;
 export const HEIGHT = 440;
 export const INVADERS_DT = 1 / 60;
 
-export const COLS = 6;
+export const COLS = 5;
 export const ROWS = 4;
-export const ALIEN_W = 18;
-export const ALIEN_H = 14;
-const CELL_X = 30; // separacion horizontal entre aliens
-const ROW_H = 26;
-const START_X = 26;
+export const ALIEN_W = 24;
+export const ALIEN_H = 18;
+const CELL_X = 40; // separacion horizontal entre aliens
+const ROW_H = 28;
+const START_X = 30;
 const START_Y = 46;
 const STEP_DOWN = 14;
 
@@ -26,7 +26,8 @@ const BULLET_H = 10;
 const BULLET_SPEED = 5.2;
 const BOMB_H = 10;
 const BOMB_SPEED = 2.6;
-const MAX_BULLETS = 3;
+const MAX_BULLETS = 5; // varias balas en pantalla
+const FIRE_RATE = 8; // ticks entre disparos al mantener apretado (~7/seg)
 
 const ROW_VALUE = [30, 20, 15, 10]; // puntos por fila (arriba vale mas)
 const SB = 5; // tamaño de bloque de escudo (bunker)
@@ -48,7 +49,7 @@ function mulberry32(seed: number) {
   };
 }
 
-export type InvaderAction = "l1" | "l0" | "r1" | "r0" | "f";
+export type InvaderAction = "l1" | "l0" | "r1" | "r0" | "f1" | "f0";
 
 interface Shot {
   x: number;
@@ -82,6 +83,8 @@ export class InvadersEngine {
   private rng: () => number;
   private movingLeft = false;
   private movingRight = false;
+  private firing = false;
+  private fireCooldown = 0;
 
   constructor(seed: number) {
     this.rng = mulberry32(seed);
@@ -136,10 +139,8 @@ export class InvadersEngine {
     else if (a === "l0") this.movingLeft = false;
     else if (a === "r1") this.movingRight = true;
     else if (a === "r0") this.movingRight = false;
-    else if (a === "f") {
-      if (this.bullets.length < MAX_BULLETS)
-        this.bullets.push({ x: this.playerX, y: PLAYER_Y - PLAYER_H });
-    }
+    else if (a === "f1") this.firing = true;
+    else if (a === "f0") this.firing = false;
   }
 
   private formationSpeed(): number {
@@ -181,6 +182,13 @@ export class InvadersEngine {
     const half = PLAYER_W / 2;
     if (this.playerX < half) this.playerX = half;
     if (this.playerX > WIDTH - half) this.playerX = WIDTH - half;
+
+    // Disparo automatico mientras se mantiene apretado
+    if (this.fireCooldown > 0) this.fireCooldown -= 1;
+    if (this.firing && this.fireCooldown === 0 && this.bullets.length < MAX_BULLETS) {
+      this.bullets.push({ x: this.playerX, y: PLAYER_Y - PLAYER_H });
+      this.fireCooldown = FIRE_RATE;
+    }
 
     // Disparos y bombas
     for (const b of this.bullets) b.y -= BULLET_SPEED;

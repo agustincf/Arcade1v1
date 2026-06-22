@@ -55,7 +55,7 @@ export function InvadersGame({
   function enqueue(a: InvaderAction) {
     if (engineRef.current!.over) return;
     pending.current.push(a);
-    if (a === "f") sfx.flap();
+    if (a === "f1") sfx.flap();
   }
 
   useEffect(() => {
@@ -183,7 +183,7 @@ export function InvadersGame({
         e.preventDefault();
         if (!keys.current.fire) {
           keys.current.fire = true;
-          enqueue("f");
+          enqueue("f1"); // mantener apretado = disparo automatico
         }
       }
     }
@@ -196,6 +196,7 @@ export function InvadersGame({
         enqueue("r0");
       } else if (e.key === " ") {
         keys.current.fire = false;
+        enqueue("f0");
       }
     }
     window.addEventListener("keydown", onDownKey);
@@ -259,7 +260,12 @@ export function InvadersGame({
           >
             ◀
           </button>
-          <button {...hold("f")} className="btn3d btn3d--magenta !text-xl">
+          <button
+            {...hold("f1")}
+            onPointerUp={() => enqueue("f0")}
+            onPointerLeave={() => enqueue("f0")}
+            className="btn3d btn3d--magenta !text-xl"
+          >
             🔫
           </button>
           <button

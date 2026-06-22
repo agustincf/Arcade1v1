@@ -90,11 +90,9 @@ function playInvaders(seed: number) {
   let t = 0;
   g.apply("r1");
   inputs.push({ t: 0, a: "r1" });
+  g.apply("f1"); // mantiene el disparo (auto-fire)
+  inputs.push({ t: 0, a: "f1" });
   while (!g.over && t < 3000) {
-    if (t % 10 === 0) {
-      g.apply("f");
-      inputs.push({ t, a: "f" });
-    }
     g.tick();
     t++;
   }
