@@ -11,5 +11,8 @@
   "scripts": {
     "web": "npm run dev --workspace apps/web",
     "server": "npm run dev --workspace apps/server"
+  },
+  "overrides": {
+    "qr": "0.5.5"
   }
 }
