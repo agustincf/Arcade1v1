@@ -72,9 +72,9 @@ export class SnakeEngine {
     this.pendingDir = d;
   }
 
-  /** Cuadros entre movimientos: arranca tranquilo y acelera DE A POCO. */
+  /** Cuadros entre movimientos: arranca BIEN tranquilo y acelera de a poco. */
   moveEvery(): number {
-    return Math.max(5, 9 - Math.floor(this.score / 6));
+    return Math.max(6, 12 - Math.floor(this.score / 6));
   }
 
   tick() {
