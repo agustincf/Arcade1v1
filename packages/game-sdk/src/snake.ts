@@ -72,9 +72,9 @@ export class SnakeEngine {
     this.pendingDir = d;
   }
 
-  /** Cuadros entre movimientos: arranca lento y acelera con el puntaje. */
+  /** Cuadros entre movimientos: arranca tranquilo y acelera DE A POCO. */
   moveEvery(): number {
-    return Math.max(3, 8 - Math.floor(this.score / 3));
+    return Math.max(5, 9 - Math.floor(this.score / 6));
   }
 
   tick() {
@@ -85,11 +85,11 @@ export class SnakeEngine {
 
   private step() {
     this.dir = this.pendingDir;
-    const head = { x: this.body[0].x + this.dir.x, y: this.body[0].y + this.dir.y };
-    if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) {
-      this.over = true;
-      return;
-    }
+    // Las paredes NO penalizan: la vibora reaparece del lado opuesto (wrap).
+    const head = {
+      x: (this.body[0].x + this.dir.x + GRID) % GRID,
+      y: (this.body[0].y + this.dir.y + GRID) % GRID,
+    };
     for (const s of this.body) {
       if (s.x === head.x && s.y === head.y) {
         this.over = true;
