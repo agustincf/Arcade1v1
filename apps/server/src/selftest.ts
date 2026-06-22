@@ -106,8 +106,8 @@ async function main() {
   console.log("Arbitro:", arbiterAddress());
 
   // 1) Emparejamiento + 2) cada uno juega (A gana) + 3) firma valida.
-  const m1 = matchmake("2048", 5, A);
-  const m2 = matchmake("2048", 5, B);
+  const m1 = await matchmake("2048", 5, A);
+  const m2 = await matchmake("2048", 5, B);
   console.log("✓ emparejados:", m1.matchId === m2.matchId);
   console.log("✓ misma semilla (juego justo):", m1.seed === m2.seed, "(", m1.seed, ")");
   const sA = play2048(m1.seed, 500); // A juega completo
@@ -126,8 +126,8 @@ async function main() {
   console.log("✓ firma valida (recupera al arbitro):", ok);
 
   // 4) Empate -> reembolso (mismos movimientos = mismo puntaje).
-  const e1 = matchmake("2048", 10, A);
-  const e2 = matchmake("2048", 10, B);
+  const e1 = await matchmake("2048", 10, A);
+  const e2 = await matchmake("2048", 10, B);
   const eA = play2048(e1.seed, 30);
   const eB = play2048(e2.seed, 30);
   await submitScore(e1.matchId, A, eA.score, eA.replay);
@@ -135,11 +135,11 @@ async function main() {
   console.log("✓ empate -> reembolso:", draw.outcome === "draw");
 
   // 5) ANTI-TRAMPA 2048: legitimo aceptado, inventado rechazado.
-  const cA = matchmake("2048", 20, A);
+  const cA = await matchmake("2048", 20, A);
   const pA = play2048(cA.seed, 500);
   const rA = await submitScore(cA.matchId, A, pA.score, pA.replay);
   console.log("✓ replay 2048 aceptado:", rA.scores[A] === pA.score);
-  const cB = matchmake("2048", 20, B);
+  const cB = await matchmake("2048", 20, B);
   let cheat2048 = false;
   try {
     await submitScore(cB.matchId, B, 999999, { seed: cB.seed, moves: [] });
@@ -153,8 +153,8 @@ async function main() {
   const wD = privateKeyToAccount(generatePrivateKey());
   const C = wC.address;
   const D = wD.address;
-  const cm = matchmake("2048", 50, C);
-  matchmake("2048", 50, D);
+  const cm = await matchmake("2048", 50, C);
+  await matchmake("2048", 50, D);
   const pC = play2048(cm.seed, 30);
   const sigC = await wC.signMessage({ message: scoreAuthMessage(cm.matchId, C, pC.score) });
   const authOk = await submitScore(cm.matchId, C, pC.score, pC.replay, sigC);
@@ -179,8 +179,8 @@ async function main() {
   ];
   let realtimeOk = true;
   for (const g of games) {
-    const p1 = matchmake(g.name, 5, A);
-    matchmake(g.name, 5, B);
+    const p1 = await matchmake(g.name, 5, A);
+    await matchmake(g.name, 5, B);
     const pl = g.play(p1.seed);
     const res = await submitScore(p1.matchId, A, pl.score, pl.replay);
     const legitOk = res.scores[A] === pl.score;

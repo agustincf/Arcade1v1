@@ -55,12 +55,17 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
      comisión (1.5) y el escrow queda en 0. ✅
    - **Empate:** el árbitro **cancela on-chain** (`cancelMatch`) y el contrato
      **reembolsa a ambos** (balances vuelven al inicio, sin comisión). ✅
+   - **Anti-drenaje de gas:** el árbitro solo hace `createMatch` (que paga él) si
+     **ambos** jugadores ya tienen `balanceOf` y `allowance` ≥ apuesta
+     (`hasEnoughAllowance` en `onchain.ts`). Si no, revierte el emparejamiento sin
+     gastar gas. Verificado: dos wallets sin fondos **no** generan `createMatch`. ✅
 
    La **UI de pago ya está enchufada** a la pantalla de partida (`match/page.tsx`):
-   con contrato configurado, antes de jugar pide **depositar** (aprobar + deposit)
-   y al ganar muestra el botón **COBRAR** (settle con la firma del árbitro). Queda
-   **dormida** mientras no haya `NEXT_PUBLIC_ESCROW_ADDRESS` (el modo de prueba no
-   cambia). **Falta solo:** **desplegar** a Base Sepolia y setear las direcciones
+   con contrato configurado pide **conectar wallet → APROBAR** el allowance (antes
+   de emparejar, para pasar el anti-drenaje) → emparejar → **DEPOSITAR**, y al ganar
+   muestra el botón **COBRAR** (settle con la firma del árbitro). Queda **dormida**
+   mientras no haya `NEXT_PUBLIC_ESCROW_ADDRESS` (el modo de prueba no cambia).
+   **Falta solo:** **desplegar** a Base Sepolia y setear las direcciones
    (`NEXT_PUBLIC_ESCROW_ADDRESS` / `NEXT_PUBLIC_USDC_ADDRESS`) — necesita tu wallet.
 3. **Autenticación en el backend.** ✅ **RESUELTO.** El jugador (y los agentes)
    **firman su envío con la wallet**; el árbitro verifica que la firma recupere

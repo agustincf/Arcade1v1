@@ -45,6 +45,30 @@ const escrowAbi = [
     outputs: [],
     stateMutability: "nonpayable",
   },
+  {
+    type: "function",
+    name: "usdc",
+    inputs: [],
+    outputs: [{ type: "address" }],
+    stateMutability: "view",
+  },
+] as const satisfies Abi;
+
+const erc20ReadAbi = [
+  {
+    type: "function",
+    name: "allowance",
+    inputs: [{ type: "address" }, { type: "address" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ type: "address" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
 ] as const satisfies Abi;
 
 let wallet: ReturnType<typeof createWalletClient> | null = null;
@@ -79,6 +103,49 @@ export async function createMatchOnchain(
     chain: chain(),
   });
   await p.waitForTransactionReceipt({ hash });
+}
+
+// Direccion del token USDC (se lee una vez del propio escrow y se cachea).
+let usdcAddr: Hex | null = null;
+async function getUsdc(): Promise<Hex> {
+  if (!usdcAddr) {
+    const { pub } = clients();
+    usdcAddr = (await pub.readContract({
+      address: ESCROW,
+      abi: escrowAbi,
+      functionName: "usdc",
+    })) as Hex;
+  }
+  return usdcAddr;
+}
+
+/**
+ * Anti-drenaje de gas: solo creamos la partida on-chain si el jugador YA tiene
+ * fondos (balanceOf) y permiso (allowance) suficientes hacia el escrow. Asi un
+ * bot no puede forzar `createMatch` (que paga el arbitro) sin intencion de pagar.
+ */
+export async function hasEnoughAllowance(
+  player: Hex,
+  stakeUnits: bigint,
+): Promise<boolean> {
+  if (!onchainEnabled()) return true; // sin contrato no aplica
+  const { pub } = clients();
+  const token = await getUsdc();
+  const [allowance, balance] = await Promise.all([
+    pub.readContract({
+      address: token,
+      abi: erc20ReadAbi,
+      functionName: "allowance",
+      args: [player, ESCROW],
+    }) as Promise<bigint>,
+    pub.readContract({
+      address: token,
+      abi: erc20ReadAbi,
+      functionName: "balanceOf",
+      args: [player],
+    }) as Promise<bigint>,
+  ]);
+  return allowance >= stakeUnits && balance >= stakeUnits;
 }
 
 /** En empate/disputa: el arbitro cancela y el contrato reembolsa a ambos. */

@@ -12,7 +12,12 @@ import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
 import { verifyInvaders, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
-import { onchainEnabled, createMatchOnchain, cancelMatchOnchain } from "./onchain.js";
+import {
+  onchainEnabled,
+  createMatchOnchain,
+  cancelMatchOnchain,
+  hasEnoughAllowance,
+} from "./onchain.js";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
 
@@ -42,7 +47,7 @@ const qkey = (game: string, stake: number) => `${game}:${stake}`;
 const randomId = () => ("0x" + randomBytes(32).toString("hex")) as Hex;
 const randomSeed = () => Math.floor(Math.random() * 1_000_000_000);
 
-export function matchmake(game: string, stake: number, address: string) {
+export async function matchmake(game: string, stake: number, address: string) {
   const k = qkey(game, stake);
   const waitingId = queue.get(k);
 
@@ -53,14 +58,31 @@ export function matchmake(game: string, stake: number, address: string) {
       m.p2 = address;
       m.status = "ready";
       queue.delete(k);
-      // Si hay contrato configurado, el arbitro crea la partida on-chain.
+      // Si hay contrato configurado, el arbitro crea la partida on-chain, PERO
+      // solo si ambos jugadores ya tienen fondos + allowance suficientes. Asi un
+      // bot no puede forzar createMatch (que paga el arbitro) sin pensar pagar.
       if (onchainEnabled()) {
+        const stakeUnits = BigInt(m.stake) * 1_000_000n;
+        const [okP1, okP2] = await Promise.all([
+          hasEnoughAllowance(m.p1 as Hex, stakeUnits),
+          hasEnoughAllowance(m.p2 as Hex, stakeUnits),
+        ]);
+        if (!okP1 || !okP2) {
+          if (!okP1) console.warn(`matchmaking: ${m.p1} sin fondos/allowance suficientes`);
+          if (!okP2) console.warn(`matchmaking: ${m.p2} sin fondos/allowance suficientes`);
+          // Revertimos el emparejamiento: el que esperaba vuelve a la cola y NO
+          // se crea la partida on-chain (no se gasta gas). Silencioso para el jugador.
+          m.p2 = undefined;
+          m.status = "waiting";
+          queue.set(k, m.id);
+          return view(m, address);
+        }
         const now = BigInt(Math.floor(Date.now() / 1000));
         m.createPromise = createMatchOnchain(
           m.id,
           m.p1 as Hex,
           m.p2 as Hex,
-          BigInt(m.stake) * 1_000_000n,
+          stakeUnits,
           now + 3600n,
           now + 7200n,
         ).catch((e) => console.error("createMatch onchain:", (e as Error).message));

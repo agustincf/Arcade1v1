@@ -62,12 +62,12 @@ app.get("/", (_req, res) =>
 app.get("/arbiter", (_req, res) => res.json({ address: arbiterAddress() }));
 
 // Emparejar: el 2do en llegar se junta con el 1ro.
-app.post("/matchmake", (req, res) => {
+app.post("/matchmake", async (req, res) => {
   const { game, stake, address } = req.body ?? {};
   if (!game || !stake || !address) {
     return res.status(400).json({ error: "faltan game, stake o address" });
   }
-  res.json(matchmake(String(game), Number(stake), String(address)));
+  res.json(await matchmake(String(game), Number(stake), String(address)));
 });
 
 // Enviar puntaje. Cuando estan los dos, decide y firma.

@@ -37,6 +37,10 @@ const escrowAbi = [
   { type: "function", name: "setAllowedStake", inputs: [{ type: "uint256" }, { type: "bool" }], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "deposit", inputs: [{ type: "bytes32" }], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "settle", inputs: [{ type: "bytes32" }, { type: "address" }, { type: "bytes" }], outputs: [], stateMutability: "nonpayable" },
+  { type: "function", name: "matches", inputs: [{ type: "bytes32" }], outputs: [
+    { type: "address" }, { type: "address" }, { type: "uint256" }, { type: "bool" },
+    { type: "bool" }, { type: "uint64" }, { type: "uint64" }, { type: "uint8" },
+  ], stateMutability: "view" },
 ] as const satisfies Abi;
 
 const pub = createPublicClient({ chain: foundry, transport: http(RPC) });
@@ -65,6 +69,28 @@ function play2048(seed: number, maxMoves: number) {
   return { score: g.score, replay: { seed, moves } };
 }
 
+/** Dos jugadores SIN fondos/allowance se emparejan: el arbitro NO debe crear la
+ *  partida on-chain (asi un bot no le drena el gas). */
+async function noFundsScenario() {
+  const X = "0x1111111111111111111111111111111111111111" as Hex;
+  const Y = "0x2222222222222222222222222222222222222222" as Hex;
+  const mx = await matchmake("2048", 1, X);
+  await matchmake("2048", 1, Y); // intenta emparejar, pero sin fondos
+  await onchainReady(mx.matchId);
+  const st = (await pub.readContract({
+    address: ESCROW,
+    abi: escrowAbi,
+    functionName: "matches",
+    args: [mx.matchId as Hex],
+  })) as unknown[];
+  const created = Number(st[7]) !== 0; // status != None
+  console.log("✓ sin fondos: el arbitro NO creó la partida (gas a salvo):", !created);
+  if (created) {
+    console.log("\n❌ Se creó una partida sin fondos (vulnerabilidad)");
+    process.exit(1);
+  }
+}
+
 async function main() {
   const stake = 5_000_000n;
   // Preparacion: mesa habilitada, gas para el arbitro, USDC para los jugadores.
@@ -77,15 +103,20 @@ async function main() {
   await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
   await send(owner, USDC, erc20Abi, "mint", [P2, stake]);
 
-  // 1) Emparejamiento (el backend crea la partida on-chain).
-  const m1 = matchmake("2048", 5, P1);
-  const m2 = matchmake("2048", 5, P2);
+  // 0) Anti-drenaje: sin fondos/allowance, el arbitro NO crea la partida (no gasta gas).
+  await noFundsScenario();
+
+  // approve ANTES de emparejar (el backend chequea allowance al emparejar).
+  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
+
+  // 1) Emparejamiento: con fondos+allowance ok, el arbitro crea la partida on-chain.
+  const m1 = await matchmake("2048", 5, P1);
+  const m2 = await matchmake("2048", 5, P2);
   await onchainReady(m2.matchId);
   console.log("✓ partida creada on-chain por el arbitro:", m1.matchId === m2.matchId);
 
   // 2) Los dos depositan.
-  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
-  await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
   await send(p1, ESCROW, escrowAbi, "deposit", [m1.matchId as Hex]);
   await send(p2, ESCROW, escrowAbi, "deposit", [m2.matchId as Hex]);
   console.log("✓ los dos depositaron · escrow:", Number(await bal(ESCROW)) / 1e6, "USDC");
@@ -124,17 +155,18 @@ async function drawScenario() {
   await send(owner, ESCROW, escrowAbi, "setAllowedStake", [stake, true]);
   await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
   await send(owner, USDC, erc20Abi, "mint", [P2, stake]);
+  // approve ANTES de emparejar (allowance ya gastado en el escenario anterior).
+  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
   const b1 = await bal(P1);
   const b2 = await bal(P2);
   const bE = await bal(ESCROW);
   const bP = await bal(PLATFORM);
 
-  const m1 = matchmake("2048", 10, P1);
-  const m2 = matchmake("2048", 10, P2);
+  const m1 = await matchmake("2048", 10, P1);
+  const m2 = await matchmake("2048", 10, P2);
   await onchainReady(m2.matchId);
 
-  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
-  await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
   await send(p1, ESCROW, escrowAbi, "deposit", [m1.matchId as Hex]);
   await send(p2, ESCROW, escrowAbi, "deposit", [m2.matchId as Hex]);
 

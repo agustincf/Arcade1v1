@@ -62,7 +62,10 @@ export default function MatchPage({
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [freeDone, setFreeDone] = useState(false);
   const [forfeit, setForfeit] = useState(false);
-  // Estado on-chain (deposito previo + cobro del ganador).
+  // Estado on-chain (approve previo + deposito + cobro del ganador).
+  const [approved, setApproved] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [approveErr, setApproveErr] = useState(false);
   const [deposited, setDeposited] = useState(false);
   const [depositing, setDepositing] = useState(false);
   const [depositErr, setDepositErr] = useState(false);
@@ -75,9 +78,9 @@ export default function MatchPage({
   // responde, seguimos en modo "offline" con rival simulado (no se cuelga).
   useEffect(() => {
     if (free || matchId) return;
-    // En modo plata on-chain hay que tener la wallet conectada ANTES de emparejar
-    // (el jugador es su direccion; con ella deposita y cobra).
-    if (needsDeposit && !address) return;
+    // En modo plata on-chain: wallet conectada Y allowance aprobado ANTES de
+    // emparejar (el árbitro no crea la partida si no hay fondos aprobados).
+    if (needsDeposit && (!address || !approved)) return;
     pidRef.current = playerId(address ?? null);
     let cancel = false;
     (async () => {
@@ -100,7 +103,7 @@ export default function MatchPage({
       cancel = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address]);
+  }, [address, approved]);
 
   // Aviso del navegador si cierra/recarga durante el intento (de plata).
   useEffect(() => {
@@ -147,6 +150,20 @@ export default function MatchPage({
         setWinnerAddr(v.winner);
       }
     } else setOutcome("lose");
+  }
+
+  async function doApprove() {
+    if (!address) return;
+    setApproving(true);
+    setApproveErr(false);
+    try {
+      await escrow.approveStake(address as `0x${string}`, bet);
+      setApproved(true); // dispara el emparejamiento
+    } catch {
+      setApproveErr(true);
+    } finally {
+      setApproving(false);
+    }
   }
 
   async function doDeposit() {
@@ -312,6 +329,25 @@ export default function MatchPage({
             <p className="font-screen py-10 text-center text-xl text-[--color-accent-2]">
               {t("match.connectFirst")}
             </p>
+          ) : needsDeposit && !approved ? (
+            <div className="py-6 text-center">
+              <p className="font-pixel text-sm text-[--color-gold]">{t("match.approveTitle")}</p>
+              <p className="font-screen mx-auto mt-3 max-w-sm text-lg text-slate-300">
+                {t("match.approveInfo", { bet })}
+              </p>
+              <button
+                onClick={doApprove}
+                disabled={approving}
+                className="btn3d btn3d--cyan mt-5 w-full disabled:opacity-60"
+              >
+                {approving ? t("match.depositWait") : t("match.approveBtn", { bet })}
+              </button>
+              {approveErr && (
+                <p className="font-screen mt-3 text-base text-[--color-lose]">
+                  {t("match.approveErr")}
+                </p>
+              )}
+            </div>
           ) : seed === null ? (
             <p className="font-screen py-10 text-center text-xl text-[--color-accent-2]">
               {t("match.connecting")}

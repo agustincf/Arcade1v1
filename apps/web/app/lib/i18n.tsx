@@ -116,6 +116,10 @@ const en: Dict = {
   "match.rematch": "REMATCH",
   "match.confirmExit":
     "If you leave now you FORFEIT and lose: the pot goes to your rival. Leave anyway?",
+  "match.approveTitle": "Enable your USDC",
+  "match.approveInfo": "Approve {bet} USDC once so you can play. You'll deposit on the next step.",
+  "match.approveBtn": "APPROVE {bet} USDC",
+  "match.approveErr": "Couldn't approve — try again.",
   "match.depositGate": "Fund your match",
   "match.depositInfo": "Deposit {bet} USDC to play. Both players deposit; the winner takes the pot.",
   "match.depositBtn": "APPROVE & DEPOSIT",
@@ -276,6 +280,10 @@ const es: Dict = {
   "match.rematch": "REVANCHA",
   "match.confirmExit":
     "Si salís ahora ABANDONÁS la partida y perdés: el pozo va para tu rival. ¿Salir igual?",
+  "match.approveTitle": "Habilitá tu USDC",
+  "match.approveInfo": "Aprobá {bet} USDC una vez para poder jugar. Después depositás.",
+  "match.approveBtn": "APROBAR {bet} USDC",
+  "match.approveErr": "No se pudo aprobar — probá de nuevo.",
   "match.depositGate": "Fondeá tu partida",
   "match.depositInfo": "Depositá {bet} USDC para jugar. Los dos depositan; el ganador se lleva el pozo.",
   "match.depositBtn": "APROBAR Y DEPOSITAR",
@@ -435,6 +443,10 @@ const hi: Dict = {
   "match.rematch": "बदला",
   "match.confirmExit":
     "अभी निकले तो मैच छोड़ोगे और हारोगे: दांव प्रतिद्वंद्वी को जाएगा। फिर भी निकलें?",
+  "match.approveTitle": "अपना USDC सक्षम करें",
+  "match.approveInfo": "खेलने के लिए एक बार {bet} USDC स्वीकृत करें। अगले चरण में जमा करेंगे।",
+  "match.approveBtn": "{bet} USDC स्वीकृत करें",
+  "match.approveErr": "स्वीकृति नहीं हो सकी — फिर से कोशिश करें।",
   "match.depositGate": "अपना मैच फंड करें",
   "match.depositInfo": "खेलने के लिए {bet} USDC जमा करें। दोनों खिलाड़ी जमा करते हैं; विजेता पूरा दांव लेता है।",
   "match.depositBtn": "स्वीकृत करें और जमा करें",
@@ -595,6 +607,10 @@ const fr: Dict = {
   "match.rematch": "REVANCHE",
   "match.confirmExit":
     "Si tu pars maintenant tu ABANDONNES et perds : la cagnotte va à ton rival. Quitter quand même ?",
+  "match.approveTitle": "Active ton USDC",
+  "match.approveInfo": "Approuve {bet} USDC une fois pour pouvoir jouer. Tu déposeras à l'étape suivante.",
+  "match.approveBtn": "APPROUVER {bet} USDC",
+  "match.approveErr": "Approbation impossible — réessaie.",
   "match.depositGate": "Approvisionne ta partie",
   "match.depositInfo": "Dépose {bet} USDC pour jouer. Les deux joueurs déposent ; le gagnant rafle la cagnotte.",
   "match.depositBtn": "APPROUVER ET DÉPOSER",
