@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FlappyEngine, FLAPPY_CONST } from "./engine";
+import {
+  FlappyEngine,
+  FLAPPY_CONST,
+  FLAPPY_DT,
+  type ReplayFlappy,
+} from "@arcade1v1/game-sdk/flappy";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
@@ -9,9 +14,11 @@ import { useT } from "@/app/lib/i18n";
 
 const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
 const GROUND_Y = HEIGHT - GROUND_H;
+const STEP = FLAPPY_DT * 1000; // ms por tick
 
 export interface FlappyResult {
   score: number;
+  replay: ReplayFlappy;
 }
 
 interface Cloud {
@@ -38,12 +45,18 @@ export function FlappyGame({
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
 
+  // Grabacion del replay (para el anti-trampa).
+  const flaps = useRef<number[]>([]);
+  const tickRef = useRef(0);
+  const pendingFlap = useRef(false);
+
   useEffect(() => {
     if (!started) return;
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     let raf = 0;
     let last = performance.now();
+    let acc = 0;
     let groundX = 0;
     let cityX = 0;
     const clouds: Cloud[] = [
@@ -200,13 +213,25 @@ export function FlappyGame({
     };
 
     const loop = (t: number) => {
-      const dt = Math.min((t - last) / 1000, 0.05);
+      const dt = Math.min(t - last, 100);
       last = t;
       const eng = engineRef.current!;
-      eng.update(dt);
+      // Paso fijo determinístico: cada tick aplica el aleteo (si lo hubo) y avanza.
+      acc += dt;
+      while (acc >= STEP) {
+        if (pendingFlap.current) {
+          eng.flap();
+          flaps.current.push(tickRef.current);
+          pendingFlap.current = false;
+        }
+        eng.update(FLAPPY_DT);
+        tickRef.current += 1;
+        acc -= STEP;
+        if (eng.over) break;
+      }
       if (eng.score !== lastScore) {
         lastScore = eng.score;
-        setScore(eng.score); // re-render solo cuando cambia el puntaje
+        setScore(eng.score);
       }
       draw();
       if (eng.over) {
@@ -225,9 +250,8 @@ export function FlappyGame({
     function onKey(e: KeyboardEvent) {
       if (e.key === " ") {
         e.preventDefault();
-        const eng = engineRef.current!;
-        if (!eng.over) {
-          eng.flap();
+        if (!engineRef.current!.over) {
+          pendingFlap.current = true; // se aplica en el proximo tick
           sfx.flap();
         }
       }
@@ -237,9 +261,8 @@ export function FlappyGame({
   }, [started]);
 
   function handleTap() {
-    const eng = engineRef.current!;
-    if (!eng.over) {
-      eng.flap();
+    if (!engineRef.current!.over) {
+      pendingFlap.current = true;
       sfx.flap();
     }
   }
@@ -275,7 +298,12 @@ export function FlappyGame({
           <GameOverScreen
             headline={t("g.flappy.over")}
             score={score}
-            onConfirm={() => onFinish({ score })}
+            onConfirm={() =>
+              onFinish({
+                score,
+                replay: { seed, ticks: tickRef.current, flaps: flaps.current },
+              })
+            }
           />
         )}
       </div>

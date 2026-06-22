@@ -259,9 +259,9 @@ export default function MatchPage({
           ) : game.id === "tetris" ? (
             <TetrisGame key={round} seed={seed} {...gameProps} onFinish={(r: TetrisResult) => finishMatch(r.score, r.replay)} />
           ) : game.id === "flappy" ? (
-            <FlappyGame key={round} seed={seed} {...gameProps} onFinish={(r: FlappyResult) => finishMatch(r.score)} />
+            <FlappyGame key={round} seed={seed} {...gameProps} onFinish={(r: FlappyResult) => finishMatch(r.score, r.replay)} />
           ) : game.id === "racing" ? (
-            <RacingGame key={round} seed={seed} {...gameProps} onFinish={(r: RacingResult) => finishMatch(r.score)} />
+            <RacingGame key={round} seed={seed} {...gameProps} onFinish={(r: RacingResult) => finishMatch(r.score, r.replay)} />
           ) : (
             <Game2048Component key={round} seed={seed} {...gameProps} onFinish={(r: Result2048) => finishMatch(r.score, r.replay)} />
           )}

@@ -1,18 +1,18 @@
-// Motor del juego de carreras: un auto esquiva obstaculos en 3 carriles.
-// Asincronico y por puntaje: +1 por cada obstaculo esquivado. Acelera con el
-// tiempo. Chocar = fin. Misma semilla = mismos obstaculos para los dos.
+// Motor de la Carrera COMPARTIDO entre web y servidor. Determinístico con dt
+// fijo: misma semilla + mismos cambios de carril en los mismos ticks = mismo
+// resultado, así el servidor re-simula el replay y verifica el puntaje.
 
 export const WIDTH = 320;
 export const HEIGHT = 480;
 export const LANES = 3;
+export const RACING_DT = 1 / 60; // paso fijo de fisica (segundos por tick)
 
 export const CAR_W = 42;
 export const CAR_H = 66;
-const CAR_Y = HEIGHT - 80; // posicion vertical fija del auto
+const CAR_Y = HEIGHT - 80;
 const OBST_W = 44;
 const OBST_H = 44;
 
-/** Centro horizontal de cada carril. */
 export function laneX(lane: number): number {
   return WIDTH * ((lane * 2 + 1) / (LANES * 2));
 }
@@ -31,17 +31,17 @@ function mulberry32(seed: number) {
 export interface Obstacle {
   lane: number;
   y: number;
-  kind: number; // variante visual (0..2)
+  kind: number;
   passed: boolean;
 }
 
 export class RacingEngine {
-  carLane = 1; // empieza en el carril del medio
+  carLane = 1;
   obstacles: Obstacle[] = [];
   score = 0;
   over = false;
   elapsedMs = 0;
-  roadOffset = 0; // para animar las lineas del asfalto
+  roadOffset = 0;
 
   private rng: () => number;
   private spawnTimer = 0;
@@ -66,18 +66,16 @@ export class RacingEngine {
     if (this.carLane < LANES - 1) this.carLane += 1;
   }
 
-  /** Nivel de velocidad: sube con el tiempo. */
   private level(): number {
     return Math.floor(this.elapsedMs / 8000);
   }
 
-  /** Velocidad de avance (px/s). */
   speed(): number {
     return Math.min(480, 190 + this.level() * 35 + this.score * 2);
   }
 
   private spawnInterval(): number {
-    return Math.max(0.5, 1.15 - this.level() * 0.07); // segundos
+    return Math.max(0.5, 1.15 - this.level() * 0.07);
   }
 
   private addObstacle(lane: number) {
@@ -90,11 +88,8 @@ export class RacingEngine {
   }
 
   private spawn() {
-    // Cada tanto (mas seguido a mayor nivel) vienen DOS autos a la vez en dos
-    // carriles, dejando uno solo libre: obliga a usar los tres carriles.
     const doubleChance = Math.min(0.5, 0.14 + this.level() * 0.06);
     if (this.rng() < doubleChance) {
-      // Carril libre distinto al ultimo libre (para que vaya rotando).
       let free = Math.floor(this.rng() * LANES);
       if (free === this.lastFree) free = (free + 1) % LANES;
       this.lastFree = free;
@@ -103,7 +98,6 @@ export class RacingEngine {
         if (lane !== free) this.addObstacle(lane);
       }
     } else {
-      // Uno solo, en un carril distinto al ultimo.
       let lane = Math.floor(this.rng() * LANES);
       if (lane === this.lastLane) lane = (lane + 1) % LANES;
       this.lastLane = lane;
@@ -119,19 +113,15 @@ export class RacingEngine {
     const v = this.speed();
     this.roadOffset = (this.roadOffset + v * dt) % 40;
 
-    // Mover obstaculos
     for (const o of this.obstacles) o.y += v * dt;
 
-    // Spawnear
     this.spawnTimer += dt;
     if (this.spawnTimer >= this.spawnInterval()) {
       this.spawnTimer = 0;
       this.spawn();
     }
 
-    // Puntaje + colision
     for (const o of this.obstacles) {
-      // Colision: mismo carril y se superponen verticalmente con el auto
       if (
         o.lane === this.carLane &&
         Math.abs(o.y - CAR_Y) < OBST_H / 2 + CAR_H / 2 - 8
@@ -139,16 +129,40 @@ export class RacingEngine {
         this.over = true;
         return;
       }
-      // Esquivado: paso al auto
       if (!o.passed && o.y > CAR_Y + CAR_H / 2) {
         o.passed = true;
         this.score += 1;
       }
     }
 
-    // Limpiar los que salieron
     this.obstacles = this.obstacles.filter((o) => o.y < HEIGHT + OBST_H);
   }
 }
 
 export const RACING_CONST = { WIDTH, HEIGHT, LANES, CAR_W, CAR_H, OBST_W, OBST_H };
+
+export type RaceAction = "l" | "r";
+
+export interface ReplayRacing {
+  seed: number;
+  ticks: number;
+  inputs: { t: number; a: RaceAction }[];
+}
+
+/** ANTI-TRAMPA: re-simula el replay con dt fijo y devuelve el puntaje real. */
+export function verifyRacing(r: ReplayRacing): number {
+  const g = new RacingEngine(r.seed);
+  const byTick = new Map<number, RaceAction[]>();
+  for (const inp of r.inputs) {
+    const arr = byTick.get(inp.t) ?? [];
+    arr.push(inp.a);
+    byTick.set(inp.t, arr);
+  }
+  for (let t = 0; t < r.ticks; t++) {
+    const acts = byTick.get(t);
+    if (acts) for (const a of acts) a === "l" ? g.moveLeft() : g.moveRight();
+    g.update(RACING_DT);
+    if (g.over) break;
+  }
+  return g.score;
+}

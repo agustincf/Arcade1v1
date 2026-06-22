@@ -1,23 +1,21 @@
-// Motor del Flappy 1v1: toda la fisica del juego, SIN pantalla.
-// El pajaro cae por gravedad; al "aletear" sube. Pasar un tubo = +1 punto.
-// Chocar un tubo, el techo o el piso = fin. Gana el de mayor puntaje.
+// Motor del Flappy COMPARTIDO entre web y servidor. Determinístico con dt fijo:
+// dadas la misma semilla + los mismos aleteos en los mismos ticks, el resultado
+// es idéntico, así el servidor re-simula el replay y verifica el puntaje.
 
 export const WIDTH = 320;
 export const HEIGHT = 480;
+export const FLAPPY_DT = 1 / 60; // paso fijo de fisica (segundos por tick)
 
 const BIRD_X = 70;
-const BIRD_R = 12; // radio del pajaro
-
-const GRAVITY = 1350; // px por segundo al cuadrado
-const FLAP_VY = -400; // impulso hacia arriba al aletear
-
+const BIRD_R = 12;
+const GRAVITY = 1350;
+const FLAP_VY = -400;
 const PIPE_W = 58;
-const GAP = 158; // hueco entre tubo de arriba y de abajo (un poco mas amable)
-const PIPE_SPACING = 215; // distancia horizontal entre tubos
-const MARGIN = 72; // margen para que el hueco no quede pegado a los bordes
-const GROUND_H = 36; // alto del suelo (visual)
+const GAP = 158;
+const PIPE_SPACING = 215;
+const MARGIN = 72;
+const GROUND_H = 36;
 
-/** Numeros al azar con semilla: misma semilla = mismos tubos para los dos. */
 function mulberry32(seed: number) {
   let a = seed >>> 0;
   return function () {
@@ -30,9 +28,9 @@ function mulberry32(seed: number) {
 }
 
 export interface Pipe {
-  x: number; // posicion horizontal del tubo
-  gapY: number; // centro del hueco
-  passed: boolean; // si el pajaro ya lo paso (para no contar dos veces)
+  x: number;
+  gapY: number;
+  passed: boolean;
 }
 
 export class FlappyEngine {
@@ -41,13 +39,12 @@ export class FlappyEngine {
   pipes: Pipe[] = [];
   score = 0;
   over = false;
-  started = false; // hasta el primer aleteo, el pajaro flota
+  started = false;
 
   private rng: () => number;
 
   constructor(seed: number) {
     this.rng = mulberry32(seed);
-    // Primer tubo bien a la derecha.
     this.addPipe(WIDTH + 80);
   }
 
@@ -60,38 +57,29 @@ export class FlappyEngine {
     this.pipes.push({ x, gapY: this.randomGapY(), passed: false });
   }
 
-  /** El jugador aletea. */
   flap() {
     if (this.over) return;
     this.started = true;
     this.birdVy = FLAP_VY;
   }
 
-  /** Velocidad horizontal de los tubos (sube un poco con el puntaje). */
   pipeSpeed(): number {
     return 120 + this.score * 3;
   }
 
-  /** Avanza la fisica. dt en segundos. */
   update(dt: number) {
     if (this.over || !this.started) return;
 
-    // Gravedad
     this.birdVy += GRAVITY * dt;
     this.birdY += this.birdVy * dt;
 
-    // Mover tubos hacia la izquierda
     const speed = this.pipeSpeed();
     for (const p of this.pipes) p.x -= speed * dt;
 
-    // Sacar tubos que salieron de pantalla y agregar nuevos
     if (this.pipes.length && this.pipes[0].x < -PIPE_W) this.pipes.shift();
     const last = this.pipes[this.pipes.length - 1];
-    if (last && last.x < WIDTH - PIPE_SPACING) {
-      this.addPipe(last.x + PIPE_SPACING);
-    }
+    if (last && last.x < WIDTH - PIPE_SPACING) this.addPipe(last.x + PIPE_SPACING);
 
-    // Puntaje: cuando el pajaro pasa el tubo
     for (const p of this.pipes) {
       if (!p.passed && p.x + PIPE_W < BIRD_X) {
         p.passed = true;
@@ -99,13 +87,11 @@ export class FlappyEngine {
       }
     }
 
-    // Choque con techo o suelo
     if (this.birdY - BIRD_R < 0 || this.birdY + BIRD_R > HEIGHT - GROUND_H) {
       this.over = true;
       return;
     }
 
-    // Choque con un tubo
     for (const p of this.pipes) {
       const inX = BIRD_X + BIRD_R > p.x && BIRD_X - BIRD_R < p.x + PIPE_W;
       if (!inX) continue;
@@ -119,12 +105,23 @@ export class FlappyEngine {
   }
 }
 
-export const FLAPPY_CONST = {
-  WIDTH,
-  HEIGHT,
-  BIRD_X,
-  BIRD_R,
-  PIPE_W,
-  GAP,
-  GROUND_H,
-};
+export const FLAPPY_CONST = { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H };
+
+/** Replay: semilla + ticks totales + los ticks en los que se aleteo. */
+export interface ReplayFlappy {
+  seed: number;
+  ticks: number;
+  flaps: number[];
+}
+
+/** ANTI-TRAMPA: re-simula el replay con dt fijo y devuelve el puntaje real. */
+export function verifyFlappy(r: ReplayFlappy): number {
+  const g = new FlappyEngine(r.seed);
+  const flapSet = new Set(r.flaps);
+  for (let t = 0; t < r.ticks; t++) {
+    if (flapSet.has(t)) g.flap();
+    g.update(FLAPPY_DT);
+    if (g.over) break;
+  }
+  return g.score;
+}

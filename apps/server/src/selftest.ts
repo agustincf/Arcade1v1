@@ -1,33 +1,17 @@
-// Auto-test del arbitro (sin red): simula dos jugadores, decide el resultado
-// y verifica que la firma recupere la direccion del arbitro (lo que hace el
-// contrato al pagar). Correr con: npm run selftest -w @arcade1v1/server
+// Auto-test del arbitro (sin red): emparejamiento, firma, empate y ANTI-TRAMPA
+// (replay) de los 4 juegos. Correr con: npm run selftest -w @arcade1v1/server
 
 import "dotenv/config";
 import { recoverTypedDataAddress, type Hex } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { matchmake, submitScore } from "./matchmaking.js";
 import { arbiterAddress, RESULT_TYPES, resultDomain } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { TetrisEngine, type TetrisAction } from "@arcade1v1/game-sdk/tetris";
+import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
+import { RacingEngine, RACING_DT, type RaceAction } from "@arcade1v1/game-sdk/racing";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
-// Juega un Tetris determinístico (paso fijo) y devuelve el puntaje + replay.
-function playTetris(seed: number) {
-  const g = new TetrisEngine(seed);
-  const inputs: { t: number; a: TetrisAction }[] = [];
-  let t = 0;
-  while (!g.over && t < 3000) {
-    if (t % 6 === 0) {
-      g.apply("h"); // caida rapida -> suma puntos
-      inputs.push({ t, a: "h" });
-    }
-    g.tick();
-    t++;
-  }
-  return { score: g.score, replay: { seed, ticks: t, inputs } };
-}
-
-// Juega un 2048 (mismo motor que la web) y devuelve los movimientos + puntaje.
 function play2048(seed: number, maxMoves = 500) {
   const g = new Game2048(seed);
   const moves: Dir[] = [];
@@ -37,7 +21,55 @@ function play2048(seed: number, maxMoves = 500) {
     if (g.move(dirs[i % 4])) moves.push(dirs[i % 4]);
     i++;
   }
-  return { moves, score: g.score };
+  return { score: g.score, replay: { seed, moves } };
+}
+
+function playTetris(seed: number) {
+  const g = new TetrisEngine(seed);
+  const inputs: { t: number; a: TetrisAction }[] = [];
+  let t = 0;
+  while (!g.over && t < 3000) {
+    if (t % 6 === 0) {
+      g.apply("h");
+      inputs.push({ t, a: "h" });
+    }
+    g.tick();
+    t++;
+  }
+  return { score: g.score, replay: { seed, ticks: t, inputs } };
+}
+
+function playFlappy(seed: number) {
+  const g = new FlappyEngine(seed);
+  const flaps: number[] = [];
+  let t = 0;
+  while (!g.over && t < 600) {
+    if (t % 18 === 0) {
+      g.flap();
+      flaps.push(t);
+    }
+    g.update(FLAPPY_DT);
+    t++;
+  }
+  return { score: g.score, replay: { seed, ticks: t, flaps } };
+}
+
+function playRacing(seed: number) {
+  const g = new RacingEngine(seed);
+  const inputs: { t: number; a: RaceAction }[] = [];
+  let t = 0;
+  while (!g.over && t < 1200) {
+    if (t % 40 === 0) {
+      g.moveRight();
+      inputs.push({ t, a: "r" });
+    } else if (t % 40 === 20) {
+      g.moveLeft();
+      inputs.push({ t, a: "l" });
+    }
+    g.update(RACING_DT);
+    t++;
+  }
+  return { score: g.score, replay: { seed, ticks: t, inputs } };
 }
 
 const A = "0x1111111111111111111111111111111111111111";
@@ -46,18 +78,16 @@ const B = "0x2222222222222222222222222222222222222222";
 async function main() {
   console.log("Arbitro:", arbiterAddress());
 
-  // 1) Emparejamiento por orden de llegada.
-  const m1 = matchmake("racing", 5, A);
-  const m2 = matchmake("racing", 5, B);
+  // 1) Emparejamiento + 2) cada uno juega (A gana) + 3) firma valida.
+  const m1 = matchmake("2048", 5, A);
+  const m2 = matchmake("2048", 5, B);
   console.log("✓ emparejados:", m1.matchId === m2.matchId);
   console.log("✓ misma semilla (juego justo):", m1.seed === m2.seed, "(", m1.seed, ")");
-
-  // 2) Cada uno juega su intento (A hace mas puntos).
-  await submitScore(m2.matchId, A, 1200);
-  const r = await submitScore(m2.matchId, B, 800);
+  const sA = play2048(m1.seed, 500); // A juega completo
+  const sB = play2048(m2.seed, 12); // B juega poco -> menos puntos
+  await submitScore(m2.matchId, A, sA.score, sA.replay);
+  const r = await submitScore(m2.matchId, B, sB.score, sB.replay);
   console.log("✓ estado:", r.status, "· ganador:", r.winner === A ? "A (p1)" : "B (p2)");
-
-  // 3) La firma del arbitro debe recuperar su direccion (lo que verifica el contrato).
   const signer = await recoverTypedDataAddress({
     domain: resultDomain(),
     types: RESULT_TYPES,
@@ -68,97 +98,81 @@ async function main() {
   const ok = signer.toLowerCase() === arbiterAddress().toLowerCase();
   console.log("✓ firma valida (recupera al arbitro):", ok);
 
-  // 4) Caso empate -> reembolso.
-  const e1 = matchmake("flappy", 10, A);
-  matchmake("flappy", 10, B);
-  await submitScore(e1.matchId, A, 50);
-  const draw = await submitScore(e1.matchId, B, 50);
+  // 4) Empate -> reembolso (mismos movimientos = mismo puntaje).
+  const e1 = matchmake("2048", 10, A);
+  const e2 = matchmake("2048", 10, B);
+  const eA = play2048(e1.seed, 30);
+  const eB = play2048(e2.seed, 30);
+  await submitScore(e1.matchId, A, eA.score, eA.replay);
+  const draw = await submitScore(e2.matchId, B, eB.score, eB.replay);
   console.log("✓ empate -> reembolso:", draw.outcome === "draw");
 
-  // 5) ANTI-TRAMPA en 2048: replay legitimo se acepta, puntaje inventado se rechaza.
-  const cA = matchmake("2048", 5, A);
-  const pA = play2048(cA.seed, 500); // A juega bien
-  const rA = await submitScore(cA.matchId, A, pA.score, {
-    seed: cA.seed,
-    moves: pA.moves,
-  });
-  console.log("✓ replay legitimo aceptado:", rA.scores[A] === pA.score);
-
-  const cB = matchmake("2048", 5, B); // se empareja con A (misma semilla)
-  let cheatRejected = false;
+  // 5) ANTI-TRAMPA 2048: legitimo aceptado, inventado rechazado.
+  const cA = matchmake("2048", 20, A);
+  const pA = play2048(cA.seed, 500);
+  const rA = await submitScore(cA.matchId, A, pA.score, pA.replay);
+  console.log("✓ replay 2048 aceptado:", rA.scores[A] === pA.score);
+  const cB = matchmake("2048", 20, B);
+  let cheat2048 = false;
   try {
-    // B intenta hacer trampa: dice 999999 con un replay que no lo respalda.
     await submitScore(cB.matchId, B, 999999, { seed: cB.seed, moves: [] });
   } catch {
-    cheatRejected = true;
+    cheat2048 = true;
   }
-  console.log("✓ puntaje inventado RECHAZADO:", cheatRejected);
-
-  const pB = play2048(cB.seed, 12); // B juega menos -> menos puntos
-  const rB = await submitScore(cB.matchId, B, pB.score, {
-    seed: cB.seed,
-    moves: pB.moves,
-  });
-  const settled = rB.status === "settled" || rB.status === "draw";
-  console.log("✓ 2048 verificado y liquidado:", settled);
+  console.log("✓ puntaje 2048 inventado RECHAZADO:", cheat2048);
 
   // 6) AUTENTICACION: firma valida aceptada, firma que no corresponde rechazada.
   const wC = privateKeyToAccount(generatePrivateKey());
   const wD = privateKeyToAccount(generatePrivateKey());
   const C = wC.address;
   const D = wD.address;
-  const cm = matchmake("2048", 5, C);
-  matchmake("2048", 5, D);
+  const cm = matchmake("2048", 50, C);
+  matchmake("2048", 50, D);
   const pC = play2048(cm.seed, 30);
-  const sigC = await wC.signMessage({
-    message: scoreAuthMessage(cm.matchId, C, pC.score),
-  });
-  const authOk = await submitScore(
-    cm.matchId,
-    C,
-    pC.score,
-    { seed: cm.seed, moves: pC.moves },
-    sigC,
-  );
+  const sigC = await wC.signMessage({ message: scoreAuthMessage(cm.matchId, C, pC.score) });
+  const authOk = await submitScore(cm.matchId, C, pC.score, pC.replay, sigC);
   console.log("✓ firma valida aceptada:", authOk.scores[C] === pC.score);
-
   const pD = play2048(cm.seed, 30);
-  // D firma un mensaje que NO corresponde al envio -> debe rechazarse.
-  const badSig = await wD.signMessage({
-    message: scoreAuthMessage(cm.matchId, D, 999999),
-  });
+  const badSig = await wD.signMessage({ message: scoreAuthMessage(cm.matchId, D, 999999) });
   let badRejected = false;
   try {
-    await submitScore(cm.matchId, D, pD.score, { seed: cm.seed, moves: pD.moves }, badSig);
+    await submitScore(cm.matchId, D, pD.score, pD.replay, badSig);
   } catch {
     badRejected = true;
   }
   console.log("✓ firma que no corresponde RECHAZADA:", badRejected);
 
-  // 7) ANTI-TRAMPA en TETRIS (paso fijo): replay legitimo aceptado, inventado rechazado.
-  const E = "0x" + "e".repeat(40);
-  const F = "0x" + "f".repeat(40);
-  const tm = matchmake("tetris", 5, E);
-  matchmake("tetris", 5, F);
-  const pE = playTetris(tm.seed);
-  const rE = await submitScore(tm.matchId, E, pE.score, pE.replay);
-  console.log("✓ replay Tetris legítimo aceptado:", rE.scores[E] === pE.score, `(${pE.score} pts)`);
-  let tetrisCheat = false;
-  try {
-    await submitScore(tm.matchId, F, 999999, { seed: tm.seed, ticks: 10, inputs: [] });
-  } catch {
-    tetrisCheat = true;
+  // 7) ANTI-TRAMPA en los juegos de TIEMPO REAL (paso fijo determinístico).
+  const games: { name: "tetris" | "flappy" | "racing"; play: (s: number) => { score: number; replay: unknown } }[] = [
+    { name: "tetris", play: playTetris },
+    { name: "flappy", play: playFlappy },
+    { name: "racing", play: playRacing },
+  ];
+  let realtimeOk = true;
+  for (const g of games) {
+    const p1 = matchmake(g.name, 5, A);
+    matchmake(g.name, 5, B);
+    const pl = g.play(p1.seed);
+    const res = await submitScore(p1.matchId, A, pl.score, pl.replay);
+    const legitOk = res.scores[A] === pl.score;
+    let cheatOk = false;
+    try {
+      await submitScore(p1.matchId, B, 999999, { seed: p1.seed, ticks: 5, inputs: [], flaps: [], moves: [] });
+    } catch {
+      cheatOk = true;
+    }
+    console.log(`✓ ${g.name}: replay aceptado (${pl.score} pts) = ${legitOk} · inventado rechazado = ${cheatOk}`);
+    realtimeOk = realtimeOk && legitOk && cheatOk;
   }
-  console.log("✓ puntaje Tetris inventado RECHAZADO:", tetrisCheat);
 
   const allOk =
     ok &&
-    cheatRejected &&
-    settled &&
+    cheat2048 &&
+    rA.scores[A] === pA.score &&
     authOk.scores[C] === pC.score &&
     badRejected &&
-    rE.scores[E] === pE.score &&
-    tetrisCheat;
+    draw.outcome === "draw" &&
+    realtimeOk;
   if (!allOk) process.exit(1);
   console.log("\nTODO OK ✅");
 }

@@ -7,6 +7,8 @@ import { recoverMessageAddress, type Hex } from "viem";
 import { signResult } from "./sign.js";
 import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
 import { verifyTetris, type ReplayTetris } from "@arcade1v1/game-sdk/tetris";
+import { verifyFlappy, type ReplayFlappy } from "@arcade1v1/game-sdk/flappy";
+import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
@@ -110,6 +112,26 @@ export async function submitScore(
       throw new Error("replay required");
     }
     const verified = verifyTetris(r);
+    if (verified !== finalScore) {
+      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
+    }
+    finalScore = verified;
+  } else if (m.game === "flappy") {
+    const r = replay as ReplayFlappy | undefined;
+    if (!r || !Array.isArray(r.flaps) || typeof r.seed !== "number" || typeof r.ticks !== "number") {
+      throw new Error("replay required");
+    }
+    const verified = verifyFlappy(r);
+    if (verified !== finalScore) {
+      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
+    }
+    finalScore = verified;
+  } else if (m.game === "racing") {
+    const r = replay as ReplayRacing | undefined;
+    if (!r || !Array.isArray(r.inputs) || typeof r.seed !== "number" || typeof r.ticks !== "number") {
+      throw new Error("replay required");
+    }
+    const verified = verifyRacing(r);
     if (verified !== finalScore) {
       throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
     }

@@ -7,6 +7,8 @@
     ".": "./src/index.ts",
     "./g2048": "./src/g2048.ts",
     "./tetris": "./src/tetris.ts",
+    "./flappy": "./src/flappy.ts",
+    "./racing": "./src/racing.ts",
     "./auth": "./src/auth.ts"
   }
 }

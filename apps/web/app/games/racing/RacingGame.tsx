@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { RacingEngine, RACING_CONST } from "./engine";
+import {
+  RacingEngine,
+  RACING_CONST,
+  RACING_DT,
+  type RaceAction,
+  type ReplayRacing,
+} from "@arcade1v1/game-sdk/racing";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
@@ -9,9 +15,11 @@ import { useT } from "@/app/lib/i18n";
 
 const { WIDTH, HEIGHT } = RACING_CONST;
 const HORIZON = 150; // linea del horizonte (donde "nace" la ruta)
+const STEP = RACING_DT * 1000; // ms por tick
 
 export interface RacingResult {
   score: number;
+  replay: ReplayRacing;
 }
 
 const OBST_COLORS = ["#ff4d6d", "#ffd23d", "#27e8ff"];
@@ -34,12 +42,24 @@ export function RacingGame({
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
 
+  // Grabacion del replay (anti-trampa).
+  const inputs = useRef<{ t: number; a: RaceAction }[]>([]);
+  const tickRef = useRef(0);
+  const pending = useRef<RaceAction[]>([]);
+
+  function enqueue(a: RaceAction) {
+    if (engineRef.current!.over) return;
+    pending.current.push(a);
+    sfx.move();
+  }
+
   useEffect(() => {
     if (!started) return;
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     let raf = 0;
     let last = performance.now();
+    let acc = 0;
     let lastScore = -1;
 
     // --- Proyeccion en perspectiva (pseudo-3D) ---
@@ -222,10 +242,23 @@ export function RacingGame({
     };
 
     const loop = (t: number) => {
-      const dt = Math.min((t - last) / 1000, 0.05);
+      const dt = Math.min(t - last, 100);
       last = t;
       const eng = engineRef.current!;
-      eng.update(dt);
+      // Paso fijo determinístico: aplica los cambios de carril y avanza por ticks.
+      acc += dt;
+      while (acc >= STEP) {
+        while (pending.current.length) {
+          const a = pending.current.shift()!;
+          if (a === "l") eng.moveLeft();
+          else eng.moveRight();
+          inputs.current.push({ t: tickRef.current, a });
+        }
+        eng.update(RACING_DT);
+        tickRef.current += 1;
+        acc -= STEP;
+        if (eng.over) break;
+      }
       if (eng.score !== lastScore) {
         lastScore = eng.score;
         setScore(eng.score);
@@ -247,20 +280,17 @@ export function RacingGame({
   useEffect(() => {
     if (!started) return;
     function onKey(e: KeyboardEvent) {
-      const eng = engineRef.current!;
-      if (eng.over) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        eng.moveLeft();
-        sfx.move();
+        enqueue("l");
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        eng.moveRight();
-        sfx.move();
+        enqueue("r");
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started]);
 
   return (
@@ -293,7 +323,12 @@ export function RacingGame({
           <GameOverScreen
             headline={t("g.racing.over")}
             score={score}
-            onConfirm={() => onFinish({ score })}
+            onConfirm={() =>
+              onFinish({
+                score,
+                replay: { seed, ticks: tickRef.current, inputs: inputs.current },
+              })
+            }
           />
         )}
       </div>
@@ -302,19 +337,13 @@ export function RacingGame({
       {started && !over && (
         <div className="grid w-full max-w-[320px] grid-cols-2 gap-3">
           <button
-            onClick={() => {
-              engineRef.current!.moveLeft();
-              sfx.move();
-            }}
+            onClick={() => enqueue("l")}
             className="btn3d btn3d--cyan !text-2xl"
           >
             ◀
           </button>
           <button
-            onClick={() => {
-              engineRef.current!.moveRight();
-              sfx.move();
-            }}
+            onClick={() => enqueue("r")}
             className="btn3d btn3d--cyan !text-2xl"
           >
             ▶
