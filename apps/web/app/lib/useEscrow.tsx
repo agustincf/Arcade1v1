@@ -8,6 +8,7 @@
 // (ver packages/contracts/check-payment-e2e.sh).
 
 import { useWriteContract, usePublicClient } from "wagmi";
+import { maxUint256 } from "viem";
 import {
   ESCROW_ADDRESS,
   USDC_ADDRESS,
@@ -33,12 +34,28 @@ export function useEscrow() {
       functionName: "allowance",
       args: [owner, ESCROW_ADDRESS],
     })) as bigint;
-    if (allowance >= amount) return; // ya estaba aprobado
+    if (allowance >= amount) return; // ya estaba aprobado (una sola vez alcanza)
+    // Aprobamos un monto amplio UNA sola vez: así no hay que re-aprobar en cada
+    // partida (solo queda el depósito por jugar).
     const hash = await writeContractAsync({
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
-      args: [ESCROW_ADDRESS, amount],
+      args: [ESCROW_ADDRESS, maxUint256],
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+  }
+
+  /** Deposita la apuesta (el approve ya se hizo antes). Un solo paso. */
+  async function deposit(matchId: `0x${string}`) {
+    if (!ESCROW_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    const hash = await writeContractAsync({
+      address: ESCROW_ADDRESS,
+      abi: escrowAbi,
+      functionName: "deposit",
+      args: [matchId],
     });
     await publicClient.waitForTransactionReceipt({ hash });
   }
@@ -97,5 +114,5 @@ export function useEscrow() {
     await publicClient.waitForTransactionReceipt({ hash });
   }
 
-  return { approveStake, approveAndDeposit, claim };
+  return { approveStake, deposit, approveAndDeposit, claim };
 }

@@ -171,11 +171,7 @@ export default function MatchPage({
     setDepositing(true);
     setDepositErr(false);
     try {
-      await escrow.approveAndDeposit(
-        matchId as `0x${string}`,
-        address as `0x${string}`,
-        bet,
-      );
+      await escrow.deposit(matchId as `0x${string}`);
       setDeposited(true);
     } catch {
       setDepositErr(true);
