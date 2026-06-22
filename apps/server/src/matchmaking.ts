@@ -12,6 +12,7 @@ import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
 import { verifyInvaders, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { onchainEnabled, createMatchOnchain } from "./onchain.js";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
 
@@ -28,6 +29,7 @@ interface Match {
   outcome?: "p1" | "p2" | "draw";
   signature?: Hex;
   isBot?: boolean;
+  createPromise?: Promise<void>; // creacion de la partida on-chain (si aplica)
 }
 
 const BOT = "0x000000000000000000000000000000000000b07a";
@@ -50,6 +52,18 @@ export function matchmake(game: string, stake: number, address: string) {
       m.p2 = address;
       m.status = "ready";
       queue.delete(k);
+      // Si hay contrato configurado, el arbitro crea la partida on-chain.
+      if (onchainEnabled()) {
+        const now = BigInt(Math.floor(Date.now() / 1000));
+        m.createPromise = createMatchOnchain(
+          m.id,
+          m.p1 as Hex,
+          m.p2 as Hex,
+          BigInt(m.stake) * 1_000_000n,
+          now + 3600n,
+          now + 7200n,
+        ).catch((e) => console.error("createMatch onchain:", (e as Error).message));
+      }
       return view(m, address);
     }
   }
@@ -205,6 +219,11 @@ export async function addBot(id: string) {
   if (m.status === "waiting") m.status = "ready";
   await settleIfReady(m); // si el jugador ya envio su puntaje, liquida ahora
   return view(m, m.p1);
+}
+
+/** Espera a que la partida exista on-chain (si aplica) antes de depositar. */
+export function onchainReady(id: string): Promise<void> {
+  return matches.get(id)?.createPromise ?? Promise.resolve();
 }
 
 export function getMatch(id: string, address?: string) {

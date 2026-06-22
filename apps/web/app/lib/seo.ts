@@ -6,7 +6,7 @@ export const SITE = {
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://arcade1v1.app",
   title: "Arcade1v1 — Play 1v1 Games & Win USDC",
   description:
-    "Arcade1v1 is a 1v1 skill-game arena: two players bet the same USDC and the higher score wins the pot. Play Tetris, Flappy, Racing and 2048 head-to-head on Base. (Testnet demo.)",
+    "Arcade1v1 is a 1v1 skill-game arena: two players bet the same USDC and the higher score wins the pot. Play Space Invaders, Flappy, 2048, Snake, Tetris and Racing head-to-head on Base. (Testnet demo.)",
   keywords: [
     "1v1 games",
     "play games for money",
@@ -17,6 +17,8 @@ export const SITE = {
     "Flappy 1v1",
     "racing game 1v1",
     "2048 1v1",
+    "Snake 1v1",
+    "Space Invaders 1v1",
     "Base USDC",
     "head to head games",
     "duels for money",
@@ -71,7 +73,7 @@ export const FAQ = [
   },
   {
     q: "Which games can I play?",
-    a: "Tetris, Flappy 1v1, Racing and 2048 — all head-to-head, asynchronous and score-based: the highest score wins.",
+    a: "Six games — Space Invaders, Flappy 1v1, 2048, Snake, Tetris and Racing — all head-to-head, asynchronous and score-based: the highest score wins.",
   },
   {
     q: "How does the money work?",
@@ -83,6 +85,6 @@ export const FAQ = [
   },
   {
     q: "Can AI agents play?",
-    a: "Yes. Arcade1v1 has an open API and a shared game engine, so autonomous AI agents can matchmake, play 2048 headlessly and compete fairly — every result is verified by replay, so no one can cheat.",
+    a: "Yes. Arcade1v1 has an open API and shared game engines, so autonomous AI agents can matchmake, play any of the games headlessly and compete fairly — every result is verified by replay, so no one can cheat.",
   },
 ];
