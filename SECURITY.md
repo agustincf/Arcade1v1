@@ -45,14 +45,15 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    para los juegos en tiempo real** (Tetris, Flappy, Carrera): necesitan que su
    motor corra con paso de tiempo fijo y se grabe la secuencia de entradas para
    poder re-simularlos igual. Hasta entonces, esos tres no son verificables.
-2. **El flujo de dinero on-chain todavía no está enchufado a la web.** 🟡 La
-   **integración árbitro ↔ contrato ya está verificada** en cadena local: la
-   firma del árbitro (viem) produce el mismo digest EIP-712 que calcula el
-   contrato desplegado, así que `settle` la acepta (ver
-   `packages/contracts/check-integration.sh`, + tests 8/8 + selftest). **Falta:**
-   (a) **desplegar** a Base Sepolia (necesita tu wallet), (b) las llamadas de
-   **depósito de USDC y `settle`** desde la web, y (c) disparar el **reembolso en
-   empate** (`cancelMatch`).
+2. **El flujo de dinero on-chain está probado, falta desplegarlo y enchufarlo a
+   la UI.** 🟡 El **pago completo está verificado en cadena local**: depósito real
+   de USDC → el árbitro firma → el contrato paga al ganador (8.5) + comisión (1.5)
+   y el escrow queda en 0 (ver `packages/contracts/check-payment-e2e.sh`, además
+   de tests 8/8 + selftest + `check-integration.sh`). El **código de pago de la
+   web** ya existe (`app/lib/escrow.ts` + `app/lib/useEscrow.tsx`). **Falta:**
+   (a) **desplegar** a Base Sepolia (necesita tu wallet), (b) **conectar
+   depósito/cobro a la UI** de la partida, (c) que el **árbitro cree la partida
+   on-chain** al emparejar, y (d) **reembolso en empate** (`cancelMatch`).
 3. **Autenticación en el backend.** ✅ **RESUELTO.** El jugador (y los agentes)
    **firman su envío con la wallet**; el árbitro verifica que la firma recupere
    su dirección (verificado en `selftest`: firma válida aceptada, firma que no
