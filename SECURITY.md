@@ -39,12 +39,13 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 ## Hallazgos (priorizados)
 
 ### 🔴 Críticos — bloquean el dinero real
-1. **Puntaje sin verificar (anti-trampa).** ✅ **RESUELTO para 2048** (el juego y
-   el servidor comparten el mismo motor; el servidor re-juega el *replay* y
-   rechaza cualquier puntaje inventado — verificado en `selftest`). ⚠️ **Falta
-   para los juegos en tiempo real** (Tetris, Flappy, Carrera): necesitan que su
-   motor corra con paso de tiempo fijo y se grabe la secuencia de entradas para
-   poder re-simularlos igual. Hasta entonces, esos tres no son verificables.
+1. **Puntaje sin verificar (anti-trampa).** ✅ **RESUELTO para 2048 y Tetris**
+   (motor compartido web/servidor; el servidor re-juega el *replay* y rechaza
+   cualquier puntaje inventado — verificado en `selftest`). Tetris ahora corre con
+   **paso de tiempo fijo** (por ticks) y graba las teclas con su tick, así se
+   re-simula igual. ⚠️ **Falta para Flappy y Carrera** (física continua): mismo
+   patrón de paso fijo + grabación de entradas. Hasta entonces, esos dos no son
+   verificables (la arena de agentes/plata ya cubre 2048 y Tetris).
 2. **El flujo de dinero on-chain está probado, falta desplegarlo y enchufarlo a
    la UI.** 🟡 El **pago completo está verificado en cadena local**: depósito real
    de USDC → el árbitro firma → el contrato paga al ganador (8.5) + comisión (1.5)
@@ -96,8 +97,8 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 
 ## Checklist "antes de pensar en dinero real"
 
-- [~] **Anti-trampa** (verificación por replay) — *crítico* — hecho en 2048;
-  falta en Tetris/Flappy/Carrera (requiere motor con paso de tiempo fijo)
+- [~] **Anti-trampa** (verificación por replay) — *crítico* — hecho en 2048 y
+  Tetris; falta en Flappy/Carrera (mismo patrón de paso de tiempo fijo)
 - [ ] **Conectar el flujo on-chain real** (depósito USDC + `settle` + reembolso en empate) — *crítico*
 - [x] **Autenticación de jugadores** (firmar los envíos con la wallet) — *crítico*
   — hecho; activar con `REQUIRE_AUTH=true` en producción

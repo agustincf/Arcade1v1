@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import { recoverMessageAddress, type Hex } from "viem";
 import { signResult } from "./sign.js";
 import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
+import { verifyTetris, type ReplayTetris } from "@arcade1v1/game-sdk/tetris";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
@@ -91,8 +92,8 @@ export async function submitScore(
 
   let finalScore = Math.max(0, Math.floor(score));
 
-  // ANTI-TRAMPA: para juegos verificables (2048), re-jugamos el replay y
-  // confirmamos el puntaje. Si no coincide, es trampa: se rechaza.
+  // ANTI-TRAMPA: para juegos verificables (2048 y Tetris), re-jugamos el replay
+  // y confirmamos el puntaje. Si no coincide, es trampa: se rechaza.
   if (m.game === "2048") {
     const r = replay as Replay2048 | undefined;
     if (!r || !Array.isArray(r.moves) || typeof r.seed !== "number") {
@@ -100,9 +101,17 @@ export async function submitScore(
     }
     const verified = verify2048(r);
     if (verified !== finalScore) {
-      throw new Error(
-        `score mismatch (claimed ${finalScore}, verified ${verified})`,
-      );
+      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
+    }
+    finalScore = verified;
+  } else if (m.game === "tetris") {
+    const r = replay as ReplayTetris | undefined;
+    if (!r || !Array.isArray(r.inputs) || typeof r.seed !== "number" || typeof r.ticks !== "number") {
+      throw new Error("replay required");
+    }
+    const verified = verifyTetris(r);
+    if (verified !== finalScore) {
+      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
     }
     finalScore = verified;
   }

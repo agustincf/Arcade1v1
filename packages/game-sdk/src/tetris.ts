@@ -1,82 +1,33 @@
-// Motor del Tetris: toda la logica del juego, SIN nada de pantalla.
-// Asi la logica se puede probar y re-verificar (anti-trampa) por separado.
-//
-// Modelo: tablero de 10 columnas x 20 filas. 7 piezas clasicas. La dificultad
-// sube por niveles cada 10 lineas (las piezas caen mas rapido). Puntaje clasico.
+// Motor del Tetris COMPARTIDO entre la web y el servidor (árbitro).
+// Es DETERMINISTICO: avanza por "ticks" (paso fijo), no por reloj. Así, dados
+// la misma semilla + las mismas teclas en los mismos ticks, el resultado es
+// idéntico → el servidor puede re-simular el "replay" y verificar el puntaje.
 
 export const COLS = 10;
 export const ROWS = 20;
 
-// Las 7 piezas (tetrominos) en su orientacion inicial. 1 = bloque lleno.
 const BASE_SHAPES: number[][][] = [
-  // I
-  [
-    [0, 0, 0, 0],
-    [1, 1, 1, 1],
-    [0, 0, 0, 0],
-    [0, 0, 0, 0],
-  ],
-  // O
-  [
-    [1, 1],
-    [1, 1],
-  ],
-  // T
-  [
-    [0, 1, 0],
-    [1, 1, 1],
-    [0, 0, 0],
-  ],
-  // S
-  [
-    [0, 1, 1],
-    [1, 1, 0],
-    [0, 0, 0],
-  ],
-  // Z
-  [
-    [1, 1, 0],
-    [0, 1, 1],
-    [0, 0, 0],
-  ],
-  // J
-  [
-    [1, 0, 0],
-    [1, 1, 1],
-    [0, 0, 0],
-  ],
-  // L
-  [
-    [0, 0, 1],
-    [1, 1, 1],
-    [0, 0, 0],
-  ],
+  [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]], // I
+  [[1, 1], [1, 1]], // O
+  [[0, 1, 0], [1, 1, 1], [0, 0, 0]], // T
+  [[0, 1, 1], [1, 1, 0], [0, 0, 0]], // S
+  [[1, 1, 0], [0, 1, 1], [0, 0, 0]], // Z
+  [[1, 0, 0], [1, 1, 1], [0, 0, 0]], // J
+  [[0, 0, 1], [1, 1, 1], [0, 0, 0]], // L
 ];
 
-/** Color (id 1..7) de cada pieza (paleta neon, a tono con la plataforma). */
 export const PIECE_COLORS = [
-  "#27e8ff", // I - cyan
-  "#ffd23d", // O - dorado
-  "#c06bff", // T - violeta
-  "#39ff7a", // S - verde lima
-  "#ff4d6d", // Z - rojo-rosa
-  "#4d8bff", // J - azul
-  "#ff9f1c", // L - naranja
+  "#27e8ff", "#ffd23d", "#c06bff", "#39ff7a", "#ff4d6d", "#4d8bff", "#ff9f1c",
 ];
 
-/** Rota una matriz cuadrada 90 grados en sentido horario. */
 function rotateCW(m: number[][]): number[][] {
   const n = m.length;
   const res = Array.from({ length: n }, () => Array(n).fill(0));
-  for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
-      res[c][n - 1 - r] = m[r][c];
-    }
-  }
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++) res[c][n - 1 - r] = m[r][c];
   return res;
 }
 
-// Para cada pieza, sus 4 rotaciones ya calculadas.
 const ROTATIONS: number[][][][] = BASE_SHAPES.map((shape) => {
   const rots = [shape];
   let cur = shape;
@@ -87,9 +38,6 @@ const ROTATIONS: number[][][][] = BASE_SHAPES.map((shape) => {
   return rots;
 });
 
-/** Generador de numeros al azar CON semilla (mulberry32).
- *  Misma semilla = misma secuencia. Asi los dos jugadores reciben las piezas
- *  en el mismo orden y el juego es justo (por habilidad, no por suerte). */
 function mulberry32(seed: number) {
   let a = seed >>> 0;
   return function () {
@@ -102,13 +50,27 @@ function mulberry32(seed: number) {
 }
 
 interface ActivePiece {
-  type: number; // 0..6
-  rot: number; // 0..3
-  x: number; // columna del borde izquierdo de la matriz
-  y: number; // fila del borde superior de la matriz
+  type: number;
+  rot: number;
+  x: number;
+  y: number;
 }
 
-const LINE_SCORE = [0, 40, 100, 300, 1200]; // puntos segun lineas hechas a la vez
+const LINE_SCORE = [0, 40, 100, 300, 1200];
+// Cuadros (a 60 ticks/seg) por caida, segun nivel 0..28 (tabla clasica NES).
+const FRAMES = [
+  48, 43, 38, 33, 28, 23, 18, 13, 8, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2,
+];
+
+/** Acciones que puede hacer el jugador (codificadas para el replay). */
+export type TetrisAction = "l" | "r" | "cw" | "ccw" | "s" | "h";
+
+export interface ReplayTetris {
+  seed: number;
+  ticks: number;
+  inputs: { t: number; a: TetrisAction }[];
+}
 
 export class TetrisEngine {
   board: number[][];
@@ -120,6 +82,7 @@ export class TetrisEngine {
 
   private rng: () => number;
   private queue: number[] = [];
+  private dropTimer = 0;
 
   constructor(seed: number) {
     this.rng = mulberry32(seed);
@@ -127,7 +90,6 @@ export class TetrisEngine {
     this.spawnNext();
   }
 
-  // --- Generador de piezas con "bolsa de 7" (cada 7 piezas, las 7 mezcladas) ---
   private refillBag() {
     const bag = [0, 1, 2, 3, 4, 5, 6];
     for (let i = bag.length - 1; i > 0; i--) {
@@ -142,7 +104,6 @@ export class TetrisEngine {
     return this.queue.shift() as number;
   }
 
-  /** Tipo de la proxima pieza (para la vista previa). */
   peekNextType(): number {
     if (this.queue.length === 0) this.refillBag();
     return this.queue[0];
@@ -151,11 +112,8 @@ export class TetrisEngine {
   private cellsOf(type: number, rot: number): [number, number][] {
     const m = ROTATIONS[type][rot];
     const out: [number, number][] = [];
-    for (let r = 0; r < m.length; r++) {
-      for (let c = 0; c < m.length; c++) {
-        if (m[r][c]) out.push([r, c]);
-      }
-    }
+    for (let r = 0; r < m.length; r++)
+      for (let c = 0; c < m.length; c++) if (m[r][c]) out.push([r, c]);
     return out;
   }
 
@@ -175,15 +133,12 @@ export class TetrisEngine {
     const x = Math.floor((COLS - size) / 2);
     const piece: ActivePiece = { type, rot: 0, x, y: 0 };
     if (this.collides(piece.type, piece.rot, piece.x, piece.y)) {
-      // No hay lugar para la pieza nueva: se acabo.
       this.over = true;
       this.cur = null;
       return;
     }
     this.cur = piece;
   }
-
-  // --- Acciones ---
 
   move(dx: number): boolean {
     if (!this.cur || this.over) return false;
@@ -199,7 +154,6 @@ export class TetrisEngine {
     if (!this.cur || this.over) return false;
     const { type, x, y } = this.cur;
     const newRot = (this.cur.rot + dir + 4) % 4;
-    // "Wall kicks" simples: si choca, probar correr la pieza al costado.
     for (const k of [0, -1, 1, -2, 2]) {
       if (!this.collides(type, newRot, x + k, y)) {
         this.cur.rot = newRot;
@@ -210,7 +164,6 @@ export class TetrisEngine {
     return false;
   }
 
-  /** Baja una fila por gravedad. Si no puede, fija la pieza. */
   private stepDown(): boolean {
     if (!this.cur || this.over) return false;
     const { type, rot, x, y } = this.cur;
@@ -222,17 +175,10 @@ export class TetrisEngine {
     return false;
   }
 
-  /** Tick de gravedad (lo llama el reloj del juego). */
-  gravityTick() {
-    this.stepDown();
-  }
-
-  /** Bajada manual del jugador (suma 1 punto si baja). */
   softDrop() {
     if (this.stepDown()) this.score += 1;
   }
 
-  /** Caida instantanea hasta el fondo (suma 2 puntos por fila). */
   hardDrop() {
     if (!this.cur || this.over) return;
     let dropped = 0;
@@ -273,7 +219,7 @@ export class TetrisEngine {
         this.board.splice(r, 1);
         this.board.unshift(Array(COLS).fill(0));
         cleared += 1;
-        r += 1; // volver a revisar la misma fila (ahora con lo de arriba bajado)
+        r += 1;
       }
     }
     if (cleared > 0) {
@@ -283,20 +229,31 @@ export class TetrisEngine {
     }
   }
 
-  /** Milisegundos entre cada caida automatica.
-   *  Velocidad CLASICA del Tetris de arcade (tabla NES): la dificultad sube
-   *  SOLO por nivel (cada 10 lineas), no por tiempo. Asi no es frustrante. */
-  gravityMs(): number {
-    // Cuadros (a 60fps) que tarda en bajar una fila, por nivel 0..28.
-    const FRAMES = [
-      48, 43, 38, 33, 28, 23, 18, 13, 8, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3, 2, 2, 2,
-      2, 2, 2, 2, 2, 2, 2,
-    ];
-    const f = this.level <= 28 ? FRAMES[this.level] : 1;
-    return f * (1000 / 60);
+  /** Cuadros por caida segun el nivel (mas alto = mas rapido). */
+  framesPerDrop(): number {
+    return this.level <= 28 ? FRAMES[this.level] : 1;
   }
 
-  /** Devuelve el tablero con la pieza actual "dibujada" encima, para mostrarlo. */
+  /** Un "tick" de juego (paso fijo). La gravedad cae cada framesPerDrop ticks. */
+  tick() {
+    if (this.over) return;
+    this.dropTimer += 1;
+    if (this.dropTimer >= this.framesPerDrop()) {
+      this.dropTimer = 0;
+      this.stepDown();
+    }
+  }
+
+  /** Aplica una accion del jugador. */
+  apply(a: TetrisAction) {
+    if (a === "l") this.move(-1);
+    else if (a === "r") this.move(1);
+    else if (a === "cw") this.rotate(1);
+    else if (a === "ccw") this.rotate(-1);
+    else if (a === "s") this.softDrop();
+    else if (a === "h") this.hardDrop();
+  }
+
   render(): number[][] {
     const b = this.board.map((row) => row.slice());
     if (this.cur) {
@@ -304,30 +261,41 @@ export class TetrisEngine {
       for (const [r, c] of this.cellsOf(this.cur.type, this.cur.rot)) {
         const br = this.cur.y + r;
         const bc = this.cur.x + c;
-        if (br >= 0 && br < ROWS && bc >= 0 && bc < COLS) {
-          b[br][bc] = color;
-        }
+        if (br >= 0 && br < ROWS && bc >= 0 && bc < COLS) b[br][bc] = color;
       }
     }
     return b;
   }
 
-  /** Matriz de la proxima pieza (para la vista previa). */
   nextPieceMatrix(): number[][] {
     return ROTATIONS[this.peekNextType()][0];
   }
 
-  /** Celdas (absolutas) donde caeria la pieza actual: la "pieza fantasma". */
   ghost(): { cells: [number, number][]; color: string } | null {
     if (!this.cur) return null;
     let gy = this.cur.y;
-    while (!this.collides(this.cur.type, this.cur.rot, this.cur.x, gy + 1)) {
-      gy++;
-    }
+    while (!this.collides(this.cur.type, this.cur.rot, this.cur.x, gy + 1)) gy++;
     const cells: [number, number][] = [];
-    for (const [r, c] of this.cellsOf(this.cur.type, this.cur.rot)) {
+    for (const [r, c] of this.cellsOf(this.cur.type, this.cur.rot))
       cells.push([gy + r, this.cur.x + c]);
-    }
     return { cells, color: PIECE_COLORS[this.cur.type] };
   }
+}
+
+/** ANTI-TRAMPA: re-simula el replay tick por tick y devuelve el puntaje real. */
+export function verifyTetris(replay: ReplayTetris): number {
+  const g = new TetrisEngine(replay.seed);
+  const byTick = new Map<number, TetrisAction[]>();
+  for (const inp of replay.inputs) {
+    const arr = byTick.get(inp.t) ?? [];
+    arr.push(inp.a);
+    byTick.set(inp.t, arr);
+  }
+  for (let t = 0; t < replay.ticks; t++) {
+    const acts = byTick.get(t);
+    if (acts) for (const a of acts) g.apply(a);
+    g.tick();
+    if (g.over) break;
+  }
+  return g.score;
 }

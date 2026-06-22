@@ -1,16 +1,25 @@
 "use client";
 
 import { useEffect, useReducer, useRef, useState } from "react";
-import { TetrisEngine, COLS, ROWS, PIECE_COLORS } from "./engine";
+import {
+  TetrisEngine,
+  COLS,
+  PIECE_COLORS,
+  type TetrisAction,
+  type ReplayTetris,
+} from "@arcade1v1/game-sdk/tetris";
 import { StartScreen, GameOverScreen, GameOverlay } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 
+const STEP = 1000 / 60; // un tick cada 1/60 de segundo (paso fijo, determinístico)
+
 export interface TetrisResult {
   score: number;
   lines: number;
   level: number;
+  replay: ReplayTetris;
 }
 
 export function TetrisGame({
@@ -33,35 +42,45 @@ export function TetrisGame({
   const pausedRef = useRef(false);
   pausedRef.current = paused;
 
+  // Cola de teclas (se aplican en el tick) + grabacion del replay.
+  const pending = useRef<TetrisAction[]>([]);
+  const inputs = useRef<{ t: number; a: TetrisAction }[]>([]);
+  const tickRef = useRef(0);
+
   const engine = engineRef.current;
 
-  function afterInput() {
-    force();
-    if (engineRef.current!.over) setOver(true);
+  function enqueue(a: TetrisAction) {
+    if (engineRef.current!.over || pausedRef.current) return;
+    pending.current.push(a);
+    if (a === "cw" || a === "ccw") sfx.rotate();
+    else if (a === "h") sfx.drop();
   }
 
-  // Reloj del juego: hace caer las piezas segun el nivel.
+  // Reloj de PASO FIJO: cada tick aplica las teclas encoladas y avanza gravedad.
+  // Graba cada tecla con su numero de tick -> el servidor re-simula igual.
   useEffect(() => {
     if (!started) return;
     let raf = 0;
     let last = performance.now();
     let acc = 0;
-    const loop = (t: number) => {
-      // Tope: si la pestaña estuvo en segundo plano, evita un "salto" de piezas.
-      const dt = Math.min(t - last, 100);
-      last = t;
+    const loop = (tnow: number) => {
+      const dt = Math.min(tnow - last, 100); // tope si la pestaña estuvo en 2do plano
+      last = tnow;
       const eng = engineRef.current!;
       if (!eng.over && !pausedRef.current) {
         acc += dt;
-        const g = eng.gravityMs();
-        let moved = false;
-        while (acc >= g) {
-          eng.gravityTick();
-          acc -= g;
-          moved = true;
+        while (acc >= STEP) {
+          while (pending.current.length) {
+            const a = pending.current.shift()!;
+            eng.apply(a);
+            inputs.current.push({ t: tickRef.current, a });
+          }
+          eng.tick();
+          tickRef.current += 1;
+          acc -= STEP;
           if (eng.over) break;
         }
-        if (moved) force(); // re-render solo cuando algo cambió
+        force();
       }
       if (eng.over) {
         setOver(true);
@@ -73,57 +92,27 @@ export function TetrisGame({
     return () => cancelAnimationFrame(raf);
   }, [started]);
 
-  // Controles de teclado.
+  // Teclado: encola acciones (se aplican en el proximo tick).
   useEffect(() => {
     if (!started) return;
     function onKey(e: KeyboardEvent) {
-      const eng = engineRef.current!;
-      if (eng.over) return;
       switch (e.key) {
-        case "ArrowLeft":
-          e.preventDefault();
-          eng.move(-1);
-          afterInput();
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          eng.move(1);
-          afterInput();
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          eng.softDrop();
-          afterInput();
-          break;
+        case "ArrowLeft": e.preventDefault(); enqueue("l"); break;
+        case "ArrowRight": e.preventDefault(); enqueue("r"); break;
+        case "ArrowDown": e.preventDefault(); enqueue("s"); break;
         case "ArrowUp":
         case "x":
-        case "X":
-          e.preventDefault();
-          eng.rotate(1);
-          sfx.rotate();
-          afterInput();
-          break;
+        case "X": e.preventDefault(); enqueue("cw"); break;
         case "z":
-        case "Z":
-          e.preventDefault();
-          eng.rotate(-1);
-          sfx.rotate();
-          afterInput();
-          break;
-        case " ":
-          e.preventDefault();
-          eng.hardDrop();
-          sfx.drop();
-          afterInput();
-          break;
+        case "Z": e.preventDefault(); enqueue("ccw"); break;
+        case " ": e.preventDefault(); enqueue("h"); break;
         case "p":
-        case "P":
-          setPaused((p) => !p);
-          break;
+        case "P": setPaused((p) => !p); break;
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started]);
 
   const grid = engine.render();
@@ -204,6 +193,7 @@ export function TetrisGame({
                 score: engine.score,
                 lines: engine.lines,
                 level: engine.level,
+                replay: { seed, ticks: tickRef.current, inputs: inputs.current },
               })
             }
           />
@@ -213,11 +203,11 @@ export function TetrisGame({
       {/* Controles tactiles (utiles en celular) */}
       {started && !over && (
         <div className="grid w-full max-w-[320px] grid-cols-5 gap-2">
-          <TouchBtn onClick={() => { engine.move(-1); afterInput(); }} label="◀" />
-          <TouchBtn onClick={() => { engine.rotate(1); sfx.rotate(); afterInput(); }} label="↻" />
-          <TouchBtn onClick={() => { engine.move(1); afterInput(); }} label="▶" />
-          <TouchBtn onClick={() => { engine.softDrop(); afterInput(); }} label="▼" />
-          <TouchBtn onClick={() => { engine.hardDrop(); sfx.drop(); afterInput(); }} label="⤓" />
+          <TouchBtn onClick={() => enqueue("l")} label="◀" />
+          <TouchBtn onClick={() => enqueue("cw")} label="↻" />
+          <TouchBtn onClick={() => enqueue("r")} label="▶" />
+          <TouchBtn onClick={() => enqueue("s")} label="▼" />
+          <TouchBtn onClick={() => enqueue("h")} label="⤓" />
         </div>
       )}
 

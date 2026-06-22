@@ -257,7 +257,7 @@ export default function MatchPage({
               {t("match.connecting")}
             </p>
           ) : game.id === "tetris" ? (
-            <TetrisGame key={round} seed={seed} {...gameProps} onFinish={(r: TetrisResult) => finishMatch(r.score)} />
+            <TetrisGame key={round} seed={seed} {...gameProps} onFinish={(r: TetrisResult) => finishMatch(r.score, r.replay)} />
           ) : game.id === "flappy" ? (
             <FlappyGame key={round} seed={seed} {...gameProps} onFinish={(r: FlappyResult) => finishMatch(r.score)} />
           ) : game.id === "racing" ? (

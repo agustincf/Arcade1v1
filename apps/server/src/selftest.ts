@@ -7,8 +7,25 @@ import { recoverTypedDataAddress, type Hex } from "viem";
 import { matchmake, submitScore } from "./matchmaking.js";
 import { arbiterAddress, RESULT_TYPES, resultDomain } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
+import { TetrisEngine, type TetrisAction } from "@arcade1v1/game-sdk/tetris";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+
+// Juega un Tetris determinístico (paso fijo) y devuelve el puntaje + replay.
+function playTetris(seed: number) {
+  const g = new TetrisEngine(seed);
+  const inputs: { t: number; a: TetrisAction }[] = [];
+  let t = 0;
+  while (!g.over && t < 3000) {
+    if (t % 6 === 0) {
+      g.apply("h"); // caida rapida -> suma puntos
+      inputs.push({ t, a: "h" });
+    }
+    g.tick();
+    t++;
+  }
+  return { score: g.score, replay: { seed, ticks: t, inputs } };
+}
 
 // Juega un 2048 (mismo motor que la web) y devuelve los movimientos + puntaje.
 function play2048(seed: number, maxMoves = 500) {
@@ -30,8 +47,8 @@ async function main() {
   console.log("Arbitro:", arbiterAddress());
 
   // 1) Emparejamiento por orden de llegada.
-  const m1 = matchmake("tetris", 5, A);
-  const m2 = matchmake("tetris", 5, B);
+  const m1 = matchmake("racing", 5, A);
+  const m2 = matchmake("racing", 5, B);
   console.log("✓ emparejados:", m1.matchId === m2.matchId);
   console.log("✓ misma semilla (juego justo):", m1.seed === m2.seed, "(", m1.seed, ")");
 
@@ -118,12 +135,30 @@ async function main() {
   }
   console.log("✓ firma que no corresponde RECHAZADA:", badRejected);
 
+  // 7) ANTI-TRAMPA en TETRIS (paso fijo): replay legitimo aceptado, inventado rechazado.
+  const E = "0x" + "e".repeat(40);
+  const F = "0x" + "f".repeat(40);
+  const tm = matchmake("tetris", 5, E);
+  matchmake("tetris", 5, F);
+  const pE = playTetris(tm.seed);
+  const rE = await submitScore(tm.matchId, E, pE.score, pE.replay);
+  console.log("✓ replay Tetris legítimo aceptado:", rE.scores[E] === pE.score, `(${pE.score} pts)`);
+  let tetrisCheat = false;
+  try {
+    await submitScore(tm.matchId, F, 999999, { seed: tm.seed, ticks: 10, inputs: [] });
+  } catch {
+    tetrisCheat = true;
+  }
+  console.log("✓ puntaje Tetris inventado RECHAZADO:", tetrisCheat);
+
   const allOk =
     ok &&
     cheatRejected &&
     settled &&
     authOk.scores[C] === pC.score &&
-    badRejected;
+    badRejected &&
+    rE.scores[E] === pE.score &&
+    tetrisCheat;
   if (!allOk) process.exit(1);
   console.log("\nTODO OK ✅");
 }
