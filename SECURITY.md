@@ -45,15 +45,20 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    su tick. El servidor re-simula el *replay* y rechaza cualquier puntaje
    inventado — verificado en `selftest` (legítimo aceptado, inventado rechazado
    en los 4). *(Los juegos nuevos deben seguir el mismo patrón para ir con plata.)*
-2. **El flujo de dinero on-chain está probado, falta desplegarlo y enchufarlo a
-   la UI.** 🟡 El **pago completo está verificado en cadena local**: depósito real
-   de USDC → el árbitro firma → el contrato paga al ganador (8.5) + comisión (1.5)
-   y el escrow queda en 0 (ver `packages/contracts/check-payment-e2e.sh`, además
-   de tests 8/8 + selftest + `check-integration.sh`). El **código de pago de la
-   web** ya existe (`app/lib/escrow.ts` + `app/lib/useEscrow.tsx`). **Falta:**
-   (a) **desplegar** a Base Sepolia (necesita tu wallet), (b) **conectar
-   depósito/cobro a la UI** de la partida, (c) que el **árbitro cree la partida
-   on-chain** al emparejar, y (d) **reembolso en empate** (`cancelMatch`).
+2. **El flujo de dinero on-chain está probado de punta a punta con el backend
+   real; falta desplegarlo y enchufarlo a la UI.** 🟡 El **ciclo completo está
+   verificado en cadena local usando el árbitro de verdad** (ver
+   `packages/contracts/check-payment-e2e.sh`, además de tests 8/8 + selftest +
+   `check-integration.sh`):
+   - **Victoria:** emparejar → el árbitro **crea la partida on-chain** → los dos
+     depositan → juegan → el árbitro firma → el contrato paga al ganador (8.5) +
+     comisión (1.5) y el escrow queda en 0. ✅
+   - **Empate:** el árbitro **cancela on-chain** (`cancelMatch`) y el contrato
+     **reembolsa a ambos** (balances vuelven al inicio, sin comisión). ✅
+
+   El **código de pago de la web** ya existe (`app/lib/escrow.ts` +
+   `app/lib/useEscrow.tsx`). **Falta solo:** (a) **desplegar** a Base Sepolia
+   (necesita tu wallet) y (b) **conectar depósito/cobro a la UI** de la partida.
 3. **Autenticación en el backend.** ✅ **RESUELTO.** El jugador (y los agentes)
    **firman su envío con la wallet**; el árbitro verifica que la firma recupere
    su dirección (verificado en `selftest`: firma válida aceptada, firma que no

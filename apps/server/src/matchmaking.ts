@@ -12,7 +12,7 @@ import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
 import { verifyInvaders, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
-import { onchainEnabled, createMatchOnchain } from "./onchain.js";
+import { onchainEnabled, createMatchOnchain, cancelMatchOnchain } from "./onchain.js";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
 
@@ -30,6 +30,7 @@ interface Match {
   signature?: Hex;
   isBot?: boolean;
   createPromise?: Promise<void>; // creacion de la partida on-chain (si aplica)
+  refundPromise?: Promise<void>; // cancelacion/reembolso on-chain en empate
 }
 
 const BOT = "0x000000000000000000000000000000000000b07a";
@@ -194,6 +195,11 @@ async function settleIfReady(m: Match) {
   if (s1 === s2) {
     m.status = "draw";
     m.outcome = "draw"; // empate -> reembolso (el arbitro cancela en el contrato)
+    if (onchainEnabled()) {
+      m.refundPromise = cancelMatchOnchain(m.id).catch((e) =>
+        console.error("cancelMatch onchain:", (e as Error).message),
+      );
+    }
   } else {
     const winner = s1 > s2 ? m.p1 : m.p2;
     m.winner = winner;
@@ -224,6 +230,11 @@ export async function addBot(id: string) {
 /** Espera a que la partida exista on-chain (si aplica) antes de depositar. */
 export function onchainReady(id: string): Promise<void> {
   return matches.get(id)?.createPromise ?? Promise.resolve();
+}
+
+/** Espera a que se resuelva el reembolso on-chain del empate (si aplica). */
+export function onchainSettled(id: string): Promise<void> {
+  return matches.get(id)?.refundPromise ?? Promise.resolve();
 }
 
 export function getMatch(id: string, address?: string) {

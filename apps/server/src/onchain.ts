@@ -38,6 +38,13 @@ const escrowAbi = [
     outputs: [],
     stateMutability: "nonpayable",
   },
+  {
+    type: "function",
+    name: "cancelMatch",
+    inputs: [{ type: "bytes32" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
 ] as const satisfies Abi;
 
 let wallet: ReturnType<typeof createWalletClient> | null = null;
@@ -68,6 +75,21 @@ export async function createMatchOnchain(
     abi: escrowAbi,
     functionName: "createMatch",
     args: [matchId, p1, p2, stakeUnits, fundDeadline, playDeadline],
+    account: w.account!,
+    chain: chain(),
+  });
+  await p.waitForTransactionReceipt({ hash });
+}
+
+/** En empate/disputa: el arbitro cancela y el contrato reembolsa a ambos. */
+export async function cancelMatchOnchain(matchId: Hex) {
+  if (!onchainEnabled()) return;
+  const { wallet: w, pub: p } = clients();
+  const hash = await w.writeContract({
+    address: ESCROW,
+    abi: escrowAbi,
+    functionName: "cancelMatch",
+    args: [matchId],
     account: w.account!,
     chain: chain(),
   });

@@ -13,7 +13,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
-import { matchmake, submitScore, onchainReady } from "./matchmaking.js";
+import { matchmake, submitScore, onchainReady, onchainSettled } from "./matchmaking.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 
 const RPC = process.env.RPC_URL || "http://localhost:8545";
@@ -113,6 +113,49 @@ async function main() {
     process.exit(1);
   }
   console.log("\nCICLO COMPLETO ON-CHAIN (con el backend) VERIFICADO ✅");
+
+  await drawScenario();
+}
+
+/** Empate: los dos juegan IGUAL -> el arbitro cancela on-chain y se reembolsa. */
+async function drawScenario() {
+  console.log("\n--- Empate (reembolso on-chain) ---");
+  const stake = 10_000_000n;
+  await send(owner, ESCROW, escrowAbi, "setAllowedStake", [stake, true]);
+  await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
+  await send(owner, USDC, erc20Abi, "mint", [P2, stake]);
+  const b1 = await bal(P1);
+  const b2 = await bal(P2);
+  const bE = await bal(ESCROW);
+  const bP = await bal(PLATFORM);
+
+  const m1 = matchmake("2048", 10, P1);
+  const m2 = matchmake("2048", 10, P2);
+  await onchainReady(m2.matchId);
+
+  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  await send(p1, ESCROW, escrowAbi, "deposit", [m1.matchId as Hex]);
+  await send(p2, ESCROW, escrowAbi, "deposit", [m2.matchId as Hex]);
+
+  const a = play2048(m1.seed, 80);
+  await submitScore(m1.matchId, P1, a.score, a.replay);
+  const b = play2048(m2.seed, 80);
+  const res = await submitScore(m2.matchId, P2, b.score, b.replay);
+  console.log("✓ empate detectado:", res.outcome === "draw");
+  await onchainSettled(m2.matchId);
+
+  const ok =
+    (await bal(P1)) === b1 &&
+    (await bal(P2)) === b2 &&
+    (await bal(ESCROW)) === bE &&
+    (await bal(PLATFORM)) === bP;
+  console.log("✓ los dos reembolsados (balances vuelven al inicio):", ok);
+  if (!ok) {
+    console.log("\n❌ Empate: balances no cuadran");
+    process.exit(1);
+  }
+  console.log("\nREEMBOLSO ON-CHAIN EN EMPATE VERIFICADO ✅");
 }
 
 main().catch((e) => {
