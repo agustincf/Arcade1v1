@@ -19,7 +19,19 @@ export function toUsdcUnits(amount: number): bigint {
 export const escrowAbi = [
   {
     type: "function",
-    name: "deposit",
+    name: "open",
+    inputs: [
+      { name: "id", type: "bytes32" },
+      { name: "stake", type: "uint256" },
+      { name: "fundDeadline", type: "uint64" },
+      { name: "playDeadline", type: "uint64" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "join",
     inputs: [{ name: "id", type: "bytes32" }],
     outputs: [],
     stateMutability: "nonpayable",

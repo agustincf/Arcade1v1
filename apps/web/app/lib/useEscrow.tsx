@@ -46,15 +46,31 @@ export function useEscrow() {
     await publicClient.waitForTransactionReceipt({ hash });
   }
 
-  /** Deposita la apuesta (el approve ya se hizo antes). Un solo paso. */
-  async function deposit(matchId: `0x${string}`) {
+  /** P1 ABRE la partida depositando su apuesta (modelo asincronico: el 1ro abre,
+   *  el 2do se une; nadie espera colgado). El approve ya se hizo antes. */
+  async function open(matchId: `0x${string}`, betUsdc: number) {
+    if (!ESCROW_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    const hash = await writeContractAsync({
+      address: ESCROW_ADDRESS,
+      abi: escrowAbi,
+      functionName: "open",
+      args: [matchId, toUsdcUnits(betUsdc), now + 3600n, now + 7200n],
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+  }
+
+  /** P2 se UNE depositando su apuesta (la partida ya fue abierta por P1). */
+  async function join(matchId: `0x${string}`) {
     if (!ESCROW_ADDRESS || !publicClient) {
       throw new Error("on-chain no configurado");
     }
     const hash = await writeContractAsync({
       address: ESCROW_ADDRESS,
       abi: escrowAbi,
-      functionName: "deposit",
+      functionName: "join",
       args: [matchId],
     });
     await publicClient.waitForTransactionReceipt({ hash });
@@ -78,5 +94,5 @@ export function useEscrow() {
     await publicClient.waitForTransactionReceipt({ hash });
   }
 
-  return { approveStake, deposit, claim };
+  return { approveStake, open, join, claim };
 }
