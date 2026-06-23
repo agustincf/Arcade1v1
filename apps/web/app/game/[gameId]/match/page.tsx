@@ -60,6 +60,8 @@ export default function MatchPage({
   const [youScore, setYouScore] = useState<number | null>(null);
   const [rivalScore, setRivalScore] = useState<number | null>(null);
   const [outcome, setOutcome] = useState<Outcome>(null);
+  const [rating, setRating] = useState<number | null>(null);
+  const [ratingDelta, setRatingDelta] = useState<number>(0);
   const [freeDone, setFreeDone] = useState(false);
   const [forfeit, setForfeit] = useState(false);
   // Estado on-chain (approve previo + deposito + cobro del ganador).
@@ -150,6 +152,10 @@ export default function MatchPage({
         setWinnerAddr(v.winner);
       }
     } else setOutcome("lose");
+    if (typeof v.rating === "number") {
+      setRating(v.rating);
+      setRatingDelta(v.ratingDelta ?? 0);
+    }
   }
 
   async function doApprove() {
@@ -480,6 +486,15 @@ export default function MatchPage({
                   <div className="font-pixel text-base text-slate-200">{rivalScore}</div>
                 </div>
               </div>
+              {rating !== null && (
+                <p className="font-screen mt-3 text-base text-slate-300">
+                  {t("lb.rating")}: <b className="text-[--color-gold]">{rating}</b>{" "}
+                  <span className={ratingDelta >= 0 ? "text-[--color-win]" : "text-[--color-lose]"}>
+                    ({ratingDelta >= 0 ? "+" : ""}
+                    {ratingDelta})
+                  </span>
+                </p>
+              )}
               <div className="win mt-5">
                 <div className="win-title"><span>{t("match.cashlog")}</span></div>
                 <div className="font-screen p-4 text-lg">

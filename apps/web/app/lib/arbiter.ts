@@ -60,6 +60,23 @@ export async function getMatch(id: string, address?: string): Promise<MatchView>
   return r.json();
 }
 
+export interface LeaderRow {
+  address: string;
+  rating: number;
+}
+
+/** Tabla de posiciones (rating ELO) de un juego. */
+export async function getLeaderboard(game: string, limit = 20): Promise<LeaderRow[]> {
+  try {
+    const r = await fetch(`${BASE}/leaderboard/${game}?limit=${limit}`);
+    if (!r.ok) return [];
+    const j = await r.json();
+    return (j.top ?? []) as LeaderRow[];
+  } catch {
+    return [];
+  }
+}
+
 /** Identificador del jugador: wallet si esta conectada, o un "invitado" local. */
 export function playerId(walletAddress: string | null): string {
   if (walletAddress) return walletAddress;

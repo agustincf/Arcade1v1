@@ -20,6 +20,13 @@ export function Header() {
         </Link>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/leaderboard"
+            className="font-pixel text-[10px] text-[--color-gold] hover:underline"
+          >
+            🏆 <span className="hidden sm:inline">{t("nav.ranking")}</span>
+          </Link>
+
           <span className="chip hidden sm:inline-flex">
             <span className="blink">●</span> {NETWORK_LABEL}
           </span>

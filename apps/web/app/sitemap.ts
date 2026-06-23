@@ -15,6 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     { url: SITE.url, lastModified: now, changeFrequency: "daily", priority: 1 },
+    { url: `${SITE.url}/leaderboard`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     ...games,
   ];
 }
