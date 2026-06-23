@@ -5,7 +5,7 @@
 let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let muted = false;
-let volume = 0.6;
+const volume = 0.6; // volumen base de los SFX; el usuario regula desde su SO
 
 function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -91,14 +91,4 @@ export function setMuted(m: boolean) {
 
 export function isMuted() {
   return muted;
-}
-
-/** Volumen general 0..1. */
-export function setVolume(v: number) {
-  volume = Math.max(0, Math.min(1, v));
-  if (masterGain && !muted) masterGain.gain.value = volume;
-}
-
-export function getVolume() {
-  return volume;
 }
