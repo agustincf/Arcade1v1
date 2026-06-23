@@ -1,6 +1,7 @@
-// Prueba de PAGO de punta a punta en cadena local (anvil) usando el BACKEND real:
-// emparejar (crea la partida on-chain) -> depositar USDC -> jugar + el arbitro
-// firma -> el ganador cobra del contrato. Verifica premio + comision.
+// Prueba de PAGO de punta a punta en cadena local (anvil) del modelo ASINCRONICO
+// (open/join) usando el BACKEND real: emparejar -> P1 ABRE (deposita) -> P2 se
+// UNE (deposita) -> juegan + el arbitro firma -> el ganador cobra. Verifica
+// premio + comision, y el reembolso en empate.
 
 import "dotenv/config";
 import {
@@ -13,7 +14,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
-import { matchmake, submitScore, onchainReady, onchainSettled } from "./matchmaking.js";
+import { matchmake, submitScore, onchainSettled } from "./matchmaking.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { escrowAbi, erc20Abi } from "./abi.js";
 
@@ -41,6 +42,11 @@ async function send(c: ReturnType<typeof w>, address: Hex, abi: Abi, fn: string,
   await pub.waitForTransactionReceipt({ hash });
 }
 const bal = (a: Hex) => pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [a] }) as Promise<bigint>;
+const usd = (x: bigint) => (Number(x) / 1e6).toFixed(2);
+const deadlines = () => {
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  return [now + 3600n, now + 7200n] as const;
+};
 
 function play2048(seed: number, maxMoves: number) {
   const g = new Game2048(seed);
@@ -54,31 +60,9 @@ function play2048(seed: number, maxMoves: number) {
   return { score: g.score, replay: { seed, moves } };
 }
 
-/** Dos jugadores SIN fondos/allowance se emparejan: el arbitro NO debe crear la
- *  partida on-chain (asi un bot no le drena el gas). */
-async function noFundsScenario() {
-  const X = "0x1111111111111111111111111111111111111111" as Hex;
-  const Y = "0x2222222222222222222222222222222222222222" as Hex;
-  const mx = await matchmake("2048", 1, X);
-  await matchmake("2048", 1, Y); // intenta emparejar, pero sin fondos
-  await onchainReady(mx.matchId);
-  const st = (await pub.readContract({
-    address: ESCROW,
-    abi: escrowAbi,
-    functionName: "matches",
-    args: [mx.matchId as Hex],
-  })) as readonly unknown[];
-  const created = Number(st[7]) !== 0; // status != None
-  console.log("✓ sin fondos: el arbitro NO creó la partida (gas a salvo):", !created);
-  if (created) {
-    console.log("\n❌ Se creó una partida sin fondos (vulnerabilidad)");
-    process.exit(1);
-  }
-}
-
 async function main() {
   const stake = 5_000_000n;
-  // Preparacion: mesa habilitada, gas para el arbitro, USDC para los jugadores.
+  // Preparacion: mesa habilitada, gas para el arbitro (cancela en empate), USDC.
   await send(owner, ESCROW, escrowAbi, "setAllowedStake", [stake, true]);
   await owner.sendTransaction({
     to: privateKeyToAccount(process.env.ARBITER_PRIVATE_KEY as Hex).address,
@@ -87,24 +71,19 @@ async function main() {
   });
   await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
   await send(owner, USDC, erc20Abi, "mint", [P2, stake]);
-
-  // 0) Anti-drenaje: sin fondos/allowance, el arbitro NO crea la partida (no gasta gas).
-  await noFundsScenario();
-
-  // approve ANTES de emparejar (el backend chequea allowance al emparejar).
   await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
   await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
 
-  // 1) Emparejamiento: con fondos+allowance ok, el arbitro crea la partida on-chain.
+  // 1) Emparejamiento (backend): A es p1, B es p2 (mismo matchId).
   const m1 = await matchmake("2048", 5, P1);
   const m2 = await matchmake("2048", 5, P2);
-  await onchainReady(m2.matchId);
-  console.log("✓ partida creada on-chain por el arbitro:", m1.matchId === m2.matchId);
+  console.log("✓ emparejados:", m1.matchId === m2.matchId);
 
-  // 2) Los dos depositan.
-  await send(p1, ESCROW, escrowAbi, "deposit", [m1.matchId as Hex]);
-  await send(p2, ESCROW, escrowAbi, "deposit", [m2.matchId as Hex]);
-  console.log("✓ los dos depositaron · escrow:", Number(await bal(ESCROW)) / 1e6, "USDC");
+  // 2) P1 ABRE (deposita), P2 se UNE (deposita). El arbitro no toca nada.
+  const [fund, play] = deadlines();
+  await send(p1, ESCROW, escrowAbi, "open", [m1.matchId as Hex, stake, fund, play]);
+  await send(p2, ESCROW, escrowAbi, "join", [m2.matchId as Hex]);
+  console.log("✓ P1 abrió + P2 se unió · escrow:", usd(await bal(ESCROW)), "USDC");
 
   // 3) Juegan y el arbitro decide + firma (P1 gana).
   const sA = play2048(m1.seed, 500);
@@ -113,22 +92,17 @@ async function main() {
   const res = await submitScore(m2.matchId, P2, sB.score, sB.replay);
   console.log("✓ ganador:", res.winner === P1 ? "P1" : "P2", "· firma:", !!res.signature);
 
-  // 4) El ganador cobra del contrato con la firma del arbitro.
+  // 4) El ganador cobra (cualquiera puede llamar settle con la firma).
   await send(owner, ESCROW, escrowAbi, "settle", [res.matchId as Hex, res.winner as Hex, res.signature as Hex]);
 
-  // 5) Verificacion.
-  const winner = await bal(P1);
-  const platform = await bal(PLATFORM);
-  const left = await bal(ESCROW);
-  console.log("✓ ganador cobró:", Number(winner) / 1e6, "USDC (esperado 8.5)");
-  console.log("✓ plataforma (15%):", Number(platform) / 1e6, "USDC (esperado 1.5)");
-  console.log("✓ escrow:", Number(left) / 1e6, "USDC (esperado 0)");
-
-  if (winner !== 8_500_000n || platform !== 1_500_000n || left !== 0n) {
+  console.log("✓ ganador cobró:", usd(await bal(P1)), "USDC (esperado 8.50)");
+  console.log("✓ plataforma (15%):", usd(await bal(PLATFORM)), "USDC (esperado 1.50)");
+  console.log("✓ escrow:", usd(await bal(ESCROW)), "USDC (esperado 0.00)");
+  if ((await bal(P1)) !== 8_500_000n || (await bal(PLATFORM)) !== 1_500_000n || (await bal(ESCROW)) !== 0n) {
     console.log("\n❌ Balances no cuadran");
     process.exit(1);
   }
-  console.log("\nCICLO COMPLETO ON-CHAIN (con el backend) VERIFICADO ✅");
+  console.log("\nCICLO ASINCRONICO (open/join, con el backend) VERIFICADO ✅");
 
   await drawScenario();
 }
@@ -140,7 +114,6 @@ async function drawScenario() {
   await send(owner, ESCROW, escrowAbi, "setAllowedStake", [stake, true]);
   await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
   await send(owner, USDC, erc20Abi, "mint", [P2, stake]);
-  // approve ANTES de emparejar (allowance ya gastado en el escenario anterior).
   await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
   await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
   const b1 = await bal(P1);
@@ -150,10 +123,9 @@ async function drawScenario() {
 
   const m1 = await matchmake("2048", 10, P1);
   const m2 = await matchmake("2048", 10, P2);
-  await onchainReady(m2.matchId);
-
-  await send(p1, ESCROW, escrowAbi, "deposit", [m1.matchId as Hex]);
-  await send(p2, ESCROW, escrowAbi, "deposit", [m2.matchId as Hex]);
+  const [fund, play] = deadlines();
+  await send(p1, ESCROW, escrowAbi, "open", [m1.matchId as Hex, stake, fund, play]);
+  await send(p2, ESCROW, escrowAbi, "join", [m2.matchId as Hex]);
 
   const a = play2048(m1.seed, 80);
   await submitScore(m1.matchId, P1, a.score, a.replay);
@@ -176,6 +148,6 @@ async function drawScenario() {
 }
 
 main().catch((e) => {
-  console.error("Error:", e.shortMessage || e.message);
+  console.error("Error:", (e as { shortMessage?: string }).shortMessage || (e as Error).message);
   process.exit(1);
 });

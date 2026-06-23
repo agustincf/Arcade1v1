@@ -12,12 +12,7 @@ import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
 import { verifyInvaders, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
-import {
-  onchainEnabled,
-  createMatchOnchain,
-  cancelMatchOnchain,
-  hasEnoughAllowance,
-} from "./onchain.js";
+import { onchainEnabled, cancelMatchOnchain } from "./onchain.js";
 import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
@@ -37,7 +32,6 @@ interface Match {
   outcome?: "p1" | "p2" | "draw";
   signature?: Hex;
   isBot?: boolean;
-  createPromise?: Promise<void>; // creacion de la partida on-chain (si aplica)
   refundPromise?: Promise<void>; // cancelacion/reembolso on-chain en empate
   eloUpdate?: { p1: RatingUpdate; p2: RatingUpdate }; // cambio de rating al liquidar
 }
@@ -89,46 +83,16 @@ export async function matchmake(game: string, stake: number, address: string) {
   // El mismo jugador re-consulta su espera: devolvemos su partida (idempotente).
   if (waiter && waiter.p1 === address) return view(waiter, address);
 
-  // Hay un rival valido esperando: emparejamos (orden de llegada).
+  // Hay un rival esperando: emparejamos (orden de llegada). Cada jugador abre/se
+  // une on-chain por su cuenta -> el arbitro no crea la partida ni paga gas.
   if (waiter) {
-    const m = waiter;
-    m.p2 = address;
-    m.status = "ready";
+    waiter.p2 = address;
+    waiter.status = "ready";
     queue.delete(k);
-    // Con contrato: el arbitro crea la partida on-chain, PERO solo si AMBOS tienen
-    // fondos + allowance. Asi un bot no fuerza createMatch (que paga el arbitro).
-    if (onchainEnabled()) {
-      const stakeUnits = BigInt(m.stake) * 1_000_000n;
-      const [okP1, okP2] = await Promise.all([
-        hasEnoughAllowance(m.p1 as Hex, stakeUnits),
-        hasEnoughAllowance(m.p2 as Hex, stakeUnits),
-      ]);
-      if (!okP1 || !okP2) {
-        if (!okP1) console.warn(`matchmaking: ${m.p1} sin fondos/allowance suficientes`);
-        if (!okP2) console.warn(`matchmaking: ${address} sin fondos/allowance suficientes`);
-        // Deshacemos el emparejamiento sin gastar gas. Si el que esperaba NO tiene
-        // fondos, lo descartamos (no debe seguir trabando la cola). Si el que llega
-        // SI tiene, queda el esperando (no pierde su turno).
-        m.p2 = undefined;
-        m.status = "waiting";
-        if (okP1) queue.set(k, m.id);
-        else matches.delete(m.id);
-        return okP2 ? createWaiting(k, game, stake, address) : view(m, address);
-      }
-      const now = BigInt(Math.floor(Date.now() / 1000));
-      m.createPromise = createMatchOnchain(
-        m.id,
-        m.p1 as Hex,
-        m.p2 as Hex,
-        stakeUnits,
-        now + 3600n,
-        now + 7200n,
-      ).catch((e) => console.error("createMatch onchain:", (e as Error).message));
-    }
-    return view(m, address);
+    return view(waiter, address);
   }
 
-  // Nadie valido esperando: creamos la partida y quedamos a la espera.
+  // Nadie esperando: creamos la partida y quedamos a la espera.
   return createWaiting(k, game, stake, address);
 }
 
@@ -279,11 +243,6 @@ export async function addBot(id: string) {
   if (m.status === "waiting") m.status = "ready";
   await settleIfReady(m); // si el jugador ya envio su puntaje, liquida ahora
   return view(m, m.p1);
-}
-
-/** Espera a que la partida exista on-chain (si aplica) antes de depositar. */
-export function onchainReady(id: string): Promise<void> {
-  return matches.get(id)?.createPromise ?? Promise.resolve();
 }
 
 /** Espera a que se resuelva el reembolso on-chain del empate (si aplica). */

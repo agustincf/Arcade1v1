@@ -11,9 +11,9 @@ export const erc20Abi = [
 ] as const satisfies Abi;
 
 export const escrowAbi = [
-  { type: "function", name: "createMatch", inputs: [{ type: "bytes32" }, { type: "address" }, { type: "address" }, { type: "uint256" }, { type: "uint64" }, { type: "uint64" }], outputs: [], stateMutability: "nonpayable" },
+  { type: "function", name: "open", inputs: [{ type: "bytes32" }, { type: "uint256" }, { type: "uint64" }, { type: "uint64" }], outputs: [], stateMutability: "nonpayable" },
+  { type: "function", name: "join", inputs: [{ type: "bytes32" }], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "cancelMatch", inputs: [{ type: "bytes32" }], outputs: [], stateMutability: "nonpayable" },
-  { type: "function", name: "deposit", inputs: [{ type: "bytes32" }], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "settle", inputs: [{ type: "bytes32" }, { type: "address" }, { type: "bytes" }], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "setAllowedStake", inputs: [{ type: "uint256" }, { type: "bool" }], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "usdc", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" },

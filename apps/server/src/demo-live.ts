@@ -63,16 +63,15 @@ async function main() {
   await send(p1, USDC, erc20Abi, "approve", [ESCROW, maxUint256]);
   await send(p2, USDC, erc20Abi, "approve", [ESCROW, maxUint256]);
 
-  // 4) El arbitro crea la partida on-chain.
+  // 4) P1 ABRE la partida depositando (modelo asincronico: no la crea el arbitro).
   const matchId = ("0x" + randomBytes(32).toString("hex")) as Hex;
   const now = BigInt(Math.floor(Date.now() / 1000));
-  const createTx = await send(arb, ESCROW, escrowAbi, "createMatch", [matchId, P1, P2, STAKE, now + 3600n, now + 7200n]);
-  console.log("✓ partida creada on-chain");
+  const dep1 = await send(p1, ESCROW, escrowAbi, "open", [matchId, STAKE, now + 3600n, now + 7200n]);
+  console.log("✓ P1 abrió la partida (depositó)");
 
-  // 5) Los dos depositan.
-  const dep1 = await send(p1, ESCROW, escrowAbi, "deposit", [matchId]);
-  const dep2 = await send(p2, ESCROW, escrowAbi, "deposit", [matchId]);
-  console.log("✓ los dos depositaron · escrow:", usd(await bal(ESCROW)), "USDC");
+  // 5) P2 se UNE depositando -> partida lista.
+  const dep2 = await send(p2, ESCROW, escrowAbi, "join", [matchId]);
+  console.log("✓ P2 se unió (depositó) · escrow:", usd(await bal(ESCROW)), "USDC");
 
   // 6) Gana P1: el arbitro firma y se liquida.
   const platBefore = await bal(PLATFORM);
@@ -86,9 +85,8 @@ async function main() {
   console.log("  TU wallet (comisión) recibió +" + usd((await bal(PLATFORM)) - platBefore), "USDC  (esperado 1.50)");
   console.log("  escrow quedó en:", usd(await bal(ESCROW)), "USDC  (esperado 0.00)");
   console.log("\n=== VERLO EN EL EXPLORADOR ===");
-  console.log("  crear partida:", `${SCAN}/tx/${createTx}`);
-  console.log("  depósito P1:  ", `${SCAN}/tx/${dep1}`);
-  console.log("  depósito P2:  ", `${SCAN}/tx/${dep2}`);
+  console.log("  P1 abrió:     ", `${SCAN}/tx/${dep1}`);
+  console.log("  P2 se unió:   ", `${SCAN}/tx/${dep2}`);
   console.log("  PAGO (settle):", `${SCAN}/tx/${settleTx}`);
   console.log("  tu wallet:    ", `${SCAN}/address/${PLATFORM}`);
 }
