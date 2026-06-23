@@ -7,10 +7,17 @@
 ## How it works
 - Pick a game and a table (bet amounts: 1, 2, 5 or 10 USDC). Both players bet the same.
 - Players are matched by arrival order (asynchronous — no live waiting).
+- Funding is open/join: the first player OPENS the match by depositing (plays and
+  leaves), the second JOINS by depositing. Each player funds their own stake on-chain,
+  so no one waits live and the arbiter never pays gas.
 - Both receive the same seed, so games are fair (skill, not luck).
 - Each plays their run; the higher score wins. A trusted arbiter signs the result
   and a smart-contract escrow pays the winner automatically.
-- If no rival appears within 1 hour, you are fully refunded.
+- If no rival joins within 1 hour, or the match is a draw, you are fully refunded.
+
+## Eligibility & compliance
+- 18+ (or the legal skill-gaming age in your region). Skill-based, not chance.
+- Access may be restricted by jurisdiction. See /terms. Currently testnet (play money).
 
 ## Games (all asynchronous, score-based, replay-verified)
 - Tetris — stack and clear lines; highest score wins.

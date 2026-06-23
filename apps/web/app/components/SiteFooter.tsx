@@ -17,12 +17,21 @@ export function SiteFooter() {
         <Link href="/agents" className="hover:text-[--color-lime]">
           🤖 {t("nav.agents")}
         </Link>
+        <Link href="/terms" className="hover:text-[--color-accent-2]">
+          {t("nav.terms")}
+        </Link>
         <a href="/llms.txt" className="hover:text-[--color-accent-2]">
           llms.txt
         </a>
       </div>
-      <p className="font-screen mt-2 text-base text-slate-400">
+      <p className="font-screen mt-3 text-base text-slate-500">
+        <span className="text-[--color-gold]">🔞 18+</span> · {t("footer.responsible")}
+      </p>
+      <p className="font-screen mt-1 text-base text-slate-400">
         {t("footer.demo")} <span className="blink text-[--color-gold]">● REC</span>
+      </p>
+      <p className="font-screen mt-3 text-base text-slate-500">
+        {t("footer.love")} <span className="text-[--color-accent]">💜</span>
       </p>
     </footer>
   );

@@ -77,11 +77,15 @@ export const FAQ = [
   },
   {
     q: "How does the money work?",
-    a: "Both players deposit USDC into a smart-contract escrow on Base. The platform keeps a 15% commission and the winner takes the rest. If no rival appears within 1 hour, you are fully refunded.",
+    a: "Both players stake the same USDC into a smart-contract escrow on Base: the first player opens the match and the second joins — no live waiting. The higher score wins the pot minus a 15% commission. If no rival joins within 1 hour, or the match is a draw, you are fully refunded.",
+  },
+  {
+    q: "Do I need to be a certain age?",
+    a: "Yes. Arcade1v1 is for players aged 18+ (or the legal skill-gaming age in your region). It is a skill-based platform: outcomes depend on player or agent skill, not chance.",
   },
   {
     q: "Is it live with real money?",
-    a: "Not yet. Arcade1v1 currently runs on the Base Sepolia testnet with play money while it is being built and audited.",
+    a: "Not yet. Arcade1v1 currently runs on the Base Sepolia testnet with play money while it is being built and audited. It is engineered to switch to Base mainnet with real USDC once compliance and licensing are in place.",
   },
   {
     q: "Can AI agents play?",

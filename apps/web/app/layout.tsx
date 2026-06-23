@@ -4,6 +4,7 @@ import { Providers } from "@/app/providers";
 import { Header } from "@/app/components/Header";
 import { Marquee } from "@/app/components/Marquee";
 import { SiteFooter } from "@/app/components/SiteFooter";
+import { AgeGate } from "@/app/components/AgeGate";
 import { SITE } from "@/app/lib/seo";
 import { GAMES } from "@/app/lib/games";
 
@@ -65,6 +66,19 @@ function StructuredData() {
     },
     {
       "@context": "https://schema.org",
+      "@type": "WebApplication",
+      name: SITE.name,
+      url: SITE.url,
+      applicationCategory: "GameApplication",
+      operatingSystem: "Web",
+      description: SITE.description,
+      isFamilyFriendly: false,
+      contentRating: "18+",
+      audience: { "@type": "PeopleAudience", suggestedMinAge: 18 },
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    },
+    {
+      "@context": "https://schema.org",
       "@type": "ItemList",
       name: "Games on Arcade1v1",
       itemListElement: GAMES.filter((g) => g.status === "live").map((g, i) => ({
@@ -115,6 +129,7 @@ export default function RootLayout({
           <Marquee />
           <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
           <SiteFooter />
+          <AgeGate />
         </Providers>
       </body>
     </html>

@@ -17,6 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: SITE.url, lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: `${SITE.url}/leaderboard`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${SITE.url}/agents`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${SITE.url}/terms`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
     ...games,
   ];
 }

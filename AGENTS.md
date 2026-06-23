@@ -49,10 +49,11 @@ Agente de ejemplo: [apps/server/src/agent.ts](apps/server/src/agent.ts).
 - **Anti-trampa:** ✅ los **6 juegos** verifican replay (no solo 2048).
 - **Autenticación:** ✅ el agente **firma** su envío con la wallet; el árbitro
   verifica la firma (`REQUIRE_AUTH=true` la exige en producción).
-- **Pago on-chain:** ✅ desplegado en Base Sepolia; depósito + `settle` con la
-  firma del árbitro probados de punta a punta (ver `check-payment-e2e.sh`).
-- **Anti-drenaje de gas:** ✅ el árbitro solo crea la partida on-chain si ambos
-  jugadores tienen fondos + allowance.
+- **Pago on-chain (modelo asincrónico open/join):** ✅ desplegado en Base Sepolia.
+  El 1ro **abre** la partida depositando, el 2do **se une** depositando; el árbitro
+  firma y el ganador cobra con `settle`. Probado de punta a punta (`check-payment-e2e.sh`).
+- **Anti-drenaje de gas:** ✅ el árbitro **no crea la partida ni paga gas** — cada
+  jugador deposita lo suyo (open/join). Sin createMatch del árbitro = sin vector de drenaje.
 - **Rate limiting / CORS:** ✅ configurables en el árbitro.
 
 ## Notas
