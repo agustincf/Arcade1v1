@@ -68,6 +68,7 @@ export default function MatchPage({
   const [approved, setApproved] = useState(false);
   const [approving, setApproving] = useState(false);
   const [approveErr, setApproveErr] = useState(false);
+  const [matchStatus, setMatchStatus] = useState<string | null>(null);
   const [deposited, setDeposited] = useState(false);
   const [depositing, setDepositing] = useState(false);
   const [depositErr, setDepositErr] = useState(false);
@@ -91,6 +92,7 @@ export default function MatchPage({
         if (cancel) return;
         setMatchId(v.matchId);
         setSeed(v.seed);
+        setMatchStatus(v.status);
       } catch {
         if (cancel) return;
         if (devMode) {
@@ -106,6 +108,22 @@ export default function MatchPage({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, approved]);
+
+  // Modo plata on-chain: la partida recién se crea on-chain al emparejar, así que
+  // hasta que entre un rival (status "ready") NO se puede depositar. Sondeamos.
+  useEffect(() => {
+    if (!needsDeposit || !matchId || deposited) return;
+    if (matchStatus !== "waiting") return;
+    const iv = setInterval(async () => {
+      try {
+        const v = await getMatch(matchId, pidRef.current);
+        if (v.status !== "waiting") setMatchStatus(v.status);
+      } catch {
+        /* reintenta */
+      }
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [needsDeposit, matchId, matchStatus, deposited]);
 
   // Aviso del navegador si cierra/recarga durante el intento (de plata).
   useEffect(() => {
@@ -354,6 +372,15 @@ export default function MatchPage({
             <p className="font-screen py-10 text-center text-xl text-[--color-accent-2]">
               {t("match.connecting")}
             </p>
+          ) : needsDeposit && matchStatus !== "ready" && !deposited ? (
+            <div className="py-10 text-center">
+              <div className="relative mx-auto h-12 w-12">
+                <span className="absolute inset-0 animate-spin rounded-full border-4 border-[--color-border] border-t-[--color-accent]" />
+              </div>
+              <p className="font-screen mx-auto mt-4 max-w-sm text-lg text-slate-300">
+                {t("match.waitJoin")}
+              </p>
+            </div>
           ) : needsDeposit && !deposited ? (
             <div className="py-6 text-center">
               <p className="font-pixel text-sm text-[--color-gold]">{t("match.depositGate")}</p>
