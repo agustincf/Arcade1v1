@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useT } from "@/app/lib/i18n";
 
 export function SiteFooter() {
@@ -9,7 +10,18 @@ export function SiteFooter() {
       <p className="font-screen text-lg text-[--color-accent-2]">
         {t("footer.best")}
       </p>
-      <p className="font-screen text-base text-slate-400">
+      <div className="font-screen mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-base text-slate-400">
+        <Link href="/leaderboard" className="hover:text-[--color-gold]">
+          🏆 {t("nav.ranking")}
+        </Link>
+        <Link href="/agents" className="hover:text-[--color-lime]">
+          🤖 {t("nav.agents")}
+        </Link>
+        <a href="/llms.txt" className="hover:text-[--color-accent-2]">
+          llms.txt
+        </a>
+      </div>
+      <p className="font-screen mt-2 text-base text-slate-400">
         {t("footer.demo")} <span className="blink text-[--color-gold]">● REC</span>
       </p>
     </footer>
