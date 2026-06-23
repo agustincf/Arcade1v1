@@ -39,23 +39,22 @@ contract Escrow1v1Test is Test {
         usdc.approve(address(escrow), stake);
     }
 
-    function _createMatch() internal {
-        vm.prank(arbiter);
-        escrow.createMatch(
+    // p1 ABRE la partida depositando su apuesta (modelo asincronico).
+    function _open() internal {
+        vm.prank(p1);
+        escrow.open(
             matchId,
-            p1,
-            p2,
             stake,
             uint64(block.timestamp + 1 hours),
             uint64(block.timestamp + 2 hours)
         );
     }
 
-    function _bothDeposit() internal {
-        vm.prank(p1);
-        escrow.deposit(matchId);
+    // p1 abre y p2 se UNE: partida lista (Funded).
+    function _openAndJoin() internal {
+        _open();
         vm.prank(p2);
-        escrow.deposit(matchId);
+        escrow.join(matchId);
     }
 
     function _signResult(address winner) internal view returns (bytes memory) {
@@ -64,10 +63,16 @@ contract Escrow1v1Test is Test {
         return abi.encodePacked(r, s, v);
     }
 
+    // --- Abrir bloquea el deposito de p1 ---
+    function test_OpenLocksStake() public {
+        _open();
+        assertEq(usdc.balanceOf(p1), 0, "p1 deposito");
+        assertEq(usdc.balanceOf(address(escrow)), stake, "escrow tiene 1 stake");
+    }
+
     // --- Camino feliz: ganador cobra, plataforma cobra comision ---
     function test_SettleHappyPath() public {
-        _createMatch();
-        _bothDeposit();
+        _openAndJoin();
 
         bytes memory sig = _signResult(p1);
         escrow.settle(matchId, p1, sig);
@@ -80,8 +85,7 @@ contract Escrow1v1Test is Test {
 
     // --- Firma invalida (no es el arbitro) debe fallar ---
     function test_SettleRejectsBadSignature() public {
-        _createMatch();
-        _bothDeposit();
+        _openAndJoin();
 
         uint256 fakePk = 0xBADBAD;
         bytes32 digest = escrow.resultDigest(matchId, p1);
@@ -94,8 +98,7 @@ contract Escrow1v1Test is Test {
 
     // --- No se puede liquidar dos veces ---
     function test_CannotSettleTwice() public {
-        _createMatch();
-        _bothDeposit();
+        _openAndJoin();
         bytes memory sig = _signResult(p1);
         escrow.settle(matchId, p1, sig);
 
@@ -103,11 +106,9 @@ contract Escrow1v1Test is Test {
         escrow.settle(matchId, p1, sig);
     }
 
-    // --- Reembolso si no se lleno a tiempo ---
+    // --- Reembolso si nadie se unio a tiempo (partida abierta sin rival) ---
     function test_RefundUnfunded() public {
-        _createMatch();
-        vm.prank(p1);
-        escrow.deposit(matchId); // solo p1 deposita
+        _open(); // solo p1 abrio (deposito)
 
         vm.warp(block.timestamp + 1 hours + 1);
         escrow.refundUnfunded(matchId);
@@ -117,8 +118,7 @@ contract Escrow1v1Test is Test {
 
     // --- Reembolso si vencio el plazo de juego sin resultado (rival no jugo) ---
     function test_RefundExpired() public {
-        _createMatch();
-        _bothDeposit();
+        _openAndJoin();
 
         vm.warp(block.timestamp + 2 hours + 1);
         escrow.refundExpired(matchId);
@@ -129,8 +129,7 @@ contract Escrow1v1Test is Test {
 
     // --- El arbitro puede cancelar (empate) y reembolsa a ambos ---
     function test_CancelRefundsBoth() public {
-        _createMatch();
-        _bothDeposit();
+        _openAndJoin();
 
         vm.prank(arbiter);
         escrow.cancelMatch(matchId);
@@ -139,31 +138,23 @@ contract Escrow1v1Test is Test {
         assertEq(usdc.balanceOf(p2), stake, "p2 reembolsado");
     }
 
-    // --- No se permite una mesa no habilitada ---
+    // --- No se permite abrir una mesa no habilitada ---
     function test_RejectsDisallowedStake() public {
-        vm.prank(arbiter);
+        vm.prank(p1);
         vm.expectRevert(bytes("stake not allowed"));
-        escrow.createMatch(
+        escrow.open(
             keccak256("x"),
-            p1,
-            p2,
             999, // monto no permitido
             uint64(block.timestamp + 1 hours),
             uint64(block.timestamp + 2 hours)
         );
     }
 
-    // --- Solo el arbitro puede crear partidas ---
-    function test_OnlyArbiterCreates() public {
+    // --- Un jugador no puede unirse a su propia partida ---
+    function test_JoinRejectsSamePlayer() public {
+        _open();
         vm.prank(p1);
-        vm.expectRevert(bytes("only arbiter"));
-        escrow.createMatch(
-            keccak256("y"),
-            p1,
-            p2,
-            stake,
-            uint64(block.timestamp + 1 hours),
-            uint64(block.timestamp + 2 hours)
-        );
+        vm.expectRevert(bytes("same player"));
+        escrow.join(matchId);
     }
 }

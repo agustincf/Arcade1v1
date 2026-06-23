@@ -75,7 +75,7 @@ contract Escrow1v1 is Ownable, ReentrancyGuard, EIP712 {
     event PlatformWalletUpdated(address wallet);
     event FeeUpdated(uint16 feeBps);
     event AllowedStakeUpdated(uint256 amount, bool allowed);
-    event MatchCreated(bytes32 indexed id, address p1, address p2, uint256 stake);
+    event MatchOpened(bytes32 indexed id, address p1, uint256 stake);
     event Deposited(bytes32 indexed id, address player);
     event MatchFunded(bytes32 indexed id);
     event Settled(bytes32 indexed id, address winner, uint256 prize, uint256 fee);
@@ -132,60 +132,49 @@ contract Escrow1v1 is Ownable, ReentrancyGuard, EIP712 {
     //                          CICLO DE PARTIDA                             //
     // --------------------------------------------------------------------- //
 
-    /// @notice El arbitro crea la partida una vez que emparejo a los jugadores.
-    function createMatch(
+    /// @notice Un jugador ABRE la partida depositando su apuesta (queda como p1,
+    ///         esperando rival). El arbitro YA NO crea la partida ni paga gas:
+    ///         cada jugador deposita lo suyo. Modelo asincronico "deposita y anda".
+    function open(
         bytes32 id,
-        address p1,
-        address p2,
         uint256 stake,
         uint64 fundDeadline,
         uint64 playDeadline
-    ) external {
-        require(msg.sender == arbiter, "only arbiter");
-        require(matches[id].status == Status.None, "match exists");
-        require(p1 != address(0) && p2 != address(0) && p1 != p2, "bad players");
+    ) external nonReentrant {
+        Match storage m = matches[id];
+        require(m.status == Status.None, "match exists");
         require(allowedStake[stake], "stake not allowed");
         require(
             fundDeadline > block.timestamp && playDeadline > fundDeadline,
             "bad deadlines"
         );
 
-        matches[id] = Match({
-            p1: p1,
-            p2: p2,
-            stake: stake,
-            p1Paid: false,
-            p2Paid: false,
-            fundDeadline: fundDeadline,
-            playDeadline: playDeadline,
-            status: Status.Open
-        });
-        emit MatchCreated(id, p1, p2, stake);
+        m.p1 = msg.sender;
+        m.stake = stake;
+        m.p1Paid = true;
+        m.fundDeadline = fundDeadline;
+        m.playDeadline = playDeadline;
+        m.status = Status.Open;
+
+        usdc.safeTransferFrom(msg.sender, address(this), stake);
+        emit MatchOpened(id, msg.sender, stake);
+        emit Deposited(id, msg.sender);
     }
 
-    /// @notice Cada jugador deposita su apuesta (antes debe aprobar el USDC).
-    function deposit(bytes32 id) external nonReentrant {
+    /// @notice Otro jugador se UNE depositando su apuesta -> partida lista (Funded).
+    function join(bytes32 id) external nonReentrant {
         Match storage m = matches[id];
         require(m.status == Status.Open, "not open");
         require(block.timestamp <= m.fundDeadline, "fund expired");
+        require(msg.sender != m.p1, "same player");
 
-        if (msg.sender == m.p1) {
-            require(!m.p1Paid, "already paid");
-            m.p1Paid = true;
-        } else if (msg.sender == m.p2) {
-            require(!m.p2Paid, "already paid");
-            m.p2Paid = true;
-        } else {
-            revert("not a player");
-        }
+        m.p2 = msg.sender;
+        m.p2Paid = true;
+        m.status = Status.Funded;
 
         usdc.safeTransferFrom(msg.sender, address(this), m.stake);
         emit Deposited(id, msg.sender);
-
-        if (m.p1Paid && m.p2Paid) {
-            m.status = Status.Funded;
-            emit MatchFunded(id);
-        }
+        emit MatchFunded(id);
     }
 
     /// @notice Liquida la partida con la firma del arbitro: paga al ganador.
