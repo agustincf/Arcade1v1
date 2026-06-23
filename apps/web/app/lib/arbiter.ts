@@ -21,6 +21,8 @@ export interface MatchView {
   margin?: number;
   netPnl?: number; // USDC ganados/perdidos (neto de comisión)
   rivalReplay?: unknown; // replay del oponente, para análisis/aprendizaje
+  rating?: number; // tu rating ELO nuevo en este juego
+  ratingDelta?: number; // cuánto subió/bajó
 }
 
 async function post(path: string, body: unknown): Promise<MatchView> {

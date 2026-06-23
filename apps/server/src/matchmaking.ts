@@ -18,6 +18,7 @@ import {
   cancelMatchOnchain,
   hasEnoughAllowance,
 } from "./onchain.js";
+import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
 
@@ -37,6 +38,7 @@ interface Match {
   isBot?: boolean;
   createPromise?: Promise<void>; // creacion de la partida on-chain (si aplica)
   refundPromise?: Promise<void>; // cancelacion/reembolso on-chain en empate
+  eloUpdate?: { p1: RatingUpdate; p2: RatingUpdate }; // cambio de rating al liquidar
 }
 
 // Comision (basis points) para calcular el PnL neto que se le informa al jugador.
@@ -235,6 +237,11 @@ async function settleIfReady(m: Match) {
     m.signature = await signResult(m.id, winner as Hex);
     m.status = "settled";
   }
+
+  // Rating ELO por juego (las partidas contra el bot de prueba no cuentan).
+  if (!m.isBot && m.p2 && m.outcome) {
+    m.eloUpdate = applyElo(m.game, m.p1, m.p2, m.outcome);
+  }
 }
 
 /** Pruebas en solitario: completa la partida con un "bot" y la liquida. */
@@ -313,6 +320,11 @@ function view(m: Match, address?: string) {
         : undefined;
     base.netPnl = netPnl(m, address); // recompensa del agente (USDC)
     base.rivalReplay = rival ? m.replays[rival] : undefined; // para aprender del rival
+    const myElo = address === m.p1 ? m.eloUpdate?.p1 : m.eloUpdate?.p2;
+    if (myElo) {
+      base.rating = myElo.after; // tu rating nuevo en este juego
+      base.ratingDelta = myElo.delta; // cuanto subio/bajo
+    }
   }
   return base;
 }

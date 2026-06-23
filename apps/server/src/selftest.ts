@@ -130,6 +130,11 @@ async function main() {
     r.rivalScore === sA.score &&
     typeof r.netPnl === "number";
   console.log("✓ feedback rico (rivalReplay + rivalScore + netPnl):", richOk, "· PnL B:", r.netPnl);
+  const eloOk =
+    typeof r.rating === "number" &&
+    typeof r.ratingDelta === "number" &&
+    r.ratingDelta < 0; // B perdio -> su rating baja
+  console.log("✓ rating ELO (B perdió → baja):", eloOk, "· rating B:", r.rating, "delta", r.ratingDelta);
 
   // 4) Empate -> reembolso (mismos movimientos = mismo puntaje).
   const e1 = await matchmake("2048", 10, A);

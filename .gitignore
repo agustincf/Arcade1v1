@@ -24,3 +24,6 @@ broadcast/
 # Librerias y artefactos de Foundry
 packages/contracts/lib/
 packages/contracts/out/
+
+# Estado de ratings del arbitro (runtime)
+apps/server/data/

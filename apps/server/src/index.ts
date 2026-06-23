@@ -4,6 +4,7 @@
 import "dotenv/config";
 import express from "express";
 import { matchmake, submitScore, getMatch, addBot } from "./matchmaking.js";
+import { leaderboard, ratingsOf } from "./ratings.js";
 import { arbiterAddress } from "./sign.js";
 
 const app = express();
@@ -52,7 +53,9 @@ app.get("/", (_req, res) =>
       "POST /match/:id/score":
         "{ address, score, replay } -> verifies & settles (replay shape per game)",
       "GET /match/:id?address=":
-        "match status; when settled returns rich feedback: { winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay }",
+        "match status; when settled returns rich feedback: { winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta }",
+      "GET /leaderboard/:game?limit=": "ELO leaderboard for a game",
+      "GET /rating/:address": "a player's ELO rating per game",
     },
     guide: "See AGENTS.md in the repository.",
   }),
@@ -108,6 +111,17 @@ app.get("/match/:id", (req, res) => {
   const m = getMatch(req.params.id, req.query.address as string | undefined);
   if (!m) return res.status(404).json({ error: "match not found" });
   res.json(m);
+});
+
+// Tabla de posiciones (rating ELO) de un juego.
+app.get("/leaderboard/:game", (req, res) => {
+  const limit = Number(req.query.limit ?? 20);
+  res.json({ game: req.params.game, top: leaderboard(req.params.game, limit) });
+});
+
+// Rating de un jugador (por juego).
+app.get("/rating/:address", (req, res) => {
+  res.json({ address: req.params.address, ratings: ratingsOf(req.params.address) });
 });
 
 const port = Number(process.env.PORT ?? 4000);
