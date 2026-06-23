@@ -60,42 +60,6 @@ export function useEscrow() {
     await publicClient.waitForTransactionReceipt({ hash });
   }
 
-  /** Aprueba (si hace falta) y deposita la apuesta en el escrow. */
-  async function approveAndDeposit(
-    matchId: `0x${string}`,
-    owner: `0x${string}`,
-    betUsdc: number,
-  ) {
-    if (!ESCROW_ADDRESS || !USDC_ADDRESS || !publicClient) {
-      throw new Error("on-chain no configurado");
-    }
-    const amount = toUsdcUnits(betUsdc);
-    const allowance = (await publicClient.readContract({
-      address: USDC_ADDRESS,
-      abi: erc20Abi,
-      functionName: "allowance",
-      args: [owner, ESCROW_ADDRESS],
-    })) as bigint;
-
-    if (allowance < amount) {
-      const approveHash = await writeContractAsync({
-        address: USDC_ADDRESS,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [ESCROW_ADDRESS, amount],
-      });
-      await publicClient.waitForTransactionReceipt({ hash: approveHash });
-    }
-
-    const depositHash = await writeContractAsync({
-      address: ESCROW_ADDRESS,
-      abi: escrowAbi,
-      functionName: "deposit",
-      args: [matchId],
-    });
-    await publicClient.waitForTransactionReceipt({ hash: depositHash });
-  }
-
   /** El ganador cobra: envía la firma del árbitro al contrato. */
   async function claim(
     matchId: `0x${string}`,
@@ -114,5 +78,5 @@ export function useEscrow() {
     await publicClient.waitForTransactionReceipt({ hash });
   }
 
-  return { approveStake, deposit, approveAndDeposit, claim };
+  return { approveStake, deposit, claim };
 }

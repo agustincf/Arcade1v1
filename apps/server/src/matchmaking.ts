@@ -288,8 +288,31 @@ function netPnl(m: Match, address: string): number {
   return Math.round((won ? prize - m.stake : -m.stake) * 100) / 100;
 }
 
-function view(m: Match, address?: string) {
-  const base: Record<string, unknown> = {
+export interface MatchView {
+  matchId: Hex;
+  game: string;
+  stake: number;
+  seed: number;
+  status: Status;
+  role?: "p1" | "p2";
+  opponent?: string;
+  scores: Record<string, number>;
+  outcome?: "p1" | "p2" | "draw";
+  winner?: string;
+  signature?: Hex; // el ganador la presenta al contrato
+  isBot?: boolean;
+  // Feedback rico (presente solo cuando la partida ya termino):
+  yourScore?: number;
+  rivalScore?: number;
+  margin?: number;
+  netPnl?: number; // recompensa del agente (USDC)
+  rivalReplay?: unknown; // replay del oponente, para aprender
+  rating?: number; // tu rating ELO nuevo en este juego
+  ratingDelta?: number; // cuanto subio/bajo
+}
+
+function view(m: Match, address?: string): MatchView {
+  const v: MatchView = {
     matchId: m.id,
     game: m.game,
     stake: m.stake,
@@ -300,31 +323,30 @@ function view(m: Match, address?: string) {
     scores: m.scores,
     outcome: m.outcome,
     winner: m.winner,
-    signature: m.signature, // el ganador la presenta al contrato
+    signature: m.signature,
     isBot: m.isBot,
   };
 
   // FEEDBACK RICO para jugadores/agentes: solo cuando la partida YA termino,
   // asi nadie ve el puntaje ni el replay del rival antes de jugar (ventaja).
   const decided = m.status === "settled" || m.status === "draw";
-  const isPlayer = address === m.p1 || address === m.p2;
-  if (decided && address && isPlayer) {
+  if (decided && address && (address === m.p1 || address === m.p2)) {
     const rival = address === m.p1 ? m.p2 : m.p1;
     const yourScore = m.scores[address];
     const rivalScore = rival ? m.scores[rival] : undefined;
-    base.yourScore = yourScore;
-    base.rivalScore = rivalScore;
-    base.margin =
+    v.yourScore = yourScore;
+    v.rivalScore = rivalScore;
+    v.margin =
       yourScore !== undefined && rivalScore !== undefined
         ? yourScore - rivalScore
         : undefined;
-    base.netPnl = netPnl(m, address); // recompensa del agente (USDC)
-    base.rivalReplay = rival ? m.replays[rival] : undefined; // para aprender del rival
+    v.netPnl = netPnl(m, address);
+    v.rivalReplay = rival ? m.replays[rival] : undefined;
     const myElo = address === m.p1 ? m.eloUpdate?.p1 : m.eloUpdate?.p2;
     if (myElo) {
-      base.rating = myElo.after; // tu rating nuevo en este juego
-      base.ratingDelta = myElo.delta; // cuanto subio/bajo
+      v.rating = myElo.after;
+      v.ratingDelta = myElo.delta;
     }
   }
-  return base;
+  return v;
 }

@@ -82,7 +82,7 @@ async function noFundsScenario() {
     abi: escrowAbi,
     functionName: "matches",
     args: [mx.matchId as Hex],
-  })) as unknown[];
+  })) as readonly unknown[];
   const created = Number(st[7]) !== 0; // status != None
   console.log("✓ sin fondos: el arbitro NO creó la partida (gas a salvo):", !created);
   if (created) {

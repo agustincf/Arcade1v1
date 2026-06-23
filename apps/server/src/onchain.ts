@@ -7,6 +7,7 @@ import {
   http,
   type Hex,
   type Abi,
+  type Chain,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry, baseSepolia } from "viem/chains";
@@ -19,7 +20,7 @@ export function onchainEnabled(): boolean {
   return !!ESCROW && ESCROW.toLowerCase() !== ZERO;
 }
 
-function chain() {
+function chain(): Chain {
   return Number(process.env.CHAIN_ID ?? 84532) === 31337 ? foundry : baseSepolia;
 }
 
