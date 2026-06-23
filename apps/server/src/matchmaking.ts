@@ -31,6 +31,7 @@ interface Match {
   p2?: string;
   scores: Record<string, number>;
   replays: Record<string, unknown>; // replay verificado de cada jugador
+  createdAt: number; // para descartar "waiters" abandonados de la cola
   status: Status;
   winner?: string;
   outcome?: "p1" | "p2" | "draw";
@@ -53,51 +54,10 @@ const qkey = (game: string, stake: number) => `${game}:${stake}`;
 const randomId = () => ("0x" + randomBytes(32).toString("hex")) as Hex;
 const randomSeed = () => Math.floor(Math.random() * 1_000_000_000);
 
-export async function matchmake(game: string, stake: number, address: string) {
-  const k = qkey(game, stake);
-  const waitingId = queue.get(k);
+const WAIT_TTL = 60 * 60 * 1000; // 1 hora: un "waiter" abandonado se descarta de la cola
 
-  // Hay alguien esperando: lo emparejamos (orden de llegada).
-  if (waitingId) {
-    const m = matches.get(waitingId);
-    if (m && !m.p2 && m.p1 !== address) {
-      m.p2 = address;
-      m.status = "ready";
-      queue.delete(k);
-      // Si hay contrato configurado, el arbitro crea la partida on-chain, PERO
-      // solo si ambos jugadores ya tienen fondos + allowance suficientes. Asi un
-      // bot no puede forzar createMatch (que paga el arbitro) sin pensar pagar.
-      if (onchainEnabled()) {
-        const stakeUnits = BigInt(m.stake) * 1_000_000n;
-        const [okP1, okP2] = await Promise.all([
-          hasEnoughAllowance(m.p1 as Hex, stakeUnits),
-          hasEnoughAllowance(m.p2 as Hex, stakeUnits),
-        ]);
-        if (!okP1 || !okP2) {
-          if (!okP1) console.warn(`matchmaking: ${m.p1} sin fondos/allowance suficientes`);
-          if (!okP2) console.warn(`matchmaking: ${m.p2} sin fondos/allowance suficientes`);
-          // Revertimos el emparejamiento: el que esperaba vuelve a la cola y NO
-          // se crea la partida on-chain (no se gasta gas). Silencioso para el jugador.
-          m.p2 = undefined;
-          m.status = "waiting";
-          queue.set(k, m.id);
-          return view(m, address);
-        }
-        const now = BigInt(Math.floor(Date.now() / 1000));
-        m.createPromise = createMatchOnchain(
-          m.id,
-          m.p1 as Hex,
-          m.p2 as Hex,
-          stakeUnits,
-          now + 3600n,
-          now + 7200n,
-        ).catch((e) => console.error("createMatch onchain:", (e as Error).message));
-      }
-      return view(m, address);
-    }
-  }
-
-  // Nadie esperando: creamos la partida y quedamos a la espera.
+/** Crea una partida en espera para `address` y la deja en la cola. */
+function createWaiting(k: string, game: string, stake: number, address: string) {
   const m: Match = {
     id: randomId(),
     game,
@@ -106,11 +66,70 @@ export async function matchmake(game: string, stake: number, address: string) {
     p1: address,
     scores: {},
     replays: {},
+    createdAt: Date.now(),
     status: "waiting",
   };
   matches.set(m.id, m);
   queue.set(k, m.id);
   return view(m, address);
+}
+
+export async function matchmake(game: string, stake: number, address: string) {
+  const k = qkey(game, stake);
+  const waitingId = queue.get(k);
+  let waiter = waitingId ? matches.get(waitingId) : undefined;
+
+  // Limpieza: un waiter ya emparejado o abandonado (viejo) no debe trabar la cola.
+  if (waiter && (waiter.p2 || Date.now() - waiter.createdAt > WAIT_TTL)) {
+    queue.delete(k);
+    if (!waiter.p2) matches.delete(waiter.id);
+    waiter = undefined;
+  }
+
+  // El mismo jugador re-consulta su espera: devolvemos su partida (idempotente).
+  if (waiter && waiter.p1 === address) return view(waiter, address);
+
+  // Hay un rival valido esperando: emparejamos (orden de llegada).
+  if (waiter) {
+    const m = waiter;
+    m.p2 = address;
+    m.status = "ready";
+    queue.delete(k);
+    // Con contrato: el arbitro crea la partida on-chain, PERO solo si AMBOS tienen
+    // fondos + allowance. Asi un bot no fuerza createMatch (que paga el arbitro).
+    if (onchainEnabled()) {
+      const stakeUnits = BigInt(m.stake) * 1_000_000n;
+      const [okP1, okP2] = await Promise.all([
+        hasEnoughAllowance(m.p1 as Hex, stakeUnits),
+        hasEnoughAllowance(m.p2 as Hex, stakeUnits),
+      ]);
+      if (!okP1 || !okP2) {
+        if (!okP1) console.warn(`matchmaking: ${m.p1} sin fondos/allowance suficientes`);
+        if (!okP2) console.warn(`matchmaking: ${address} sin fondos/allowance suficientes`);
+        // Deshacemos el emparejamiento sin gastar gas. Si el que esperaba NO tiene
+        // fondos, lo descartamos (no debe seguir trabando la cola). Si el que llega
+        // SI tiene, queda el esperando (no pierde su turno).
+        m.p2 = undefined;
+        m.status = "waiting";
+        if (okP1) queue.set(k, m.id);
+        else matches.delete(m.id);
+        return okP2 ? createWaiting(k, game, stake, address) : view(m, address);
+      }
+      const now = BigInt(Math.floor(Date.now() / 1000));
+      m.createPromise = createMatchOnchain(
+        m.id,
+        m.p1 as Hex,
+        m.p2 as Hex,
+        stakeUnits,
+        now + 3600n,
+        now + 7200n,
+      ).catch((e) => console.error("createMatch onchain:", (e as Error).message));
+    }
+    return view(m, address);
+  }
+
+  // Nadie valido esperando: creamos la partida y quedamos a la espera.
+  return createWaiting(k, game, stake, address);
 }
 
 export async function submitScore(

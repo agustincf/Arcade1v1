@@ -1,5 +1,5 @@
-// Auto-test del arbitro (sin red): emparejamiento, firma, empate y ANTI-TRAMPA
-// (replay) de los 4 juegos. Correr con: npm run selftest -w @arcade1v1/server
+// Auto-test del arbitro (sin red): emparejamiento, firma, empate, feedback rico,
+// ELO y ANTI-TRAMPA (replay) de los 6 juegos. Correr: npm run selftest -w @arcade1v1/server
 
 import "dotenv/config";
 import { recoverTypedDataAddress, type Hex } from "viem";
@@ -146,11 +146,11 @@ async function main() {
   console.log("✓ empate -> reembolso:", draw.outcome === "draw");
 
   // 5) ANTI-TRAMPA 2048: legitimo aceptado, inventado rechazado.
-  const cA = await matchmake("2048", 20, A);
+  const cA = await matchmake("2048", 2, A);
   const pA = play2048(cA.seed, 500);
   const rA = await submitScore(cA.matchId, A, pA.score, pA.replay);
   console.log("✓ replay 2048 aceptado:", rA.scores[A] === pA.score);
-  const cB = await matchmake("2048", 20, B);
+  const cB = await matchmake("2048", 2, B);
   let cheat2048 = false;
   try {
     await submitScore(cB.matchId, B, 999999, { seed: cB.seed, moves: [] });
@@ -164,8 +164,8 @@ async function main() {
   const wD = privateKeyToAccount(generatePrivateKey());
   const C = wC.address;
   const D = wD.address;
-  const cm = await matchmake("2048", 50, C);
-  await matchmake("2048", 50, D);
+  const cm = await matchmake("2048", 1, C);
+  await matchmake("2048", 1, D);
   const pC = play2048(cm.seed, 30);
   const sigC = await wC.signMessage({ message: scoreAuthMessage(cm.matchId, C, pC.score) });
   const authOk = await submitScore(cm.matchId, C, pC.score, pC.replay, sigC);

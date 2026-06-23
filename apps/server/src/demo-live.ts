@@ -17,6 +17,7 @@ import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 import { randomBytes } from "node:crypto";
 import { signResult } from "./sign.js";
+import { escrowAbi, erc20Abi } from "./abi.js";
 
 const RPC = process.env.RPC_URL || "https://sepolia.base.org";
 const ESCROW = process.env.ESCROW_ADDRESS as Hex;
@@ -24,17 +25,6 @@ const USDC = "0xBE3A57a90548b336F5EBF997E6DA6d3DC64EE137" as Hex;
 const PLATFORM = "0x15bd1EFcC9F23Ca34c99C8b22f79d707F392268C" as Hex; // wallet del usuario
 const STAKE = 5_000_000n; // 5 USDC
 const SCAN = "https://sepolia.basescan.org";
-
-const erc20Abi = [
-  { type: "function", name: "mint", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [], stateMutability: "nonpayable" },
-  { type: "function", name: "approve", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }], stateMutability: "nonpayable" },
-  { type: "function", name: "balanceOf", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
-] as const satisfies Abi;
-const escrowAbi = [
-  { type: "function", name: "createMatch", inputs: [{ type: "bytes32" }, { type: "address" }, { type: "address" }, { type: "uint256" }, { type: "uint64" }, { type: "uint64" }], outputs: [], stateMutability: "nonpayable" },
-  { type: "function", name: "deposit", inputs: [{ type: "bytes32" }], outputs: [], stateMutability: "nonpayable" },
-  { type: "function", name: "settle", inputs: [{ type: "bytes32" }, { type: "address" }, { type: "bytes" }], outputs: [], stateMutability: "nonpayable" },
-] as const satisfies Abi;
 
 const pub = createPublicClient({ chain: baseSepolia, transport: http(RPC) });
 const wallet = (k: Hex) => createWalletClient({ account: privateKeyToAccount(k), chain: baseSepolia, transport: http(RPC) });

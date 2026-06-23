@@ -6,11 +6,11 @@ import {
   createPublicClient,
   http,
   type Hex,
-  type Abi,
   type Chain,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry, baseSepolia } from "viem/chains";
+import { escrowAbi, erc20Abi } from "./abi.js";
 
 const RPC = process.env.RPC_URL || "http://localhost:8545";
 const ESCROW = (process.env.ESCROW_ADDRESS || "") as Hex;
@@ -23,54 +23,6 @@ export function onchainEnabled(): boolean {
 function chain(): Chain {
   return Number(process.env.CHAIN_ID ?? 84532) === 31337 ? foundry : baseSepolia;
 }
-
-const escrowAbi = [
-  {
-    type: "function",
-    name: "createMatch",
-    inputs: [
-      { type: "bytes32" },
-      { type: "address" },
-      { type: "address" },
-      { type: "uint256" },
-      { type: "uint64" },
-      { type: "uint64" },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "cancelMatch",
-    inputs: [{ type: "bytes32" }],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "usdc",
-    inputs: [],
-    outputs: [{ type: "address" }],
-    stateMutability: "view",
-  },
-] as const satisfies Abi;
-
-const erc20ReadAbi = [
-  {
-    type: "function",
-    name: "allowance",
-    inputs: [{ type: "address" }, { type: "address" }],
-    outputs: [{ type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "balanceOf",
-    inputs: [{ type: "address" }],
-    outputs: [{ type: "uint256" }],
-    stateMutability: "view",
-  },
-] as const satisfies Abi;
 
 let wallet: ReturnType<typeof createWalletClient> | null = null;
 let pub: ReturnType<typeof createPublicClient> | null = null;
@@ -135,13 +87,13 @@ export async function hasEnoughAllowance(
   const [allowance, balance] = await Promise.all([
     pub.readContract({
       address: token,
-      abi: erc20ReadAbi,
+      abi: erc20Abi,
       functionName: "allowance",
       args: [player, ESCROW],
     }) as Promise<bigint>,
     pub.readContract({
       address: token,
-      abi: erc20ReadAbi,
+      abi: erc20Abi,
       functionName: "balanceOf",
       args: [player],
     }) as Promise<bigint>,

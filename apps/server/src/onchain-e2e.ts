@@ -15,6 +15,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
 import { matchmake, submitScore, onchainReady, onchainSettled } from "./matchmaking.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
+import { escrowAbi, erc20Abi } from "./abi.js";
 
 const RPC = process.env.RPC_URL || "http://localhost:8545";
 const USDC = process.env.USDC_ADDR as Hex;
@@ -26,22 +27,6 @@ const KEYS = {
   p2: "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
 } as const;
 const PLATFORM = "0x90F79bf6EB2c4f870365E785982E1f101E93b906" as Hex;
-
-const erc20Abi = [
-  { type: "function", name: "mint", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [], stateMutability: "nonpayable" },
-  { type: "function", name: "approve", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }], stateMutability: "nonpayable" },
-  { type: "function", name: "balanceOf", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
-] as const satisfies Abi;
-
-const escrowAbi = [
-  { type: "function", name: "setAllowedStake", inputs: [{ type: "uint256" }, { type: "bool" }], outputs: [], stateMutability: "nonpayable" },
-  { type: "function", name: "deposit", inputs: [{ type: "bytes32" }], outputs: [], stateMutability: "nonpayable" },
-  { type: "function", name: "settle", inputs: [{ type: "bytes32" }, { type: "address" }, { type: "bytes" }], outputs: [], stateMutability: "nonpayable" },
-  { type: "function", name: "matches", inputs: [{ type: "bytes32" }], outputs: [
-    { type: "address" }, { type: "address" }, { type: "uint256" }, { type: "bool" },
-    { type: "bool" }, { type: "uint64" }, { type: "uint64" }, { type: "uint8" },
-  ], stateMutability: "view" },
-] as const satisfies Abi;
 
 const pub = createPublicClient({ chain: foundry, transport: http(RPC) });
 const w = (k: string) => createWalletClient({ account: privateKeyToAccount(k as Hex), chain: foundry, transport: http(RPC) });

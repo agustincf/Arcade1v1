@@ -1,7 +1,7 @@
 // Sistema de rating ELO por jugador y por juego (ser bueno en Tetris != Snake).
 // Persistencia simple en archivo JSON (sobrevive reinicios, sin base de datos).
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -21,7 +21,11 @@ try {
 function save() {
   try {
     if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true });
-    writeFileSync(FILE, JSON.stringify(store));
+    // Escritura atomica: a un temporal y luego rename, asi un corte a mitad de
+    // escritura no deja el archivo de ratings corrupto.
+    const tmp = `${FILE}.tmp`;
+    writeFileSync(tmp, JSON.stringify(store));
+    renameSync(tmp, FILE);
   } catch (e) {
     console.error("ratings save:", (e as Error).message);
   }
