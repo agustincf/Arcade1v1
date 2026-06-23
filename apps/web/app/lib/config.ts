@@ -15,8 +15,10 @@ export function getPayout(bet: number) {
   return { pot, fee, prize };
 }
 
-/** Estamos en testnet (dinero de prueba). */
-export const NETWORK_LABEL = "Base Sepolia (testnet)";
+/** Red activa: Base mainnet (dinero real) o Base Sepolia (test). Se elige con
+ *  NEXT_PUBLIC_CHAIN_ID=8453 para mainnet; por defecto = testnet (seguro). */
+export const IS_MAINNET = process.env.NEXT_PUBLIC_CHAIN_ID === "8453";
+export const NETWORK_LABEL = IS_MAINNET ? "Base" : "Base Sepolia · TEST";
 
 /** Mesa pre-seleccionada por defecto. */
 export const DEFAULT_BET = 5;
