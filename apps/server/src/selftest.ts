@@ -205,6 +205,16 @@ async function main() {
     realtimeOk = realtimeOk && legitOk && cheatOk;
   }
 
+  // 8) DEFAULT-DENY: un juego desconocido no se empareja (y por ende jamás
+  //    podría liquidar un puntaje sin verificar).
+  let unknownRejected = false;
+  try {
+    await matchmake("juego-trucho", 5, A);
+  } catch {
+    unknownRejected = true;
+  }
+  console.log("✓ juego desconocido RECHAZADO (default-deny):", unknownRejected);
+
   const allOk =
     ok &&
     cheat2048 &&
@@ -212,7 +222,8 @@ async function main() {
     authOk.scores[C] === pC.score &&
     badRejected &&
     draw.outcome === "draw" &&
-    realtimeOk;
+    realtimeOk &&
+    unknownRejected;
   if (!allOk) process.exit(1);
   console.log("\nTODO OK ✅");
 }

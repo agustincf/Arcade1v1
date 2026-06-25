@@ -17,6 +17,53 @@ import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
 
+// ANTI-TRAMPA: registro de verificadores por juego. Cada entrada sabe validar la
+// forma del replay y RE-JUGARLO de forma determinística para obtener el puntaje
+// real. Es la ÚNICA lista de juegos válidos del árbitro: si un juego no está acá,
+// no se acepta (default-deny) -> nunca se confía en un puntaje sin verificar.
+interface Verifier {
+  /** ¿El replay tiene la forma mínima esperada? */
+  valid: (r: unknown) => boolean;
+  /** Re-juega el replay y devuelve el puntaje real. */
+  verify: (r: unknown) => number;
+}
+
+// Helpers de forma: todos llevan seed (number); los de tiempo real llevan ticks.
+const hasSeed = (r: any) => !!r && typeof r.seed === "number";
+const hasTicks = (r: any) => hasSeed(r) && typeof r.ticks === "number";
+
+const VERIFIERS: Record<string, Verifier> = {
+  "2048": {
+    valid: (r: any) => hasSeed(r) && Array.isArray(r.moves),
+    verify: (r) => verify2048(r as Replay2048),
+  },
+  tetris: {
+    valid: (r: any) => hasTicks(r) && Array.isArray(r.inputs),
+    verify: (r) => verifyTetris(r as ReplayTetris),
+  },
+  flappy: {
+    valid: (r: any) => hasTicks(r) && Array.isArray(r.flaps),
+    verify: (r) => verifyFlappy(r as ReplayFlappy),
+  },
+  racing: {
+    valid: (r: any) => hasTicks(r) && Array.isArray(r.inputs),
+    verify: (r) => verifyRacing(r as ReplayRacing),
+  },
+  snake: {
+    valid: (r: any) => hasTicks(r) && Array.isArray(r.inputs),
+    verify: (r) => verifySnake(r as ReplaySnake),
+  },
+  invaders: {
+    valid: (r: any) => hasTicks(r) && Array.isArray(r.inputs),
+    verify: (r) => verifyInvaders(r as ReplayInvaders),
+  },
+};
+
+/** ¿El árbitro conoce (y sabe verificar) este juego? */
+export function isKnownGame(game: string): boolean {
+  return game in VERIFIERS;
+}
+
 interface Match {
   id: Hex;
   game: string;
@@ -69,6 +116,8 @@ function createWaiting(k: string, game: string, stake: number, address: string) 
 }
 
 export async function matchmake(game: string, stake: number, address: string) {
+  // Default-deny: solo se emparejan juegos que el árbitro sabe verificar.
+  if (!isKnownGame(game)) throw new Error(`unknown game: ${game}`);
   const k = qkey(game, stake);
   const waitingId = queue.get(k);
   let waiter = waitingId ? matches.get(waitingId) : undefined;
@@ -123,69 +172,18 @@ export async function submitScore(
 
   let finalScore = Math.max(0, Math.floor(score));
 
-  // ANTI-TRAMPA: para juegos verificables (2048 y Tetris), re-jugamos el replay
-  // y confirmamos el puntaje. Si no coincide, es trampa: se rechaza.
-  if (m.game === "2048") {
-    const r = replay as Replay2048 | undefined;
-    if (!r || !Array.isArray(r.moves) || typeof r.seed !== "number") {
-      throw new Error("replay required");
-    }
-    const verified = verify2048(r);
-    if (verified !== finalScore) {
-      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
-    }
-    finalScore = verified;
-  } else if (m.game === "tetris") {
-    const r = replay as ReplayTetris | undefined;
-    if (!r || !Array.isArray(r.inputs) || typeof r.seed !== "number" || typeof r.ticks !== "number") {
-      throw new Error("replay required");
-    }
-    const verified = verifyTetris(r);
-    if (verified !== finalScore) {
-      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
-    }
-    finalScore = verified;
-  } else if (m.game === "flappy") {
-    const r = replay as ReplayFlappy | undefined;
-    if (!r || !Array.isArray(r.flaps) || typeof r.seed !== "number" || typeof r.ticks !== "number") {
-      throw new Error("replay required");
-    }
-    const verified = verifyFlappy(r);
-    if (verified !== finalScore) {
-      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
-    }
-    finalScore = verified;
-  } else if (m.game === "racing") {
-    const r = replay as ReplayRacing | undefined;
-    if (!r || !Array.isArray(r.inputs) || typeof r.seed !== "number" || typeof r.ticks !== "number") {
-      throw new Error("replay required");
-    }
-    const verified = verifyRacing(r);
-    if (verified !== finalScore) {
-      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
-    }
-    finalScore = verified;
-  } else if (m.game === "snake") {
-    const r = replay as ReplaySnake | undefined;
-    if (!r || !Array.isArray(r.inputs) || typeof r.seed !== "number" || typeof r.ticks !== "number") {
-      throw new Error("replay required");
-    }
-    const verified = verifySnake(r);
-    if (verified !== finalScore) {
-      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
-    }
-    finalScore = verified;
-  } else if (m.game === "invaders") {
-    const r = replay as ReplayInvaders | undefined;
-    if (!r || !Array.isArray(r.inputs) || typeof r.seed !== "number" || typeof r.ticks !== "number") {
-      throw new Error("replay required");
-    }
-    const verified = verifyInvaders(r);
-    if (verified !== finalScore) {
-      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
-    }
-    finalScore = verified;
+  // ANTI-TRAMPA (default-deny): TODO juego debe tener verificador. Re-jugamos el
+  // replay y exigimos que el puntaje declarado coincida con el verificado. Si el
+  // juego es desconocido o el replay no valida/no coincide, se rechaza: nunca se
+  // confía en un puntaje sin re-jugarlo.
+  const verifier = VERIFIERS[m.game];
+  if (!verifier) throw new Error(`unknown game: ${m.game}`);
+  if (!verifier.valid(replay)) throw new Error("replay required");
+  const verified = verifier.verify(replay);
+  if (verified !== finalScore) {
+    throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
   }
+  finalScore = verified;
 
   m.scores[address] = finalScore;
   m.replays[address] = replay; // guardamos el replay (feedback para el rival/agente)

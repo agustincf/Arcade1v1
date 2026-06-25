@@ -70,7 +70,11 @@ app.post("/matchmake", async (req, res) => {
   if (!game || !stake || !address) {
     return res.status(400).json({ error: "faltan game, stake o address" });
   }
-  res.json(await matchmake(String(game), Number(stake), String(address)));
+  try {
+    res.json(await matchmake(String(game), Number(stake), String(address)));
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
 });
 
 // Enviar puntaje. Cuando estan los dos, decide y firma.
