@@ -86,6 +86,16 @@ interface Match {
 // Comision (basis points) para calcular el PnL neto que se le informa al jugador.
 const FEE_BPS = Number(process.env.FEE_BPS ?? 1500);
 
+// AUTENTICACION OBLIGATORIA (secure-by-default): exigir que cada envío venga
+// firmado por la wallet del jugador. Sin esto, alguien podría mandar un puntaje
+// a nombre del rival (haciéndolo perder). Política:
+//   - REQUIRE_AUTH=true  -> obligatoria (cualquier entorno)
+//   - REQUIRE_AUTH=false -> desactivada explícitamente (opt-out, p. ej. una demo)
+//   - sin setear         -> obligatoria en producción, libre en dev (invitados)
+export const AUTH_REQUIRED =
+  process.env.REQUIRE_AUTH === "true" ||
+  (process.env.REQUIRE_AUTH !== "false" && process.env.NODE_ENV === "production");
+
 const BOT = "0x000000000000000000000000000000000000b07a";
 
 const matches = new Map<string, Match>();
@@ -166,7 +176,7 @@ export async function submitScore(
     if (signer.toLowerCase() !== address.toLowerCase()) {
       throw new Error("bad signature");
     }
-  } else if (process.env.REQUIRE_AUTH === "true") {
+  } else if (AUTH_REQUIRED) {
     throw new Error("signature required");
   }
 

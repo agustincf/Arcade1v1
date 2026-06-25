@@ -3,7 +3,7 @@
 
 import "dotenv/config";
 import express from "express";
-import { matchmake, submitScore, getMatch, addBot } from "./matchmaking.js";
+import { matchmake, submitScore, getMatch, addBot, AUTH_REQUIRED } from "./matchmaking.js";
 import { leaderboard, ratingsOf } from "./ratings.js";
 import { arbiterAddress } from "./sign.js";
 
@@ -123,4 +123,11 @@ const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
   console.log(`Arbitro escuchando en http://localhost:${port}`);
   console.log(`Direccion del arbitro: ${arbiterAddress()}`);
+  console.log(`Auth obligatoria (firma): ${AUTH_REQUIRED ? "SÍ" : "no"}`);
+  if (process.env.NODE_ENV === "production" && !AUTH_REQUIRED) {
+    console.warn(
+      "⚠️  PRODUCCIÓN SIN AUTH: REQUIRE_AUTH=false desactivó la firma obligatoria. " +
+        "Cualquiera podría enviar puntajes a nombre de otro. Quitá REQUIRE_AUTH (o ponelo en true).",
+    );
+  }
 });

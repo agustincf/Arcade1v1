@@ -74,9 +74,13 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 3. **Autenticación en el backend.** ✅ **RESUELTO.** El jugador (y los agentes)
    **firman su envío con la wallet**; el árbitro verifica que la firma recupere
    su dirección (verificado en `selftest`: firma válida aceptada, firma que no
-   corresponde rechazada). Con `REQUIRE_AUTH=true` la firma es **obligatoria** en
-   producción; en dev queda opcional para permitir invitados de prueba.
-   _(Pendiente menor: exigir firma también al emparejar.)_
+   corresponde rechazada). **Seguro por defecto:** en producción
+   (`NODE_ENV=production`) la firma es **obligatoria** sin tener que recordar
+   `REQUIRE_AUTH` (hay que poner `REQUIRE_AUTH=false` para desactivarla a
+   propósito); en dev queda opcional para permitir invitados de prueba. Sin esto,
+   alguien podría mandar un puntaje a nombre del rival para hacerlo perder.
+   _(Pendiente menor: exigir firma también al emparejar — bajo impacto, cada
+   jugador deposita por su cuenta.)_
 4. **Legal / regulatorio.** Apuestas con dinero real = licencias, **KYC/AML**,
    verificación de **edad** y **restricciones por país**. Sin esto no se puede
    operar legalmente. (Bloqueante no técnico, el más importante.)
@@ -137,7 +141,8 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
       reembolso en empate y por vencimiento) — _crítico_ — implementado y verificado
       e2e en cadena local; falta el deploy a testnet/mainnet.
 - [x] **Autenticación de jugadores** (firmar los envíos con la wallet) — _crítico_
-      — hecho; activar con `REQUIRE_AUTH=true` en producción
+      — hecho y **obligatorio por defecto en producción** (opt-out explícito con
+      `REQUIRE_AUTH=false`)
 - [ ] **Asesoría legal + licencias + KYC/AML + edad + geobloqueo** — _crítico (legal)_
 - [ ] Quitar `/bot` y el fallback simulado de producción — _alto_
 - [ ] Proteger la llave del árbitro (KMS/HSM, multisig) — _alto_

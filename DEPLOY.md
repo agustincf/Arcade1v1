@@ -43,7 +43,9 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
   - `RPC_URL=https://sepolia.base.org` — para que el árbitro pueda reembolsar
     on-chain en caso de empate (`cancelMatch`). Ya no crea partidas (open/join).
   - `ALLOWED_ORIGIN=https://tudominio.com` — restringe el CORS a tu web.
-  - `REQUIRE_AUTH=true` — exige que jugadores/agentes firmen.
+  - `REQUIRE_AUTH` — la firma de los envíos es **obligatoria por defecto** cuando
+    `NODE_ENV=production`. No hace falta setearla; solo poné `REQUIRE_AUTH=false`
+    si querés desactivarla a propósito (no recomendado con dinero en juego).
   - `NODE_ENV=production` — apaga el bot de prueba.
 - Anotá la **URL pública** del árbitro (ej. `https://arcade1v1-arbiter.onrender.com`).
 
@@ -66,7 +68,7 @@ Importá el repo en Vercel, raíz `apps/web`. Variables de entorno:
 
 ## ✅ Checklist de producción (seguridad)
 
-- [ ] `REQUIRE_AUTH=true` en el árbitro (firma obligatoria).
+- [x] Firma obligatoria en el árbitro — **por defecto en producción** (`NODE_ENV=production`); no desactivar con `REQUIRE_AUTH=false`.
 - [ ] `NODE_ENV=production` (apaga el bot de prueba `/bot`).
 - [ ] La web en producción **no** muestra rival simulado (ya gateado por `NODE_ENV`).
 - [ ] Llave del árbitro en los **secrets** del hosting (nunca en el repo).
