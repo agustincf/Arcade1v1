@@ -1,0 +1,93 @@
+# Verificación automática (CI): corre en cada push a main y en cada Pull Request.
+# Replica lo que hoy se chequea a mano:
+#   - tipos (tsc) de la web y del servidor árbitro
+#   - selftest del árbitro (emparejamiento + firma + anti-trampa)
+#   - tests del contrato (forge) y los e2e en cadena local (anvil):
+#       * integración árbitro <-> contrato (el digest EIP-712 coincide)
+#       * pago completo (dos jugadores depositan, el árbitro firma, paga al ganador)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Si llegan commits nuevos a la misma rama/PR, cancela la corrida vieja.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --------------------------------------------------------------------- #
+  #  Node: tipos de ambas apps + selftest del árbitro                     #
+  # --------------------------------------------------------------------- #
+  web-and-server:
+    name: Tipos + selftest (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tipos de la web (tsc)
+        run: npx tsc --noEmit -p apps/web/tsconfig.json
+
+      - name: Tipos del servidor (tsc)
+        run: npx tsc --noEmit -p apps/server/tsconfig.json
+
+      - name: Selftest del árbitro
+        run: npm run --workspace apps/server selftest
+
+  # --------------------------------------------------------------------- #
+  #  Foundry: tests del contrato + e2e en cadena local (anvil)            #
+  # --------------------------------------------------------------------- #
+  contracts:
+    name: Contrato (forge test + e2e)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Las librerías del contrato (forge-std / OpenZeppelin) no se guardan en
+      # el repo; las traemos acá en versiones fijas para que el build sea estable.
+      - name: Traer librerías del contrato
+        run: |
+          git clone --depth 1 --recurse-submodules --branch v1.16.1 \
+            https://github.com/foundry-rs/forge-std \
+            packages/contracts/lib/forge-std
+          git clone --depth 1 --recurse-submodules --branch v5.6.1 \
+            https://github.com/OpenZeppelin/openzeppelin-contracts \
+            packages/contracts/lib/openzeppelin-contracts
+
+      - name: Instalar Foundry (forge, anvil, cast)
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Tests del contrato (forge test)
+        run: forge test -vv
+        working-directory: packages/contracts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias (para los e2e con tsx)
+        run: npm ci
+
+      # El árbitro firma los resultados con esta clave. En anvil no hay plata
+      # real: usamos una cuenta de prueba estándar de anvil (la #3).
+      - name: Configurar clave de prueba del árbitro
+        run: |
+          echo "ARBITER_PRIVATE_KEY=0x7c8521184bca8d36bb01fda93619a8eb5e0f7c70c4f5fd83b00043c40a47419c" \
+            > apps/server/.env
+
+      - name: Integración árbitro <-> contrato (digest EIP-712)
+        run: bash packages/contracts/check-integration.sh
+
+      - name: Pago completo en cadena local (anvil)
+        run: bash packages/contracts/check-payment-e2e.sh
