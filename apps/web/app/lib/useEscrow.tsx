@@ -94,5 +94,65 @@ export function useEscrow() {
     await publicClient.waitForTransactionReceipt({ hash });
   }
 
-  return { approveStake, open, join, claim };
+  /** Reembolso: partida abierta que nadie llenó a tiempo (recupera lo depositado). */
+  async function refundUnfunded(matchId: `0x${string}`) {
+    if (!ESCROW_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    const hash = await writeContractAsync({
+      address: ESCROW_ADDRESS,
+      abi: escrowAbi,
+      functionName: "refundUnfunded",
+      args: [matchId],
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+  }
+
+  /** Reembolso: partida llena pero sin resultado al vencer el plazo de juego. */
+  async function refundExpired(matchId: `0x${string}`) {
+    if (!ESCROW_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    const hash = await writeContractAsync({
+      address: ESCROW_ADDRESS,
+      abi: escrowAbi,
+      functionName: "refundExpired",
+      args: [matchId],
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+  }
+
+  /** Lee el estado on-chain de una partida (status + plazos) para la recuperación. */
+  async function readMatch(matchId: `0x${string}`) {
+    if (!ESCROW_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    const m = (await publicClient.readContract({
+      address: ESCROW_ADDRESS,
+      abi: escrowAbi,
+      functionName: "matches",
+      args: [matchId],
+    })) as readonly [
+      `0x${string}`,
+      `0x${string}`,
+      bigint,
+      boolean,
+      boolean,
+      bigint,
+      bigint,
+      number,
+    ];
+    return {
+      p1: m[0],
+      p2: m[1],
+      stake: m[2],
+      p1Paid: m[3],
+      p2Paid: m[4],
+      fundDeadline: Number(m[5]),
+      playDeadline: Number(m[6]),
+      status: m[7],
+    };
+  }
+
+  return { approveStake, open, join, claim, refundUnfunded, refundExpired, readMatch };
 }

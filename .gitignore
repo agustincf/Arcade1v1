@@ -6,6 +6,7 @@ dist/
 build/
 .next/
 out/
+*.tsbuildinfo
 
 # Secretos y configuracion local (NUNCA subir esto)
 .env

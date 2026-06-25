@@ -17,6 +17,9 @@ export function SiteFooter() {
         <Link href="/agents" className="hover:text-[--color-lime]">
           🤖 {t("nav.agents")}
         </Link>
+        <Link href="/recover" className="hover:text-[--color-gold]">
+          💸 {t("nav.recover")}
+        </Link>
         <Link href="/terms" className="hover:text-[--color-accent-2]">
           {t("nav.terms")}
         </Link>

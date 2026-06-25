@@ -9,6 +9,7 @@ import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
 import { useEscrow } from "@/app/lib/useEscrow";
 import { onchainEnabled } from "@/app/lib/escrow";
+import { rememberMatch } from "@/app/lib/openMatches";
 import { useSignMessage } from "wagmi";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
 import {
@@ -186,6 +187,17 @@ export default function MatchPage({
         await escrow.open(matchId as `0x${string}`, bet);
       }
       setDeposited(true);
+      // Recordamos la partida por wallet: si nunca aparece rival (o no hay
+      // resultado a tiempo), el usuario puede volver a /recover y reembolsar.
+      if (address) {
+        rememberMatch(address, {
+          matchId: matchId as `0x${string}`,
+          game: game!.id,
+          bet,
+          role: role === "p2" ? "p2" : "p1",
+          ts: Date.now(),
+        });
+      }
     } catch {
       setDepositErr(true);
     } finally {

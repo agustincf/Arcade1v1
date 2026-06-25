@@ -47,7 +47,51 @@ export const escrowAbi = [
     outputs: [],
     stateMutability: "nonpayable",
   },
+  // Reembolso si la partida quedó ABIERTA (Open) y venció el plazo de depósito:
+  // nadie se unió. Cada quien recupera lo suyo.
+  {
+    type: "function",
+    name: "refundUnfunded",
+    inputs: [{ name: "id", type: "bytes32" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  // Reembolso si la partida se LLENÓ (Funded) pero venció el plazo de juego sin
+  // resultado (ej: el rival nunca jugó). Se devuelve todo a ambos.
+  {
+    type: "function",
+    name: "refundExpired",
+    inputs: [{ name: "id", type: "bytes32" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  // Getter público del struct Match: para leer estado y plazos desde la web.
+  {
+    type: "function",
+    name: "matches",
+    inputs: [{ name: "id", type: "bytes32" }],
+    outputs: [
+      { name: "p1", type: "address" },
+      { name: "p2", type: "address" },
+      { name: "stake", type: "uint256" },
+      { name: "p1Paid", type: "bool" },
+      { name: "p2Paid", type: "bool" },
+      { name: "fundDeadline", type: "uint64" },
+      { name: "playDeadline", type: "uint64" },
+      { name: "status", type: "uint8" },
+    ],
+    stateMutability: "view",
+  },
 ] as const;
+
+/** Estados del contrato (enum Status de Escrow1v1.sol). */
+export const MatchStatus = {
+  None: 0,
+  Open: 1,
+  Funded: 2,
+  Settled: 3,
+  Refunded: 4,
+} as const;
 
 export const erc20Abi = [
   {
