@@ -22,7 +22,7 @@ jobs:
   #  Node: tipos de ambas apps + selftest del árbitro                     #
   # --------------------------------------------------------------------- #
   web-and-server:
-    name: Tipos + selftest (Node)
+    name: check (tipos + lint + formato + tests + selftest)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,14 +35,10 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Tipos de la web (tsc)
-        run: npx tsc --noEmit -p apps/web/tsconfig.json
-
-      - name: Tipos del servidor (tsc)
-        run: npx tsc --noEmit -p apps/server/tsconfig.json
-
-      - name: Selftest del árbitro
-        run: npm run --workspace apps/server selftest
+      # Un solo comando: lo MISMO que se corre localmente con `npm run check`
+      # (tipos de web+server, ESLint, Prettier, tests del game-sdk y selftest).
+      - name: Verificación completa
+        run: npm run check
 
   # --------------------------------------------------------------------- #
   #  Foundry: tests del contrato + e2e en cadena local (anvil)            #
