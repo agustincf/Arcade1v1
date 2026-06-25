@@ -43,8 +43,8 @@ mas puntos**. Empate o jugador que no juega a tiempo → reembolso.
 
 ## Mesas de apuesta
 
-Montos fijos: **5, 10, 20, 50 y 100 USDC** (los dos jugadores apuestan lo mismo).
-Comision de la plataforma: **10% del pozo** (configurable), enviada
+Montos fijos: **1, 2, 5 y 10 USDC** (los dos jugadores apuestan lo mismo).
+Comision de la plataforma: **15% del pozo** (configurable), enviada
 automaticamente a la wallet de la plataforma.
 
 ---
@@ -59,7 +59,7 @@ automaticamente a la wallet de la plataforma.
    si pasa **1 hora** y un jugador no jugo su intento.
 
 Conexion de billetera: **WalletConnect** (MetaMask en compu + billeteras de
-celular por QR), via wagmi + RainbowKit. Se monta en la Fase 4.
+celular por QR), via wagmi + RainbowKit. Ya implementada.
 
 ---
 
@@ -69,15 +69,18 @@ celular por QR), via wagmi + RainbowKit. Se monta en la Fase 4.
 - [x] **Fase 1** — Pantallas navegables.
 - [x] **Fase 2** — Tetris (asincronico, por puntaje).
 - [x] **Fase 3** — Flappy 1v1 (asincronico, por puntaje). + Carrera + 2048.
-- [~] **Fase 4** — Contrato escrow (escrito + probado 8/8) + billetera. Falta
-  desplegar a testnet y conectar deposito/pago real con USDC.
-- [~] **Fase 5** — Backend arbitro (emparejamiento + semilla + firma, OK). Falta
-  anti-trampa por replay y conectar el pago on-chain.
+- [x] **Fase 4** — Contrato escrow (escrito + probado 9/9) + billetera + flujo
+  on-chain open/join y pago/reembolso (verificado e2e en cadena local). Red
+  conmutable Base mainnet / Sepolia (testnet por defecto).
+- [x] **Fase 5** — Backend arbitro (emparejamiento + semilla + firma + anti-trampa
+  por replay en los 6 juegos, con default-deny) + pago on-chain conectado.
 - [x] **Fase 6** — Repaso de seguridad y checklist pre-dinero-real → ver
   [SECURITY.md](SECURITY.md).
 
 ## Estado actual
 
-Frontend completo (4 juegos, modo libre, multi-idioma, SEO). Contrato y backend
-arbitro construidos y verificados. **No opera con dinero real:** ver los puntos
-criticos en [SECURITY.md](SECURITY.md) antes de activarlo.
+Frontend completo (6 juegos, modo libre, multi-idioma, SEO). Contrato y backend
+arbitro construidos y verificados (tests + e2e en cadena local). **No opera con
+dinero real por defecto** (corre en testnet): antes de activar mainnet, ver los
+puntos criticos en [SECURITY.md](SECURITY.md), en especial la auditoria del
+contrato.
