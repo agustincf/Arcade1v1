@@ -9,9 +9,25 @@
   ],
   "scripts": {
     "web": "npm run dev --workspace apps/web",
-    "server": "npm run dev --workspace apps/server"
+    "server": "npm run dev --workspace apps/server",
+    "test": "node --import tsx --test \"packages/game-sdk/test/**/*.test.ts\"",
+    "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
+    "typecheck:server": "tsc --noEmit -p apps/server/tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "selftest": "npm run --workspace apps/server selftest",
+    "check": "npm run typecheck:web && npm run typecheck:server && npm run lint && npm run format:check && npm test && npm run selftest"
   },
   "overrides": {
     "qr": "0.5.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.8.4",
+    "typescript-eslint": "^8.62.0"
   }
 }

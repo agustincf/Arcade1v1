@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+out
+*.tsbuildinfo
+package-lock.json
+packages/contracts/lib
+packages/contracts/out
+packages/contracts/cache
+apps/server/data

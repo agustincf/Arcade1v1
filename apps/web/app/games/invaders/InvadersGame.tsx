@@ -205,7 +205,7 @@ export function InvadersGame({
       window.removeEventListener("keydown", onDownKey);
       window.removeEventListener("keyup", onUpKey);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [started]);
 
   // Botones tactiles: mantener para mover, tocar para disparar.

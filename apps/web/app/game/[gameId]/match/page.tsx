@@ -138,7 +138,7 @@ export default function MatchPage({
       }
     }, 2500);
     return () => clearInterval(iv);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [waiting, matchId]);
 
   if (!game) return null;

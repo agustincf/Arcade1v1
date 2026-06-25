@@ -160,7 +160,12 @@ export function verifyRacing(r: ReplayRacing): number {
   }
   for (let t = 0; t < r.ticks; t++) {
     const acts = byTick.get(t);
-    if (acts) for (const a of acts) a === "l" ? g.moveLeft() : g.moveRight();
+    if (acts) {
+      for (const a of acts) {
+        if (a === "l") g.moveLeft();
+        else g.moveRight();
+      }
+    }
     g.update(RACING_DT);
     if (g.over) break;
   }

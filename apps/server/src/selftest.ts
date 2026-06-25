@@ -2,6 +2,7 @@
 // ELO y ANTI-TRAMPA (replay) de los 6 juegos. Correr: npm run selftest -w @arcade1v1/server
 
 import "dotenv/config";
+import "./offline-env.js"; // el selftest corre offline a propósito (ver el módulo)
 import { recoverTypedDataAddress, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { matchmake, submitScore } from "./matchmaking.js";
