@@ -32,41 +32,43 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
   reusar en otra red/contrato; `matchId` único → no se puede liquidar dos veces.
 - **Reembolsos** por: no llenarse a tiempo, vencimiento del plazo de juego (1h)
   o cancelación del árbitro/dueño.
-- **8/8 pruebas automáticas pasan.**
+- **9/9 pruebas automáticas pasan.**
 
 ---
 
 ## Hallazgos (priorizados)
 
 ### 🔴 Críticos — bloquean el dinero real
-1. **Puntaje sin verificar (anti-trampa).** ✅ **RESUELTO para los 4 juegos**
-   (2048, Tetris, Flappy y Carrera). Motor compartido web/servidor; los de tiempo
-   real corren con **paso de tiempo fijo** (por ticks) y graban las entradas con
-   su tick. El servidor re-simula el *replay* y rechaza cualquier puntaje
-   inventado — verificado en `selftest` (legítimo aceptado, inventado rechazado
-   en los 4). *(Los juegos nuevos deben seguir el mismo patrón para ir con plata.)*
+1. **Puntaje sin verificar (anti-trampa).** ✅ **RESUELTO en los 6 juegos**
+   (2048, Tetris, Flappy, Carrera, Snake y Space Invaders), con **default-deny**:
+   el árbitro tiene un **registro de verificadores** y **rechaza cualquier juego
+   que no sepa verificar** (nunca confía en un puntaje sin re-jugar el replay).
+   Motor compartido web/servidor; los de tiempo real corren con **paso de tiempo
+   fijo** (por ticks) y graban las entradas con su tick. El servidor re-simula el
+   *replay* y rechaza cualquier puntaje inventado — verificado en `selftest`
+   (legítimo aceptado e inventado rechazado en los 6, + **juego desconocido
+   rechazado**). *(Los juegos nuevos deben sumar su verificador al registro.)*
 2. **El flujo de dinero on-chain está probado de punta a punta con el backend
-   real; falta desplegarlo y enchufarlo a la UI.** 🟡 El **ciclo completo está
-   verificado en cadena local usando el árbitro de verdad** (ver
-   `packages/contracts/check-payment-e2e.sh`, además de tests 8/8 + selftest +
+   real; falta desplegarlo a una red pública.** 🟡 Modelo **asincrónico open/join**:
+   el árbitro **ya no crea la partida ni paga gas** — cada jugador deposita por su
+   cuenta (uno **abre**, el otro **se une**) y emparejar es solo orden de llegada.
+   El **ciclo completo está verificado en cadena local con el árbitro de verdad**
+   (ver `packages/contracts/check-payment-e2e.sh`, + tests 9/9 + selftest +
    `check-integration.sh`):
-   - **Victoria:** emparejar → el árbitro **crea la partida on-chain** → los dos
-     depositan → juegan → el árbitro firma → el contrato paga al ganador (8.5) +
-     comisión (1.5) y el escrow queda en 0. ✅
-   - **Empate:** el árbitro **cancela on-chain** (`cancelMatch`) y el contrato
-     **reembolsa a ambos** (balances vuelven al inicio, sin comisión). ✅
-   - **Anti-drenaje de gas:** el árbitro solo hace `createMatch` (que paga él) si
-     **ambos** jugadores ya tienen `balanceOf` y `allowance` ≥ apuesta
-     (`hasEnoughAllowance` en `onchain.ts`). Si no, revierte el emparejamiento sin
-     gastar gas. Verificado: dos wallets sin fondos **no** generan `createMatch`. ✅
+   - **Victoria:** emparejar → p1 **abre** depositando → p2 **se une** depositando
+     → juegan → el árbitro firma → el contrato paga al ganador (8.5) + comisión
+     (1.5) y el escrow queda en 0. ✅
+   - **Empate / sin resultado a tiempo / sin rival:** reembolso on-chain
+     (`cancelMatch` en empate; `refundExpired` / `refundUnfunded` por vencimiento). ✅
 
-   La **UI de pago ya está enchufada** a la pantalla de partida (`match/page.tsx`):
-   con contrato configurado pide **conectar wallet → APROBAR** el allowance (antes
-   de emparejar, para pasar el anti-drenaje) → emparejar → **DEPOSITAR**, y al ganar
-   muestra el botón **COBRAR** (settle con la firma del árbitro). Queda **dormida**
-   mientras no haya `NEXT_PUBLIC_ESCROW_ADDRESS` (el modo de prueba no cambia).
-   **Falta solo:** **desplegar** a Base Sepolia y setear las direcciones
-   (`NEXT_PUBLIC_ESCROW_ADDRESS` / `NEXT_PUBLIC_USDC_ADDRESS`) — necesita tu wallet.
+   La **UI de pago está enchufada** a la pantalla de partida (`match/page.tsx`):
+   con contrato configurado pide **conectar wallet → APROBAR** el allowance →
+   emparejar → **ABRIR/UNIRSE** (depositar), y al ganar muestra **COBRAR** (settle
+   con la firma del árbitro). Además, la página **`/recover`** deja reclamar el
+   reembolso si no apareció rival o la partida quedó sin resultado a tiempo. Queda
+   **dormida** mientras no haya `NEXT_PUBLIC_ESCROW_ADDRESS` (el modo de prueba no
+   cambia). **Falta solo:** **desplegar** a Base Sepolia/mainnet y setear las
+   direcciones (`NEXT_PUBLIC_ESCROW_ADDRESS` / `NEXT_PUBLIC_USDC_ADDRESS`).
 3. **Autenticación en el backend.** ✅ **RESUELTO.** El jugador (y los agentes)
    **firman su envío con la wallet**; el árbitro verifica que la firma recupere
    su dirección (verificado en `selftest`: firma válida aceptada, firma que no
@@ -85,9 +87,14 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    se muestra un error (la simulación queda solo en desarrollo).
 7. **Llave del árbitro = único punto de confianza.** Guardarla en un KMS/HSM,
    con mínimos privilegios; considerar un **árbitro multi-firma**.
-8. **Estado en memoria (sin persistencia).** Si el servidor se reinicia, se
-   pierden las partidas en curso. (On-chain queda mitigado por el reembolso a la
-   hora, pero hay que **persistir** y tener recuperación.)
+8. **Estado en memoria / un solo nodo.** Las partidas en curso, la cola de
+   emparejamiento y el rate-limit por IP viven en memoria; el ranking ELO se
+   guarda en un archivo plano (`data/ratings.json`, con escritura atómica). Esto
+   alcanza para **una sola instancia**: si el servidor se reinicia se pierden las
+   partidas en curso (on-chain queda mitigado por el reembolso a la hora), y si se
+   corre con **más de una instancia** el emparejamiento, el rate-limit y el
+   ranking se descoordinan. Para escalar hace falta un **store compartido**
+   (Redis/DB) y recuperación de estado.
 9. **Auditoría externa del contrato** por un tercero profesional antes de dinero
    real.
 
@@ -96,7 +103,9 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
     cada 10s) que devuelve 429. Ajustable.
 11. **Semilla por `Math.random`.** Sirve para que sea igual para ambos, pero un
     esquema *commit-reveal* sería más robusto contra predicción/grinding.
-12. **Empate no dispara el reembolso on-chain** (falta integrar `cancelMatch`).
+12. **Empate dispara el reembolso on-chain.** ✅ **HECHO** — al detectar empate el
+    árbitro llama `cancelMatch` y el contrato reembolsa a ambos (verificado e2e en
+    cadena local).
 13. **Poderes del dueño.** Mucha confianza concentrada. Considerar **timelock /
     multisig** para el owner.
 
@@ -111,9 +120,12 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 
 ## Checklist "antes de pensar en dinero real"
 
-- [x] **Anti-trampa** (verificación por replay) — *crítico* — hecho en los 4
-  juegos (2048, Tetris, Flappy, Carrera). Los juegos nuevos deben seguir el patrón.
-- [ ] **Conectar el flujo on-chain real** (depósito USDC + `settle` + reembolso en empate) — *crítico*
+- [x] **Anti-trampa** (verificación por replay) — *crítico* — hecho en los 6
+  juegos (2048, Tetris, Flappy, Carrera, Snake, Space Invaders) con **default-deny**
+  (un juego sin verificador se rechaza). Los juegos nuevos deben seguir el patrón.
+- [x] **Conectar el flujo on-chain real** (depósito USDC `open`/`join` + `settle` +
+  reembolso en empate y por vencimiento) — *crítico* — implementado y verificado
+  e2e en cadena local; falta el deploy a testnet/mainnet.
 - [x] **Autenticación de jugadores** (firmar los envíos con la wallet) — *crítico*
   — hecho; activar con `REQUIRE_AUTH=true` en producción
 - [ ] **Asesoría legal + licencias + KYC/AML + edad + geobloqueo** — *crítico (legal)*
