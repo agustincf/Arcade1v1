@@ -96,7 +96,12 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    ranking se descoordinan. Para escalar hace falta un **store compartido**
    (Redis/DB) y recuperación de estado.
 9. **Auditoría externa del contrato** por un tercero profesional antes de dinero
-   real.
+   real. 🟡 **Parcial:** se corrió **análisis estático con Slither** (0.11.5,
+   filtrando `lib/`+`test/`): **sin hallazgos críticos/altos/medios**. Solo 4 avisos
+   informativos de `block.timestamp` en los plazos —irrelevantes a escala de 1 hora,
+   aceptados— y 2 de eventos de admin sin `indexed` que **ya se corrigieron**
+   (`ArbiterUpdated`/`PlatformWalletUpdated`). El análisis automático **no
+   reemplaza** una auditoría humana profesional, que sigue pendiente.
 
 ### 🟡 Medios
 10. **Rate limiting** en el backend. ✅ **HECHO** — límite por IP (120 pedidos
@@ -132,7 +137,8 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 - [ ] Quitar `/bot` y el fallback simulado de producción — *alto*
 - [ ] Proteger la llave del árbitro (KMS/HSM, multisig) — *alto*
 - [ ] Persistencia + recuperación del backend — *alto*
-- [ ] **Auditoría externa** del contrato — *alto*
+- [~] **Auditoría externa** del contrato — *alto* — análisis estático (Slither)
+  hecho y limpio (sin críticos/altos/medios); falta la auditoría humana profesional
 - [ ] Rate limiting + HTTPS + monitoreo — *medio*
 - [ ] Pruebas de extremo a extremo en testnet con varios usuarios reales — *medio*
 

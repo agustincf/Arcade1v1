@@ -71,8 +71,8 @@ contract Escrow1v1 is Ownable, ReentrancyGuard, EIP712 {
     bytes32 private constant RESULT_TYPEHASH =
         keccak256("Result(bytes32 matchId,address winner)");
 
-    event ArbiterUpdated(address arbiter);
-    event PlatformWalletUpdated(address wallet);
+    event ArbiterUpdated(address indexed arbiter);
+    event PlatformWalletUpdated(address indexed wallet);
     event FeeUpdated(uint16 feeBps);
     event AllowedStakeUpdated(uint256 amount, bool allowed);
     event MatchOpened(bytes32 indexed id, address p1, uint256 stake);
