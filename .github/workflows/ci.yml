@@ -87,3 +87,6 @@ jobs:
 
       - name: Pago completo en cadena local (anvil)
         run: bash packages/contracts/check-payment-e2e.sh
+
+      - name: Ensayo del deploy (script real + mesas habilitadas)
+        run: bash packages/contracts/check-deploy.sh

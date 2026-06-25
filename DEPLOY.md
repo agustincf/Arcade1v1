@@ -40,7 +40,8 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
   - `ARBITER_PRIVATE_KEY` — la llave del árbitro (guardar como secreto). Debe ser
     la cuenta que figura como **arbiter** en el contrato (Paso 1).
   - `CHAIN_ID=84532` y `ESCROW_ADDRESS=` (las del Paso 1).
-  - `RPC_URL=https://sepolia.base.org` — para que el árbitro cree las partidas on-chain.
+  - `RPC_URL=https://sepolia.base.org` — para que el árbitro pueda reembolsar
+    on-chain en caso de empate (`cancelMatch`). Ya no crea partidas (open/join).
   - `ALLOWED_ORIGIN=https://tudominio.com` — restringe el CORS a tu web.
   - `REQUIRE_AUTH=true` — exige que jugadores/agentes firmen.
   - `NODE_ENV=production` — apaga el bot de prueba.
