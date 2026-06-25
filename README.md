@@ -17,19 +17,21 @@ enchufa cumpliendo un contrato comun definido en `packages/game-sdk`.
 ```
 Arcade1v1/
 ├── apps/
-│   ├── web/          → El sitio web. Lo que ve y toca el jugador.
+│   ├── web/          → El sitio web. Lo que ve y toca el jugador
+│   │                   (la UI de cada juego vive en app/games/).
 │   └── server/       → El backend: emparejamiento, tiempo real y "arbitro".
 ├── packages/
-│   ├── game-sdk/     → Las "reglas de conexion" que TODO juego debe cumplir.
-│   ├── games/
-│   │   ├── tetris/   → Juego: Tetris (asincronico, por puntaje).
-│   │   └── flappy/   → Juego: Flappy Bird 1v1 (asincronico, por puntaje).
+│   ├── game-sdk/     → Reglas comunes + la LOGICA de cada juego: un modulo por
+│   │                   juego (2048, tetris, flappy, racing, snake, invaders),
+│   │                   determinista para poder re-jugar el replay y verificar
+│   │                   el puntaje (anti-trampa).
 │   └── contracts/    → El contrato de escrow (Solidity) que custodia el pozo.
 ```
 
-Para agregar un juego nuevo en el futuro: se crea una carpeta nueva en
-`packages/games/` que cumpla el contrato de `game-sdk`, y se registra. El resto
-de la plataforma no se toca.
+Para agregar un juego nuevo: se suma su logica determinista como un modulo en
+`packages/game-sdk/src/<juego>.ts` (con su verificador de replay) y su pantalla
+en `apps/web/app/games/<juego>/`, y se registra. El resto de la plataforma
+(emparejamiento, escrow, pagos) no se toca.
 
 ### Regla general de los juegos
 

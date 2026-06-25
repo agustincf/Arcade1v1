@@ -5,8 +5,7 @@
   "description": "Arcade de apuestas 1v1 sobre Base (USDC). Cada juego es un modulo enchufable.",
   "workspaces": [
     "apps/*",
-    "packages/*",
-    "packages/games/*"
+    "packages/*"
   ],
   "scripts": {
     "web": "npm run dev --workspace apps/web",
