@@ -94,14 +94,14 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    se muestra un error (la simulación queda solo en desarrollo).
 7. **Llave del árbitro = único punto de confianza.** Guardarla en un KMS/HSM,
    con mínimos privilegios; considerar un **árbitro multi-firma**.
-8. **Estado en memoria / un solo nodo.** Las partidas en curso, la cola de
-   emparejamiento y el rate-limit por IP viven en memoria; el ranking ELO se
-   guarda en un archivo plano (`data/ratings.json`, con escritura atómica). Esto
-   alcanza para **una sola instancia**: si el servidor se reinicia se pierden las
-   partidas en curso (on-chain queda mitigado por el reembolso a la hora), y si se
-   corre con **más de una instancia** el emparejamiento, el rate-limit y el
-   ranking se descoordinan. Para escalar hace falta un **store compartido**
-   (Redis/DB) y recuperación de estado.
+8. **Un solo nodo (estado compartido en disco, no en memoria distribuida).** 🟡
+   **Mitigado para una instancia:** el ranking ELO (`data/ratings.json`) **y las
+   partidas** (`data/matches.json`) se guardan en disco con escritura atómica, así
+   que **sobreviven a un reinicio** (un ganador puede recuperar su firma para
+   cobrar; verificado simulando un reinicio). El rate-limit por IP sigue en
+   memoria. Sigue siendo **mono-instancia**: con **más de una instancia** el
+   emparejamiento, el rate-limit y el archivo de partidas se descoordinan. Para
+   escalar a varias instancias hace falta un **store compartido** (Redis/DB).
 9. **Auditoría externa del contrato** por un tercero profesional antes de dinero
    real. 🟡 **Parcial:** se corrió **análisis estático con Slither** (0.11.5,
    filtrando `lib/`+`test/`): **sin hallazgos críticos/altos/medios**. Solo 4 avisos

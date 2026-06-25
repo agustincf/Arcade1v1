@@ -3,6 +3,9 @@
 // su intento (misma semilla) y al tener los dos puntajes se decide y se firma.
 
 import { randomBytes } from "node:crypto";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { recoverMessageAddress, type Hex } from "viem";
 import { signResult } from "./sign.js";
 import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
@@ -107,6 +110,53 @@ const randomSeed = () => Math.floor(Math.random() * 1_000_000_000);
 
 const WAIT_TTL = 60 * 60 * 1000; // 1 hora: un "waiter" abandonado se descarta de la cola
 
+// PERSISTENCIA (liviana, archivo JSON con escritura atómica; mismo patrón que el
+// ranking). Sobrevive a un reinicio del servidor: las partidas en curso vuelven
+// y un ganador puede recuperar su firma para cobrar. Es OPT-IN: solo se activa en
+// el servidor real (que importa "./persist-on.js"); en tests/e2e queda apagada
+// para no romper la corrida hermética ni cargar estado viejo.
+const PERSIST = process.env.ARCADE_PERSIST_MATCHES === "1";
+const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
+const MATCHES_FILE = join(DATA_DIR, "matches.json");
+const FINISHED_TTL = 2 * 24 * 60 * 60 * 1000; // 2 días: purga partidas terminadas viejas
+
+function persist() {
+  if (!PERSIST) return;
+  try {
+    if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+    const now = Date.now();
+    const arr = [...matches.values()].filter((m) => {
+      const finished = m.status === "settled" || m.status === "draw";
+      return !finished || now - m.createdAt < FINISHED_TTL; // mantené lo vivo y lo reciente
+    });
+    const tmp = `${MATCHES_FILE}.tmp`;
+    // El replacer descarta `refundPromise` (no es serializable; es transitorio).
+    writeFileSync(
+      tmp,
+      JSON.stringify(arr, (k, v) => (k === "refundPromise" ? undefined : v)),
+    );
+    renameSync(tmp, MATCHES_FILE);
+  } catch (e) {
+    console.error("matches save:", (e as Error).message);
+  }
+}
+
+function loadMatches() {
+  if (!PERSIST) return;
+  try {
+    const arr = JSON.parse(readFileSync(MATCHES_FILE, "utf8")) as Match[];
+    for (const m of arr) {
+      matches.set(m.id, m);
+      // Reconstruimos la cola: una partida en espera (sin rival) vuelve a la fila.
+      if (m.status === "waiting" && !m.p2) queue.set(qkey(m.game, m.stake), m.id);
+    }
+    console.log(`Partidas recuperadas de disco: ${arr.length}`);
+  } catch {
+    /* no hay archivo (o está vacío): arrancamos limpio */
+  }
+}
+loadMatches();
+
 /** Crea una partida en espera para `address` y la deja en la cola. */
 function createWaiting(k: string, game: string, stake: number, address: string) {
   const m: Match = {
@@ -122,6 +172,7 @@ function createWaiting(k: string, game: string, stake: number, address: string) 
   };
   matches.set(m.id, m);
   queue.set(k, m.id);
+  persist();
   return view(m, address);
 }
 
@@ -148,6 +199,7 @@ export async function matchmake(game: string, stake: number, address: string) {
     waiter.p2 = address;
     waiter.status = "ready";
     queue.delete(k);
+    persist();
     return view(waiter, address);
   }
 
@@ -198,6 +250,7 @@ export async function submitScore(
   m.scores[address] = finalScore;
   m.replays[address] = replay; // guardamos el replay (feedback para el rival/agente)
   await settleIfReady(m);
+  persist();
   return view(m, address);
 }
 
@@ -250,6 +303,7 @@ export async function addBot(id: string) {
       : Math.floor(Math.random() * 1000);
   if (m.status === "waiting") m.status = "ready";
   await settleIfReady(m); // si el jugador ya envio su puntaje, liquida ahora
+  persist();
   return view(m, m.p1);
 }
 

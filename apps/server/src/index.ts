@@ -2,6 +2,7 @@
 // API simple por HTTP (los juegos son asincronicos, no hace falta tiempo real).
 
 import "dotenv/config";
+import "./persist-on.js"; // enciende la persistencia de partidas (antes de matchmaking)
 import express from "express";
 import { matchmake, submitScore, getMatch, addBot, AUTH_REQUIRED } from "./matchmaking.js";
 import { leaderboard, ratingsOf } from "./ratings.js";
