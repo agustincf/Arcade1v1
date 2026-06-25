@@ -27,8 +27,7 @@ const en: Dict = {
   "footer.best": "Best viewed in 800×600 · Arcade1v1 © 2026",
   "footer.demo": "Demo on testnet · play money ·",
   "hero.title": "PLAY. WIN. CASH OUT.",
-  "hero.sub":
-    ">> Challenge a rival 1v1 and play for the pot in USDC. May the best win <<",
+  "hero.sub": ">> Challenge a rival 1v1 and play for the pot in USDC. May the best win <<",
   "quick.prompt": "Quick play — pick an amount:",
   "free.btn": "🎮 TRY FREE (no money)",
   "free.sub": "Try the games, risk-free. Then play for USDC.",
@@ -42,17 +41,23 @@ const en: Dict = {
     "* The platform keeps a 15% commission of the pot. If no one shows up within 1 hour, you get everything back.",
   "faq.title": "FAQ.TXT",
   "faq.q1": "What is Arcade1v1?",
-  "faq.a1": "Arcade1v1 is a 1v1 arena where two players each bet the same amount of USDC and the higher score wins the pot.",
+  "faq.a1":
+    "Arcade1v1 is a 1v1 arena where two players each bet the same amount of USDC and the higher score wins the pot.",
   "faq.q2": "Which games can I play?",
-  "faq.a2": "Six games — Space Invaders, Flappy 1v1, 2048, Snake, Tetris and Racing — all head-to-head, asynchronous and score-based: the highest score wins.",
+  "faq.a2":
+    "Six games — Space Invaders, Flappy 1v1, 2048, Snake, Tetris and Racing — all head-to-head, asynchronous and score-based: the highest score wins.",
   "faq.q3": "How does the money work?",
-  "faq.a3": "Both players stake the same USDC in a smart-contract escrow on Base: the first opens the match, the second joins — no live waiting. Higher score wins the pot minus a 15% fee. No rival in 1 hour or a draw → full refund.",
+  "faq.a3":
+    "Both players stake the same USDC in a smart-contract escrow on Base: the first opens the match, the second joins — no live waiting. Higher score wins the pot minus a 15% fee. No rival in 1 hour or a draw → full refund.",
   "faq.q4": "Is it live with real money?",
-  "faq.a4": "Not yet. Arcade1v1 currently runs on the Base Sepolia testnet with play money while it is being built and audited.",
+  "faq.a4":
+    "Not yet. Arcade1v1 currently runs on the Base Sepolia testnet with play money while it is being built and audited.",
   "faq.q5": "Can AI agents play?",
-  "faq.a5": "Yes. Arcade1v1 has an open API and shared game engines, so autonomous AI agents can matchmake, play any of the games headlessly and compete fairly — every result is verified by replay, so no one can cheat.",
+  "faq.a5":
+    "Yes. Arcade1v1 has an open API and shared game engines, so autonomous AI agents can matchmake, play any of the games headlessly and compete fairly — every result is verified by replay, so no one can cheat.",
   "faq.q6": "Is there an age requirement?",
-  "faq.a6": "Yes — Arcade1v1 is 18+ (or the legal skill-gaming age where you live). It is skill-based: outcomes depend on skill, not chance.",
+  "faq.a6":
+    "Yes — Arcade1v1 is 18+ (or the legal skill-gaming age where you live). It is skill-based: outcomes depend on skill, not chance.",
   "quick.titleBet": "WHICH GAME · {bet} USDC?",
   "quick.titleFree": "TRY FREE · WHICH GAME?",
   "game.tetris.name": "Tetris",
@@ -65,8 +70,7 @@ const en: Dict = {
     "Dodge the pipes and last longer than your rival. Steel nerves, full pockets.",
   "game.racing.name": "Racing",
   "game.racing.tagline": "Pedal to the metal",
-  "game.racing.desc":
-    "Drive, dodge and never stop accelerating. Last to crash wins the bet.",
+  "game.racing.desc": "Drive, dodge and never stop accelerating. Last to crash wins the bet.",
   "game.2048.name": "2048",
   "game.2048.tagline": "Add up & rule",
   "game.2048.desc":
@@ -76,8 +80,7 @@ const en: Dict = {
   "table.q": "How big is the duel? Both put up the same. Winner takes it.",
   "table.win": "win {n}",
   "table.vip": "👑 VIP",
-  "table.nudgeVip":
-    "👑 VIP table: {n} players going all in. Real money moves here.",
+  "table.nudgeVip": "👑 VIP table: {n} players going all in. Real money moves here.",
   "table.nudgeNormal": "👀 {n} rivals searching on the {bet} USDC table. Jump in!",
   "table.pot": "POT.LOG",
   "table.yourBet": "Your bet",
@@ -123,16 +126,19 @@ const en: Dict = {
   "match.approveBtn": "APPROVE {bet} USDC",
   "match.approveErr": "Couldn't approve — try again.",
   "match.depositGate": "Fund your match",
-  "match.openHint": "Deposit {bet} USDC to open your match. Play your run and leave — we match you with the next rival. No live waiting.",
+  "match.openHint":
+    "Deposit {bet} USDC to open your match. Play your run and leave — we match you with the next rival. No live waiting.",
   "match.joinHint": "Deposit {bet} USDC to join and play. Higher score takes the pot.",
   "match.openBtn": "OPEN · {bet} USDC",
   "match.joinBtn": "JOIN · {bet} USDC",
-  "match.depositInfo": "Deposit {bet} USDC to play. Both players deposit; the winner takes the pot.",
+  "match.depositInfo":
+    "Deposit {bet} USDC to play. Both players deposit; the winner takes the pot.",
   "match.depositBtn": "APPROVE & DEPOSIT",
   "match.depositWait": "Processing…",
   "match.depositRetry": "Couldn't deposit — the match may still be starting. Try again.",
   "match.connectFirst": "Connect your wallet to deposit and play.",
-  "match.waitJoin": "Waiting for an opponent to join this table… the on-chain match is created when a rival arrives. You can leave anytime — you haven't deposited yet.",
+  "match.waitJoin":
+    "Waiting for an opponent to join this table… the on-chain match is created when a rival arrives. You can leave anytime — you haven't deposited yet.",
   "match.claimBtn": "CLAIM {prize} USDC",
   "match.claimDone": "Claimed! 🎉 The pot is in your wallet.",
   "match.claimErr": "Couldn't claim — try again.",
@@ -143,13 +149,15 @@ const en: Dict = {
   "lb.you": "you",
   "lb.note": "Rating rises when you win, falls when you lose. Per game.",
   "age.title": "Before you play",
-  "age.body": "Arcade1v1 is an 18+ skill-gaming platform. By entering you confirm you are at least 18 and of legal age in your region.",
+  "age.body":
+    "Arcade1v1 is an 18+ skill-gaming platform. By entering you confirm you are at least 18 and of legal age in your region.",
   "age.terms": "By continuing you accept our",
   "age.termsLink": "Terms of Service",
   "age.accept": "I'M 18+ · ENTER",
   "age.leave": "Leave",
   "nav.terms": "Terms",
-  "footer.responsible": "Play responsibly. Skill-gaming for value may be restricted in your region.",
+  "footer.responsible":
+    "Play responsibly. Skill-gaming for value may be restricted in your region.",
   "footer.love": "Made with love",
   "nav.ranking": "Ranking",
   "nav.agents": "Agents",
@@ -179,34 +187,38 @@ const en: Dict = {
   "g.lines": "Lines",
   "g.level": "Level",
   "g.next": "Next",
-  "g.tetris.keys":
-    "Keyboard: ← → move · ↑/X rotate · ↓ down · Space = hard drop · P = pause",
+  "g.tetris.keys": "Keyboard: ← → move · ↑/X rotate · ↓ down · Space = hard drop · P = pause",
   "g.flappy.hint": "Tap the screen or hit space to flap.",
   "g.racing.hint": "Arrows ← → (or the buttons) to change lanes.",
   "g.2048.hint": "Arrow keys or swipe on the board.",
   "game.snake.name": "Snake",
   "game.snake.tagline": "Grow, don't crash",
-  "game.snake.desc": "Eat, grow and don't crash. The longer you get, the more points — most eaten wins.",
+  "game.snake.desc":
+    "Eat, grow and don't crash. The longer you get, the more points — most eaten wins.",
   "game.invaders.name": "Space Invaders",
   "game.invaders.tagline": "Defend the galaxy",
   "game.invaders.desc": "Blast waves of aliens before they invade. More aliens down = more pot.",
   "g.snake.title": "SNAKE",
-  "g.snake.instr": "Use the arrows (or swipe) to eat the food and grow. Don't hit the walls or yourself!",
+  "g.snake.instr":
+    "Use the arrows (or swipe) to eat the food and grow. Don't hit the walls or yourself!",
   "g.snake.over": "CRASHED! 🐍",
   "g.snake.hint": "Arrow keys or swipe on the board.",
   "g.invaders.title": "SPACE INVADERS",
-  "g.invaders.instr": "Move with ← →, fire with Space (or the buttons). Destroy the aliens before they reach you. You have 3 lives!",
+  "g.invaders.instr":
+    "Move with ← →, fire with Space (or the buttons). Destroy the aliens before they reach you. You have 3 lives!",
   "g.invaders.over": "GAME OVER! 👾",
   "g.invaders.hint": "← → to move · Space to fire (or the buttons).",
   "err.title": "ERROR.SYS",
   "err.head": "SOMETHING BROKE",
   "err.body": "Don't worry: no funds were touched. Try again.",
   "err.retry": "RETRY ▶",
-  "loading": "LOADING...",
+  loading: "LOADING...",
   "nav.recover": "Recover funds",
   "recover.title": "RECOVER FUNDS",
-  "recover.intro": "If you opened a paid match and no rival showed up in time — or the match was full but ended without a result — you can get your deposit back here. Funds are always safe in the contract.",
-  "recover.notConfigured": "On-chain payments aren't configured in this environment, so there's nothing to recover.",
+  "recover.intro":
+    "If you opened a paid match and no rival showed up in time — or the match was full but ended without a result — you can get your deposit back here. Funds are always safe in the contract.",
+  "recover.notConfigured":
+    "On-chain payments aren't configured in this environment, so there's nothing to recover.",
   "recover.connectPrompt": "Connect your wallet to see your open matches.",
   "recover.connect": "CONNECT WALLET ▶",
   "recover.refresh": "Refresh",
@@ -239,8 +251,7 @@ const es: Dict = {
   "footer.best": "Mejor visto en 800×600 · Arcade1v1 © 2026",
   "footer.demo": "Demostración en testnet · dinero de prueba ·",
   "hero.title": "JUGÁ. GANÁ. COBRÁ.",
-  "hero.sub":
-    ">> Retá a un rival 1v1 y jugate el pozo en USDC. Que gane el mejor <<",
+  "hero.sub": ">> Retá a un rival 1v1 y jugate el pozo en USDC. Que gane el mejor <<",
   "quick.prompt": "Jugá rápido — elegí un monto:",
   "free.btn": "🎮 PROBAR GRATIS (sin plata)",
   "free.sub": "Probá los juegos, sin riesgo. Después jugás por USDC.",
@@ -254,17 +265,23 @@ const es: Dict = {
     "* La plataforma retiene una comisión del 15% del pozo. Si nadie aparece en 1 hora, se te devuelve todo.",
   "faq.title": "PREGUNTAS.TXT",
   "faq.q1": "¿Qué es Arcade1v1?",
-  "faq.a1": "Arcade1v1 es una arena 1v1 donde dos jugadores apuestan el mismo monto en USDC y el de mayor puntaje se lleva el pozo.",
+  "faq.a1":
+    "Arcade1v1 es una arena 1v1 donde dos jugadores apuestan el mismo monto en USDC y el de mayor puntaje se lleva el pozo.",
   "faq.q2": "¿A qué juegos puedo jugar?",
-  "faq.a2": "Seis juegos — Space Invaders, Flappy 1v1, 2048, Snake, Tetris y Carrera — todos 1v1, asincrónicos y por puntaje: gana el más alto.",
+  "faq.a2":
+    "Seis juegos — Space Invaders, Flappy 1v1, 2048, Snake, Tetris y Carrera — todos 1v1, asincrónicos y por puntaje: gana el más alto.",
   "faq.q3": "¿Cómo funciona el dinero?",
-  "faq.a3": "Los dos ponen el mismo USDC en un escrow (contrato) sobre Base: el primero abre la partida y el segundo se une — sin esperar en vivo. El de más puntaje se lleva el pozo menos 15%. ¿Sin rival en 1 hora o empate? Reembolso total.",
+  "faq.a3":
+    "Los dos ponen el mismo USDC en un escrow (contrato) sobre Base: el primero abre la partida y el segundo se une — sin esperar en vivo. El de más puntaje se lleva el pozo menos 15%. ¿Sin rival en 1 hora o empate? Reembolso total.",
   "faq.q4": "¿Ya funciona con dinero real?",
-  "faq.a4": "Todavía no. Arcade1v1 corre en la testnet Base Sepolia con dinero de prueba mientras se construye y audita.",
+  "faq.a4":
+    "Todavía no. Arcade1v1 corre en la testnet Base Sepolia con dinero de prueba mientras se construye y audita.",
   "faq.q5": "¿Pueden jugar agentes de IA?",
-  "faq.a5": "Sí. Arcade1v1 tiene una API abierta y motores de juego compartidos, así que agentes de IA autónomos pueden emparejarse, jugar cualquiera de los juegos solos y competir de forma justa — cada resultado se verifica por replay, así nadie puede hacer trampa.",
+  "faq.a5":
+    "Sí. Arcade1v1 tiene una API abierta y motores de juego compartidos, así que agentes de IA autónomos pueden emparejarse, jugar cualquiera de los juegos solos y competir de forma justa — cada resultado se verifica por replay, así nadie puede hacer trampa.",
   "faq.q6": "¿Hay un requisito de edad?",
-  "faq.a6": "Sí — Arcade1v1 es +18 (o la edad legal de skill-gaming donde vivas). Es por habilidad: el resultado depende de la skill, no del azar.",
+  "faq.a6":
+    "Sí — Arcade1v1 es +18 (o la edad legal de skill-gaming donde vivas). Es por habilidad: el resultado depende de la skill, no del azar.",
   "quick.titleBet": "¿A QUÉ JUGÁS · {bet} USDC?",
   "quick.titleFree": "PROBAR GRATIS · ¿QUÉ JUEGO?",
   "game.tetris.name": "Tetris",
@@ -277,8 +294,7 @@ const es: Dict = {
     "Esquiva los tubos y aguanta más que el rival. Pulso de acero, bolsillo lleno.",
   "game.racing.name": "Carrera",
   "game.racing.tagline": "Pisá a fondo",
-  "game.racing.desc":
-    "Manejás, esquivás y acelera sin parar. El último en chocar gana la apuesta.",
+  "game.racing.desc": "Manejás, esquivás y acelera sin parar. El último en chocar gana la apuesta.",
   "game.2048.name": "2048",
   "game.2048.tagline": "Sumá y dominá",
   "game.2048.desc":
@@ -288,8 +304,7 @@ const es: Dict = {
   "table.q": "¿De cuánto va el duelo? Los dos ponen lo mismo. El que gana, se lo lleva.",
   "table.win": "ganás {n}",
   "table.vip": "👑 VIP",
-  "table.nudgeVip":
-    "👑 Mesa VIP: {n} jugadores que van por todo. Acá se cobra en serio.",
+  "table.nudgeVip": "👑 Mesa VIP: {n} jugadores que van por todo. Acá se cobra en serio.",
   "table.nudgeNormal": "👀 {n} rivales buscando en la mesa de {bet} USDC. ¡Entrá!",
   "table.pot": "POZO.LOG",
   "table.yourBet": "Tu apuesta",
@@ -335,16 +350,19 @@ const es: Dict = {
   "match.approveBtn": "APROBAR {bet} USDC",
   "match.approveErr": "No se pudo aprobar — probá de nuevo.",
   "match.depositGate": "Fondeá tu partida",
-  "match.openHint": "Depositá {bet} USDC para abrir tu partida. Jugá tu intento y andate — te emparejamos con el próximo rival. Sin esperar en vivo.",
+  "match.openHint":
+    "Depositá {bet} USDC para abrir tu partida. Jugá tu intento y andate — te emparejamos con el próximo rival. Sin esperar en vivo.",
   "match.joinHint": "Depositá {bet} USDC para unirte y jugar. El de más puntaje se lleva el pozo.",
   "match.openBtn": "ABRIR · {bet} USDC",
   "match.joinBtn": "UNIRME · {bet} USDC",
-  "match.depositInfo": "Depositá {bet} USDC para jugar. Los dos depositan; el ganador se lleva el pozo.",
+  "match.depositInfo":
+    "Depositá {bet} USDC para jugar. Los dos depositan; el ganador se lleva el pozo.",
   "match.depositBtn": "APROBAR Y DEPOSITAR",
   "match.depositWait": "Procesando…",
   "match.depositRetry": "No se pudo depositar — la partida puede estar creándose. Probá de nuevo.",
   "match.connectFirst": "Conectá tu wallet para depositar y jugar.",
-  "match.waitJoin": "Esperando que entre un rival a esta mesa… la partida on-chain se crea cuando aparece un oponente. Podés salir cuando quieras: todavía no depositaste.",
+  "match.waitJoin":
+    "Esperando que entre un rival a esta mesa… la partida on-chain se crea cuando aparece un oponente. Podés salir cuando quieras: todavía no depositaste.",
   "match.claimBtn": "COBRAR {prize} USDC",
   "match.claimDone": "¡Cobrado! 🎉 El pozo está en tu wallet.",
   "match.claimErr": "No se pudo cobrar — probá de nuevo.",
@@ -355,13 +373,15 @@ const es: Dict = {
   "lb.you": "vos",
   "lb.note": "El rating sube cuando ganás y baja cuando perdés. Por juego.",
   "age.title": "Antes de jugar",
-  "age.body": "Arcade1v1 es una plataforma de skill-gaming +18. Al entrar confirmás que tenés al menos 18 años y la edad legal en tu región.",
+  "age.body":
+    "Arcade1v1 es una plataforma de skill-gaming +18. Al entrar confirmás que tenés al menos 18 años y la edad legal en tu región.",
   "age.terms": "Al continuar aceptás nuestros",
   "age.termsLink": "Términos del Servicio",
   "age.accept": "TENGO +18 · ENTRAR",
   "age.leave": "Salir",
   "nav.terms": "Términos",
-  "footer.responsible": "Jugá con responsabilidad. El skill-gaming por valor puede estar restringido en tu región.",
+  "footer.responsible":
+    "Jugá con responsabilidad. El skill-gaming por valor puede estar restringido en tu región.",
   "footer.love": "Hecho con amor",
   "nav.ranking": "Ranking",
   "nav.agents": "Agentes",
@@ -391,34 +411,39 @@ const es: Dict = {
   "g.lines": "Líneas",
   "g.level": "Nivel",
   "g.next": "Sigue",
-  "g.tetris.keys":
-    "Teclado: ← → mover · ↑/X rotar · ↓ bajar · Espacio = caída rápida · P = pausa",
+  "g.tetris.keys": "Teclado: ← → mover · ↑/X rotar · ↓ bajar · Espacio = caída rápida · P = pausa",
   "g.flappy.hint": "Tocá la pantalla o la barra espaciadora para aletear.",
   "g.racing.hint": "Flechas ← → (o los botones) para cambiar de carril.",
   "g.2048.hint": "Flechas del teclado o deslizá en el tablero.",
   "game.snake.name": "Snake",
   "game.snake.tagline": "Crecé sin chocar",
-  "game.snake.desc": "Comé, crecé y no te choques. Cuanto más largo, más puntos: el que más come gana.",
+  "game.snake.desc":
+    "Comé, crecé y no te choques. Cuanto más largo, más puntos: el que más come gana.",
   "game.invaders.name": "Space Invaders",
   "game.invaders.tagline": "Defendé la galaxia",
-  "game.invaders.desc": "Destruí oleadas de aliens antes de que te invadan. Más naves abatidas = más pozo.",
+  "game.invaders.desc":
+    "Destruí oleadas de aliens antes de que te invadan. Más naves abatidas = más pozo.",
   "g.snake.title": "SNAKE",
-  "g.snake.instr": "Usá las flechas (o deslizá) para comer y crecer. ¡No choques las paredes ni tu cola!",
+  "g.snake.instr":
+    "Usá las flechas (o deslizá) para comer y crecer. ¡No choques las paredes ni tu cola!",
   "g.snake.over": "¡CHOCASTE! 🐍",
   "g.snake.hint": "Flechas del teclado o deslizá en el tablero.",
   "g.invaders.title": "SPACE INVADERS",
-  "g.invaders.instr": "Movete con ← →, dispará con Espacio (o los botones). Destruí a los aliens antes de que lleguen. ¡Tenés 3 vidas!",
+  "g.invaders.instr":
+    "Movete con ← →, dispará con Espacio (o los botones). Destruí a los aliens antes de que lleguen. ¡Tenés 3 vidas!",
   "g.invaders.over": "¡GAME OVER! 👾",
   "g.invaders.hint": "← → para mover · Espacio para disparar (o los botones).",
   "err.title": "ERROR.SYS",
   "err.head": "ALGO SE ROMPIÓ",
   "err.body": "Tranqui: no se tocó ningún fondo. Probá de nuevo.",
   "err.retry": "REINTENTAR ▶",
-  "loading": "CARGANDO...",
+  loading: "CARGANDO...",
   "nav.recover": "Recuperar fondos",
   "recover.title": "RECUPERAR FONDOS",
-  "recover.intro": "Si abriste una partida de plata y no apareció rival a tiempo —o la partida se llenó pero terminó sin resultado— acá podés recuperar tu depósito. Los fondos siempre están seguros en el contrato.",
-  "recover.notConfigured": "Los pagos on-chain no están configurados en este entorno, así que no hay nada para recuperar.",
+  "recover.intro":
+    "Si abriste una partida de plata y no apareció rival a tiempo —o la partida se llenó pero terminó sin resultado— acá podés recuperar tu depósito. Los fondos siempre están seguros en el contrato.",
+  "recover.notConfigured":
+    "Los pagos on-chain no están configurados en este entorno, así que no hay nada para recuperar.",
   "recover.connectPrompt": "Conectá tu billetera para ver tus partidas abiertas.",
   "recover.connect": "CONECTAR BILLETERA ▶",
   "recover.refresh": "Actualizar",
@@ -451,8 +476,7 @@ const hi: Dict = {
   "footer.best": "800×600 में सबसे अच्छा · Arcade1v1 © 2026",
   "footer.demo": "टेस्टनेट डेमो · नकली पैसा ·",
   "hero.title": "खेलो. जीतो. कमाओ.",
-  "hero.sub":
-    ">> किसी प्रतिद्वंद्वी को 1v1 चुनौती दो और USDC में दांव खेलो। सबसे अच्छा जीते <<",
+  "hero.sub": ">> किसी प्रतिद्वंद्वी को 1v1 चुनौती दो और USDC में दांव खेलो। सबसे अच्छा जीते <<",
   "quick.prompt": "जल्दी खेलो — एक रकम चुनो:",
   "free.btn": "🎮 मुफ़्त आज़माओ (बिना पैसे)",
   "free.sub": "बिना जोखिम खेल आज़माओ। फिर USDC में खेलो।",
@@ -466,17 +490,23 @@ const hi: Dict = {
     "* प्लेटफ़ॉर्म दांव का 15% कमीशन रखता है। अगर 1 घंटे में कोई नहीं आता, सब वापस मिल जाता है।",
   "faq.title": "सवाल.TXT",
   "faq.q1": "Arcade1v1 क्या है?",
-  "faq.a1": "Arcade1v1 एक 1v1 अरीना है जहाँ दो खिलाड़ी बराबर USDC लगाते हैं और ज़्यादा स्कोर वाला दांव जीतता है।",
+  "faq.a1":
+    "Arcade1v1 एक 1v1 अरीना है जहाँ दो खिलाड़ी बराबर USDC लगाते हैं और ज़्यादा स्कोर वाला दांव जीतता है।",
   "faq.q2": "मैं कौन से गेम खेल सकता हूँ?",
-  "faq.a2": "छह गेम — Space Invaders, Flappy 1v1, 2048, Snake, Tetris और रेसिंग — सभी आमने-सामने, एसिंक्रोनस और स्कोर पर आधारित: सबसे ऊँचा स्कोर जीतता है।",
+  "faq.a2":
+    "छह गेम — Space Invaders, Flappy 1v1, 2048, Snake, Tetris और रेसिंग — सभी आमने-सामने, एसिंक्रोनस और स्कोर पर आधारित: सबसे ऊँचा स्कोर जीतता है।",
   "faq.q3": "पैसा कैसे काम करता है?",
-  "faq.a3": "दोनों खिलाड़ी Base पर स्मार्ट-कॉन्ट्रैक्ट एस्क्रो में बराबर USDC लगाते हैं: पहला मैच खोलता है, दूसरा जुड़ता है — कोई लाइव इंतज़ार नहीं। ज़्यादा स्कोर वाला 15% फ़ीस के बाद पूरा दांव जीतता है। 1 घंटे में कोई नहीं या ड्रॉ → पूरा रिफंड।",
+  "faq.a3":
+    "दोनों खिलाड़ी Base पर स्मार्ट-कॉन्ट्रैक्ट एस्क्रो में बराबर USDC लगाते हैं: पहला मैच खोलता है, दूसरा जुड़ता है — कोई लाइव इंतज़ार नहीं। ज़्यादा स्कोर वाला 15% फ़ीस के बाद पूरा दांव जीतता है। 1 घंटे में कोई नहीं या ड्रॉ → पूरा रिफंड।",
   "faq.q4": "क्या यह असली पैसे के साथ चालू है?",
-  "faq.a4": "अभी नहीं। Arcade1v1 फ़िलहाल Base Sepolia टेस्टनेट पर नकली पैसे के साथ चलता है, जबकि इसे बनाया और ऑडिट किया जा रहा है।",
+  "faq.a4":
+    "अभी नहीं। Arcade1v1 फ़िलहाल Base Sepolia टेस्टनेट पर नकली पैसे के साथ चलता है, जबकि इसे बनाया और ऑडिट किया जा रहा है।",
   "faq.q5": "क्या AI एजेंट खेल सकते हैं?",
-  "faq.a5": "हाँ। Arcade1v1 में एक खुला API और साझा गेम इंजन हैं, इसलिए स्वायत्त AI एजेंट मैचमेक कर सकते हैं, कोई भी गेम ख़ुद खेल सकते हैं और निष्पक्ष रूप से मुक़ाबला कर सकते हैं — हर नतीजा replay से सत्यापित होता है, ताकि कोई धोखा न कर सके।",
+  "faq.a5":
+    "हाँ। Arcade1v1 में एक खुला API और साझा गेम इंजन हैं, इसलिए स्वायत्त AI एजेंट मैचमेक कर सकते हैं, कोई भी गेम ख़ुद खेल सकते हैं और निष्पक्ष रूप से मुक़ाबला कर सकते हैं — हर नतीजा replay से सत्यापित होता है, ताकि कोई धोखा न कर सके।",
   "faq.q6": "क्या कोई आयु सीमा है?",
-  "faq.a6": "हाँ — Arcade1v1 18+ के लिए है (या आपके क्षेत्र की कानूनी स्किल-गेमिंग आयु)। यह स्किल आधारित है: नतीजा कौशल पर निर्भर करता है, संयोग पर नहीं।",
+  "faq.a6":
+    "हाँ — Arcade1v1 18+ के लिए है (या आपके क्षेत्र की कानूनी स्किल-गेमिंग आयु)। यह स्किल आधारित है: नतीजा कौशल पर निर्भर करता है, संयोग पर नहीं।",
   "quick.titleBet": "कौन सा गेम · {bet} USDC?",
   "quick.titleFree": "मुफ़्त आज़माओ · कौन सा गेम?",
   "game.tetris.name": "Tetris",
@@ -485,12 +515,10 @@ const hi: Dict = {
     "ब्लॉक जमाओ, लाइनें बनाओ और बोर्ड साफ़ करो। प्रतिद्वंद्वी से ज़्यादा स्कोर = दांव तुम्हारा।",
   "game.flappy.name": "Flappy 1v1",
   "game.flappy.tagline": "एक टैप, पूरी हिम्मत",
-  "game.flappy.desc":
-    "पाइपों से बचो और प्रतिद्वंद्वी से ज़्यादा टिको। मज़बूत नसें, भरी जेब।",
+  "game.flappy.desc": "पाइपों से बचो और प्रतिद्वंद्वी से ज़्यादा टिको। मज़बूत नसें, भरी जेब।",
   "game.racing.name": "रेसिंग",
   "game.racing.tagline": "पूरी रफ़्तार",
-  "game.racing.desc":
-    "चलाओ, बचो और रफ़्तार बढ़ाते रहो। आख़िरी में टकराने वाला जीतता है।",
+  "game.racing.desc": "चलाओ, बचो और रफ़्तार बढ़ाते रहो। आख़िरी में टकराने वाला जीतता है।",
   "game.2048.name": "2048",
   "game.2048.tagline": "जोड़ो और राज करो",
   "game.2048.desc":
@@ -546,16 +574,20 @@ const hi: Dict = {
   "match.approveBtn": "{bet} USDC स्वीकृत करें",
   "match.approveErr": "स्वीकृति नहीं हो सकी — फिर से कोशिश करें।",
   "match.depositGate": "अपना मैच फंड करें",
-  "match.openHint": "अपना मैच खोलने के लिए {bet} USDC जमा करें। अपनी बारी खेलें और जाएं — हम आपको अगले प्रतिद्वंद्वी से मिलाते हैं। कोई लाइव इंतज़ार नहीं।",
-  "match.joinHint": "शामिल होकर खेलने के लिए {bet} USDC जमा करें। ज़्यादा स्कोर वाला पूरा दांव लेता है।",
+  "match.openHint":
+    "अपना मैच खोलने के लिए {bet} USDC जमा करें। अपनी बारी खेलें और जाएं — हम आपको अगले प्रतिद्वंद्वी से मिलाते हैं। कोई लाइव इंतज़ार नहीं।",
+  "match.joinHint":
+    "शामिल होकर खेलने के लिए {bet} USDC जमा करें। ज़्यादा स्कोर वाला पूरा दांव लेता है।",
   "match.openBtn": "खोलें · {bet} USDC",
   "match.joinBtn": "शामिल हों · {bet} USDC",
-  "match.depositInfo": "खेलने के लिए {bet} USDC जमा करें। दोनों खिलाड़ी जमा करते हैं; विजेता पूरा दांव लेता है।",
+  "match.depositInfo":
+    "खेलने के लिए {bet} USDC जमा करें। दोनों खिलाड़ी जमा करते हैं; विजेता पूरा दांव लेता है।",
   "match.depositBtn": "स्वीकृत करें और जमा करें",
   "match.depositWait": "प्रोसेस हो रहा है…",
   "match.depositRetry": "जमा नहीं हो सका — मैच अभी शुरू हो रहा होगा। फिर से कोशिश करें।",
   "match.connectFirst": "जमा करने और खेलने के लिए अपना वॉलेट कनेक्ट करें।",
-  "match.waitJoin": "इस टेबल पर किसी प्रतिद्वंद्वी का इंतज़ार… ऑन-चेन मैच तब बनता है जब कोई प्रतिद्वंद्वी आता है। आप कभी भी जा सकते हैं — आपने अभी जमा नहीं किया।",
+  "match.waitJoin":
+    "इस टेबल पर किसी प्रतिद्वंद्वी का इंतज़ार… ऑन-चेन मैच तब बनता है जब कोई प्रतिद्वंद्वी आता है। आप कभी भी जा सकते हैं — आपने अभी जमा नहीं किया।",
   "match.claimBtn": "{prize} USDC क्लेम करें",
   "match.claimDone": "क्लेम हो गया! 🎉 दांव आपके वॉलेट में है।",
   "match.claimErr": "क्लेम नहीं हो सका — फिर से कोशिश करें।",
@@ -566,13 +598,15 @@ const hi: Dict = {
   "lb.you": "आप",
   "lb.note": "जीतने पर रेटिंग बढ़ती है, हारने पर घटती है। हर गेम के लिए।",
   "age.title": "खेलने से पहले",
-  "age.body": "Arcade1v1 एक 18+ स्किल-गेमिंग प्लेटफ़ॉर्म है। प्रवेश करके आप पुष्टि करते हैं कि आप कम से कम 18 वर्ष के हैं और अपने क्षेत्र में कानूनी आयु के हैं।",
+  "age.body":
+    "Arcade1v1 एक 18+ स्किल-गेमिंग प्लेटफ़ॉर्म है। प्रवेश करके आप पुष्टि करते हैं कि आप कम से कम 18 वर्ष के हैं और अपने क्षेत्र में कानूनी आयु के हैं।",
   "age.terms": "जारी रखकर आप हमारी स्वीकार करते हैं",
   "age.termsLink": "सेवा की शर्तें",
   "age.accept": "मैं 18+ हूँ · प्रवेश",
   "age.leave": "बाहर जाएं",
   "nav.terms": "शर्तें",
-  "footer.responsible": "ज़िम्मेदारी से खेलें। मूल्य के लिए स्किल-गेमिंग आपके क्षेत्र में प्रतिबंधित हो सकती है।",
+  "footer.responsible":
+    "ज़िम्मेदारी से खेलें। मूल्य के लिए स्किल-गेमिंग आपके क्षेत्र में प्रतिबंधित हो सकती है।",
   "footer.love": "प्यार से बनाया",
   "nav.ranking": "रैंकिंग",
   "nav.agents": "एजेंट",
@@ -587,8 +621,7 @@ const hi: Dict = {
     "टुकड़े जमाओ और लाइनें बनाओ। जितने ज़्यादा अंक, उतना अच्छा। हर 10 लाइनों पर रफ़्तार बढ़ती है।",
   "g.tetris.over": "गेम ओवर! 💥",
   "g.flappy.title": "FLAPPY 1v1",
-  "g.flappy.instr":
-    "फ्लैप के लिए टैप (या स्पेस)। पाइपों से बचो। हर पाइप = 1 अंक। कुछ मत छुओ!",
+  "g.flappy.instr": "फ्लैप के लिए टैप (या स्पेस)। पाइपों से बचो। हर पाइप = 1 अंक। कुछ मत छुओ!",
   "g.flappy.over": "तुम गिर गए! 💥",
   "g.racing.title": "रेसिंग",
   "g.racing.instr":
@@ -602,14 +635,14 @@ const hi: Dict = {
   "g.lines": "लाइनें",
   "g.level": "लेवल",
   "g.next": "अगला",
-  "g.tetris.keys":
-    "कीबोर्ड: ← → चलाओ · ↑/X घुमाओ · ↓ नीचे · स्पेस = तेज़ गिराओ · P = रुको",
+  "g.tetris.keys": "कीबोर्ड: ← → चलाओ · ↑/X घुमाओ · ↓ नीचे · स्पेस = तेज़ गिराओ · P = रुको",
   "g.flappy.hint": "फ्लैप के लिए स्क्रीन टैप करो या स्पेस दबाओ।",
   "g.racing.hint": "लेन बदलने के लिए ← → (या बटन)।",
   "g.2048.hint": "कीबोर्ड के तीर या बोर्ड पर स्वाइप।",
   "game.snake.name": "Snake",
   "game.snake.tagline": "बढ़ो, टकराओ मत",
-  "game.snake.desc": "खाओ, बढ़ो और टकराओ मत। जितने लंबे, उतने अंक — सबसे ज़्यादा खाने वाला जीतता है।",
+  "game.snake.desc":
+    "खाओ, बढ़ो और टकराओ मत। जितने लंबे, उतने अंक — सबसे ज़्यादा खाने वाला जीतता है।",
   "game.invaders.name": "Space Invaders",
   "game.invaders.tagline": "आकाशगंगा बचाओ",
   "game.invaders.desc": "एलियंस की लहरों को हमले से पहले उड़ाओ। जितने ज़्यादा गिराओ, उतना दांव।",
@@ -618,18 +651,21 @@ const hi: Dict = {
   "g.snake.over": "टकरा गए! 🐍",
   "g.snake.hint": "कीबोर्ड के तीर या बोर्ड पर स्वाइप।",
   "g.invaders.title": "SPACE INVADERS",
-  "g.invaders.instr": "← → से चलो, स्पेस (या बटन) से फ़ायर करो। एलियंस को पहुँचने से पहले नष्ट करो। 3 ज़िंदगियाँ!",
+  "g.invaders.instr":
+    "← → से चलो, स्पेस (या बटन) से फ़ायर करो। एलियंस को पहुँचने से पहले नष्ट करो। 3 ज़िंदगियाँ!",
   "g.invaders.over": "गेम ओवर! 👾",
   "g.invaders.hint": "← → चलने के लिए · स्पेस फ़ायर (या बटन)।",
   "err.title": "ERROR.SYS",
   "err.head": "कुछ टूट गया",
   "err.body": "चिंता मत करो: कोई पैसा नहीं छुआ गया। फिर कोशिश करो।",
   "err.retry": "फिर कोशिश ▶",
-  "loading": "लोड हो रहा है...",
+  loading: "लोड हो रहा है...",
   "nav.recover": "फंड वापस पाएं",
   "recover.title": "फंड वापस पाएं",
-  "recover.intro": "अगर आपने पैसों वाला मैच खोला और समय पर कोई प्रतिद्वंद्वी नहीं आया — या मैच भर गया पर बिना नतीजे के खत्म हुआ — तो यहाँ अपनी जमा राशि वापस पा सकते हैं। फंड हमेशा कॉन्ट्रैक्ट में सुरक्षित रहते हैं।",
-  "recover.notConfigured": "इस एनवायरनमेंट में ऑन-चेन भुगतान कॉन्फ़िगर नहीं है, इसलिए वापस पाने के लिए कुछ नहीं है।",
+  "recover.intro":
+    "अगर आपने पैसों वाला मैच खोला और समय पर कोई प्रतिद्वंद्वी नहीं आया — या मैच भर गया पर बिना नतीजे के खत्म हुआ — तो यहाँ अपनी जमा राशि वापस पा सकते हैं। फंड हमेशा कॉन्ट्रैक्ट में सुरक्षित रहते हैं।",
+  "recover.notConfigured":
+    "इस एनवायरनमेंट में ऑन-चेन भुगतान कॉन्फ़िगर नहीं है, इसलिए वापस पाने के लिए कुछ नहीं है।",
   "recover.connectPrompt": "अपने खुले मैच देखने के लिए अपना वॉलेट कनेक्ट करें।",
   "recover.connect": "वॉलेट कनेक्ट करें ▶",
   "recover.refresh": "रिफ्रेश",
@@ -662,8 +698,7 @@ const fr: Dict = {
   "footer.best": "Optimisé pour 800×600 · Arcade1v1 © 2026",
   "footer.demo": "Démo en testnet · argent fictif ·",
   "hero.title": "JOUE. GAGNE. ENCAISSE.",
-  "hero.sub":
-    ">> Défie un rival en 1v1 et joue la cagnotte en USDC. Que le meilleur gagne <<",
+  "hero.sub": ">> Défie un rival en 1v1 et joue la cagnotte en USDC. Que le meilleur gagne <<",
   "quick.prompt": "Jouer vite — choisis un montant :",
   "free.btn": "🎮 ESSAYER GRATUIT (sans argent)",
   "free.sub": "Essaie les jeux, sans risque. Puis joue pour des USDC.",
@@ -677,17 +712,23 @@ const fr: Dict = {
     "* La plateforme garde une commission de 15% de la cagnotte. Si personne ne vient en 1 heure, tout est remboursé.",
   "faq.title": "FAQ.TXT",
   "faq.q1": "Qu'est-ce qu'Arcade1v1 ?",
-  "faq.a1": "Arcade1v1 est une arène 1v1 où deux joueurs misent le même montant en USDC et le meilleur score rafle la cagnotte.",
+  "faq.a1":
+    "Arcade1v1 est une arène 1v1 où deux joueurs misent le même montant en USDC et le meilleur score rafle la cagnotte.",
   "faq.q2": "À quels jeux puis-je jouer ?",
-  "faq.a2": "Six jeux — Space Invaders, Flappy 1v1, 2048, Snake, Tetris et Course — tous en tête-à-tête, asynchrones et basés sur le score : le plus haut gagne.",
+  "faq.a2":
+    "Six jeux — Space Invaders, Flappy 1v1, 2048, Snake, Tetris et Course — tous en tête-à-tête, asynchrones et basés sur le score : le plus haut gagne.",
   "faq.q3": "Comment fonctionne l'argent ?",
-  "faq.a3": "Les deux misent le même USDC dans un escrow (contrat) sur Base : le premier ouvre la partie, le second rejoint — sans attente en direct. Le meilleur score rafle la cagnotte moins 15%. Pas de rival en 1h ou égalité → remboursement total.",
+  "faq.a3":
+    "Les deux misent le même USDC dans un escrow (contrat) sur Base : le premier ouvre la partie, le second rejoint — sans attente en direct. Le meilleur score rafle la cagnotte moins 15%. Pas de rival en 1h ou égalité → remboursement total.",
   "faq.q4": "Est-ce live avec du vrai argent ?",
-  "faq.a4": "Pas encore. Arcade1v1 tourne pour l'instant sur le testnet Base Sepolia avec de l'argent fictif, le temps d'être construit et audité.",
+  "faq.a4":
+    "Pas encore. Arcade1v1 tourne pour l'instant sur le testnet Base Sepolia avec de l'argent fictif, le temps d'être construit et audité.",
   "faq.q5": "Les agents IA peuvent-ils jouer ?",
-  "faq.a5": "Oui. Arcade1v1 a une API ouverte et des moteurs de jeu partagés : des agents IA autonomes peuvent se faire matcher, jouer à n'importe quel jeu en autonomie et s'affronter équitablement — chaque résultat est vérifié par replay, donc personne ne peut tricher.",
+  "faq.a5":
+    "Oui. Arcade1v1 a une API ouverte et des moteurs de jeu partagés : des agents IA autonomes peuvent se faire matcher, jouer à n'importe quel jeu en autonomie et s'affronter équitablement — chaque résultat est vérifié par replay, donc personne ne peut tricher.",
   "faq.q6": "Y a-t-il un âge minimum ?",
-  "faq.a6": "Oui — Arcade1v1 est 18+ (ou l'âge légal du skill-gaming chez toi). C'est basé sur la compétence : le résultat dépend du skill, pas du hasard.",
+  "faq.a6":
+    "Oui — Arcade1v1 est 18+ (ou l'âge légal du skill-gaming chez toi). C'est basé sur la compétence : le résultat dépend du skill, pas du hasard.",
   "quick.titleBet": "QUEL JEU · {bet} USDC ?",
   "quick.titleFree": "ESSAYER GRATUIT · QUEL JEU ?",
   "game.tetris.name": "Tetris",
@@ -696,12 +737,10 @@ const fr: Dict = {
     "Empile, fais des lignes et explose le plateau. Plus de points que ton rival = la cagnotte.",
   "game.flappy.name": "Flappy 1v1",
   "game.flappy.tagline": "Un tap, max de nerfs",
-  "game.flappy.desc":
-    "Évite les tuyaux et tiens plus longtemps. Nerfs d'acier, poches pleines.",
+  "game.flappy.desc": "Évite les tuyaux et tiens plus longtemps. Nerfs d'acier, poches pleines.",
   "game.racing.name": "Course",
   "game.racing.tagline": "À fond la caisse",
-  "game.racing.desc":
-    "Conduis, esquive et accélère sans cesse. Le dernier à crasher gagne.",
+  "game.racing.desc": "Conduis, esquive et accélère sans cesse. Le dernier à crasher gagne.",
   "game.2048.name": "2048",
   "game.2048.tagline": "Additionne & règne",
   "game.2048.desc":
@@ -711,8 +750,7 @@ const fr: Dict = {
   "table.q": "Le duel monte à combien ? Mise égale. Le gagnant rafle tout.",
   "table.win": "gagne {n}",
   "table.vip": "👑 VIP",
-  "table.nudgeVip":
-    "👑 Table VIP : {n} joueurs prêts à tout. Ça joue gros ici.",
+  "table.nudgeVip": "👑 Table VIP : {n} joueurs prêts à tout. Ça joue gros ici.",
   "table.nudgeNormal": "👀 {n} rivaux en recherche sur la table {bet} USDC. Rejoins !",
   "table.pot": "CAGNOTTE.LOG",
   "table.yourBet": "Ta mise",
@@ -754,20 +792,26 @@ const fr: Dict = {
   "match.confirmExit":
     "Si tu pars maintenant tu ABANDONNES et perds : la cagnotte va à ton rival. Quitter quand même ?",
   "match.approveTitle": "Active ton USDC",
-  "match.approveInfo": "Approuve {bet} USDC une fois pour pouvoir jouer. Tu déposeras à l'étape suivante.",
+  "match.approveInfo":
+    "Approuve {bet} USDC une fois pour pouvoir jouer. Tu déposeras à l'étape suivante.",
   "match.approveBtn": "APPROUVER {bet} USDC",
   "match.approveErr": "Approbation impossible — réessaie.",
   "match.depositGate": "Approvisionne ta partie",
-  "match.openHint": "Dépose {bet} USDC pour ouvrir ta partie. Joue ta manche et pars — on te matche avec le prochain rival. Sans attente en direct.",
-  "match.joinHint": "Dépose {bet} USDC pour rejoindre et jouer. Le meilleur score rafle la cagnotte.",
+  "match.openHint":
+    "Dépose {bet} USDC pour ouvrir ta partie. Joue ta manche et pars — on te matche avec le prochain rival. Sans attente en direct.",
+  "match.joinHint":
+    "Dépose {bet} USDC pour rejoindre et jouer. Le meilleur score rafle la cagnotte.",
   "match.openBtn": "OUVRIR · {bet} USDC",
   "match.joinBtn": "REJOINDRE · {bet} USDC",
-  "match.depositInfo": "Dépose {bet} USDC pour jouer. Les deux joueurs déposent ; le gagnant rafle la cagnotte.",
+  "match.depositInfo":
+    "Dépose {bet} USDC pour jouer. Les deux joueurs déposent ; le gagnant rafle la cagnotte.",
   "match.depositBtn": "APPROUVER ET DÉPOSER",
   "match.depositWait": "Traitement…",
-  "match.depositRetry": "Dépôt impossible — la partie est peut-être en cours de création. Réessaie.",
+  "match.depositRetry":
+    "Dépôt impossible — la partie est peut-être en cours de création. Réessaie.",
   "match.connectFirst": "Connecte ton wallet pour déposer et jouer.",
-  "match.waitJoin": "En attente d'un adversaire sur cette table… la partie on-chain se crée quand un rival arrive. Tu peux partir à tout moment : tu n'as pas encore déposé.",
+  "match.waitJoin":
+    "En attente d'un adversaire sur cette table… la partie on-chain se crée quand un rival arrive. Tu peux partir à tout moment : tu n'as pas encore déposé.",
   "match.claimBtn": "RÉCLAMER {prize} USDC",
   "match.claimDone": "Réclamé ! 🎉 La cagnotte est dans ton wallet.",
   "match.claimErr": "Réclamation impossible — réessaie.",
@@ -778,13 +822,15 @@ const fr: Dict = {
   "lb.you": "toi",
   "lb.note": "Le rating monte quand tu gagnes, baisse quand tu perds. Par jeu.",
   "age.title": "Avant de jouer",
-  "age.body": "Arcade1v1 est une plateforme de skill-gaming 18+. En entrant, tu confirmes avoir au moins 18 ans et l'âge légal dans ta région.",
+  "age.body":
+    "Arcade1v1 est une plateforme de skill-gaming 18+. En entrant, tu confirmes avoir au moins 18 ans et l'âge légal dans ta région.",
   "age.terms": "En continuant tu acceptes nos",
   "age.termsLink": "Conditions d'utilisation",
   "age.accept": "J'AI 18+ · ENTRER",
   "age.leave": "Quitter",
   "nav.terms": "Conditions",
-  "footer.responsible": "Joue de façon responsable. Le skill-gaming pour de l'argent peut être restreint dans ta région.",
+  "footer.responsible":
+    "Joue de façon responsable. Le skill-gaming pour de l'argent peut être restreint dans ta région.",
   "footer.love": "Fait avec amour",
   "nav.ranking": "Classement",
   "nav.agents": "Agents",
@@ -821,27 +867,33 @@ const fr: Dict = {
   "g.2048.hint": "Flèches du clavier ou glisse sur le plateau.",
   "game.snake.name": "Snake",
   "game.snake.tagline": "Grandis sans crasher",
-  "game.snake.desc": "Mange, grandis et évite de crasher. Plus tu es long, plus de points — le plus gros mangeur gagne.",
+  "game.snake.desc":
+    "Mange, grandis et évite de crasher. Plus tu es long, plus de points — le plus gros mangeur gagne.",
   "game.invaders.name": "Space Invaders",
   "game.invaders.tagline": "Défends la galaxie",
-  "game.invaders.desc": "Détruis les vagues d'aliens avant l'invasion. Plus d'aliens abattus = plus de cagnotte.",
+  "game.invaders.desc":
+    "Détruis les vagues d'aliens avant l'invasion. Plus d'aliens abattus = plus de cagnotte.",
   "g.snake.title": "SNAKE",
-  "g.snake.instr": "Flèches (ou glisse) pour manger et grandir. Ne touche ni les murs ni ta queue !",
+  "g.snake.instr":
+    "Flèches (ou glisse) pour manger et grandir. Ne touche ni les murs ni ta queue !",
   "g.snake.over": "CRASHÉ ! 🐍",
   "g.snake.hint": "Flèches du clavier ou glisse sur le plateau.",
   "g.invaders.title": "SPACE INVADERS",
-  "g.invaders.instr": "Bouge avec ← →, tire avec Espace (ou les boutons). Détruis les aliens avant qu'ils n'arrivent. 3 vies !",
+  "g.invaders.instr":
+    "Bouge avec ← →, tire avec Espace (ou les boutons). Détruis les aliens avant qu'ils n'arrivent. 3 vies !",
   "g.invaders.over": "GAME OVER ! 👾",
   "g.invaders.hint": "← → bouger · Espace tirer (ou les boutons).",
   "err.title": "ERROR.SYS",
   "err.head": "QUELQUE CHOSE A CASSÉ",
   "err.body": "Pas de panique : aucun fonds touché. Réessaie.",
   "err.retry": "RÉESSAYER ▶",
-  "loading": "CHARGEMENT...",
+  loading: "CHARGEMENT...",
   "nav.recover": "Récupérer les fonds",
   "recover.title": "RÉCUPÉRER LES FONDS",
-  "recover.intro": "Si vous avez ouvert une partie en argent et qu'aucun rival n'est venu à temps — ou que la partie était pleine mais s'est terminée sans résultat — vous pouvez récupérer votre dépôt ici. Les fonds sont toujours en sécurité dans le contrat.",
-  "recover.notConfigured": "Les paiements on-chain ne sont pas configurés dans cet environnement, il n'y a donc rien à récupérer.",
+  "recover.intro":
+    "Si vous avez ouvert une partie en argent et qu'aucun rival n'est venu à temps — ou que la partie était pleine mais s'est terminée sans résultat — vous pouvez récupérer votre dépôt ici. Les fonds sont toujours en sécurité dans le contrat.",
+  "recover.notConfigured":
+    "Les paiements on-chain ne sont pas configurés dans cet environnement, il n'y a donc rien à récupérer.",
   "recover.connectPrompt": "Connectez votre portefeuille pour voir vos parties ouvertes.",
   "recover.connect": "CONNECTER LE PORTEFEUILLE ▶",
   "recover.refresh": "Actualiser",
@@ -908,11 +960,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     return s;
   }
 
-  return (
-    <I18nContext.Provider value={{ lang, setLang, t }}>
-      {children}
-    </I18nContext.Provider>
-  );
+  return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;
 }
 
 export function useT() {

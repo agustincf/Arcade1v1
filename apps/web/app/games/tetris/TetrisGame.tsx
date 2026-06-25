@@ -97,30 +97,47 @@ export function TetrisGame({
     if (!started) return;
     function onKey(e: KeyboardEvent) {
       switch (e.key) {
-        case "ArrowLeft": e.preventDefault(); enqueue("l"); break;
-        case "ArrowRight": e.preventDefault(); enqueue("r"); break;
-        case "ArrowDown": e.preventDefault(); enqueue("s"); break;
+        case "ArrowLeft":
+          e.preventDefault();
+          enqueue("l");
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          enqueue("r");
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          enqueue("s");
+          break;
         case "ArrowUp":
         case "x":
-        case "X": e.preventDefault(); enqueue("cw"); break;
+        case "X":
+          e.preventDefault();
+          enqueue("cw");
+          break;
         case "z":
-        case "Z": e.preventDefault(); enqueue("ccw"); break;
-        case " ": e.preventDefault(); enqueue("h"); break;
+        case "Z":
+          e.preventDefault();
+          enqueue("ccw");
+          break;
+        case " ":
+          e.preventDefault();
+          enqueue("h");
+          break;
         case "p":
-        case "P": setPaused((p) => !p); break;
+        case "P":
+          setPaused((p) => !p);
+          break;
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-     
   }, [started]);
 
   const grid = engine.render();
   const nextMatrix = engine.nextPieceMatrix();
   const ghost = engine.ghost();
-  const ghostSet = new Set(
-    ghost?.cells.map(([r, c]) => `${r},${c}`) ?? [],
-  );
+  const ghostSet = new Set(ghost?.cells.map(([r, c]) => `${r},${c}`) ?? []);
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -129,7 +146,11 @@ export function TetrisGame({
         <Stat label={t("g.score")} value={engine.score} big />
         <Stat label={t("g.lines")} value={engine.lines} />
         <Stat label={t("g.level")} value={engine.level} />
-        <NextPreview matrix={nextMatrix} color={PIECE_COLORS[engine.peekNextType()]} label={t("g.next")} />
+        <NextPreview
+          matrix={nextMatrix}
+          color={PIECE_COLORS[engine.peekNextType()]}
+          label={t("g.next")}
+        />
       </div>
 
       {/* Tablero */}
@@ -174,10 +195,7 @@ export function TetrisGame({
         {started && paused && !over && (
           <GameOverlay>
             <h3 className="font-pixel text-base text-[--color-gold]">{t("g.pause")}</h3>
-            <button
-              onClick={() => setPaused(false)}
-              className="btn3d btn3d--magenta mt-4"
-            >
+            <button onClick={() => setPaused(false)} className="btn3d btn3d--magenta mt-4">
               {t("g.resume")}
             </button>
           </GameOverlay>
@@ -212,30 +230,16 @@ export function TetrisGame({
       )}
 
       {/* Ayuda de teclado (en compu) */}
-      <p className="hidden text-center text-xs text-slate-500 sm:block">
-        {t("g.tetris.keys")}
-      </p>
+      <p className="hidden text-center text-xs text-slate-500 sm:block">{t("g.tetris.keys")}</p>
     </div>
   );
 }
 
-function Stat({
-  label,
-  value,
-  big,
-}: {
-  label: string;
-  value: number;
-  big?: boolean;
-}) {
+function Stat({ label, value, big }: { label: string; value: number; big?: boolean }) {
   return (
     <div className="flex-1 rounded-lg border border-[--color-border] bg-[--color-surface] px-2 py-1 text-center">
-      <div className="text-[10px] uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
-      <div className={`font-extrabold ${big ? "text-lg" : "text-base"}`}>
-        {value}
-      </div>
+      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`font-extrabold ${big ? "text-lg" : "text-base"}`}>{value}</div>
     </div>
   );
 }
@@ -279,9 +283,7 @@ function NextPreview({
 }) {
   return (
     <div className="rounded-lg border border-[--color-border] bg-[--color-surface] px-2 py-1 text-center">
-      <div className="text-[10px] uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
+      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-1 flex flex-col items-center gap-px">
         {matrix.map((row, r) => (
           <div key={r} className="flex gap-px">
@@ -291,9 +293,7 @@ function NextPreview({
                 className="h-2 w-2 rounded-[1px]"
                 style={{
                   backgroundColor: cell ? color : "transparent",
-                  boxShadow: cell
-                    ? "inset 0.5px 0.5px 0 rgba(255,255,255,0.5)"
-                    : undefined,
+                  boxShadow: cell ? "inset 0.5px 0.5px 0 rgba(255,255,255,0.5)" : undefined,
                 }}
               />
             ))}
@@ -304,13 +304,7 @@ function NextPreview({
   );
 }
 
-function TouchBtn({
-  onClick,
-  label,
-}: {
-  onClick: () => void;
-  label: string;
-}) {
+function TouchBtn({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
       onClick={onClick}
@@ -320,4 +314,3 @@ function TouchBtn({
     </button>
   );
 }
-

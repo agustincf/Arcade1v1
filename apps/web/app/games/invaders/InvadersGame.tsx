@@ -13,8 +13,21 @@ import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 
-const { WIDTH, HEIGHT, ALIEN_W, ALIEN_H, PLAYER_W, PLAYER_H, PLAYER_Y, BULLET_H, BOMB_H, SB, UFO_W, UFO_H, UFO_Y } =
-  INVADERS_CONST;
+const {
+  WIDTH,
+  HEIGHT,
+  ALIEN_W,
+  ALIEN_H,
+  PLAYER_W,
+  PLAYER_H,
+  PLAYER_Y,
+  BULLET_H,
+  BOMB_H,
+  SB,
+  UFO_W,
+  UFO_H,
+  UFO_Y,
+} = INVADERS_CONST;
 const STEP = INVADERS_DT * 1000;
 const ROW_COLOR = ["#ff3df0", "#27e8ff", "#ffd23d", "#39ff7a"];
 // Estrellas de fondo (posiciones fijas).
@@ -205,7 +218,6 @@ export function InvadersGame({
       window.removeEventListener("keydown", onDownKey);
       window.removeEventListener("keyup", onUpKey);
     };
-     
   }, [started]);
 
   // Botones tactiles: mantener para mover, tocar para disparar.
@@ -222,7 +234,12 @@ export function InvadersGame({
         className="relative overflow-hidden rounded-lg border-2 border-[#0a0518]"
         style={{ width: "min(86vw, 320px)" }}
       >
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block h-auto w-full touch-none" />
+        <canvas
+          ref={canvasRef}
+          width={WIDTH}
+          height={HEIGHT}
+          className="block h-auto w-full touch-none"
+        />
 
         {!started && (
           <StartScreen

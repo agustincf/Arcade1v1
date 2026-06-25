@@ -157,7 +157,9 @@ body::after {
     inset -2px -2px 0 rgba(0, 0, 0, 0.35),
     0 4px 0 #9c6b00;
   cursor: pointer;
-  transition: transform 0.05s, box-shadow 0.05s;
+  transition:
+    transform 0.05s,
+    box-shadow 0.05s;
   text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.4);
 }
 .btn3d:hover {

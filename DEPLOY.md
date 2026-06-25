@@ -12,6 +12,7 @@ Hay **3 piezas** que se publican por separado:
 ---
 
 ## Paso 1 — Desplegar el contrato (Base Sepolia) — **llave en mano**
+
 Un solo script hace todo. Corrés **dos veces**:
 
 ```bash
@@ -31,7 +32,9 @@ bash packages/contracts/deploy-base-sepolia.sh
 > pago + reembolso. Ver `packages/contracts/check-payment-e2e.sh`.
 
 ## Paso 2 — Publicar el árbitro (backend)
+
 En un hosting de Node (ej. Render), apuntando a `apps/server`:
+
 - Build/Start: `npm install` y `npm run start -w @arcade1v1/server`.
 - Variables de entorno (en los "secrets" del hosting, **no** en el código):
   - `ARBITER_PRIVATE_KEY` — la llave del árbitro (guardar como secreto). Debe ser
@@ -44,13 +47,16 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
 - Anotá la **URL pública** del árbitro (ej. `https://arcade1v1-arbiter.onrender.com`).
 
 ## Paso 3 — Publicar la web (Vercel)
+
 Importá el repo en Vercel, raíz `apps/web`. Variables de entorno:
+
 - `NEXT_PUBLIC_SITE_URL` — tu dominio (para SEO / sitemap / Open Graph).
 - `NEXT_PUBLIC_ARBITER_URL` — la URL del árbitro (Paso 2).
 - `NEXT_PUBLIC_WC_PROJECT_ID` — el de WalletConnect/Reown.
 - `NEXT_PUBLIC_ESCROW_ADDRESS` y `NEXT_PUBLIC_USDC_ADDRESS` — las del Paso 1.
 
 ## Después de publicar
+
 - Registrá el dominio en **Google Search Console** y mandá `/sitemap.xml`.
 - Acuñá fichas de prueba (el USDC tiene `mint` abierto) y jugá una partida real de
   cualquiera de los **6 juegos** de punta a punta (con dos wallets / dos agentes).
@@ -58,6 +64,7 @@ Importá el repo en Vercel, raíz `apps/web`. Variables de entorno:
 ---
 
 ## ✅ Checklist de producción (seguridad)
+
 - [ ] `REQUIRE_AUTH=true` en el árbitro (firma obligatoria).
 - [ ] `NODE_ENV=production` (apaga el bot de prueba `/bot`).
 - [ ] La web en producción **no** muestra rival simulado (ya gateado por `NODE_ENV`).

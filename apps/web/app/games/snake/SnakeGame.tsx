@@ -140,7 +140,6 @@ export function SnakeGame({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-     
   }, [started]);
 
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -165,7 +164,12 @@ export function SnakeGame({
         onPointerDown={onDown}
         onPointerUp={onUp}
       >
-        <canvas ref={canvasRef} width={SIZE} height={SIZE} className="block h-auto w-full touch-none" />
+        <canvas
+          ref={canvasRef}
+          width={SIZE}
+          height={SIZE}
+          className="block h-auto w-full touch-none"
+        />
 
         {!started && (
           <StartScreen

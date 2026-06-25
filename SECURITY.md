@@ -39,15 +39,16 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 ## Hallazgos (priorizados)
 
 ### 🔴 Críticos — bloquean el dinero real
+
 1. **Puntaje sin verificar (anti-trampa).** ✅ **RESUELTO en los 6 juegos**
    (2048, Tetris, Flappy, Carrera, Snake y Space Invaders), con **default-deny**:
    el árbitro tiene un **registro de verificadores** y **rechaza cualquier juego
    que no sepa verificar** (nunca confía en un puntaje sin re-jugar el replay).
    Motor compartido web/servidor; los de tiempo real corren con **paso de tiempo
    fijo** (por ticks) y graban las entradas con su tick. El servidor re-simula el
-   *replay* y rechaza cualquier puntaje inventado — verificado en `selftest`
+   _replay_ y rechaza cualquier puntaje inventado — verificado en `selftest`
    (legítimo aceptado e inventado rechazado en los 6, + **juego desconocido
-   rechazado**). *(Los juegos nuevos deben sumar su verificador al registro.)*
+   rechazado**). _(Los juegos nuevos deben sumar su verificador al registro.)_
 2. **El flujo de dinero on-chain está probado de punta a punta con el backend
    real; falta desplegarlo a una red pública.** 🟡 Modelo **asincrónico open/join**:
    el árbitro **ya no crea la partida ni paga gas** — cada jugador deposita por su
@@ -69,17 +70,19 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    **dormida** mientras no haya `NEXT_PUBLIC_ESCROW_ADDRESS` (el modo de prueba no
    cambia). **Falta solo:** **desplegar** a Base Sepolia/mainnet y setear las
    direcciones (`NEXT_PUBLIC_ESCROW_ADDRESS` / `NEXT_PUBLIC_USDC_ADDRESS`).
+
 3. **Autenticación en el backend.** ✅ **RESUELTO.** El jugador (y los agentes)
    **firman su envío con la wallet**; el árbitro verifica que la firma recupere
    su dirección (verificado en `selftest`: firma válida aceptada, firma que no
    corresponde rechazada). Con `REQUIRE_AUTH=true` la firma es **obligatoria** en
    producción; en dev queda opcional para permitir invitados de prueba.
-   *(Pendiente menor: exigir firma también al emparejar.)*
+   _(Pendiente menor: exigir firma también al emparejar.)_
 4. **Legal / regulatorio.** Apuestas con dinero real = licencias, **KYC/AML**,
    verificación de **edad** y **restricciones por país**. Sin esto no se puede
    operar legalmente. (Bloqueante no técnico, el más importante.)
 
 ### 🟠 Altos
+
 5. **Endpoint `/bot` de prueba.** ✅ **RESUELTO.** Queda **apagado en producción**
    (`NODE_ENV=production`, salvo `ENABLE_TEST_BOT=true`).
 6. **Fallback "offline" simulado en el frontend.** ✅ **RESUELTO.** En producción
@@ -104,10 +107,11 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
    reemplaza** una auditoría humana profesional, que sigue pendiente.
 
 ### 🟡 Medios
+
 10. **Rate limiting** en el backend. ✅ **HECHO** — límite por IP (120 pedidos
     cada 10s) que devuelve 429. Ajustable.
 11. **Semilla por `Math.random`.** Sirve para que sea igual para ambos, pero un
-    esquema *commit-reveal* sería más robusto contra predicción/grinding.
+    esquema _commit-reveal_ sería más robusto contra predicción/grinding.
 12. **Empate dispara el reembolso on-chain.** ✅ **HECHO** — al detectar empate el
     árbitro llama `cancelMatch` y el contrato reembolsa a ambos (verificado e2e en
     cadena local).
@@ -115,6 +119,7 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
     multisig** para el owner.
 
 ### 🟢 Bajos
+
 14. **Sin pausa de emergencia** en el contrato (es inmutable; bueno para la
     confianza, pero no hay "freno" si algo sale mal). Evaluar una pausa acotada.
 15. **CORS** — ✅ **configurable** con `ALLOWED_ORIGIN` (en producción se
@@ -125,22 +130,22 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 
 ## Checklist "antes de pensar en dinero real"
 
-- [x] **Anti-trampa** (verificación por replay) — *crítico* — hecho en los 6
-  juegos (2048, Tetris, Flappy, Carrera, Snake, Space Invaders) con **default-deny**
-  (un juego sin verificador se rechaza). Los juegos nuevos deben seguir el patrón.
+- [x] **Anti-trampa** (verificación por replay) — _crítico_ — hecho en los 6
+      juegos (2048, Tetris, Flappy, Carrera, Snake, Space Invaders) con **default-deny**
+      (un juego sin verificador se rechaza). Los juegos nuevos deben seguir el patrón.
 - [x] **Conectar el flujo on-chain real** (depósito USDC `open`/`join` + `settle` +
-  reembolso en empate y por vencimiento) — *crítico* — implementado y verificado
-  e2e en cadena local; falta el deploy a testnet/mainnet.
-- [x] **Autenticación de jugadores** (firmar los envíos con la wallet) — *crítico*
-  — hecho; activar con `REQUIRE_AUTH=true` en producción
-- [ ] **Asesoría legal + licencias + KYC/AML + edad + geobloqueo** — *crítico (legal)*
-- [ ] Quitar `/bot` y el fallback simulado de producción — *alto*
-- [ ] Proteger la llave del árbitro (KMS/HSM, multisig) — *alto*
-- [ ] Persistencia + recuperación del backend — *alto*
-- [~] **Auditoría externa** del contrato — *alto* — análisis estático (Slither)
+      reembolso en empate y por vencimiento) — _crítico_ — implementado y verificado
+      e2e en cadena local; falta el deploy a testnet/mainnet.
+- [x] **Autenticación de jugadores** (firmar los envíos con la wallet) — _crítico_
+      — hecho; activar con `REQUIRE_AUTH=true` en producción
+- [ ] **Asesoría legal + licencias + KYC/AML + edad + geobloqueo** — _crítico (legal)_
+- [ ] Quitar `/bot` y el fallback simulado de producción — _alto_
+- [ ] Proteger la llave del árbitro (KMS/HSM, multisig) — _alto_
+- [ ] Persistencia + recuperación del backend — _alto_
+- [~] **Auditoría externa** del contrato — _alto_ — análisis estático (Slither)
   hecho y limpio (sin críticos/altos/medios); falta la auditoría humana profesional
-- [ ] Rate limiting + HTTPS + monitoreo — *medio*
-- [ ] Pruebas de extremo a extremo en testnet con varios usuarios reales — *medio*
+- [ ] Rate limiting + HTTPS + monitoreo — _medio_
+- [ ] Pruebas de extremo a extremo en testnet con varios usuarios reales — _medio_
 
 > **Conclusión:** la base está sólida y el contrato es seguro en lo que cubre,
 > pero **NO se debe activar dinero real** hasta cerrar al menos los 4 puntos

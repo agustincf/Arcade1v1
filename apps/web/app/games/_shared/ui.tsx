@@ -29,9 +29,7 @@ export function StartScreen({
     <GameOverlay>
       <div>{icon}</div>
       <h3 className="font-pixel mt-2 text-sm text-[--color-gold] neon">{title}</h3>
-      <p className="font-screen mt-2 max-w-[240px] text-lg text-slate-100">
-        {instructions}
-      </p>
+      <p className="font-screen mt-2 max-w-[240px] text-lg text-slate-100">{instructions}</p>
       <button onClick={onStart} className="btn3d btn3d--magenta mt-4">
         {t("g.start")}
       </button>

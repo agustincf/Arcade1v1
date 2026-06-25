@@ -14,9 +14,7 @@ export function Header() {
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-2">
           <span className="text-2xl">🕹️</span>
-          <span className="font-pixel text-sm text-[--color-accent] neon">
-            Arcade1v1
-          </span>
+          <span className="font-pixel text-sm text-[--color-accent] neon">Arcade1v1</span>
         </Link>
 
         <div className="flex items-center gap-3">

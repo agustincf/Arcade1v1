@@ -308,9 +308,7 @@ export function FlappyGame({
         )}
       </div>
 
-      <p className="font-screen text-center text-base text-slate-500">
-        {t("g.flappy.hint")}
-      </p>
+      <p className="font-screen text-center text-base text-slate-500">{t("g.flappy.hint")}</p>
     </div>
   );
 }

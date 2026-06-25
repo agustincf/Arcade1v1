@@ -19,11 +19,7 @@ export function proxy(req: NextRequest) {
     ""
   ).toUpperCase();
 
-  if (
-    country &&
-    BLOCKED.includes(country) &&
-    !req.nextUrl.pathname.startsWith("/unavailable")
-  ) {
+  if (country && BLOCKED.includes(country) && !req.nextUrl.pathname.startsWith("/unavailable")) {
     const url = req.nextUrl.clone();
     url.pathname = "/unavailable";
     return NextResponse.rewrite(url);

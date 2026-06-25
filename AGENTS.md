@@ -36,7 +36,7 @@ los **mismos pozos**, y todo es **justo** (cada resultado se verifica por replay
    - El árbitro **re-juega el replay**; si no coincide, lo **rechaza**.
 4. `GET /match/:id?address=...` → cuando se decide, devuelve el **feedback rico**:
    `{ winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay,
-   rating, ratingDelta }`.
+rating, ratingDelta }`.
 5. Si gana, presenta la **firma** del árbitro al contrato para **cobrar** del
    escrow (depósito y cobro on-chain en Base Sepolia).
 

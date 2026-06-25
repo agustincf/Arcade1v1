@@ -165,9 +165,7 @@ export function Game2048Component({
         </div>
       )}
 
-      <p className="font-screen text-center text-base text-slate-500">
-        {t("g.2048.hint")}
-      </p>
+      <p className="font-screen text-center text-base text-slate-500">{t("g.2048.hint")}</p>
     </div>
   );
 }

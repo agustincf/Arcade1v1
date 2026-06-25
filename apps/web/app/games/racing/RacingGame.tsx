@@ -71,8 +71,7 @@ export function RacingGame({
       WIDTH / 2 + (lane - 1) * (roadWidthAt(y) / 3.1);
     // Proyeccion con perspectiva real: lejos se mueve lento, cerca acelera.
     const projY = (engineY: number) =>
-      HORIZON +
-      Math.pow(Math.max(0, engineY) / HEIGHT, 1.9) * (HEIGHT - HORIZON);
+      HORIZON + Math.pow(Math.max(0, engineY) / HEIGHT, 1.9) * (HEIGHT - HORIZON);
     const depthScale = (y: number) => {
       const t = (y - HORIZON) / (HEIGHT - HORIZON);
       return 0.3 + t * 1.0;
@@ -84,13 +83,7 @@ export function RacingGame({
       else ctx.rect(x, y, w, h);
     };
 
-    function drawCar(
-      cx: number,
-      cy: number,
-      scale: number,
-      body: string,
-      player = false,
-    ) {
+    function drawCar(cx: number, cy: number, scale: number, body: string, player = false) {
       const w = 42 * scale;
       const h = 30 * scale;
       const x = cx - w / 2;
@@ -191,14 +184,22 @@ export function RacingGame({
       let band = Math.floor(eng.roadOffset / 3); // desplaza las bandas
       while (yb > HORIZON) {
         const yTop = Math.max(HORIZON, yb - dy);
-        const odd = (((band % 2) + 2) % 2) === 0;
+        const odd = ((band % 2) + 2) % 2 === 0;
         const rwT = roadWidthAt(yTop);
         const rwB = roadWidthAt(yb);
         // pasto
         ctx.fillStyle = odd ? "#173d24" : "#123018";
         ctx.fillRect(0, yTop, WIDTH, yb - yTop);
         // ruta
-        quad(cx - rwT / 2, cx + rwT / 2, cx - rwB / 2, cx + rwB / 2, yTop, yb, odd ? "#3a3550" : "#322c48");
+        quad(
+          cx - rwT / 2,
+          cx + rwT / 2,
+          cx - rwB / 2,
+          cx + rwB / 2,
+          yTop,
+          yb,
+          odd ? "#3a3550" : "#322c48",
+        );
         // rumble (bordes neon)
         const rbT = Math.max(2, rwT * 0.08);
         const rbB = Math.max(2, rwB * 0.08);
@@ -290,7 +291,6 @@ export function RacingGame({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-     
   }, [started]);
 
   return (
@@ -299,12 +299,7 @@ export function RacingGame({
         className="relative overflow-hidden rounded-lg border-2 border-[#0a0518]"
         style={{ width: "min(86vw, 320px)" }}
       >
-        <canvas
-          ref={canvasRef}
-          width={WIDTH}
-          height={HEIGHT}
-          className="block h-auto w-full"
-        />
+        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block h-auto w-full" />
 
         {!started && (
           <StartScreen
@@ -336,24 +331,16 @@ export function RacingGame({
       {/* Controles tactiles */}
       {started && !over && (
         <div className="grid w-full max-w-[320px] grid-cols-2 gap-3">
-          <button
-            onClick={() => enqueue("l")}
-            className="btn3d btn3d--cyan !text-2xl"
-          >
+          <button onClick={() => enqueue("l")} className="btn3d btn3d--cyan !text-2xl">
             ◀
           </button>
-          <button
-            onClick={() => enqueue("r")}
-            className="btn3d btn3d--cyan !text-2xl"
-          >
+          <button onClick={() => enqueue("r")} className="btn3d btn3d--cyan !text-2xl">
             ▶
           </button>
         </div>
       )}
 
-      <p className="font-screen text-center text-base text-slate-500">
-        {t("g.racing.hint")}
-      </p>
+      <p className="font-screen text-center text-base text-slate-500">{t("g.racing.hint")}</p>
     </div>
   );
 }

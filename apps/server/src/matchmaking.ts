@@ -313,9 +313,7 @@ function view(m: Match, address?: string): MatchView {
     v.yourScore = yourScore;
     v.rivalScore = rivalScore;
     v.margin =
-      yourScore !== undefined && rivalScore !== undefined
-        ? yourScore - rivalScore
-        : undefined;
+      yourScore !== undefined && rivalScore !== undefined ? yourScore - rivalScore : undefined;
     v.netPnl = netPnl(m, address);
     v.rivalReplay = rival ? m.replays[rival] : undefined;
     const myElo = address === m.p1 ? m.eloUpdate?.p1 : m.eloUpdate?.p2;

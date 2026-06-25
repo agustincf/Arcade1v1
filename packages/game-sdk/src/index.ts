@@ -57,9 +57,7 @@ export interface GameRun {
 export interface GameServerModule {
   meta: GameMeta;
   /** Re-juega el replay y confirma el puntaje real (anti-trampa). */
-  verifyRun(
-    run: GameRun,
-  ): { ok: true; score: number } | { ok: false; error: string };
+  verifyRun(run: GameRun): { ok: true; score: number } | { ok: false; error: string };
   /** Compara dos puntajes ya verificados y dicta el resultado. */
   decide(scoreP1: number, scoreP2: number): MatchOutcome;
 }

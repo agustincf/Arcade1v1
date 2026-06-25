@@ -164,12 +164,15 @@ export class InvadersEngine {
 
   private dropBomb() {
     const cols: number[] = [];
-    for (let c = 0; c < COLS; c++)
-      if (this.alive.some((row) => row[c])) cols.push(c);
+    for (let c = 0; c < COLS; c++) if (this.alive.some((row) => row[c])) cols.push(c);
     if (!cols.length) return;
     const col = cols[Math.floor(this.rng() * cols.length)];
     let row = -1;
-    for (let r = ROWS - 1; r >= 0; r--) if (this.alive[r][col]) { row = r; break; }
+    for (let r = ROWS - 1; r >= 0; r--)
+      if (this.alive[r][col]) {
+        row = r;
+        break;
+      }
     if (row < 0) return;
     const p = this.alienPos(row, col);
     this.bombs.push({ x: p.x + ALIEN_W / 2, y: p.y + ALIEN_H });
@@ -274,12 +277,7 @@ export class InvadersEngine {
         for (let c = 0; c < COLS && !hit; c++) {
           if (!this.alive[r][c]) continue;
           const p = this.alienPos(r, c);
-          if (
-            b.x >= p.x &&
-            b.x <= p.x + ALIEN_W &&
-            b.y <= p.y + ALIEN_H &&
-            b.y >= p.y
-          ) {
+          if (b.x >= p.x && b.x <= p.x + ALIEN_W && b.y <= p.y + ALIEN_H && b.y >= p.y) {
             this.alive[r][c] = false;
             this.score += ROW_VALUE[r];
             usedBullets.add(bi);
@@ -287,26 +285,20 @@ export class InvadersEngine {
           }
         }
     }
-    if (usedBullets.size)
-      this.bullets = this.bullets.filter((_, i) => !usedBullets.has(i));
+    if (usedBullets.size) this.bullets = this.bullets.filter((_, i) => !usedBullets.has(i));
 
     // Colision: bombas vs escudo y vs jugador
     const px = this.playerX - PLAYER_W / 2;
     const remaining: Shot[] = [];
     for (const bomb of this.bombs) {
       const si = this.shields.findIndex(
-        (s) =>
-          bomb.x >= s.x &&
-          bomb.x <= s.x + SB &&
-          bomb.y + BOMB_H >= s.y &&
-          bomb.y <= s.y + SB,
+        (s) => bomb.x >= s.x && bomb.x <= s.x + SB && bomb.y + BOMB_H >= s.y && bomb.y <= s.y + SB,
       );
       if (si >= 0) {
         this.shields.splice(si, 1);
         continue; // la bomba se consume en el escudo
       }
-      const hit =
-        bomb.y + BOMB_H >= PLAYER_Y && bomb.x >= px && bomb.x <= px + PLAYER_W;
+      const hit = bomb.y + BOMB_H >= PLAYER_Y && bomb.x >= px && bomb.x <= px + PLAYER_W;
       if (hit) {
         this.lives -= 1;
         if (this.lives <= 0) {

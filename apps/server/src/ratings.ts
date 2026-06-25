@@ -68,10 +68,7 @@ export function applyResult(
 }
 
 /** Tabla de posiciones de un juego (mayor rating primero). */
-export function leaderboard(
-  game: string,
-  limit = 20,
-): { address: string; rating: number }[] {
+export function leaderboard(game: string, limit = 20): { address: string; rating: number }[] {
   return Object.entries(store)
     .map(([address, games]) => ({ address, rating: games[game] }))
     .filter((x): x is { address: string; rating: number } => typeof x.rating === "number")

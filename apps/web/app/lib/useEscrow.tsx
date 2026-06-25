@@ -9,13 +9,7 @@
 
 import { useWriteContract, usePublicClient } from "wagmi";
 import { maxUint256 } from "viem";
-import {
-  ESCROW_ADDRESS,
-  USDC_ADDRESS,
-  escrowAbi,
-  erc20Abi,
-  toUsdcUnits,
-} from "@/app/lib/escrow";
+import { ESCROW_ADDRESS, USDC_ADDRESS, escrowAbi, erc20Abi, toUsdcUnits } from "@/app/lib/escrow";
 
 export function useEscrow() {
   const { writeContractAsync } = useWriteContract();
@@ -77,11 +71,7 @@ export function useEscrow() {
   }
 
   /** El ganador cobra: envía la firma del árbitro al contrato. */
-  async function claim(
-    matchId: `0x${string}`,
-    winner: `0x${string}`,
-    signature: `0x${string}`,
-  ) {
+  async function claim(matchId: `0x${string}`, winner: `0x${string}`, signature: `0x${string}`) {
     if (!ESCROW_ADDRESS || !publicClient) {
       throw new Error("on-chain no configurado");
     }

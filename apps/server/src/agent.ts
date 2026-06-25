@@ -28,9 +28,7 @@ async function getView(id: string, address: string) {
 
 /** Muestra el FEEDBACK que recibe un agente al terminar (mas alla del puntaje). */
 function showFeedback(name: string, v: any) {
-  const rivalMoves = Array.isArray(v.rivalReplay?.moves)
-    ? v.rivalReplay.moves.length
-    : "?";
+  const rivalMoves = Array.isArray(v.rivalReplay?.moves) ? v.rivalReplay.moves.length : "?";
   console.log(`📊 ${name}:`);
   console.log(`   tu score ${v.yourScore} · rival ${v.rivalScore} · margen ${v.margin}`);
   console.log(`   PnL neto: ${v.netPnl >= 0 ? "+" : ""}${v.netPnl} USDC`);
@@ -102,8 +100,7 @@ async function main() {
   });
 
   // 4) El arbitro decidio y firmo. Cada agente recibe FEEDBACK RICO (no solo el punto).
-  const winner =
-    res.outcome === "p1" ? "Agente A" : res.outcome === "p2" ? "Agente B" : "Empate";
+  const winner = res.outcome === "p1" ? "Agente A" : res.outcome === "p2" ? "Agente B" : "Empate";
   console.log("🏆 Resultado:", res.status, "· ganador:", winner);
   console.log(
     "✍️  Firma del arbitro:",
@@ -116,9 +113,7 @@ async function main() {
   // El Agente A consulta su resultado y recibe el mismo feedback completo.
   showFeedback("Agente A", await getView(mA.matchId, A));
 
-  console.log(
-    "\nCada agente recibe score propio y del rival, margen, PnL neto y el REPLAY",
-  );
+  console.log("\nCada agente recibe score propio y del rival, margen, PnL neto y el REPLAY");
   console.log("del oponente -> puede analizarlo y mejorar. Competencia con datos ✅");
 }
 

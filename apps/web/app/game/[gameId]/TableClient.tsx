@@ -17,11 +17,7 @@ import {
   type MatchSpeed,
 } from "@/app/lib/config";
 
-export function TableClient({
-  params,
-}: {
-  params: Promise<{ gameId: string }>;
-}) {
+export function TableClient({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = use(params);
   const game = getGame(gameId);
   const router = useRouter();
@@ -98,7 +94,9 @@ export function TableClient({
                   <div className="font-pixel text-base text-[--color-gold]">{bet}</div>
                   <div className="font-screen text-base text-slate-400">USDC</div>
                   {m.premium && (
-                    <div className="font-screen text-sm text-[--color-accent]">{t("table.vip")}</div>
+                    <div className="font-screen text-sm text-[--color-accent]">
+                      {t("table.vip")}
+                    </div>
                   )}
                   <div className="font-screen text-base text-[--color-win]">
                     {t("table.win", { n: prize })}
@@ -147,11 +145,7 @@ export function TableClient({
                 value={`- ${getPayout(selected).fee} USDC`}
               />
               <div className="my-2 border-t-2 border-dashed border-[--color-border]" />
-              <Row
-                label={t("table.prize")}
-                value={`${getPayout(selected).prize} USDC`}
-                highlight
-              />
+              <Row label={t("table.prize")} value={`${getPayout(selected).prize} USDC`} highlight />
             </div>
           </div>
         </div>
@@ -184,15 +178,7 @@ function SignalBars({ speed }: { speed: MatchSpeed }) {
   );
 }
 
-function Row({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
+function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="flex items-center justify-between py-1">
       <span className="text-slate-400">{label}</span>

@@ -7,24 +7,57 @@ export const COLS = 10;
 export const ROWS = 20;
 
 const BASE_SHAPES: number[][][] = [
-  [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]], // I
-  [[1, 1], [1, 1]], // O
-  [[0, 1, 0], [1, 1, 1], [0, 0, 0]], // T
-  [[0, 1, 1], [1, 1, 0], [0, 0, 0]], // S
-  [[1, 1, 0], [0, 1, 1], [0, 0, 0]], // Z
-  [[1, 0, 0], [1, 1, 1], [0, 0, 0]], // J
-  [[0, 0, 1], [1, 1, 1], [0, 0, 0]], // L
+  [
+    [0, 0, 0, 0],
+    [1, 1, 1, 1],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ], // I
+  [
+    [1, 1],
+    [1, 1],
+  ], // O
+  [
+    [0, 1, 0],
+    [1, 1, 1],
+    [0, 0, 0],
+  ], // T
+  [
+    [0, 1, 1],
+    [1, 1, 0],
+    [0, 0, 0],
+  ], // S
+  [
+    [1, 1, 0],
+    [0, 1, 1],
+    [0, 0, 0],
+  ], // Z
+  [
+    [1, 0, 0],
+    [1, 1, 1],
+    [0, 0, 0],
+  ], // J
+  [
+    [0, 0, 1],
+    [1, 1, 1],
+    [0, 0, 0],
+  ], // L
 ];
 
 export const PIECE_COLORS = [
-  "#27e8ff", "#ffd23d", "#c06bff", "#39ff7a", "#ff4d6d", "#4d8bff", "#ff9f1c",
+  "#27e8ff",
+  "#ffd23d",
+  "#c06bff",
+  "#39ff7a",
+  "#ff4d6d",
+  "#4d8bff",
+  "#ff9f1c",
 ];
 
 function rotateCW(m: number[][]): number[][] {
   const n = m.length;
   const res = Array.from({ length: n }, () => Array(n).fill(0));
-  for (let r = 0; r < n; r++)
-    for (let c = 0; c < n; c++) res[c][n - 1 - r] = m[r][c];
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) res[c][n - 1 - r] = m[r][c];
   return res;
 }
 
@@ -59,8 +92,7 @@ interface ActivePiece {
 const LINE_SCORE = [0, 40, 100, 300, 1200];
 // Cuadros (a 60 ticks/seg) por caida, segun nivel 0..28 (tabla clasica NES).
 const FRAMES = [
-  48, 43, 38, 33, 28, 23, 18, 13, 8, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3, 2, 2, 2, 2,
-  2, 2, 2, 2, 2, 2,
+  48, 43, 38, 33, 28, 23, 18, 13, 8, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
 ];
 
 /** Acciones que puede hacer el jugador (codificadas para el replay). */

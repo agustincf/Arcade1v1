@@ -127,15 +127,18 @@ async function main() {
   console.log("✓ firma valida (recupera al arbitro):", ok);
   // Feedback rico: el envio de B (cerro la partida) trae el replay de A + PnL.
   const richOk =
-    r.rivalReplay !== undefined &&
-    r.rivalScore === sA.score &&
-    typeof r.netPnl === "number";
+    r.rivalReplay !== undefined && r.rivalScore === sA.score && typeof r.netPnl === "number";
   console.log("✓ feedback rico (rivalReplay + rivalScore + netPnl):", richOk, "· PnL B:", r.netPnl);
   const eloOk =
-    typeof r.rating === "number" &&
-    typeof r.ratingDelta === "number" &&
-    r.ratingDelta < 0; // B perdio -> su rating baja
-  console.log("✓ rating ELO (B perdió → baja):", eloOk, "· rating B:", r.rating, "delta", r.ratingDelta);
+    typeof r.rating === "number" && typeof r.ratingDelta === "number" && r.ratingDelta < 0; // B perdio -> su rating baja
+  console.log(
+    "✓ rating ELO (B perdió → baja):",
+    eloOk,
+    "· rating B:",
+    r.rating,
+    "delta",
+    r.ratingDelta,
+  );
 
   // 4) Empate -> reembolso (mismos movimientos = mismo puntaje).
   const e1 = await matchmake("2048", 10, A);
@@ -182,7 +185,10 @@ async function main() {
   console.log("✓ firma que no corresponde RECHAZADA:", badRejected);
 
   // 7) ANTI-TRAMPA en los juegos de TIEMPO REAL (paso fijo determinístico).
-  const games: { name: "tetris" | "flappy" | "racing" | "snake" | "invaders"; play: (s: number) => { score: number; replay: unknown } }[] = [
+  const games: {
+    name: "tetris" | "flappy" | "racing" | "snake" | "invaders";
+    play: (s: number) => { score: number; replay: unknown };
+  }[] = [
     { name: "tetris", play: playTetris },
     { name: "flappy", play: playFlappy },
     { name: "racing", play: playRacing },
@@ -198,11 +204,19 @@ async function main() {
     const legitOk = res.scores[A] === pl.score;
     let cheatOk = false;
     try {
-      await submitScore(p1.matchId, B, 999999, { seed: p1.seed, ticks: 5, inputs: [], flaps: [], moves: [] });
+      await submitScore(p1.matchId, B, 999999, {
+        seed: p1.seed,
+        ticks: 5,
+        inputs: [],
+        flaps: [],
+        moves: [],
+      });
     } catch {
       cheatOk = true;
     }
-    console.log(`✓ ${g.name}: replay aceptado (${pl.score} pts) = ${legitOk} · inventado rechazado = ${cheatOk}`);
+    console.log(
+      `✓ ${g.name}: replay aceptado (${pl.score} pts) = ${legitOk} · inventado rechazado = ${cheatOk}`,
+    );
     realtimeOk = realtimeOk && legitOk && cheatOk;
   }
 

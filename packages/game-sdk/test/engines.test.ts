@@ -12,11 +12,32 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { Game2048, verify2048, type Dir, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
-import { TetrisEngine, verifyTetris, type TetrisAction, type ReplayTetris } from "@arcade1v1/game-sdk/tetris";
-import { FlappyEngine, FLAPPY_DT, verifyFlappy, type ReplayFlappy } from "@arcade1v1/game-sdk/flappy";
-import { RacingEngine, RACING_DT, verifyRacing, type RaceAction, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
+import {
+  TetrisEngine,
+  verifyTetris,
+  type TetrisAction,
+  type ReplayTetris,
+} from "@arcade1v1/game-sdk/tetris";
+import {
+  FlappyEngine,
+  FLAPPY_DT,
+  verifyFlappy,
+  type ReplayFlappy,
+} from "@arcade1v1/game-sdk/flappy";
+import {
+  RacingEngine,
+  RACING_DT,
+  verifyRacing,
+  type RaceAction,
+  type ReplayRacing,
+} from "@arcade1v1/game-sdk/racing";
 import { SnakeEngine, verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
-import { InvadersEngine, verifyInvaders, type InvaderAction, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
+import {
+  InvadersEngine,
+  verifyInvaders,
+  type InvaderAction,
+  type ReplayInvaders,
+} from "@arcade1v1/game-sdk/invaders";
 
 // --------------------------------------------------------------------------
 // Helpers: cada uno juega un intento determinista y devuelve { score, replay }.

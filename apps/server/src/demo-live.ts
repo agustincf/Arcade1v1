@@ -5,14 +5,7 @@
 // Correr desde apps/server:  npx tsx src/demo-live.ts
 
 import "dotenv/config";
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  maxUint256,
-  type Hex,
-  type Abi,
-} from "viem";
+import { createPublicClient, createWalletClient, http, maxUint256, type Hex, type Abi } from "viem";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 import { randomBytes } from "node:crypto";
@@ -27,19 +20,39 @@ const STAKE = 5_000_000n; // 5 USDC
 const SCAN = "https://sepolia.basescan.org";
 
 const pub = createPublicClient({ chain: baseSepolia, transport: http(RPC) });
-const wallet = (k: Hex) => createWalletClient({ account: privateKeyToAccount(k), chain: baseSepolia, transport: http(RPC) });
+const wallet = (k: Hex) =>
+  createWalletClient({ account: privateKeyToAccount(k), chain: baseSepolia, transport: http(RPC) });
 const arb = wallet(process.env.ARBITER_PRIVATE_KEY as Hex);
 const p1 = wallet(generatePrivateKey());
 const p2 = wallet(generatePrivateKey());
 const P1 = p1.account.address;
 const P2 = p2.account.address;
 
-async function send(w: ReturnType<typeof wallet>, address: Hex, abi: Abi, fn: string, args: unknown[]) {
-  const hash = await w.writeContract({ address, abi, functionName: fn, args, account: w.account, chain: baseSepolia } as never);
+async function send(
+  w: ReturnType<typeof wallet>,
+  address: Hex,
+  abi: Abi,
+  fn: string,
+  args: unknown[],
+) {
+  const hash = await w.writeContract({
+    address,
+    abi,
+    functionName: fn,
+    args,
+    account: w.account,
+    chain: baseSepolia,
+  } as never);
   await pub.waitForTransactionReceipt({ hash });
   return hash;
 }
-const bal = (a: Hex) => pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [a] }) as Promise<bigint>;
+const bal = (a: Hex) =>
+  pub.readContract({
+    address: USDC,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [a],
+  }) as Promise<bigint>;
 const usd = (x: bigint) => (Number(x) / 1e6).toFixed(2);
 
 async function main() {
@@ -66,7 +79,12 @@ async function main() {
   // 4) P1 ABRE la partida depositando (modelo asincronico: no la crea el arbitro).
   const matchId = ("0x" + randomBytes(32).toString("hex")) as Hex;
   const now = BigInt(Math.floor(Date.now() / 1000));
-  const dep1 = await send(p1, ESCROW, escrowAbi, "open", [matchId, STAKE, now + 3600n, now + 7200n]);
+  const dep1 = await send(p1, ESCROW, escrowAbi, "open", [
+    matchId,
+    STAKE,
+    now + 3600n,
+    now + 7200n,
+  ]);
   console.log("✓ P1 abrió la partida (depositó)");
 
   // 5) P2 se UNE depositando -> partida lista.
@@ -82,7 +100,10 @@ async function main() {
   // 7) Resultado.
   console.log("=== RESULTADO EN BASE SEPOLIA (real) ===");
   console.log("  P1 (ganador) cobró:", usd(await bal(P1)), "USDC  (esperado 8.50)");
-  console.log("  TU wallet (comisión) recibió +" + usd((await bal(PLATFORM)) - platBefore), "USDC  (esperado 1.50)");
+  console.log(
+    "  TU wallet (comisión) recibió +" + usd((await bal(PLATFORM)) - platBefore),
+    "USDC  (esperado 1.50)",
+  );
   console.log("  escrow quedó en:", usd(await bal(ESCROW)), "USDC  (esperado 0.00)");
   console.log("\n=== VERLO EN EL EXPLORADOR ===");
   console.log("  P1 abrió:     ", `${SCAN}/tx/${dep1}`);

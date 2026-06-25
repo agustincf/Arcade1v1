@@ -71,7 +71,9 @@ export default function LeaderboardPage() {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="font-pixel w-8 text-center text-sm text-slate-200">{medal(i)}</span>
+                      <span className="font-pixel w-8 text-center text-sm text-slate-200">
+                        {medal(i)}
+                      </span>
                       <span className="font-screen text-base text-slate-200">
                         {short(row.address)}
                         {mine && <span className="ml-2 text-[--color-lime]">({t("lb.you")})</span>}

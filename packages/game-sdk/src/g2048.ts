@@ -75,8 +75,7 @@ export class Game2048 {
 
   private fromCols(cols: number[][]): number[][] {
     const out = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
-    for (let c = 0; c < SIZE; c++)
-      for (let r = 0; r < SIZE; r++) out[r][c] = cols[c][r];
+    for (let c = 0; c < SIZE; c++) for (let r = 0; r < SIZE; r++) out[r][c] = cols[c][r];
     return out;
   }
 

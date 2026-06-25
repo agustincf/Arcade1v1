@@ -70,12 +70,7 @@ export default function RecoverPage() {
       for (const m of stored) {
         try {
           const s = await escrow.readMatch(m.matchId);
-          const { kind, deadline } = classify(
-            s.status,
-            s.fundDeadline,
-            s.playDeadline,
-            nowSec,
-          );
+          const { kind, deadline } = classify(s.status, s.fundDeadline, s.playDeadline, nowSec);
           out.push({ ...m, kind, deadline });
         } catch {
           out.push({ ...m, kind: "unknown", deadline: 0 });
@@ -102,18 +97,20 @@ export default function RecoverPage() {
 
       {!onchainEnabled ? (
         <div className="win mt-6">
-          <div className="win-title"><span>{t("recover.title")}</span></div>
+          <div className="win-title">
+            <span>{t("recover.title")}</span>
+          </div>
           <p className="font-screen p-5 text-center text-lg text-slate-300">
             {t("recover.notConfigured")}
           </p>
         </div>
       ) : !connected ? (
         <div className="win mt-6">
-          <div className="win-title"><span>{t("recover.title")}</span></div>
+          <div className="win-title">
+            <span>{t("recover.title")}</span>
+          </div>
           <div className="p-6 text-center">
-            <p className="font-screen text-lg text-slate-300">
-              {t("recover.connectPrompt")}
-            </p>
+            <p className="font-screen text-lg text-slate-300">{t("recover.connectPrompt")}</p>
             <button onClick={connect} className="btn3d btn3d--cyan mt-5 w-full">
               {t("recover.connect")}
             </button>
@@ -201,8 +198,7 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
     <div className="win">
       <div className="win-title">
         <span>
-          {game ? t(`game.${game.id}.name`).toUpperCase() : row.game.toUpperCase()} ·{" "}
-          {row.bet} USDC
+          {game ? t(`game.${game.id}.name`).toUpperCase() : row.game.toUpperCase()} · {row.bet} USDC
         </span>
         <span
           className={`chip ${refundable ? "!text-[--color-gold]" : resolved ? "!text-slate-400" : "!text-[--color-accent-2]"}`}
@@ -227,9 +223,7 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
 
         {refundable &&
           (state === "done" ? (
-            <p className="font-screen mt-3 text-lg text-[--color-win]">
-              {t("recover.done")}
-            </p>
+            <p className="font-screen mt-3 text-lg text-[--color-win]">{t("recover.done")}</p>
           ) : (
             <>
               <button
@@ -237,9 +231,7 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
                 disabled={state === "working"}
                 className="btn3d btn3d--magenta mt-4 w-full disabled:opacity-60"
               >
-                {state === "working"
-                  ? t("recover.processing")
-                  : t("recover.btn", { bet: row.bet })}
+                {state === "working" ? t("recover.processing") : t("recover.btn", { bet: row.bet })}
               </button>
               {state === "error" && (
                 <p className="font-screen mt-2 text-base text-[--color-lose]">

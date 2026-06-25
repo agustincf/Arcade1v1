@@ -56,9 +56,7 @@ export function rememberMatch(address: string, m: OpenMatch) {
 /** Partidas registradas por esta wallet, de más nueva a más vieja. */
 export function listMatches(address: string): OpenMatch[] {
   if (!address) return [];
-  return (readStore()[norm(address)] ?? [])
-    .slice()
-    .sort((a, b) => b.ts - a.ts);
+  return (readStore()[norm(address)] ?? []).slice().sort((a, b) => b.ts - a.ts);
 }
 
 /** Olvida una partida (ya cobrada, reembolsada o resuelta): la saca del índice. */

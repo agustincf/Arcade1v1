@@ -81,13 +81,7 @@ app.post("/matchmake", async (req, res) => {
 app.post("/match/:id/score", async (req, res) => {
   try {
     const { address, score, replay, signature } = req.body ?? {};
-    const out = await submitScore(
-      req.params.id,
-      String(address),
-      Number(score),
-      replay,
-      signature,
-    );
+    const out = await submitScore(req.params.id, String(address), Number(score), replay, signature);
     res.json(out);
   } catch (e) {
     res.status(400).json({ error: (e as Error).message });
@@ -97,10 +91,7 @@ app.post("/match/:id/score", async (req, res) => {
 // Completar la partida contra un bot (SOLO pruebas en solitario).
 // Apagado en produccion salvo que se active con ENABLE_TEST_BOT=true.
 app.post("/match/:id/bot", async (req, res) => {
-  if (
-    process.env.NODE_ENV === "production" &&
-    process.env.ENABLE_TEST_BOT !== "true"
-  ) {
+  if (process.env.NODE_ENV === "production" && process.env.ENABLE_TEST_BOT !== "true") {
     return res.status(403).json({ error: "test bot disabled in production" });
   }
   try {

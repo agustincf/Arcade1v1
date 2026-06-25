@@ -17,7 +17,8 @@ export const GAMES: GameInfo[] = [
     id: "invaders",
     name: "Space Invaders",
     tagline: "Defendé la galaxia",
-    description: "Destrui oleadas de aliens antes de que te invadan. Mas naves abatidas = mas pozo.",
+    description:
+      "Destrui oleadas de aliens antes de que te invadan. Mas naves abatidas = mas pozo.",
     emoji: "👾",
     status: "live",
   },
@@ -33,7 +34,8 @@ export const GAMES: GameInfo[] = [
     id: "2048",
     name: "2048",
     tagline: "Sumá y dominá",
-    description: "Desliza, combina fichas iguales y hace el numero mas alto. Mas puntaje, te llevas el pozo.",
+    description:
+      "Desliza, combina fichas iguales y hace el numero mas alto. Mas puntaje, te llevas el pozo.",
     emoji: "🔢",
     status: "live",
   },
@@ -49,7 +51,8 @@ export const GAMES: GameInfo[] = [
     id: "tetris",
     name: "Tetris",
     tagline: "El rey del puntaje",
-    description: "Apila, hace lineas y revienta el tablero. Mas puntaje que tu rival = te llevas el pozo.",
+    description:
+      "Apila, hace lineas y revienta el tablero. Mas puntaje que tu rival = te llevas el pozo.",
     emoji: "🟦",
     status: "live",
   },

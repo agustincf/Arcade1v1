@@ -122,10 +122,7 @@ export class RacingEngine {
     }
 
     for (const o of this.obstacles) {
-      if (
-        o.lane === this.carLane &&
-        Math.abs(o.y - CAR_Y) < OBST_H / 2 + CAR_H / 2 - 8
-      ) {
+      if (o.lane === this.carLane && Math.abs(o.y - CAR_Y) < OBST_H / 2 + CAR_H / 2 - 8) {
         this.over = true;
         return;
       }

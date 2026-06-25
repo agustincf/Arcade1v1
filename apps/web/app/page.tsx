@@ -51,9 +51,7 @@ export default function HomePage() {
                     {t(`game.${game.id}.desc`)}
                   </p>
                   <div className="mt-5 text-center">
-                    <span className="btn3d btn3d--magenta inline-block">
-                      {t("card.cta")}
-                    </span>
+                    <span className="btn3d btn3d--magenta inline-block">{t("card.cta")}</span>
                   </div>
                 </div>
               </div>
@@ -94,9 +92,7 @@ export default function HomePage() {
               key={n}
               className="border-b-2 border-dashed border-[--color-border] py-3 last:border-0"
             >
-              <h2 className="font-pixel text-[11px] text-[--color-accent-2]">
-                {t(`faq.q${n}`)}
-              </h2>
+              <h2 className="font-pixel text-[11px] text-[--color-accent-2]">{t(`faq.q${n}`)}</h2>
               <p className="mt-2 text-slate-300">{t(`faq.a${n}`)}</p>
             </div>
           ))}

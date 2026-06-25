@@ -12,8 +12,7 @@ function getCtx(): AudioContext | null {
   if (!ctx) {
     const AC =
       window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext })
-        .webkitAudioContext;
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     ctx = new AC();
     masterGain = ctx.createGain();
     masterGain.gain.value = muted ? 0 : volume;
@@ -28,12 +27,7 @@ export function ensureAudio() {
   if (c && c.state === "suspended") c.resume();
 }
 
-function tone(
-  freq: number,
-  dur: number,
-  type: OscillatorType = "square",
-  vol = 0.2,
-) {
+function tone(freq: number, dur: number, type: OscillatorType = "square", vol = 0.2) {
   const c = getCtx();
   if (!c || muted || !masterGain) return;
   const o = c.createOscillator();
@@ -49,13 +43,7 @@ function tone(
   o.stop(c.currentTime + dur + 0.02);
 }
 
-function slide(
-  f1: number,
-  f2: number,
-  dur: number,
-  type: OscillatorType = "square",
-  vol = 0.2,
-) {
+function slide(f1: number, f2: number, dur: number, type: OscillatorType = "square", vol = 0.2) {
   const c = getCtx();
   if (!c || muted || !masterGain) return;
   const o = c.createOscillator();

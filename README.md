@@ -70,12 +70,12 @@ celular por QR), via wagmi + RainbowKit. Ya implementada.
 - [x] **Fase 2** — Tetris (asincronico, por puntaje).
 - [x] **Fase 3** — Flappy 1v1 (asincronico, por puntaje). + Carrera + 2048.
 - [x] **Fase 4** — Contrato escrow (escrito + probado 9/9) + billetera + flujo
-  on-chain open/join y pago/reembolso (verificado e2e en cadena local). Red
-  conmutable Base mainnet / Sepolia (testnet por defecto).
+      on-chain open/join y pago/reembolso (verificado e2e en cadena local). Red
+      conmutable Base mainnet / Sepolia (testnet por defecto).
 - [x] **Fase 5** — Backend arbitro (emparejamiento + semilla + firma + anti-trampa
-  por replay en los 6 juegos, con default-deny) + pago on-chain conectado.
+      por replay en los 6 juegos, con default-deny) + pago on-chain conectado.
 - [x] **Fase 6** — Repaso de seguridad y checklist pre-dinero-real → ver
-  [SECURITY.md](SECURITY.md).
+      [SECURITY.md](SECURITY.md).
 
 ## Estado actual
 

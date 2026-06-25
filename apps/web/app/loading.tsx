@@ -9,9 +9,7 @@ export default function Loading() {
       <div className="relative mx-auto h-14 w-14">
         <span className="absolute inset-0 animate-spin rounded-full border-4 border-[--color-border] border-t-[--color-accent]" />
       </div>
-      <p className="font-pixel mt-5 text-sm text-[--color-accent-2] neon-cyan">
-        {t("loading")}
-      </p>
+      <p className="font-pixel mt-5 text-sm text-[--color-accent-2] neon-cyan">{t("loading")}</p>
     </div>
   );
 }

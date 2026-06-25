@@ -2,9 +2,7 @@
 // Sin estado: se puede usar en componentes de servidor o cliente.
 
 function Sheen({ x, y, w, h, r }: { x: number; y: number; w: number; h: number; r: number }) {
-  return (
-    <rect x={x} y={y} width={w} height={h * 0.45} rx={r} fill="rgba(255,255,255,0.45)" />
-  );
+  return <rect x={x} y={y} width={w} height={h * 0.45} rx={r} fill="rgba(255,255,255,0.45)" />;
 }
 
 function Blk({ x, y, s, c }: { x: number; y: number; s: number; c: string }) {
@@ -16,13 +14,7 @@ function Blk({ x, y, s, c }: { x: number; y: number; s: number; c: string }) {
   );
 }
 
-export function GameIcon({
-  id,
-  size = 48,
-}: {
-  id: string;
-  size?: number;
-}) {
+export function GameIcon({ id, size = 48 }: { id: string; size?: number }) {
   const glow =
     id === "tetris"
       ? "#27e8ff"
@@ -95,7 +87,14 @@ export function GameIcon({
           ].map((t, i) => (
             <g key={i}>
               <rect x={t.x} y={t.y} width={18} height={18} rx={3} fill={t.c} />
-              <rect x={t.x + 1} y={t.y + 1} width={16} height={7} rx={2} fill="rgba(255,255,255,0.4)" />
+              <rect
+                x={t.x + 1}
+                y={t.y + 1}
+                width={16}
+                height={7}
+                rx={2}
+                fill="rgba(255,255,255,0.4)"
+              />
               <text
                 x={t.x + 9}
                 y={t.y + 14}
@@ -116,7 +115,12 @@ export function GameIcon({
         <>
           {/* cuerpo de la serpiente */}
           {[
-            [8, 30], [18, 30], [28, 30], [28, 20], [28, 10], [18, 10],
+            [8, 30],
+            [18, 30],
+            [28, 30],
+            [28, 20],
+            [28, 10],
+            [18, 10],
           ].map(([x, y], i) => (
             <rect key={i} x={x} y={y} width={10} height={10} rx={2} fill="#39ff7a" />
           ))}
@@ -132,14 +136,7 @@ export function GameIcon({
         <>
           {/* invader clasico en pixeles */}
           {(() => {
-            const P = [
-              "00100100",
-              "01111110",
-              "11011011",
-              "11111111",
-              "10111101",
-              "10100101",
-            ];
+            const P = ["00100100", "01111110", "11011011", "11111111", "10111101", "10100101"];
             const s = 5;
             const ox = 4;
             const oy = 8;
@@ -148,7 +145,14 @@ export function GameIcon({
               rowStr.split("").forEach((ch, c) => {
                 if (ch === "1")
                   cells.push(
-                    <rect key={`${r}-${c}`} x={ox + c * s} y={oy + r * s} width={s} height={s} fill="#ff3df0" />,
+                    <rect
+                      key={`${r}-${c}`}
+                      x={ox + c * s}
+                      y={oy + r * s}
+                      width={s}
+                      height={s}
+                      fill="#ff3df0"
+                    />,
                   );
               }),
             );
@@ -159,10 +163,7 @@ export function GameIcon({
 
       {id === "coming-soon" && (
         <>
-          <path
-            d="M24 4 L29 19 L44 24 L29 29 L24 44 L19 29 L4 24 L19 19 Z"
-            fill="#ff3df0"
-          />
+          <path d="M24 4 L29 19 L44 24 L29 29 L24 44 L19 29 L4 24 L19 19 Z" fill="#ff3df0" />
           <path d="M24 4 L29 19 L44 24 L24 24 Z" fill="rgba(255,255,255,0.4)" />
         </>
       )}

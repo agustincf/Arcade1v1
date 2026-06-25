@@ -3,13 +3,7 @@
 // la partida ni paga gas: SOLO cancela en empate (reembolso). Se activa si
 // ESCROW_ADDRESS esta configurado; si no, es no-op (dev).
 
-import {
-  createWalletClient,
-  createPublicClient,
-  http,
-  type Hex,
-  type Chain,
-} from "viem";
+import { createWalletClient, createPublicClient, http, type Hex, type Chain } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry, base, baseSepolia } from "viem/chains";
 import { escrowAbi } from "./abi.js";

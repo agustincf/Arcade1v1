@@ -4,14 +4,7 @@
 // premio + comision, y el reembolso en empate.
 
 import "dotenv/config";
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  parseEther,
-  type Hex,
-  type Abi,
-} from "viem";
+import { createPublicClient, createWalletClient, http, parseEther, type Hex, type Abi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
 import { matchmake, submitScore, onchainSettled } from "./matchmaking.js";
@@ -30,7 +23,12 @@ const KEYS = {
 const PLATFORM = "0x90F79bf6EB2c4f870365E785982E1f101E93b906" as Hex;
 
 const pub = createPublicClient({ chain: foundry, transport: http(RPC) });
-const w = (k: string) => createWalletClient({ account: privateKeyToAccount(k as Hex), chain: foundry, transport: http(RPC) });
+const w = (k: string) =>
+  createWalletClient({
+    account: privateKeyToAccount(k as Hex),
+    chain: foundry,
+    transport: http(RPC),
+  });
 const owner = w(KEYS.owner);
 const p1 = w(KEYS.p1);
 const p2 = w(KEYS.p2);
@@ -38,10 +36,23 @@ const P1 = p1.account.address;
 const P2 = p2.account.address;
 
 async function send(c: ReturnType<typeof w>, address: Hex, abi: Abi, fn: string, args: unknown[]) {
-  const hash = await c.writeContract({ address, abi, functionName: fn, args, account: c.account, chain: foundry } as never);
+  const hash = await c.writeContract({
+    address,
+    abi,
+    functionName: fn,
+    args,
+    account: c.account,
+    chain: foundry,
+  } as never);
   await pub.waitForTransactionReceipt({ hash });
 }
-const bal = (a: Hex) => pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [a] }) as Promise<bigint>;
+const bal = (a: Hex) =>
+  pub.readContract({
+    address: USDC,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [a],
+  }) as Promise<bigint>;
 const usd = (x: bigint) => (Number(x) / 1e6).toFixed(2);
 const deadlines = () => {
   const now = BigInt(Math.floor(Date.now() / 1000));
@@ -93,12 +104,20 @@ async function main() {
   console.log("✓ ganador:", res.winner === P1 ? "P1" : "P2", "· firma:", !!res.signature);
 
   // 4) El ganador cobra (cualquiera puede llamar settle con la firma).
-  await send(owner, ESCROW, escrowAbi, "settle", [res.matchId as Hex, res.winner as Hex, res.signature as Hex]);
+  await send(owner, ESCROW, escrowAbi, "settle", [
+    res.matchId as Hex,
+    res.winner as Hex,
+    res.signature as Hex,
+  ]);
 
   console.log("✓ ganador cobró:", usd(await bal(P1)), "USDC (esperado 8.50)");
   console.log("✓ plataforma (15%):", usd(await bal(PLATFORM)), "USDC (esperado 1.50)");
   console.log("✓ escrow:", usd(await bal(ESCROW)), "USDC (esperado 0.00)");
-  if ((await bal(P1)) !== 8_500_000n || (await bal(PLATFORM)) !== 1_500_000n || (await bal(ESCROW)) !== 0n) {
+  if (
+    (await bal(P1)) !== 8_500_000n ||
+    (await bal(PLATFORM)) !== 1_500_000n ||
+    (await bal(ESCROW)) !== 0n
+  ) {
     console.log("\n❌ Balances no cuadran");
     process.exit(1);
   }

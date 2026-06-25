@@ -20,10 +20,6 @@ export async function generateMetadata({
   };
 }
 
-export default function Page({
-  params,
-}: {
-  params: Promise<{ gameId: string }>;
-}) {
+export default function Page({ params }: { params: Promise<{ gameId: string }> }) {
   return <TableClient params={params} />;
 }

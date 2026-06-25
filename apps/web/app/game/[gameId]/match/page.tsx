@@ -30,11 +30,7 @@ import { InvadersGame, type InvadersResult } from "@/app/games/invaders/Invaders
 type Outcome = "win" | "lose" | "draw" | null;
 const rnd = () => Math.floor(Math.random() * 1e9);
 
-export default function MatchPage({
-  params,
-}: {
-  params: Promise<{ gameId: string }>;
-}) {
+export default function MatchPage({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = use(params);
   const game = getGame(gameId);
   const router = useRouter();
@@ -138,7 +134,6 @@ export default function MatchPage({
       }
     }, 2500);
     return () => clearInterval(iv);
-     
   }, [waiting, matchId]);
 
   if (!game) return null;
@@ -307,15 +302,12 @@ export default function MatchPage({
       <div className="win mt-3">
         <div className="win-title">
           <span>
-            {t(`game.${game.id}.name`).toUpperCase()} ·{" "}
-            {free ? t("match.modeFree") : `${bet} USDC`}
+            {t(`game.${game.id}.name`).toUpperCase()} · {free ? t("match.modeFree") : `${bet} USDC`}
           </span>
           {free ? (
             <span className="chip !text-[--color-lime]">{t("match.gratis")}</span>
           ) : (
-            <span className="chip !text-[--color-gold]">
-              {t("match.pot", { n: payout.pot })}
-            </span>
+            <span className="chip !text-[--color-gold]">{t("match.pot", { n: payout.pot })}</span>
           )}
         </div>
         {!free && (
@@ -397,17 +389,47 @@ export default function MatchPage({
               )}
             </div>
           ) : game.id === "tetris" ? (
-            <TetrisGame key={round} seed={seed} {...gameProps} onFinish={(r: TetrisResult) => finishMatch(r.score, r.replay)} />
+            <TetrisGame
+              key={round}
+              seed={seed}
+              {...gameProps}
+              onFinish={(r: TetrisResult) => finishMatch(r.score, r.replay)}
+            />
           ) : game.id === "flappy" ? (
-            <FlappyGame key={round} seed={seed} {...gameProps} onFinish={(r: FlappyResult) => finishMatch(r.score, r.replay)} />
+            <FlappyGame
+              key={round}
+              seed={seed}
+              {...gameProps}
+              onFinish={(r: FlappyResult) => finishMatch(r.score, r.replay)}
+            />
           ) : game.id === "racing" ? (
-            <RacingGame key={round} seed={seed} {...gameProps} onFinish={(r: RacingResult) => finishMatch(r.score, r.replay)} />
+            <RacingGame
+              key={round}
+              seed={seed}
+              {...gameProps}
+              onFinish={(r: RacingResult) => finishMatch(r.score, r.replay)}
+            />
           ) : game.id === "snake" ? (
-            <SnakeGame key={round} seed={seed} {...gameProps} onFinish={(r: SnakeResult) => finishMatch(r.score, r.replay)} />
+            <SnakeGame
+              key={round}
+              seed={seed}
+              {...gameProps}
+              onFinish={(r: SnakeResult) => finishMatch(r.score, r.replay)}
+            />
           ) : game.id === "invaders" ? (
-            <InvadersGame key={round} seed={seed} {...gameProps} onFinish={(r: InvadersResult) => finishMatch(r.score, r.replay)} />
+            <InvadersGame
+              key={round}
+              seed={seed}
+              {...gameProps}
+              onFinish={(r: InvadersResult) => finishMatch(r.score, r.replay)}
+            />
           ) : (
-            <Game2048Component key={round} seed={seed} {...gameProps} onFinish={(r: Result2048) => finishMatch(r.score, r.replay)} />
+            <Game2048Component
+              key={round}
+              seed={seed}
+              {...gameProps}
+              onFinish={(r: Result2048) => finishMatch(r.score, r.replay)}
+            />
           )}
         </div>
       </div>
@@ -424,12 +446,9 @@ export default function MatchPage({
           <div className="relative mx-auto h-14 w-14">
             <span className="absolute inset-0 animate-spin rounded-full border-4 border-[--color-border] border-t-[--color-accent]" />
           </div>
-          <p className="font-screen mt-4 text-lg text-slate-200">
-            {t("match.waitingRival")}
-          </p>
+          <p className="font-screen mt-4 text-lg text-slate-200">{t("match.waitingRival")}</p>
           <p className="font-screen mt-2 text-lg text-slate-400">
-            {t("match.yourScore")}:{" "}
-            <b className="text-[--color-gold]">{youScore}</b>
+            {t("match.yourScore")}: <b className="text-[--color-gold]">{youScore}</b>
           </p>
           <div className="mt-5 flex flex-col gap-3">
             <button onClick={tryBot} className="btn3d btn3d--cyan w-full">
@@ -455,7 +474,10 @@ export default function MatchPage({
           <p className="font-pixel text-3xl text-[--color-gold]">{youScore}</p>
           <p className="font-screen mt-3 text-lg text-slate-300">{t("match.freeUpsell")}</p>
           <div className="mt-5 flex flex-col gap-3">
-            <button onClick={() => router.push(`/game/${gameId}`)} className="btn3d btn3d--magenta w-full">
+            <button
+              onClick={() => router.push(`/game/${gameId}`)}
+              className="btn3d btn3d--magenta w-full"
+            >
               {t("match.playUsdc")}
             </button>
             <div className="flex gap-3">
@@ -478,10 +500,20 @@ export default function MatchPage({
           </div>
           <h2
             className={`font-pixel mt-3 text-lg ${
-              outcome === "win" ? "text-[--color-win]" : outcome === "draw" ? "text-slate-100" : "text-[--color-lose]"
+              outcome === "win"
+                ? "text-[--color-win]"
+                : outcome === "draw"
+                  ? "text-slate-100"
+                  : "text-[--color-lose]"
             }`}
           >
-            {forfeit ? t("match.forfeit") : outcome === "win" ? t("match.win") : outcome === "lose" ? t("match.lose") : t("match.draw")}
+            {forfeit
+              ? t("match.forfeit")
+              : outcome === "win"
+                ? t("match.win")
+                : outcome === "lose"
+                  ? t("match.lose")
+                  : t("match.draw")}
           </h2>
 
           {forfeit ? (
@@ -511,16 +543,23 @@ export default function MatchPage({
                 </p>
               )}
               <div className="win mt-5">
-                <div className="win-title"><span>{t("match.cashlog")}</span></div>
+                <div className="win-title">
+                  <span>{t("match.cashlog")}</span>
+                </div>
                 <div className="font-screen p-4 text-lg">
                   {outcome === "win" && (
                     <>
                       <Money label={t("table.totalPot")} value={`${payout.pot} USDC`} />
-                      <Money label={t("table.fee", { pct: PLATFORM_FEE * 100 })} value={`- ${payout.fee} USDC`} />
+                      <Money
+                        label={t("table.fee", { pct: PLATFORM_FEE * 100 })}
+                        value={`- ${payout.fee} USDC`}
+                      />
                       <div className="my-2 border-t-2 border-dashed border-[--color-border]" />
                       <div className="flex justify-between">
                         <span className="text-slate-300">{t("match.cobras")}</span>
-                        <span className="font-pixel text-sm text-[--color-win]">{payout.prize} USDC</span>
+                        <span className="font-pixel text-sm text-[--color-win]">
+                          {payout.prize} USDC
+                        </span>
                       </div>
                     </>
                   )}
@@ -535,9 +574,7 @@ export default function MatchPage({
               {outcome === "win" && onchainEnabled && winnerSig && (
                 <div className="mt-4">
                   {claimState === "done" ? (
-                    <p className="font-screen text-lg text-[--color-win]">
-                      {t("match.claimDone")}
-                    </p>
+                    <p className="font-screen text-lg text-[--color-win]">{t("match.claimDone")}</p>
                   ) : (
                     <>
                       <button
@@ -563,7 +600,10 @@ export default function MatchPage({
 
           <div className="mt-5 flex gap-3">
             {!forfeit && (
-              <button onClick={() => router.push(`/game/${gameId}`)} className="btn3d btn3d--magenta flex-1">
+              <button
+                onClick={() => router.push(`/game/${gameId}`)}
+                className="btn3d btn3d--magenta flex-1"
+              >
                 {t("match.rematch")}
               </button>
             )}

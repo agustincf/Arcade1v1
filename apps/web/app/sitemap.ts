@@ -4,9 +4,7 @@ import { GAMES } from "@/app/lib/games";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
-  const games: MetadataRoute.Sitemap = GAMES.filter(
-    (g) => g.status === "live",
-  ).map((g) => ({
+  const games: MetadataRoute.Sitemap = GAMES.filter((g) => g.status === "live").map((g) => ({
     url: `${SITE.url}/game/${g.id}`,
     lastModified: now,
     changeFrequency: "weekly",
