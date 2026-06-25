@@ -61,13 +61,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [ratingDelta, setRatingDelta] = useState<number>(0);
   const [freeDone, setFreeDone] = useState(false);
   const [forfeit, setForfeit] = useState(false);
-  // Estado on-chain (approve previo + deposito + cobro del ganador).
-  const [approved, setApproved] = useState(false);
-  const [approving, setApproving] = useState(false);
-  const [approveErr, setApproveErr] = useState(false);
+  // Estado on-chain. El depósito es UNA sola acción: aprueba el USDC (solo la
+  // primera vez) y enseguida abre/se une a la partida.
   const [role, setRole] = useState<"p1" | "p2" | null>(null);
   const [deposited, setDeposited] = useState(false);
-  const [depositing, setDepositing] = useState(false);
+  const [funding, setFunding] = useState<"" | "approving" | "depositing">("");
   const [depositErr, setDepositErr] = useState(false);
   const [winnerSig, setWinnerSig] = useState<string | null>(null);
   const [winnerAddr, setWinnerAddr] = useState<string | null>(null);
@@ -78,9 +76,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // responde, seguimos en modo "offline" con rival simulado (no se cuelga).
   useEffect(() => {
     if (free || matchId) return;
-    // En modo plata on-chain: wallet conectada Y allowance aprobado ANTES de
-    // emparejar (el árbitro no crea la partida si no hay fondos aprobados).
-    if (needsDeposit && (!address || !approved)) return;
+    // Modo plata on-chain: con la wallet conectada alcanza para emparejar (orden
+    // de llegada). El depósito (approve + open/join) viene después, en un paso.
+    if (needsDeposit && !address) return;
     pidRef.current = playerId(address ?? null);
     let cancel = false;
     (async () => {
@@ -104,7 +102,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       cancel = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, approved]);
+  }, [address]);
 
   // Aviso del navegador si cierra/recarga durante el intento (de plata).
   useEffect(() => {
@@ -156,26 +154,18 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     }
   }
 
-  async function doApprove() {
-    if (!address) return;
-    setApproving(true);
-    setApproveErr(false);
-    try {
-      await escrow.approveStake(address as `0x${string}`, bet);
-      setApproved(true); // dispara el emparejamiento
-    } catch {
-      setApproveErr(true);
-    } finally {
-      setApproving(false);
-    }
-  }
-
+  // UNA sola acción para entrar a la partida: aprueba el USDC (solo la 1ra vez;
+  // si ya hay allowance suficiente, no pide nada) y enseguida abre (p1) o se une
+  // (p2) depositando. Así el jugador no pasa por dos pantallas separadas.
   async function doFund() {
-    if (!matchId) return;
-    setDepositing(true);
+    if (!matchId || !address) return;
     setDepositErr(false);
     try {
-      // El 1ro (p1) ABRE la partida; el 2do (p2) se UNE a la que abrió el rival.
+      // 1) Allowance (gratis salvo la primera vez de la wallet).
+      setFunding("approving");
+      await escrow.approveStake(address as `0x${string}`, bet);
+      // 2) Depósito: el 1ro ABRE la partida, el 2do se UNE a la que abrió el rival.
+      setFunding("depositing");
       if (role === "p2") {
         await escrow.join(matchId as `0x${string}`);
       } else {
@@ -184,19 +174,17 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       setDeposited(true);
       // Recordamos la partida por wallet: si nunca aparece rival (o no hay
       // resultado a tiempo), el usuario puede volver a /recover y reembolsar.
-      if (address) {
-        rememberMatch(address, {
-          matchId: matchId as `0x${string}`,
-          game: game!.id,
-          bet,
-          role: role === "p2" ? "p2" : "p1",
-          ts: Date.now(),
-        });
-      }
+      rememberMatch(address, {
+        matchId: matchId as `0x${string}`,
+        game: game!.id,
+        bet,
+        role: role === "p2" ? "p2" : "p1",
+        ts: Date.now(),
+      });
     } catch {
       setDepositErr(true);
     } finally {
-      setDepositing(false);
+      setFunding("");
     }
   }
 
@@ -342,51 +330,38 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
             <p className="font-screen py-10 text-center text-xl text-[--color-accent-2]">
               {t("match.connectFirst")}
             </p>
-          ) : needsDeposit && !approved ? (
-            <div className="py-6 text-center">
-              <p className="font-pixel text-sm text-[--color-gold]">{t("match.approveTitle")}</p>
-              <p className="font-screen mx-auto mt-3 max-w-sm text-lg text-slate-300">
-                {t("match.approveInfo", { bet })}
-              </p>
-              <button
-                onClick={doApprove}
-                disabled={approving}
-                className="btn3d btn3d--cyan mt-5 w-full disabled:opacity-60"
-              >
-                {approving ? t("match.depositWait") : t("match.approveBtn", { bet })}
-              </button>
-              {approveErr && (
-                <p className="font-screen mt-3 text-base text-[--color-lose]">
-                  {t("match.approveErr")}
-                </p>
-              )}
-            </div>
           ) : seed === null ? (
             <p className="font-screen py-10 text-center text-xl text-[--color-accent-2]">
               {t("match.connecting")}
             </p>
           ) : needsDeposit && !deposited ? (
             <div className="py-6 text-center">
-              <p className="font-pixel text-sm text-[--color-gold]">{t("match.depositGate")}</p>
+              <p className="font-pixel text-sm text-[--color-gold]">{t("match.playTitle")}</p>
               <p className="font-screen mx-auto mt-3 max-w-sm text-lg text-slate-300">
                 {role === "p2" ? t("match.joinHint", { bet }) : t("match.openHint", { bet })}
               </p>
               <button
                 onClick={doFund}
-                disabled={depositing}
+                disabled={funding !== ""}
                 className="btn3d btn3d--magenta mt-5 w-full disabled:opacity-60"
               >
-                {depositing
-                  ? t("match.depositWait")
-                  : role === "p2"
-                    ? t("match.joinBtn", { bet })
-                    : t("match.openBtn", { bet })}
+                {funding === "approving"
+                  ? t("match.approving")
+                  : funding === "depositing"
+                    ? t("match.depositing")
+                    : role === "p2"
+                      ? t("match.joinBtn", { bet })
+                      : t("match.openBtn", { bet })}
               </button>
-              {depositErr && (
+              {funding !== "" ? (
+                <p className="font-screen mt-3 text-base text-slate-400">
+                  {t("match.fundingNote")}
+                </p>
+              ) : depositErr ? (
                 <p className="font-screen mt-3 text-base text-[--color-lose]">
                   {t("match.depositRetry")}
                 </p>
-              )}
+              ) : null}
             </div>
           ) : game.id === "tetris" ? (
             <TetrisGame

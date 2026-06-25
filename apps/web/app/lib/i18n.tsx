@@ -121,19 +121,16 @@ const en: Dict = {
   "match.rematch": "REMATCH",
   "match.confirmExit":
     "If you leave now you FORFEIT and lose: the pot goes to your rival. Leave anyway?",
-  "match.approveTitle": "Enable your USDC",
-  "match.approveInfo": "Approve {bet} USDC once so you can play. You'll deposit on the next step.",
-  "match.approveBtn": "APPROVE {bet} USDC",
-  "match.approveErr": "Couldn't approve — try again.",
-  "match.depositGate": "Fund your match",
+  "match.playTitle": "Ready to play!",
   "match.openHint":
     "Deposit {bet} USDC to open your match. Play your run and leave — we match you with the next rival. No live waiting.",
   "match.joinHint": "Deposit {bet} USDC to join and play. Higher score takes the pot.",
-  "match.openBtn": "OPEN · {bet} USDC",
-  "match.joinBtn": "JOIN · {bet} USDC",
-  "match.depositInfo":
-    "Deposit {bet} USDC to play. Both players deposit; the winner takes the pot.",
-  "match.depositBtn": "APPROVE & DEPOSIT",
+  "match.openBtn": "OPEN & PLAY · {bet} USDC",
+  "match.joinBtn": "JOIN & PLAY · {bet} USDC",
+  "match.approving": "Approving USDC…",
+  "match.depositing": "Entering the match…",
+  "match.fundingNote":
+    "Confirm in your wallet. The first time it's 2 steps (approve + deposit); after that, just one.",
   "match.depositWait": "Processing…",
   "match.depositRetry": "Couldn't deposit — the match may still be starting. Try again.",
   "match.connectFirst": "Connect your wallet to deposit and play.",
@@ -345,19 +342,16 @@ const es: Dict = {
   "match.rematch": "REVANCHA",
   "match.confirmExit":
     "Si salís ahora ABANDONÁS la partida y perdés: el pozo va para tu rival. ¿Salir igual?",
-  "match.approveTitle": "Habilitá tu USDC",
-  "match.approveInfo": "Aprobá {bet} USDC una vez para poder jugar. Después depositás.",
-  "match.approveBtn": "APROBAR {bet} USDC",
-  "match.approveErr": "No se pudo aprobar — probá de nuevo.",
-  "match.depositGate": "Fondeá tu partida",
+  "match.playTitle": "¡Listo para jugar!",
   "match.openHint":
     "Depositá {bet} USDC para abrir tu partida. Jugá tu intento y andate — te emparejamos con el próximo rival. Sin esperar en vivo.",
   "match.joinHint": "Depositá {bet} USDC para unirte y jugar. El de más puntaje se lleva el pozo.",
-  "match.openBtn": "ABRIR · {bet} USDC",
-  "match.joinBtn": "UNIRME · {bet} USDC",
-  "match.depositInfo":
-    "Depositá {bet} USDC para jugar. Los dos depositan; el ganador se lleva el pozo.",
-  "match.depositBtn": "APROBAR Y DEPOSITAR",
+  "match.openBtn": "ABRIR Y JUGAR · {bet} USDC",
+  "match.joinBtn": "ENTRAR Y JUGAR · {bet} USDC",
+  "match.approving": "Aprobando USDC…",
+  "match.depositing": "Entrando a la partida…",
+  "match.fundingNote":
+    "Confirmá en tu wallet. La primera vez son 2 pasos (aprobar + depositar); después, uno solo.",
   "match.depositWait": "Procesando…",
   "match.depositRetry": "No se pudo depositar — la partida puede estar creándose. Probá de nuevo.",
   "match.connectFirst": "Conectá tu wallet para depositar y jugar.",
@@ -569,20 +563,17 @@ const hi: Dict = {
   "match.rematch": "बदला",
   "match.confirmExit":
     "अभी निकले तो मैच छोड़ोगे और हारोगे: दांव प्रतिद्वंद्वी को जाएगा। फिर भी निकलें?",
-  "match.approveTitle": "अपना USDC सक्षम करें",
-  "match.approveInfo": "खेलने के लिए एक बार {bet} USDC स्वीकृत करें। अगले चरण में जमा करेंगे।",
-  "match.approveBtn": "{bet} USDC स्वीकृत करें",
-  "match.approveErr": "स्वीकृति नहीं हो सकी — फिर से कोशिश करें।",
-  "match.depositGate": "अपना मैच फंड करें",
+  "match.playTitle": "खेलने के लिए तैयार!",
   "match.openHint":
     "अपना मैच खोलने के लिए {bet} USDC जमा करें। अपनी बारी खेलें और जाएं — हम आपको अगले प्रतिद्वंद्वी से मिलाते हैं। कोई लाइव इंतज़ार नहीं।",
   "match.joinHint":
     "शामिल होकर खेलने के लिए {bet} USDC जमा करें। ज़्यादा स्कोर वाला पूरा दांव लेता है।",
-  "match.openBtn": "खोलें · {bet} USDC",
-  "match.joinBtn": "शामिल हों · {bet} USDC",
-  "match.depositInfo":
-    "खेलने के लिए {bet} USDC जमा करें। दोनों खिलाड़ी जमा करते हैं; विजेता पूरा दांव लेता है।",
-  "match.depositBtn": "स्वीकृत करें और जमा करें",
+  "match.openBtn": "खोलें और खेलें · {bet} USDC",
+  "match.joinBtn": "शामिल हों और खेलें · {bet} USDC",
+  "match.approving": "USDC स्वीकृत हो रहा है…",
+  "match.depositing": "मैच में प्रवेश हो रहा है…",
+  "match.fundingNote":
+    "अपने वॉलेट में पुष्टि करें। पहली बार 2 चरण होते हैं (स्वीकृति + जमा); उसके बाद सिर्फ़ एक।",
   "match.depositWait": "प्रोसेस हो रहा है…",
   "match.depositRetry": "जमा नहीं हो सका — मैच अभी शुरू हो रहा होगा। फिर से कोशिश करें।",
   "match.connectFirst": "जमा करने और खेलने के लिए अपना वॉलेट कनेक्ट करें।",
@@ -791,21 +782,17 @@ const fr: Dict = {
   "match.rematch": "REVANCHE",
   "match.confirmExit":
     "Si tu pars maintenant tu ABANDONNES et perds : la cagnotte va à ton rival. Quitter quand même ?",
-  "match.approveTitle": "Active ton USDC",
-  "match.approveInfo":
-    "Approuve {bet} USDC une fois pour pouvoir jouer. Tu déposeras à l'étape suivante.",
-  "match.approveBtn": "APPROUVER {bet} USDC",
-  "match.approveErr": "Approbation impossible — réessaie.",
-  "match.depositGate": "Approvisionne ta partie",
+  "match.playTitle": "Prêt à jouer !",
   "match.openHint":
     "Dépose {bet} USDC pour ouvrir ta partie. Joue ta manche et pars — on te matche avec le prochain rival. Sans attente en direct.",
   "match.joinHint":
     "Dépose {bet} USDC pour rejoindre et jouer. Le meilleur score rafle la cagnotte.",
-  "match.openBtn": "OUVRIR · {bet} USDC",
-  "match.joinBtn": "REJOINDRE · {bet} USDC",
-  "match.depositInfo":
-    "Dépose {bet} USDC pour jouer. Les deux joueurs déposent ; le gagnant rafle la cagnotte.",
-  "match.depositBtn": "APPROUVER ET DÉPOSER",
+  "match.openBtn": "OUVRIR ET JOUER · {bet} USDC",
+  "match.joinBtn": "REJOINDRE ET JOUER · {bet} USDC",
+  "match.approving": "Approbation de l'USDC…",
+  "match.depositing": "Entrée dans la partie…",
+  "match.fundingNote":
+    "Confirme dans ton wallet. La première fois, ce sont 2 étapes (approuver + déposer) ; ensuite, une seule.",
   "match.depositWait": "Traitement…",
   "match.depositRetry":
     "Dépôt impossible — la partie est peut-être en cours de création. Réessaie.",
