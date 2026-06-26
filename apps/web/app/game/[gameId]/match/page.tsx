@@ -67,6 +67,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [deposited, setDeposited] = useState(false);
   const [funding, setFunding] = useState<"" | "approving" | "depositing">("");
   const [depositErr, setDepositErr] = useState(false);
+  const [submitting, setSubmitting] = useState(false); // enviando puntaje (firma + envío)
   const [winnerSig, setWinnerSig] = useState<string | null>(null);
   const [winnerAddr, setWinnerAddr] = useState<string | null>(null);
   const [claimState, setClaimState] = useState<"idle" | "claiming" | "done" | "error">("idle");
@@ -221,8 +222,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       else setError(true);
       return;
     }
+    setSubmitting(true);
     try {
-      // Si hay wallet conectada, firmamos el envio (autenticacion).
+      // Si hay wallet conectada, firmamos el envio (autenticacion). En móvil por
+      // QR, esto abre la firma en el celular: el modal avisa que hay que ir ahí.
       let signature: string | undefined;
       if (address) {
         try {
@@ -239,6 +242,8 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     } catch {
       if (devMode) simulate(score);
       else setError(true);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -413,6 +418,14 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
         <p className="font-screen mt-3 text-center text-base text-slate-500">
           {t("match.pairNote")}
         </p>
+      )}
+
+      {/* Enviando el puntaje: hay que confirmar la firma (clave en móvil por QR) */}
+      {submitting && !waiting && outcome === null && (
+        <Modal title={t("match.signing")}>
+          <div className="text-5xl">📲</div>
+          <p className="font-screen mt-4 text-lg text-slate-200">{t("match.signingBody")}</p>
+        </Modal>
       )}
 
       {/* Esperando que el rival juegue (asincronico) */}
