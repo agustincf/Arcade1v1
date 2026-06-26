@@ -5,7 +5,7 @@ import "dotenv/config";
 import "./offline-env.js"; // el selftest corre offline a propósito (ver el módulo)
 import { recoverTypedDataAddress, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { matchmake, submitScore } from "./matchmaking.js";
+import { matchmake, submitScore, replayTooLong } from "./matchmaking.js";
 import { arbiterAddress, RESULT_TYPES, resultDomain } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { TetrisEngine, type TetrisAction } from "@arcade1v1/game-sdk/tetris";
@@ -282,6 +282,23 @@ async function main() {
   const cfgGoodOk = goodCfg.length === 0;
   console.log("✓ guarda de config mainnet OK con todo seteado:", cfgGoodOk);
 
+  // 12) ANTI-DoS: un replay con `ticks` gigantes (re-jugar sería O(ticks)) se
+  //     rechaza ANTES de iterar. Probamos la guarda pura (no dispara el bucle).
+  const dosBig = replayTooLong({ seed: 1, ticks: 1e9, inputs: [] });
+  const dosNormal = replayTooLong({ seed: 1, ticks: 100, inputs: [] });
+  const dosGuardOk = dosBig === true && dosNormal === false;
+  console.log("✓ guarda anti-DoS (replay gigante rechazado, normal aceptado):", dosGuardOk);
+  // Integración: el endpoint corta el replay gigante ANTES de entrar al bucle.
+  const G = "0x5555555555555555555555555555555555555555";
+  const dm = await matchmake("tetris", 5, G);
+  let dosEndpointRejected = false;
+  try {
+    await submitScore(dm.matchId, G, 999999, { seed: dm.seed, ticks: 1e9, inputs: [] });
+  } catch {
+    dosEndpointRejected = true;
+  }
+  console.log("✓ endpoint corta el replay gigante:", dosEndpointRejected);
+
   const allOk =
     ok &&
     cheat2048 &&
@@ -294,7 +311,9 @@ async function main() {
     seedCheatRejected &&
     resubmitRejected &&
     cfgGuardOk &&
-    cfgGoodOk;
+    cfgGoodOk &&
+    dosGuardOk &&
+    dosEndpointRejected;
   if (!allOk) process.exit(1);
   console.log("\nTODO OK ✅");
 }

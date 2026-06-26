@@ -1,10 +1,59 @@
 # Repaso de seguridad — Arcade1v1 (Fase 6)
 
-Fecha: 2026-06-21 · Estado: **testnet / demo** (no opera con dinero real).
+Fecha: 2026-06-21 (1ª ronda) · 2026-06-26 (2ª ronda — ver actualización abajo) ·
+Estado: **testnet / demo** (no opera con dinero real).
 
 Este documento es el resultado de revisar el **contrato** (`packages/contracts`),
 el **backend árbitro** (`apps/server`) y la **arquitectura** completa. La idea es
 ser honestos sobre lo que falta **antes de pensar en dinero real**.
+
+---
+
+## Actualización 2026-06-26 — segunda ronda (preparación mainnet)
+
+Nueva pasada de revisión enfocada en el flujo de dinero. Resumen de lo encontrado
+y resuelto en esta ronda (detalle en cada hallazgo más abajo):
+
+### 🔴 CRÍTICO — RESUELTO: replay con **semilla ajena**
+
+El árbitro re-jugaba el replay usando la semilla **que mandaba el cliente**, sin
+compararla con la semilla real de la partida. Un jugador podía **ignorar la semilla
+justa, probar muchas semillas offline y mandar una favorable** (con un puntaje alto
+que "coincidía" al re-jugar esa misma semilla) → **ganaba con dinero real de forma
+desleal**, y afectaba a los 6 juegos. **Arreglo:** `submitScore` ahora exige
+`replay.seed === match.seed` y **fuerza la semilla real al re-jugar** (el árbitro
+manda sobre el azar, nunca el cliente). Cubierto en `selftest` ("replay con semilla
+ajena RECHAZADO").
+
+### 🟠 Altos/medios — RESUELTOS
+
+- **Un intento por jugador.** El puntaje se **congela en el primer envío válido**.
+  Antes, el primero en enviar podía reintentar hasta sacar su mejor marca (ventaja
+  desleal sobre el rival, que al enviar cierra la partida). Cubierto en `selftest`.
+- **Guarda de configuración de producción** (`apps/server/src/config-guard.ts`). En
+  producción **con escrow activo**, el servidor **no arranca** si falta `CHAIN_ID`,
+  `ARBITER_PRIVATE_KEY` o `ALLOWED_ORIGIN`. Sin esto, `CHAIN_ID` caía por defecto en
+  testnet (84532) y **las firmas del árbitro no servían para cobrar en mainnet**.
+  Cubierto en `selftest`.
+- **Anti-DoS de replay.** Re-jugar es O(ticks)/O(eventos): un replay chiquito con
+  `ticks: 1e9` (que entra en el límite de 256 kb) obligaba a iterar mil millones de
+  veces. Ahora se topa `ticks`/eventos **antes** de re-jugar (`replayTooLong`).
+  Cubierto en `selftest`.
+- **`trust proxy`.** `req.ip` usa `X-Forwarded-For` detrás de un reverse proxy, así
+  el rate-limit no agrupa a todos los clientes bajo la IP del proxy.
+
+### Pendientes de esta ronda (decisión de auditoría / operacional)
+
+No se tocaron a propósito; cambiar el **contrato** (dinero real) sin auditoría
+humana ni tests locales de Foundry sería un riesgo mayor que el que resuelven:
+
+- **Pausa de emergencia acotada** en el contrato. Si se agrega, debe **pausar solo
+  las ENTRADAS** (`open`/`join`) y **nunca las SALIDAS** (`settle`, `refund*`), para
+  poder frenar nuevos depósitos sin atrapar fondos ya custodiados. Decidir e
+  implementar **dentro de la auditoría humana** (con sus tests).
+- **Timelock / multisig del owner** y **resguardo de la llave del árbitro**
+  (KMS/HSM o firma múltiple). Son medidas **operacionales/de despliegue**, no código
+  de este repo. Ver hallazgos 7 y 13.
 
 ---
 
@@ -114,8 +163,11 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 
 10. **Rate limiting** en el backend. ✅ **HECHO** — límite por IP (120 pedidos
     cada 10s) que devuelve 429. Ajustable.
-11. **Semilla por `Math.random`.** Sirve para que sea igual para ambos, pero un
-    esquema _commit-reveal_ sería más robusto contra predicción/grinding.
+11. **Semilla por `Math.random`.** ✅ **Endurecido (2026-06-26):** el árbitro ahora
+    **exige y fuerza la semilla real de la partida** al re-jugar (antes aceptaba la
+    semilla del cliente → ver el crítico de la 2ª ronda, arriba). Sirve para que sea
+    igual para ambos jugadores. _Mejora futura:_ un esquema _commit-reveal_ sería aún
+    más robusto contra la **predicción** de la semilla (`Math.random` es predecible).
 12. **Empate dispara el reembolso on-chain.** ✅ **HECHO** — al detectar empate el
     árbitro llama `cancelMatch` y el contrato reembolsa a ambos (verificado e2e en
     cadena local).
@@ -125,7 +177,11 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 ### 🟢 Bajos
 
 14. **Sin pausa de emergencia** en el contrato (es inmutable; bueno para la
-    confianza, pero no hay "freno" si algo sale mal). Evaluar una pausa acotada.
+    confianza, pero no hay "freno" si algo sale mal). **Recomendación para la
+    auditoría:** una **pausa acotada** que frene solo las ENTRADAS (`open`/`join`) y
+    **nunca** las SALIDAS (`settle`/`refund*`), para no atrapar fondos custodiados.
+    No se agregó en la 2ª ronda para no expandir la superficie del contrato sin
+    auditoría humana ni tests de Foundry (no instalado en el entorno de desarrollo).
 15. **CORS** — ✅ **configurable** con `ALLOWED_ORIGIN` (en producción se
     restringe a tu dominio; en dev queda abierto).
 16. **HTTPS obligatorio** en producción (en local es OK sin él).
@@ -137,6 +193,10 @@ ser honestos sobre lo que falta **antes de pensar en dinero real**.
 - [x] **Anti-trampa** (verificación por replay) — _crítico_ — hecho en los 6
       juegos (2048, Tetris, Flappy, Carrera, Snake, Space Invaders) con **default-deny**
       (un juego sin verificador se rechaza). Los juegos nuevos deben seguir el patrón.
+- [x] **Replay atado a la semilla de la partida** (anti-trampa "semilla ajena") —
+      _crítico_ — hecho (2ª ronda): el árbitro exige y **fuerza** la semilla real.
+- [x] **Un intento por jugador · guarda de config de prod · anti-DoS de replay ·
+      `trust proxy`** — _alto/medio_ — hechos (2ª ronda; ver actualización arriba).
 - [x] **Conectar el flujo on-chain real** (depósito USDC `open`/`join` + `settle` +
       reembolso en empate y por vencimiento) — _crítico_ — implementado y verificado
       e2e en cadena local; falta el deploy a testnet/mainnet.

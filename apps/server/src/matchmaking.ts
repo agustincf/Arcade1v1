@@ -35,6 +35,25 @@ interface Verifier {
 const hasSeed = (r: any) => !!r && typeof r.seed === "number";
 const hasTicks = (r: any) => hasSeed(r) && typeof r.ticks === "number";
 
+// ANTI-DoS: re-jugar un replay es O(ticks) y O(eventos). Sin tope, un replay
+// chiquito con `ticks: 1e9` haría iterar al árbitro mil millones de veces (caída
+// de CPU) aunque el JSON entre en el límite de 256kb. Los topes están muy por
+// encima de cualquier partida real (a 60 ticks/s, 200k ticks ≈ 55 minutos).
+export const MAX_REPLAY_TICKS = 200_000;
+export const MAX_REPLAY_EVENTS = 200_000;
+
+/** ¿El replay pide más trabajo del razonable para re-jugarlo? (corta el DoS). */
+export function replayTooLong(replay: unknown): boolean {
+  const r = replay as { ticks?: unknown; moves?: unknown; inputs?: unknown; flaps?: unknown };
+  if (typeof r.ticks === "number" && (!Number.isFinite(r.ticks) || r.ticks > MAX_REPLAY_TICKS)) {
+    return true;
+  }
+  for (const arr of [r.moves, r.inputs, r.flaps]) {
+    if (Array.isArray(arr) && arr.length > MAX_REPLAY_EVENTS) return true;
+  }
+  return false;
+}
+
 const VERIFIERS: Record<string, Verifier> = {
   "2048": {
     valid: (r: any) => hasSeed(r) && Array.isArray(r.moves),
@@ -246,6 +265,8 @@ export async function submitScore(
   const verifier = VERIFIERS[m.game];
   if (!verifier) throw new Error(`unknown game: ${m.game}`);
   if (!verifier.valid(replay)) throw new Error("replay required");
+  // ANTI-DoS: cortar replays absurdamente largos ANTES de re-jugarlos (ver helper).
+  if (replayTooLong(replay)) throw new Error("replay too long");
   // ANTI-TRAMPA (semilla): el replay debe declarar EXACTAMENTE la semilla de la
   // partida. Sin esto, un jugador probaría muchas semillas offline y mandaría una
   // favorable (eligiendo el "azar" a su gusto) -> ganaría con dinero real de forma
