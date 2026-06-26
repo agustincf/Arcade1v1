@@ -11,6 +11,7 @@ out/
 # Secretos y configuracion local (NUNCA subir esto)
 .env
 .env.local
+.env.mainnet
 *.local
 
 # Logs y basura del sistema

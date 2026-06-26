@@ -66,6 +66,36 @@ Importá el repo en Vercel, raíz `apps/web`. Variables de entorno:
 
 ---
 
+## 💵 Pasar a DINERO REAL (Base mainnet)
+
+> ⚠️ Irreversible y público. Hacelo solo después de validar bien en testnet.
+> Maneja **USDC real**: cualquier bug cuesta plata de verdad.
+
+A diferencia de testnet, mainnet usa el **USDC real de Base**
+(`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, verificado on-chain) y exige
+**llaves seguras**. Antes de desplegar, cerrá estos puntos:
+
+- [ ] **Dueño del contrato = wallet segura** (hardware tipo Ledger, idealmente un
+      multisig **Safe** más adelante). NUNCA una clave generada por script en un `.env`.
+- [ ] **Llave del árbitro resguardada** (KMS/HSM o secret del hosting), no en texto
+      plano. Su dirección va en `ARBITER_ADDRESS` y debe coincidir con la del servidor.
+- [ ] **ETH real** para el gas en la wallet que despliega.
+- [ ] `REQUIRE_AUTH` queda obligatorio por defecto en producción (no lo desactives).
+
+**Desplegar** (firma con hardware wallet, sin claves en disco):
+
+```bash
+cp packages/contracts/.env.mainnet.example packages/contracts/.env.mainnet   # completalo
+bash packages/contracts/deploy-base-mainnet.sh                                # pide MAINNET + firma en el Ledger
+```
+
+El script verifica que el USDC sea el real, te hace confirmar, y al terminar imprime
+las variables. **Pegá** `NEXT_PUBLIC_CHAIN_ID=8453` + las direcciones en la web
+(producción) y `CHAIN_ID=8453` + `ESCROW_ADDRESS` + RPC de mainnet en el árbitro.
+La red la elige `NEXT_PUBLIC_CHAIN_ID`: sin setear queda en **testnet** (seguro).
+
+---
+
 ## ✅ Checklist de producción (seguridad)
 
 - [x] Firma obligatoria en el árbitro — **por defecto en producción** (`NODE_ENV=production`); no desactivar con `REQUIRE_AUTH=false`.
