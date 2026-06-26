@@ -7,8 +7,17 @@ import express from "express";
 import { matchmake, submitScore, getMatch, addBot, AUTH_REQUIRED } from "./matchmaking.js";
 import { leaderboard, ratingsOf } from "./ratings.js";
 import { arbiterAddress } from "./sign.js";
+import { productionConfigErrors } from "./config-guard.js";
 
 const app = express();
+
+// Detrás de un reverse proxy (típico en producción), confiar en X-Forwarded-For
+// para que req.ip sea la IP real del cliente. Sin esto, el rate-limit agruparía
+// a TODOS bajo la IP del proxy. Configurable con TRUST_PROXY (default: 1 salto en
+// prod): "1"/"2" = saltos, "true" = confiar siempre, o una IP/subred.
+const tp = process.env.TRUST_PROXY ?? (process.env.NODE_ENV === "production" ? "1" : "");
+if (tp) app.set("trust proxy", /^\d+$/.test(tp) ? Number(tp) : tp === "true" ? true : tp);
+
 app.use(express.json({ limit: "256kb" }));
 
 // CORS: en produccion restringir a tu dominio con ALLOWED_ORIGIN. En dev, abierto.
@@ -119,6 +128,14 @@ app.get("/leaderboard/:game", (req, res) => {
 app.get("/rating/:address", (req, res) => {
   res.json({ address: req.params.address, ratings: ratingsOf(req.params.address) });
 });
+
+// Guarda de producción: no arrancar con dinero real mal configurado (ver módulo).
+const cfgErrors = productionConfigErrors();
+if (cfgErrors.length) {
+  console.error("❌ Configuración de producción inválida — el servidor no arranca:");
+  for (const e of cfgErrors) console.error("   - " + e);
+  process.exit(1);
+}
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {

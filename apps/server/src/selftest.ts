@@ -14,6 +14,7 @@ import { RacingEngine, RACING_DT, type RaceAction } from "@arcade1v1/game-sdk/ra
 import { SnakeEngine } from "@arcade1v1/game-sdk/snake";
 import { InvadersEngine, type InvaderAction } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { productionConfigErrors } from "./config-guard.js";
 
 function play2048(seed: number, maxMoves = 500) {
   const g = new Game2048(seed);
@@ -230,6 +231,57 @@ async function main() {
   }
   console.log("✓ juego desconocido RECHAZADO (default-deny):", unknownRejected);
 
+  // 9) ANTI-TRAMPA (semilla): el replay DEBE usar la semilla real de la partida.
+  //    Si se aceptara una semilla distinta, el tramposo probaría muchas semillas
+  //    offline y mandaría una favorable -> ganaría con dinero real de forma desleal.
+  //    (Direcciones/mesas dedicadas para que el caso sea hermético.)
+  const E = "0x3333333333333333333333333333333333333333";
+  const sm = await matchmake("2048", 3, E);
+  const fake = play2048(sm.seed + 1, 200); // jugada válida, pero en OTRA semilla
+  let seedCheatRejected = false;
+  try {
+    await submitScore(sm.matchId, E, fake.score, fake.replay);
+  } catch {
+    seedCheatRejected = true;
+  }
+  console.log("✓ replay con semilla ajena RECHAZADO:", seedCheatRejected);
+
+  // 10) UN INTENTO POR JUGADOR: reenviar el puntaje (para "mejorar") se rechaza.
+  //     Si no, el primero en enviar reintenta hasta sacar su mejor marca (ventaja
+  //     desleal sobre el rival, que al enviar cierra la partida y no puede repetir).
+  const F = "0x4444444444444444444444444444444444444444";
+  const ri = await matchmake("2048", 7, F);
+  const firstTry = play2048(ri.seed, 30);
+  await submitScore(ri.matchId, F, firstTry.score, firstTry.replay);
+  let resubmitRejected = false;
+  try {
+    const secondTry = play2048(ri.seed, 200); // intenta de nuevo (otra jugada)
+    await submitScore(ri.matchId, F, secondTry.score, secondTry.replay);
+  } catch {
+    resubmitRejected = true;
+  }
+  console.log("✓ reenvío de puntaje RECHAZADO (un intento):", resubmitRejected);
+
+  // 11) GUARDA DE CONFIG (mainnet): en producción con escrow activo, faltar
+  //     CHAIN_ID / clave del árbitro / origen permitido debe DETECTARSE (si no,
+  //     se firmaría para la red equivocada y los cobros no funcionarían).
+  const badCfg = productionConfigErrors({
+    NODE_ENV: "production",
+    ESCROW_ADDRESS: "0x000000000000000000000000000000000000dEaD",
+    // faltan CHAIN_ID, ARBITER_PRIVATE_KEY y ALLOWED_ORIGIN a propósito
+  } as NodeJS.ProcessEnv);
+  const cfgGuardOk = badCfg.length === 3;
+  console.log("✓ guarda de config mainnet detecta faltantes:", cfgGuardOk, `(${badCfg.length})`);
+  const goodCfg = productionConfigErrors({
+    NODE_ENV: "production",
+    ESCROW_ADDRESS: "0x000000000000000000000000000000000000dEaD",
+    CHAIN_ID: "8453",
+    ARBITER_PRIVATE_KEY: "0xabc",
+    ALLOWED_ORIGIN: "https://arcade1v1.example",
+  } as NodeJS.ProcessEnv);
+  const cfgGoodOk = goodCfg.length === 0;
+  console.log("✓ guarda de config mainnet OK con todo seteado:", cfgGoodOk);
+
   const allOk =
     ok &&
     cheat2048 &&
@@ -238,7 +290,11 @@ async function main() {
     badRejected &&
     draw.outcome === "draw" &&
     realtimeOk &&
-    unknownRejected;
+    unknownRejected &&
+    seedCheatRejected &&
+    resubmitRejected &&
+    cfgGuardOk &&
+    cfgGoodOk;
   if (!allOk) process.exit(1);
   console.log("\nTODO OK ✅");
 }

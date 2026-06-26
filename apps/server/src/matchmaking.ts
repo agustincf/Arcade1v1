@@ -232,6 +232,11 @@ export async function submitScore(
     throw new Error("signature required");
   }
 
+  // UN INTENTO POR JUGADOR: el puntaje se "congela" en el primer envío válido.
+  // Sin esto, el primero en enviar podría reintentar hasta sacar su mejor marca
+  // (ventaja desleal: el rival, al enviar, cierra la partida y no puede repetir).
+  if (m.scores[address] !== undefined) throw new Error("score already submitted");
+
   let finalScore = Math.max(0, Math.floor(score));
 
   // ANTI-TRAMPA (default-deny): TODO juego debe tener verificador. Re-jugamos el
@@ -241,7 +246,16 @@ export async function submitScore(
   const verifier = VERIFIERS[m.game];
   if (!verifier) throw new Error(`unknown game: ${m.game}`);
   if (!verifier.valid(replay)) throw new Error("replay required");
-  const verified = verifier.verify(replay);
+  // ANTI-TRAMPA (semilla): el replay debe declarar EXACTAMENTE la semilla de la
+  // partida. Sin esto, un jugador probaría muchas semillas offline y mandaría una
+  // favorable (eligiendo el "azar" a su gusto) -> ganaría con dinero real de forma
+  // desleal. Además forzamos la semilla real al re-jugar: el árbitro manda sobre el
+  // azar, nunca el cliente.
+  const replaySeed = (replay as { seed?: unknown }).seed;
+  if (replaySeed !== m.seed) {
+    throw new Error(`seed mismatch (expected ${m.seed}, got ${String(replaySeed)})`);
+  }
+  const verified = verifier.verify({ ...(replay as object), seed: m.seed });
   if (verified !== finalScore) {
     throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
   }
