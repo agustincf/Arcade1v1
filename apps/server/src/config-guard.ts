@@ -27,3 +27,19 @@ export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): st
   }
   return errors;
 }
+
+// Interpreta TRUST_PROXY para Express de forma segura. Devuelve `undefined` cuando
+// no hay que setear nada (vacío o un valor no reconocido como "si"/"abc"): así un
+// error de tipeo del operador NO se pasa crudo a Express (que lo tomaría como lista
+// de IPs y podría comportarse raro), y se mantiene el default seguro.
+//   "1"/"2"   -> número de saltos detrás del proxy
+//   "true"/"false" -> confiar siempre / nunca
+//   IP o subred (contiene "." o ":") -> se pasa tal cual (IPv4/IPv6/CIDR)
+export function parseTrustProxy(value: string | undefined): number | boolean | string | undefined {
+  if (!value) return undefined;
+  if (/^\d+$/.test(value)) return Number(value); // saltos detrás del proxy
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (/[.:]/.test(value)) return value; // IP / subred (IPv4 / IPv6 / CIDR)
+  return undefined; // no reconocido -> ignorar (mantener el default seguro)
+}

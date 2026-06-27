@@ -14,7 +14,7 @@ import { RacingEngine, RACING_DT, type RaceAction } from "@arcade1v1/game-sdk/ra
 import { SnakeEngine } from "@arcade1v1/game-sdk/snake";
 import { InvadersEngine, type InvaderAction } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
-import { productionConfigErrors } from "./config-guard.js";
+import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 
 function play2048(seed: number, maxMoves = 500) {
   const g = new Game2048(seed);
@@ -299,6 +299,17 @@ async function main() {
   }
   console.log("✓ endpoint corta el replay gigante:", dosEndpointRejected);
 
+  // 13) TRUST_PROXY robusto: número/bool/IP se interpretan; la basura se ignora
+  //     (no se pasa cruda a Express) y queda el default seguro.
+  const tpOk =
+    parseTrustProxy("1") === 1 &&
+    parseTrustProxy("true") === true &&
+    parseTrustProxy("false") === false &&
+    parseTrustProxy("10.0.0.0/8") === "10.0.0.0/8" &&
+    parseTrustProxy("si") === undefined &&
+    parseTrustProxy("") === undefined;
+  console.log("✓ parseTrustProxy (numero/bool/IP ok, basura ignorada):", tpOk);
+
   const allOk =
     ok &&
     cheat2048 &&
@@ -313,7 +324,8 @@ async function main() {
     cfgGuardOk &&
     cfgGoodOk &&
     dosGuardOk &&
-    dosEndpointRejected;
+    dosEndpointRejected &&
+    tpOk;
   if (!allOk) process.exit(1);
   console.log("\nTODO OK ✅");
 }
