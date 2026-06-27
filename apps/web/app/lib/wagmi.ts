@@ -13,7 +13,7 @@ export const CHAIN = MAINNET ? base : baseSepolia;
 // las billeteras de celular por QR necesitan uno valido.
 export const wagmiConfig = getDefaultConfig({
   appName: "Arcade1v1",
-  projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID || "PENDIENTE_PROJECT_ID",
+  projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID || "ce6f7a5715f885bc1ce1e91d06f02bff",
   chains: [CHAIN],
   transports: {
     [CHAIN.id]: http(),
