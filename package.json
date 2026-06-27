@@ -10,7 +10,7 @@
   "scripts": {
     "web": "npm run dev --workspace apps/web",
     "server": "npm run dev --workspace apps/server",
-    "test": "node --import tsx --test packages/game-sdk/test/*.test.ts",
+    "test": "node --import tsx --test packages/*/test/*.test.ts",
     "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
     "typecheck:server": "tsc --noEmit -p apps/server/tsconfig.json",
     "lint": "eslint .",
