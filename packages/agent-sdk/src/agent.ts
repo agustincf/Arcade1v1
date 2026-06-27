@@ -1,9 +1,9 @@
 // Helpers de alto nivel: crear un agente y "jugá y enviá" en una sola llamada.
 import { privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
-import { ArbiterClient, type MatchView } from "./client.js";
-import { randomWallet, signScore } from "./sign.js";
-import { DEFAULT_STRATEGIES, type Strategy } from "./strategies.js";
+import { ArbiterClient, type MatchView } from "./client";
+import { randomWallet, signScore } from "./sign";
+import { DEFAULT_STRATEGIES, type Strategy } from "./strategies";
 
 export function createAgent(opts: {
   arbiterUrl?: string;

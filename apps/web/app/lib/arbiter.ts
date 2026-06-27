@@ -1,42 +1,14 @@
-// Cliente del backend "arbitro": emparejamiento, envio de puntaje y resultado.
+// Cliente del backend "arbitro" para la web. Delega en @arcade1v1/agent-sdk
+// (cliente canónico) y conserva los helpers propios de la web (playerId).
+import { ArbiterClient, type MatchView } from "@arcade1v1/agent-sdk";
+
+export type { MatchView };
 
 const BASE = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
-
-export interface MatchView {
-  matchId: string;
-  game: string;
-  stake: number;
-  seed: number;
-  status: "waiting" | "ready" | "settled" | "draw";
-  role?: "p1" | "p2";
-  opponent?: string;
-  scores: Record<string, number>;
-  outcome?: "p1" | "p2" | "draw";
-  winner?: string;
-  signature?: string;
-  isBot?: boolean;
-  // Feedback rico (presente cuando la partida ya terminó):
-  yourScore?: number;
-  rivalScore?: number;
-  margin?: number;
-  netPnl?: number; // USDC ganados/perdidos (neto de comisión)
-  rivalReplay?: unknown; // replay del oponente, para análisis/aprendizaje
-  rating?: number; // tu rating ELO nuevo en este juego
-  ratingDelta?: number; // cuánto subió/bajó
-}
-
-async function post(path: string, body: unknown): Promise<MatchView> {
-  const r = await fetch(`${BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`arbiter ${path} ${r.status}`);
-  return r.json();
-}
+const client = new ArbiterClient(BASE);
 
 export function matchmake(game: string, stake: number, address: string) {
-  return post("/matchmake", { game, stake, address });
+  return client.matchmake(game, stake, address);
 }
 
 export function submitScore(
@@ -46,17 +18,23 @@ export function submitScore(
   replay?: unknown,
   signature?: string,
 ) {
-  return post(`/match/${id}/score`, { address, score, replay, signature });
+  return client.submitScore(id, address, score, replay, signature);
 }
 
-export function playBot(id: string) {
-  return post(`/match/${id}/bot`, {});
+export function getMatch(id: string, address?: string) {
+  return client.getMatch(id, address);
 }
 
-export async function getMatch(id: string, address?: string): Promise<MatchView> {
-  const q = address ? `?address=${address}` : "";
-  const r = await fetch(`${BASE}/match/${id}${q}`);
-  if (!r.ok) throw new Error(`arbiter get ${r.status}`);
+/** Pide que un bot juegue por el rival (modo práctica). No forma parte del
+ * cliente canónico del SDK (es un atajo solo de la web), así que se llama
+ * directo al árbitro. */
+export async function playBot(id: string): Promise<MatchView> {
+  const r = await fetch(`${BASE}/match/${id}/bot`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!r.ok) throw new Error(`arbiter /match/${id}/bot ${r.status}`);
   return r.json();
 }
 
@@ -65,13 +43,9 @@ export interface LeaderRow {
   rating: number;
 }
 
-/** Tabla de posiciones (rating ELO) de un juego. */
 export async function getLeaderboard(game: string, limit = 20): Promise<LeaderRow[]> {
   try {
-    const r = await fetch(`${BASE}/leaderboard/${game}?limit=${limit}`);
-    if (!r.ok) return [];
-    const j = await r.json();
-    return (j.top ?? []) as LeaderRow[];
+    return await client.leaderboard(game, limit);
   } catch {
     return [];
   }
