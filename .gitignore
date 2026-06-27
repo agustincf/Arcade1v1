@@ -13,6 +13,12 @@ out/
 .env.local
 .env.mainnet
 *.local
+# Backups locales de configuracion (ej. .env.local.bak-...) — nunca subir
+*.bak
+.env*.bak*
+
+# Config local de herramientas (Claude Code / GSD), no es del proyecto
+.claude/
 
 # Logs y basura del sistema
 *.log
