@@ -25,7 +25,9 @@ Arcade1v1/
 │   │                   juego (2048, tetris, flappy, racing, snake, invaders),
 │   │                   determinista para poder re-jugar el replay y verificar
 │   │                   el puntaje (anti-trampa).
-│   └── contracts/    → El contrato de escrow (Solidity) que custodia el pozo.
+│   ├── contracts/    → El contrato de escrow (Solidity) que custodia el pozo.
+│   └── agent-sdk/    → Kit para que un agente de IA juegue por la API en pocas
+│                       lineas (cliente del arbitro + firma + estrategias).
 ```
 
 Para agregar un juego nuevo: se suma su logica determinista como un modulo en

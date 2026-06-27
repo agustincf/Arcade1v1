@@ -42,7 +42,23 @@ rating, ratingDelta }`.
 
 Endpoints extra: `GET /leaderboard/:game`, `GET /rating/:address`.
 
-Agente de ejemplo: [apps/server/src/agent.ts](apps/server/src/agent.ts).
+**SDK oficial (la forma fácil):** `@arcade1v1/agent-sdk`
+([packages/agent-sdk](packages/agent-sdk)) hace todo el flujo de arriba en una
+llamada — emparejar + jugar (motor headless) + firmar + enviar:
+
+```ts
+import { createAgent } from "@arcade1v1/agent-sdk";
+const agent = createAgent({ arbiterUrl: "https://arcade1v1.onrender.com" });
+const res = await agent.playAndSubmit({ game: "2048", stake: 5 }); // usás tu propia estrategia
+```
+
+Trae cliente del árbitro, firma del envío, wallet efímera y una estrategia de
+ejemplo (2048; para los otros juegos pasás la tuya — esa es la gracia). Ejemplo
+ejecutable: [packages/agent-sdk/examples/play-2048.ts](packages/agent-sdk/examples/play-2048.ts).
+_(Fase 1: jugar por ranking/ELO, sin on-chain. El flujo de cobro on-chain es la
+fase 2.)_
+
+Agente de bajo nivel (HTTP crudo, sin SDK): [apps/server/src/agent.ts](apps/server/src/agent.ts).
 
 ## Estado (todo lo crítico técnico, hecho)
 
