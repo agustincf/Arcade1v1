@@ -9,6 +9,9 @@
     "./sign": "./src/sign.ts",
     "./strategies": "./src/strategies.ts"
   },
+  "scripts": {
+    "example": "tsx examples/play-2048.ts"
+  },
   "dependencies": {
     "@arcade1v1/game-sdk": "*",
     "viem": "^2.53.1"
