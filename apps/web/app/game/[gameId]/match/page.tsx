@@ -311,7 +311,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           </div>
         )}
         {free && (
-          <p className="font-screen px-4 py-3 text-center text-lg text-slate-300">
+          <p className="font-screen px-4 py-3 text-center text-lg text-[--color-muted]">
             {t("match.freeIntro")}
           </p>
         )}
@@ -342,7 +342,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           ) : needsDeposit && !deposited ? (
             <div className="py-6 text-center">
               <p className="font-pixel text-sm text-[--color-gold]">{t("match.playTitle")}</p>
-              <p className="font-screen mx-auto mt-3 max-w-sm text-lg text-slate-300">
+              <p className="font-screen mx-auto mt-3 max-w-sm text-lg text-[--color-muted]">
                 {role === "p2" ? t("match.joinHint", { bet }) : t("match.openHint", { bet })}
               </p>
               <button
@@ -359,7 +359,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                       : t("match.openBtn", { bet })}
               </button>
               {funding !== "" ? (
-                <p className="font-screen mt-3 text-base text-slate-400">
+                <p className="font-screen mt-3 text-base text-[--color-muted-2]">
                   {t("match.fundingNote")}
                 </p>
               ) : depositErr ? (
@@ -415,7 +415,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       </div>
 
       {!free && (
-        <p className="font-screen mt-3 text-center text-base text-slate-500">
+        <p className="font-screen mt-3 text-center text-base text-[--color-muted-3]">
           {t("match.pairNote")}
         </p>
       )}
@@ -424,7 +424,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       {submitting && !waiting && outcome === null && (
         <Modal title={t("match.signing")}>
           <div className="text-5xl">📲</div>
-          <p className="font-screen mt-4 text-lg text-slate-200">{t("match.signingBody")}</p>
+          <p className="font-screen mt-4 text-lg text-[--color-muted-bright]">{t("match.signingBody")}</p>
         </Modal>
       )}
 
@@ -434,8 +434,8 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           <div className="relative mx-auto h-14 w-14">
             <span className="absolute inset-0 animate-spin rounded-full border-4 border-[--color-border] border-t-[--color-accent]" />
           </div>
-          <p className="font-screen mt-4 text-lg text-slate-200">{t("match.waitingRival")}</p>
-          <p className="font-screen mt-2 text-lg text-slate-400">
+          <p className="font-screen mt-4 text-lg text-[--color-muted-bright]">{t("match.waitingRival")}</p>
+          <p className="font-screen mt-2 text-lg text-[--color-muted-2]">
             {t("match.yourScore")}: <b className="text-[--color-gold]">{youScore}</b>
           </p>
           <div className="mt-5 flex flex-col gap-3">
@@ -458,9 +458,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           <h2 className="font-pixel mt-3 text-lg text-[--color-accent-2] neon-cyan">
             {t("match.freeHead")}
           </h2>
-          <p className="font-screen mt-3 text-xl text-slate-200">{t("match.yourScore")}</p>
+          <p className="font-screen mt-3 text-xl text-[--color-muted-bright]">{t("match.yourScore")}</p>
           <p className="font-pixel text-3xl text-[--color-gold]">{youScore}</p>
-          <p className="font-screen mt-3 text-lg text-slate-300">{t("match.freeUpsell")}</p>
+          <p className="font-screen mt-3 text-lg text-[--color-muted]">{t("match.freeUpsell")}</p>
           <div className="mt-5 flex flex-col gap-3">
             <button
               onClick={() => router.push(`/game/${gameId}`)}
@@ -491,7 +491,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
               outcome === "win"
                 ? "text-[--color-win]"
                 : outcome === "draw"
-                  ? "text-slate-100"
+                  ? "text-[--color-text]"
                   : "text-[--color-lose]"
             }`}
           >
@@ -505,24 +505,24 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           </h2>
 
           {forfeit ? (
-            <p className="font-screen mt-4 text-lg text-slate-300">
+            <p className="font-screen mt-4 text-lg text-[--color-muted]">
               {t("match.forfeitText", { pot: payout.pot })}
             </p>
           ) : (
             <>
               <div className="font-screen mt-4 flex items-center justify-center gap-6 text-xl">
                 <div>
-                  <div className="text-slate-400">{t("match.you")}</div>
+                  <div className="text-[--color-muted-2]">{t("match.you")}</div>
                   <div className="font-pixel text-base text-[--color-accent-2]">{youScore}</div>
                 </div>
-                <div className="text-slate-500">vs</div>
+                <div className="text-[--color-muted-3]">vs</div>
                 <div>
-                  <div className="text-slate-400">{t("match.rival")}</div>
-                  <div className="font-pixel text-base text-slate-200">{rivalScore}</div>
+                  <div className="text-[--color-muted-2]">{t("match.rival")}</div>
+                  <div className="font-pixel text-base text-[--color-muted-bright]">{rivalScore}</div>
                 </div>
               </div>
               {rating !== null && (
-                <p className="font-screen mt-3 text-base text-slate-300">
+                <p className="font-screen mt-3 text-base text-[--color-muted]">
                   {t("lb.rating")}: <b className="text-[--color-gold]">{rating}</b>{" "}
                   <span className={ratingDelta >= 0 ? "text-[--color-win]" : "text-[--color-lose]"}>
                     ({ratingDelta >= 0 ? "+" : ""}
@@ -544,7 +544,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                       />
                       <div className="my-2 border-t-2 border-dashed border-[--color-border]" />
                       <div className="flex justify-between">
-                        <span className="text-slate-300">{t("match.cobras")}</span>
+                        <span className="text-[--color-muted]">{t("match.cobras")}</span>
                         <span className="font-pixel text-sm text-[--color-win]">
                           {payout.prize} USDC
                         </span>
@@ -552,10 +552,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                     </>
                   )}
                   {outcome === "lose" && (
-                    <p className="text-slate-300">{t("match.loseText", { bet })}</p>
+                    <p className="text-[--color-muted]">{t("match.loseText", { bet })}</p>
                   )}
                   {outcome === "draw" && (
-                    <p className="text-slate-300">{t("match.drawText", { bet })}</p>
+                    <p className="text-[--color-muted]">{t("match.drawText", { bet })}</p>
                   )}
                 </div>
               </div>
@@ -636,7 +636,7 @@ function ScoreSide({
         {right ? "👤" : "🙂"}
       </div>
       <div className={right ? "text-right" : ""}>
-        <div className="font-pixel text-px10 text-slate-400">{label}</div>
+        <div className="font-pixel text-px10 text-[--color-muted-2]">{label}</div>
         <div className="font-pixel text-base text-[--color-gold]">{score ?? "--"}</div>
       </div>
     </div>
@@ -646,8 +646,8 @@ function ScoreSide({
 function Money({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between py-1">
-      <span className="text-slate-400">{label}</span>
-      <span className="text-slate-100">{value}</span>
+      <span className="text-[--color-muted-2]">{label}</span>
+      <span className="text-[--color-text]">{value}</span>
     </div>
   );
 }

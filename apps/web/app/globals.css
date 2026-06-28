@@ -23,6 +23,12 @@
   --color-text: #efeaff; /* texto base del body */
   --color-text-strong: #ffffff; /* texto blanco (unifica #fff / #ffffff) */
 
+  /* Texto apagado (reemplaza los grises slate-*, ahora con tinte de marca) */
+  --color-muted-bright: #ddd7f0;
+  --color-muted: #bcb4dd;
+  --color-muted-2: #9890bb;
+  --color-muted-3: #756e98;
+
   /* Tipografía — tamaño pixel chico (antes text-[10px] suelto) */
   --text-px10: 10px;
 }

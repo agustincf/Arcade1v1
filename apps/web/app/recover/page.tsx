@@ -93,14 +93,14 @@ export default function RecoverPage() {
       <h1 className="font-pixel text-xl leading-relaxed text-[--color-accent] neon">
         {t("recover.title")}
       </h1>
-      <p className="font-screen mt-3 text-lg text-slate-300">{t("recover.intro")}</p>
+      <p className="font-screen mt-3 text-lg text-[--color-muted]">{t("recover.intro")}</p>
 
       {!onchainEnabled ? (
         <div className="win mt-6">
           <div className="win-title">
             <span>{t("recover.title")}</span>
           </div>
-          <p className="font-screen p-5 text-center text-lg text-slate-300">
+          <p className="font-screen p-5 text-center text-lg text-[--color-muted]">
             {t("recover.notConfigured")}
           </p>
         </div>
@@ -110,7 +110,7 @@ export default function RecoverPage() {
             <span>{t("recover.title")}</span>
           </div>
           <div className="p-6 text-center">
-            <p className="font-screen text-lg text-slate-300">{t("recover.connectPrompt")}</p>
+            <p className="font-screen text-lg text-[--color-muted]">{t("recover.connectPrompt")}</p>
             <button onClick={connect} className="btn3d btn3d--cyan mt-5 w-full">
               {t("recover.connect")}
             </button>
@@ -119,7 +119,7 @@ export default function RecoverPage() {
       ) : (
         <>
           <div className="mt-5 flex items-center justify-between">
-            <span className="font-screen text-base text-slate-400">
+            <span className="font-screen text-base text-[--color-muted-2]">
               {address && shortAddress(address)}
             </span>
             <button
@@ -136,7 +136,7 @@ export default function RecoverPage() {
               {t("recover.scanning")}
             </p>
           ) : rows.length === 0 ? (
-            <p className="font-screen mt-6 py-10 text-center text-lg text-slate-400">
+            <p className="font-screen mt-6 py-10 text-center text-lg text-[--color-muted-2]">
               {t("recover.empty")}
             </p>
           ) : (
@@ -201,20 +201,20 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
           {game ? t(`game.${game.id}.name`).toUpperCase() : row.game.toUpperCase()} · {row.bet} USDC
         </span>
         <span
-          className={`chip ${refundable ? "!text-[--color-gold]" : resolved ? "!text-slate-400" : "!text-[--color-accent-2]"}`}
+          className={`chip ${refundable ? "!text-[--color-gold]" : resolved ? "!text-[--color-muted-2]" : "!text-[--color-accent-2]"}`}
         >
           {row.role === "p1" ? t("recover.role.p1") : t("recover.role.p2")}
         </span>
       </div>
       <div className="p-4">
         <p
-          className={`font-screen text-lg ${refundable ? "text-[--color-gold]" : resolved ? "text-slate-400" : "text-slate-300"}`}
+          className={`font-screen text-lg ${refundable ? "text-[--color-gold]" : resolved ? "text-[--color-muted-2]" : "text-[--color-muted]"}`}
         >
           {statusText[row.kind]}
         </p>
 
         {(row.kind === "openWaiting" || row.kind === "fundedWaiting") && (
-          <p className="font-screen mt-1 text-base text-slate-500">
+          <p className="font-screen mt-1 text-base text-[--color-muted-3]">
             {t("recover.availAfter", {
               date: new Date(row.deadline * 1000).toLocaleString(),
             })}
@@ -244,7 +244,7 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
         {resolved && (
           <button
             onClick={onResolved}
-            className="font-screen mt-3 text-base text-slate-400 hover:text-slate-200 hover:underline"
+            className="font-screen mt-3 text-base text-[--color-muted-2] hover:text-[--color-muted-bright] hover:underline"
           >
             {t("recover.dismiss")}
           </button>

@@ -15,10 +15,10 @@ export const metadata: Metadata = {
 function Section({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-xl font-bold text-slate-100">
+      <h2 className="text-xl font-bold text-[--color-text]">
         {n}. {title}
       </h2>
-      <div className="mt-2 leading-relaxed text-slate-300">{children}</div>
+      <div className="mt-2 leading-relaxed text-[--color-muted]">{children}</div>
     </section>
   );
 }
@@ -29,9 +29,9 @@ export default function TermsPage() {
       <h1 className="font-pixel text-xl leading-relaxed text-[--color-accent] neon">
         Terms of Service
       </h1>
-      <p className="mt-3 text-sm text-slate-400">Last updated: 2026 · Skill-gaming platform</p>
+      <p className="mt-3 text-sm text-[--color-muted-2]">Last updated: 2026 · Skill-gaming platform</p>
 
-      <div className="mt-4 rounded-lg border-2 border-[--color-border] bg-[--color-surface] p-4 leading-relaxed text-slate-300">
+      <div className="mt-4 rounded-lg border-2 border-[--color-border] bg-[--color-surface] p-4 leading-relaxed text-[--color-muted]">
         Arcade1v1 is currently running on a <b>test network with play money</b>. The terms below
         also govern any future real-money operation. By using Arcade1v1 you agree to them.
       </div>

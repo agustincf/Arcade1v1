@@ -29,7 +29,7 @@ export function StartScreen({
     <GameOverlay>
       <div>{icon}</div>
       <h3 className="font-pixel mt-2 text-sm text-[--color-gold] neon">{title}</h3>
-      <p className="font-screen mt-2 max-w-[240px] text-lg text-slate-100">{instructions}</p>
+      <p className="font-screen mt-2 max-w-[240px] text-lg text-[--color-text]">{instructions}</p>
       <button onClick={onStart} className="btn3d btn3d--magenta mt-4">
         {t("g.start")}
       </button>
@@ -50,7 +50,7 @@ export function GameOverScreen({
   return (
     <GameOverlay>
       <h3 className="font-pixel text-base text-[--color-lose]">{headline}</h3>
-      <p className="font-screen mt-3 text-lg text-slate-200">{t("g.yourScore")}</p>
+      <p className="font-screen mt-3 text-lg text-[--color-muted-bright]">{t("g.yourScore")}</p>
       <p className="font-pixel text-3xl text-[--color-accent-2] neon-cyan">{score}</p>
       <button onClick={onConfirm} className="btn3d btn3d--magenta mt-4">
         {t("g.confirm")}

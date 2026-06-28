@@ -47,7 +47,7 @@ export default function HomePage() {
                       <span className="blink">●</span> {t("card.open")}
                     </span>
                   </div>
-                  <p className="font-screen mt-3 text-center text-lg text-slate-300">
+                  <p className="font-screen mt-3 text-center text-lg text-[--color-muted]">
                     {t(`game.${game.id}.desc`)}
                   </p>
                   <div className="mt-5 text-center">
@@ -74,7 +74,7 @@ export default function HomePage() {
           <Step n="2" text={t("how.s2")} />
           <Step n="3" text={t("how.s3")} />
         </div>
-        <p className="font-screen px-5 pb-4 text-sm text-slate-500">{t("how.fee")}</p>
+        <p className="font-screen px-5 pb-4 text-sm text-[--color-muted-3]">{t("how.fee")}</p>
       </section>
 
       {/* Preguntas frecuentes (SEO + motores de IA) */}
@@ -93,7 +93,7 @@ export default function HomePage() {
               className="border-b-2 border-dashed border-[--color-border] py-3 last:border-0"
             >
               <h2 className="font-pixel text-[11px] text-[--color-accent-2]">{t(`faq.q${n}`)}</h2>
-              <p className="mt-2 text-slate-300">{t(`faq.a${n}`)}</p>
+              <p className="mt-2 text-[--color-muted]">{t(`faq.a${n}`)}</p>
             </div>
           ))}
         </div>
@@ -122,7 +122,7 @@ function Step({ n, text }: { n: string; text: string }) {
   return (
     <div className="flex items-start gap-3">
       <span className="font-pixel text-sm text-[--color-gold]">{n}</span>
-      <span className="text-slate-300">{text}</span>
+      <span className="text-[--color-muted]">{text}</span>
     </div>
   );
 }
