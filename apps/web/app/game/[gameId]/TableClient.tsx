@@ -87,7 +87,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
                   }`}
                 >
                   {active && (
-                    <span className="absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[#0a0518] bg-[--color-gold] text-xs font-extrabold text-[#1a0033]">
+                    <span className="absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[--color-ink] bg-[--color-gold] text-xs font-extrabold text-[--color-ink-2]">
                       ✓
                     </span>
                   )}
@@ -113,7 +113,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
           </div>
 
           {/* Nudge de CRO */}
-          <div className="mt-4 rounded border-2 border-[#0a0518] bg-[#0a0518] p-3 text-center">
+          <div className="mt-4 rounded border-2 border-[--color-ink] bg-[--color-ink] p-3 text-center">
             <p className="font-screen text-lg text-[--color-accent-2]">
               {meta.premium
                 ? t("table.nudgeVip", { n: meta.playersWaiting })

@@ -238,7 +238,7 @@ export function TetrisGame({
 function Stat({ label, value, big }: { label: string; value: number; big?: boolean }) {
   return (
     <div className="flex-1 rounded-lg border border-[--color-border] bg-[--color-surface] px-2 py-1 text-center">
-      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="text-px10 uppercase tracking-wide text-slate-500">{label}</div>
       <div className={`font-extrabold ${big ? "text-lg" : "text-base"}`}>{value}</div>
     </div>
   );
@@ -283,7 +283,7 @@ function NextPreview({
 }) {
   return (
     <div className="rounded-lg border border-[--color-border] bg-[--color-surface] px-2 py-1 text-center">
-      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="text-px10 uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-1 flex flex-col items-center gap-px">
         {matrix.map((row, r) => (
           <div key={r} className="flex gap-px">

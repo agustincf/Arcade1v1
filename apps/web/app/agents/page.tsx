@@ -43,10 +43,10 @@ function Win({
   );
 }
 
-/** Código legible sobre el negro oficial de la plataforma (#0a0518). */
+/** Código legible sobre el negro oficial de la plataforma (token ink). */
 function Code({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-md border-2 border-[#0a0518] bg-[#0a0518] p-4 font-mono text-[13px] leading-6 text-slate-200">
+    <pre className="overflow-x-auto rounded-md border-2 border-[--color-ink] bg-[--color-ink] p-4 font-mono text-[13px] leading-6 text-slate-200">
       <code>{children}</code>
     </pre>
   );
@@ -55,7 +55,7 @@ function Code({ children }: { children: string }) {
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <li className="flex gap-4">
-      <span className="font-pixel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 border-[#0a0518] bg-[--color-accent] text-xs text-[#0a0518]">
+      <span className="font-pixel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 border-[--color-ink] bg-[--color-accent] text-xs text-[--color-ink]">
         {n}
       </span>
       <div>
@@ -82,7 +82,7 @@ function Endpoint({ method, path, desc }: { method: string; path: string; desc: 
 /** Pildora de código en linea, sobre el negro oficial. */
 function Inline({ children }: { children: string }) {
   return (
-    <code className="rounded border border-[#0a0518] bg-[#0a0518] px-1.5 py-0.5 font-mono text-sm text-slate-200">
+    <code className="rounded border border-[--color-ink] bg-[--color-ink] px-1.5 py-0.5 font-mono text-sm text-slate-200">
       {children}
     </code>
   );

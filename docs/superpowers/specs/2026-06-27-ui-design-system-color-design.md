@@ -82,3 +82,16 @@ Los pocos `text-[10px]`/`[11px]`/`[13px]` → mapear a la tipografía del sistem
 2. Ejecutar con `subagent-driven-development`: cada tarea reemplaza hex→token en su
    grupo, corre `typecheck:web`, y un review confirma que no quedó hex suelto y que
    no cambió el look. Branch `feat/ui-tokens`.
+
+## Excepciones documentadas (hex que NO se tokeniza, y por qué)
+
+- **Canvas de los juegos** (`apps/web/app/games/**`, `components/GameIcon.tsx`): solo las llamadas de dibujo (`ctx.fillStyle`/`ctx.strokeStyle`) quedan como hex; el canvas no lee variables CSS. Los bordes de chrome en `<div>` de esos archivos sí usan el token.
+- **Imágenes en runtime** (`opengraph-image.tsx`, `icon.tsx`): usan `next/og`,
+  sin pipeline de CSS; requieren color literal.
+- **`providers.tsx`** (`accentColor: "#6d5efc"`): se pasa a la lib de wallet;
+  requiere hex literal.
+- **Rampas de gradiente/sombra de `.btn3d` en `globals.css`** (stops claros/oscuros
+  y profundidades de `box-shadow`): son shades derivados de cada variante de botón,
+  componente que está fuera de alcance.
+- **One-offs de tamaño**: `text-[11px]` (`page.tsx`) y `text-[13px]` (`agents/page.tsx`),
+  de un solo uso cada uno (YAGNI — no se crea token).

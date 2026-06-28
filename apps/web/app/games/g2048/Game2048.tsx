@@ -105,7 +105,7 @@ export function Game2048Component({
 
       <div className="relative">
         <div
-          className="grid touch-none gap-2 rounded-lg border-2 border-[#0a0518] bg-[#0a0518] p-2"
+          className="grid touch-none gap-2 rounded-lg border-2 border-[--color-ink] bg-[--color-ink] p-2"
           style={{
             width: "min(86vw, 320px)",
             gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
