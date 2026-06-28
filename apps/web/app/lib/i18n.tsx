@@ -26,19 +26,31 @@ function detect(): Lang {
   return LANGS.includes(nav) ? nav : "en";
 }
 
-export function I18nProvider({ children }: { children: React.ReactNode }) {
-  // Empieza en "en" (igual que el servidor) y detecta en el cliente.
-  const [lang, setLangState] = useState<Lang>("en");
+export function I18nProvider({
+  initialLang = "en",
+  children,
+}: {
+  initialLang?: Lang;
+  children: React.ReactNode;
+}) {
+  const [lang, setLangState] = useState<Lang>(initialLang);
 
   useEffect(() => {
+    // Si el servidor ya fijó un idioma válido distinto del default, respetarlo.
+    // Solo autodetectar cuando no hubo elección previa (sin cookie/localStorage).
+    if (initialLang !== "en") {
+      document.documentElement.lang = initialLang;
+      return;
+    }
     const d = detect();
     setLangState(d);
     document.documentElement.lang = d;
-  }, []);
+  }, [initialLang]);
 
   function setLang(l: Lang) {
     setLangState(l);
     localStorage.setItem("arcade.lang", l);
+    document.cookie = `arcade.lang=${l}; path=/; max-age=31536000; samesite=lax`;
     document.documentElement.lang = l;
   }
 
