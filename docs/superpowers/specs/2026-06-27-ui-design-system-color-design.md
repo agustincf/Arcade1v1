@@ -85,8 +85,7 @@ Los pocos `text-[10px]`/`[11px]`/`[13px]` → mapear a la tipografía del sistem
 
 ## Excepciones documentadas (hex que NO se tokeniza, y por qué)
 
-- **Canvas de los juegos** (`apps/web/app/games/**`, `components/GameIcon.tsx`):
-  `ctx.fillStyle = "#..."` es arte del juego; el canvas no lee variables CSS.
+- **Canvas de los juegos** (`apps/web/app/games/**`, `components/GameIcon.tsx`): solo las llamadas de dibujo (`ctx.fillStyle`/`ctx.strokeStyle`) quedan como hex; el canvas no lee variables CSS. Los bordes de chrome en `<div>` de esos archivos sí usan el token.
 - **Imágenes en runtime** (`opengraph-image.tsx`, `icon.tsx`): usan `next/og`,
   sin pipeline de CSS; requieren color literal.
 - **`providers.tsx`** (`accentColor: "#6d5efc"`): se pasa a la lib de wallet;

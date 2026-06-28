@@ -18,7 +18,7 @@
   --color-lose: #ff4d6d;
 
   /* Estructurales */
-  --color-ink: #0a0518; /* borde/negro oficial repetido (unifica #0a0510) */
+  --color-ink: #0a0518; /* borde/negro oficial repetido (casi-idéntico al #0a0510 del arte de canvas) */
   --color-ink-2: #1a0033; /* texto oscuro sobre fondos claros (gold) */
   --color-text: #efeaff; /* texto base del body */
   --color-text-strong: #ffffff; /* texto blanco (unifica #fff / #ffffff) */
