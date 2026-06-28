@@ -67,7 +67,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
         <div className="p-5">
           <div className="mb-4 flex items-center gap-3">
             <GameIcon id={game.id} size={52} />
-            <p className="font-screen text-xl text-slate-200">{t("table.q")}</p>
+            <p className="font-screen text-xl text-[--color-muted-bright]">{t("table.q")}</p>
           </div>
 
           {/* Mesas */}
@@ -92,7 +92,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
                     </span>
                   )}
                   <div className="font-pixel text-base text-[--color-gold]">{bet}</div>
-                  <div className="font-screen text-base text-slate-400">USDC</div>
+                  <div className="font-screen text-base text-[--color-muted-2]">USDC</div>
                   {m.premium && (
                     <div className="font-screen text-sm text-[--color-accent]">
                       {t("table.vip")}
@@ -103,7 +103,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
                   </div>
                   <div className="mt-2 flex items-center justify-center gap-1">
                     <SignalBars speed={m.speed} />
-                    <span className="font-screen text-sm text-slate-400">
+                    <span className="font-screen text-sm text-[--color-muted-2]">
                       👥 {m.playersWaiting}
                     </span>
                   </div>
@@ -126,7 +126,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
             <button onClick={buscarRival} className="btn3d btn3d--magenta w-full">
               {t("table.cta", { bet: selected })}
             </button>
-            <p className="font-screen mt-2 text-center text-base text-slate-400">
+            <p className="font-screen mt-2 text-center text-base text-[--color-muted-2]">
               {t("table.norisk")}
             </p>
           </div>
@@ -181,8 +181,8 @@ function SignalBars({ speed }: { speed: MatchSpeed }) {
 function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <span className="text-slate-400">{label}</span>
-      <span className={highlight ? "font-pixel text-sm text-[--color-win]" : "text-slate-100"}>
+      <span className="text-[--color-muted-2]">{label}</span>
+      <span className={highlight ? "font-pixel text-sm text-[--color-win]" : "text-[--color-text]"}>
         {value}
       </span>
     </div>

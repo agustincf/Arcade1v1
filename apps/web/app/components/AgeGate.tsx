@@ -30,8 +30,8 @@ export function AgeGate() {
         </div>
         <div className="p-6 text-center">
           <div className="text-5xl">🔞</div>
-          <p className="mt-4 text-lg leading-relaxed text-slate-200">{t("age.body")}</p>
-          <p className="mt-3 text-base leading-relaxed text-slate-400">
+          <p className="mt-4 text-lg leading-relaxed text-[--color-muted-bright]">{t("age.body")}</p>
+          <p className="mt-3 text-base leading-relaxed text-[--color-muted-2]">
             {t("age.terms")}{" "}
             <Link href="/terms" className="text-[--color-accent-2] underline underline-offset-2">
               {t("age.termsLink")}
@@ -43,7 +43,7 @@ export function AgeGate() {
           </button>
           <a
             href="https://www.google.com"
-            className="mt-3 block text-base text-slate-500 underline"
+            className="mt-3 block text-base text-[--color-muted-3] underline"
           >
             {t("age.leave")}
           </a>

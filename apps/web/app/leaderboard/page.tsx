@@ -30,7 +30,7 @@ export default function LeaderboardPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="font-pixel text-2xl text-[--color-gold] neon-gold">{t("lb.title")}</h1>
-      <p className="font-screen mt-2 text-lg text-slate-300">{t("lb.subtitle")}</p>
+      <p className="font-screen mt-2 text-lg text-[--color-muted]">{t("lb.subtitle")}</p>
 
       {/* Selector de juego */}
       <div className="mt-4 flex flex-wrap gap-2">
@@ -56,7 +56,7 @@ export default function LeaderboardPage() {
           {rows === null ? (
             <p className="font-screen py-8 text-center text-lg text-[--color-accent-2]">…</p>
           ) : rows.length === 0 ? (
-            <p className="font-screen py-8 text-center text-lg text-slate-300">{t("lb.empty")}</p>
+            <p className="font-screen py-8 text-center text-lg text-[--color-muted]">{t("lb.empty")}</p>
           ) : (
             <ol className="flex flex-col gap-1">
               {rows.map((row, i) => {
@@ -71,10 +71,10 @@ export default function LeaderboardPage() {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="font-pixel w-8 text-center text-sm text-slate-200">
+                      <span className="font-pixel w-8 text-center text-sm text-[--color-muted-bright]">
                         {medal(i)}
                       </span>
-                      <span className="font-screen text-base text-slate-200">
+                      <span className="font-screen text-base text-[--color-muted-bright]">
                         {short(row.address)}
                         {mine && <span className="ml-2 text-[--color-lime]">({t("lb.you")})</span>}
                       </span>
@@ -88,7 +88,7 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      <p className="font-screen mt-3 text-center text-base text-slate-500">{t("lb.note")}</p>
+      <p className="font-screen mt-3 text-center text-base text-[--color-muted-3]">{t("lb.note")}</p>
     </div>
   );
 }

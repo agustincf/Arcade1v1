@@ -21,7 +21,7 @@ export default function Error({
         <div className="p-6 text-center">
           <div className="text-5xl">💾💥</div>
           <h2 className="font-pixel mt-3 text-sm text-[--color-lose]">{t("err.head")}</h2>
-          <p className="font-screen mt-2 text-lg text-slate-300">{t("err.body")}</p>
+          <p className="font-screen mt-2 text-lg text-[--color-muted]">{t("err.body")}</p>
           <button onClick={reset} className="btn3d btn3d--magenta mt-5">
             {t("err.retry")}
           </button>

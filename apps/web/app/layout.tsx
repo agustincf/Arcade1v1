@@ -7,6 +7,7 @@ import { SiteFooter } from "@/app/components/SiteFooter";
 import { AgeGate } from "@/app/components/AgeGate";
 import { SITE } from "@/app/lib/seo";
 import { GAMES } from "@/app/lib/games";
+import { getLang } from "@/app/lib/serverLang";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -100,9 +101,10 @@ function StructuredData() {
   );
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = await getLang();
   return (
-    <html lang="en">
+    <html lang={lang}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -113,7 +115,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <StructuredData />
       </head>
       <body>
-        <Providers>
+        <Providers initialLang={lang}>
           <Header />
           <Marquee />
           <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>

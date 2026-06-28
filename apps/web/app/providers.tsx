@@ -9,7 +9,13 @@ import { wagmiConfig } from "@/app/lib/wagmi";
 import { I18nProvider } from "@/app/lib/i18n";
 
 // Envoltorio que da soporte de billetera real a toda la app.
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  initialLang,
+  children,
+}: {
+  initialLang?: import("@/app/lib/i18n").Lang;
+  children: React.ReactNode;
+}) {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
@@ -21,7 +27,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             borderRadius: "medium",
           })}
         >
-          <I18nProvider>{children}</I18nProvider>
+          <I18nProvider initialLang={initialLang}>{children}</I18nProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

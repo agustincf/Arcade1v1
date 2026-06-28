@@ -23,7 +23,7 @@ export function BetQuickPlay() {
 
   return (
     <>
-      <p className="font-screen mt-5 text-center text-lg text-slate-400">{t("quick.prompt")}</p>
+      <p className="font-screen mt-5 text-center text-lg text-[--color-muted-2]">{t("quick.prompt")}</p>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         {BET_AMOUNTS.map((b) => (
           <button
@@ -40,7 +40,7 @@ export function BetQuickPlay() {
         <button onClick={() => setPicker({ mode: "free" })} className="btn3d btn3d--cyan">
           {t("free.btn")}
         </button>
-        <p className="font-screen mt-1 text-base text-slate-500">{t("free.sub")}</p>
+        <p className="font-screen mt-1 text-base text-[--color-muted-3]">{t("free.sub")}</p>
       </div>
 
       {picker !== null && (
