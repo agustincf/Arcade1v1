@@ -20,7 +20,7 @@ export function Header() {
         <div className="flex items-center gap-3">
           <Link
             href="/leaderboard"
-            className="font-pixel text-[10px] text-[--color-gold] hover:underline"
+            className="font-pixel text-px10 text-[--color-gold] hover:underline"
           >
             🏆 <span className="hidden sm:inline">{t("nav.ranking")}</span>
           </Link>
@@ -39,7 +39,7 @@ export function Header() {
               return (
                 <button
                   onClick={connected ? openAccountModal : openConnectModal}
-                  className="btn3d btn3d--cyan !px-3 !py-2 !text-[10px]"
+                  className="btn3d btn3d--cyan !px-3 !py-2 !text-px10"
                 >
                   {connected ? `🟢 ${account.displayName}` : t("connect")}
                 </button>

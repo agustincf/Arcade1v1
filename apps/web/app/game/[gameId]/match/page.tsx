@@ -636,7 +636,7 @@ function ScoreSide({
         {right ? "👤" : "🙂"}
       </div>
       <div className={right ? "text-right" : ""}>
-        <div className="font-pixel text-[10px] text-slate-400">{label}</div>
+        <div className="font-pixel text-px10 text-slate-400">{label}</div>
         <div className="font-pixel text-base text-[--color-gold]">{score ?? "--"}</div>
       </div>
     </div>
