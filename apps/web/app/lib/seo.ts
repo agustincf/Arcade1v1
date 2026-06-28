@@ -2,8 +2,9 @@
 
 export const SITE = {
   name: "Arcade1v1",
-  // Cambiar por tu dominio real cuando lo tengas (o setear NEXT_PUBLIC_SITE_URL).
-  url: process.env.NEXT_PUBLIC_SITE_URL || "https://arcade1v1.app",
+  // URL pública real (Vercel). Cuando conectes un dominio propio, seteá
+  // NEXT_PUBLIC_SITE_URL y este default deja de usarse.
+  url: process.env.NEXT_PUBLIC_SITE_URL || "https://arcade1v1.vercel.app",
   title: "Arcade1v1 — Play 1v1 Games & Win USDC",
   description:
     "Arcade1v1 is a 1v1 skill-game arena: two players bet the same USDC and the higher score wins the pot. Play Space Invaders, Flappy, 2048, Snake, Tetris and Racing head-to-head on Base. (Testnet demo.)",
