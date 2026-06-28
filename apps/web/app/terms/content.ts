@@ -131,7 +131,7 @@ const es: TermsCopy = {
       n: "7",
       title: "Juego responsable",
       body:
-        "Jugá por entretenimiento y nunca apuestes más de lo que podés perder. Pon­éte límites y tomate descansos. Si jugar deja de ser divertido o sentís que se te va de las manos, buscá ayuda (por ejemplo, la línea de ayuda contra el juego problemático de tu país). Ofrecemos auto-exclusión a pedido.",
+        "Jugá por entretenimiento y nunca apuestes más de lo que podés perder. Ponete límites y tomate descansos. Si jugar deja de ser divertido o sentís que se te va de las manos, buscá ayuda (por ejemplo, la línea de ayuda contra el juego problemático de tu país). Ofrecemos auto-exclusión a pedido.",
     },
     {
       n: "8",
