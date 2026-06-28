@@ -317,7 +317,7 @@ const es: Dict = {
   "match.waitingRival": "Tu puntaje quedó registrado. Esperando que tu rival juegue…",
   "match.signing": "ENVIANDO TU PUNTAJE",
   "match.signingBody":
-    "Confirmá la firma en tu billetera para registrar tu puntaje. Es gratis y no mueve fondos.",
+    "Confirmá la firma en tu wallet para registrar tu puntaje. Es gratis y no mueve fondos.",
   "match.vsBot": "Probar contra un bot",
   "match.modeFree": "MODO LIBRE",
   "match.gratis": "GRATIS",
@@ -441,8 +441,8 @@ const es: Dict = {
     "Si abriste una partida de plata y no apareció rival a tiempo —o la partida se llenó pero terminó sin resultado— acá podés recuperar tu depósito. Los fondos siempre están seguros en el contrato.",
   "recover.notConfigured":
     "Los pagos on-chain no están configurados en este entorno, así que no hay nada para recuperar.",
-  "recover.connectPrompt": "Conectá tu billetera para ver tus partidas abiertas.",
-  "recover.connect": "CONECTAR BILLETERA ▶",
+  "recover.connectPrompt": "Conectá tu wallet para ver tus partidas abiertas.",
+  "recover.connect": "CONECTAR WALLET ▶",
   "recover.refresh": "Actualizar",
   "recover.scanning": "Consultando el contrato...",
   "recover.empty": "No hay partidas para recuperar. Está todo saldado.",
@@ -890,8 +890,8 @@ const fr: Dict = {
     "Si vous avez ouvert une partie en argent et qu'aucun rival n'est venu à temps — ou que la partie était pleine mais s'est terminée sans résultat — vous pouvez récupérer votre dépôt ici. Les fonds sont toujours en sécurité dans le contrat.",
   "recover.notConfigured":
     "Les paiements on-chain ne sont pas configurés dans cet environnement, il n'y a donc rien à récupérer.",
-  "recover.connectPrompt": "Connectez votre portefeuille pour voir vos parties ouvertes.",
-  "recover.connect": "CONNECTER LE PORTEFEUILLE ▶",
+  "recover.connectPrompt": "Connecte ton wallet pour voir tes parties ouvertes.",
+  "recover.connect": "CONNECTER WALLET ▶",
   "recover.refresh": "Actualiser",
   "recover.scanning": "Vérification du contrat...",
   "recover.empty": "Aucune partie à récupérer. Tout est réglé.",
