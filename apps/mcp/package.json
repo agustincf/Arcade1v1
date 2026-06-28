@@ -1,0 +1,19 @@
+{
+  "name": "@arcade1v1/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "arcade1v1-mcp": "src/index.ts" },
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@arcade1v1/agent-sdk": "*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
