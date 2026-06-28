@@ -10,7 +10,7 @@ import { useT } from "@/app/lib/i18n";
 export function Header() {
   const { t } = useT();
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-[#0a0518] bg-[#0a0518]/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b-2 border-[--color-ink] bg-[--color-ink]/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-2">
           <span className="text-2xl">🕹️</span>

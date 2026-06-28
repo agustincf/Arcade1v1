@@ -632,7 +632,7 @@ function ScoreSide({
 }) {
   return (
     <div className={`flex items-center gap-3 ${right ? "flex-row-reverse" : ""}`}>
-      <div className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-[#0a0518] bg-[--color-surface-2] text-xl">
+      <div className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-[--color-ink] bg-[--color-surface-2] text-xl">
         {right ? "👤" : "🙂"}
       </div>
       <div className={right ? "text-right" : ""}>

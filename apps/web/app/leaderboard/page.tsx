@@ -67,7 +67,7 @@ export default function LeaderboardPage() {
                     className={`flex items-center justify-between rounded-lg border-2 px-3 py-2 ${
                       mine
                         ? "border-[--color-gold] bg-[--color-surface-2]"
-                        : "border-[#0a0518] bg-[--color-surface-2]"
+                        : "border-[--color-ink] bg-[--color-surface-2]"
                     }`}
                   >
                     <div className="flex items-center gap-3">
