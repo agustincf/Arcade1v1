@@ -11,7 +11,7 @@ import { useEscrow } from "@/app/lib/useEscrow";
 import { onchainEnabled } from "@/app/lib/escrow";
 import { rememberMatch } from "@/app/lib/openMatches";
 import { useSignMessage } from "wagmi";
-import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
 import {
   matchmake,
   submitScore,
@@ -84,7 +84,17 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     let cancel = false;
     (async () => {
       try {
-        const v = await matchmake(game!.id, bet, pidRef.current);
+        // Con wallet conectada, el emparejamiento va FIRMADO (en producción el
+        // árbitro lo exige: evita que alguien encole direcciones ajenas).
+        let auth: { signature: string; ts: number } | undefined;
+        if (address) {
+          const ts = Date.now();
+          const signature = await signMessageAsync({
+            message: matchmakeAuthMessage(game!.id, bet, pidRef.current, ts),
+          });
+          auth = { signature, ts };
+        }
+        const v = await matchmake(game!.id, bet, pidRef.current, auth);
         if (cancel) return;
         setMatchId(v.matchId);
         setSeed(v.seed);
@@ -168,7 +178,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       // 2) Depósito: el 1ro ABRE la partida, el 2do se UNE a la que abrió el rival.
       setFunding("depositing");
       if (role === "p2") {
-        await escrow.join(matchId as `0x${string}`);
+        await escrow.join(matchId as `0x${string}`, bet);
       } else {
         await escrow.open(matchId as `0x${string}`, bet);
       }
@@ -424,7 +434,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       {submitting && !waiting && outcome === null && (
         <Modal title={t("match.signing")}>
           <div className="text-5xl">📲</div>
-          <p className="font-screen mt-4 text-lg text-[--color-muted-bright]">{t("match.signingBody")}</p>
+          <p className="font-screen mt-4 text-lg text-[--color-muted-bright]">
+            {t("match.signingBody")}
+          </p>
         </Modal>
       )}
 
@@ -434,14 +446,20 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           <div className="relative mx-auto h-14 w-14">
             <span className="absolute inset-0 animate-spin rounded-full border-4 border-[--color-border] border-t-[--color-accent]" />
           </div>
-          <p className="font-screen mt-4 text-lg text-[--color-muted-bright]">{t("match.waitingRival")}</p>
+          <p className="font-screen mt-4 text-lg text-[--color-muted-bright]">
+            {t("match.waitingRival")}
+          </p>
           <p className="font-screen mt-2 text-lg text-[--color-muted-2]">
             {t("match.yourScore")}: <b className="text-[--color-gold]">{youScore}</b>
           </p>
           <div className="mt-5 flex flex-col gap-3">
-            <button onClick={tryBot} className="btn3d btn3d--cyan w-full">
-              🤖 {t("match.vsBot")}
-            </button>
+            {/* El bot de práctica solo existe en desarrollo (en producción el
+                árbitro lo rechaza; no mostramos un botón muerto). */}
+            {devMode && (
+              <button onClick={tryBot} className="btn3d btn3d--cyan w-full">
+                🤖 {t("match.vsBot")}
+              </button>
+            )}
             <button onClick={() => router.push("/")} className="btn3d btn3d--magenta w-full">
               {t("home")}
             </button>
@@ -458,7 +476,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           <h2 className="font-pixel mt-3 text-lg text-[--color-accent-2] neon-cyan">
             {t("match.freeHead")}
           </h2>
-          <p className="font-screen mt-3 text-xl text-[--color-muted-bright]">{t("match.yourScore")}</p>
+          <p className="font-screen mt-3 text-xl text-[--color-muted-bright]">
+            {t("match.yourScore")}
+          </p>
           <p className="font-pixel text-3xl text-[--color-gold]">{youScore}</p>
           <p className="font-screen mt-3 text-lg text-[--color-muted]">{t("match.freeUpsell")}</p>
           <div className="mt-5 flex flex-col gap-3">
@@ -518,7 +538,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                 <div className="text-[--color-muted-3]">vs</div>
                 <div>
                   <div className="text-[--color-muted-2]">{t("match.rival")}</div>
-                  <div className="font-pixel text-base text-[--color-muted-bright]">{rivalScore}</div>
+                  <div className="font-pixel text-base text-[--color-muted-bright]">
+                    {rivalScore}
+                  </div>
                 </div>
               </div>
               {rating !== null && (

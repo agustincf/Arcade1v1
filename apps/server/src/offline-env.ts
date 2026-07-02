@@ -11,3 +11,7 @@
 // módulo que lea estas variables (matchmaking -> onchain).
 delete process.env.ESCROW_ADDRESS;
 delete process.env.CHAIN_ID;
+
+// Mesas del selftest: incluye 3 y 7 para tener colas dedicadas por caso (el
+// default real del árbitro es 1,2,5,10, igual que el contrato).
+process.env.STAKES_ALLOWED = "1,2,3,5,7,10";

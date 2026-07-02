@@ -101,7 +101,13 @@ async function main() {
   await submitScore(m1.matchId, P1, sA.score, sA.replay);
   const sB = play2048(m2.seed, 12);
   const res = await submitScore(m2.matchId, P2, sB.score, sB.replay);
-  console.log("✓ ganador:", res.winner === P1 ? "P1" : "P2", "· firma:", !!res.signature);
+  // El árbitro normaliza direcciones a minúsculas: comparar case-insensitive.
+  console.log(
+    "✓ ganador:",
+    res.winner?.toLowerCase() === P1.toLowerCase() ? "P1" : "P2",
+    "· firma:",
+    !!res.signature,
+  );
 
   // 4) El ganador cobra (cualquiera puede llamar settle con la firma).
   await send(owner, ESCROW, escrowAbi, "settle", [

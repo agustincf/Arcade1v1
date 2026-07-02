@@ -16,7 +16,9 @@ export const wagmiConfig = getDefaultConfig({
   projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID || "ce6f7a5715f885bc1ce1e91d06f02bff",
   chains: [CHAIN],
   transports: {
-    [CHAIN.id]: http(),
+    // RPC propio (Alchemy/Infura/etc.) via NEXT_PUBLIC_RPC_URL; sin setear usa
+    // el publico de la red (alcanza para test, corto de rate-limit para prod).
+    [CHAIN.id]: http(process.env.NEXT_PUBLIC_RPC_URL || undefined),
   },
   ssr: true,
 });

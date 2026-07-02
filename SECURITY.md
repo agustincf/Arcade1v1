@@ -1,7 +1,88 @@
 # Repaso de seguridad — Arcade1v1 (Fase 6)
 
-Fecha: 2026-06-21 (1ª ronda) · 2026-06-26 (2ª ronda — ver actualización abajo) ·
-Estado: **testnet / demo** (no opera con dinero real).
+Fecha: 2026-06-21 (1ª ronda) · 2026-06-26 (2ª ronda) · 2026-07-02 (3ª ronda —
+preparación mainnet, ver abajo) · Estado: **testnet / demo** (no opera con
+dinero real).
+
+---
+
+## Actualización 2026-07-02 — tercera ronda (auditoría completa pre-mainnet)
+
+Pasada completa sobre contrato, árbitro, web, MCP y SDKs. Resuelto en esta ronda:
+
+### 🔴 CRÍTICO — RESUELTO: el rival podía **espiar tu puntaje antes de jugar**
+
+`GET /match/:id` devolvía los `scores` de la partida a cualquiera, **también
+antes del cierre**. El segundo jugador consultaba el puntaje del primero y jugaba
+sabiendo EXACTAMENTE cuánto superar (o directamente no depositaba/jugaba si no le
+convenía) → ventaja desleal decisiva con plata en juego. **Arreglo:** hasta que la
+partida se decide, cada jugador ve **solo su propio puntaje** (nuevo campo
+`rivalSubmitted` avisa que el rival ya jugó, sin revelar cuánto); el detalle
+completo aparece recién al liquidar. Cubierto en `selftest`.
+
+### 🟠 Altos — RESUELTOS
+
+- **Emparejar sin autenticación.** Cualquiera podía encolar direcciones AJENAS
+  (suplantación) o llenar la cola de rivales fantasma que nunca depositan (el
+  rival real deposita, espera y pierde tiempo y gas). **Arreglo:** `/matchmake`
+  ahora exige (en producción, mismo criterio `REQUIRE_AUTH` que el envío de
+  puntaje) una **firma de la wallet** sobre `matchmakeAuthMessage(game, stake,
+address, ts)` con ventana anti-replay de 10 min. Web, agent-sdk y MCP ya firman
+  solos. Cubierto en `selftest` (válida sí / ajena no / vencida no).
+- **`approve` infinito en la web.** El flujo de depósito aprobaba `maxUint256`
+  hacia el escrow: un bug del contrato podía drenar **todo** el USDC de la wallet.
+  **Arreglo:** se aprueba el monto **exacto** de la apuesta, cada vez.
+- **`join` a ciegas.** P2 depositaba sin verificar la partida on-chain. Un P1
+  malicioso podía abrirla por su cuenta con `playDeadline` lejano (años) y dejar
+  el depósito de P2 **atrapado** hasta entonces. **Arreglo:** antes de unirse, la
+  web lee la partida del contrato y verifica estado/monto/plazos normales; ante
+  cualquier anomalía **no deposita**. Defensa extra: el **barrendero** del árbitro
+  (abajo) cancela on-chain las partidas emparejadas sin resultado (reembolso).
+- **Partidas eternas en memoria/disco.** Las partidas nunca se purgaban (fuga de
+  memoria) y una emparejada sin resultado quedaba colgada para siempre.
+  **Arreglo:** barrendero cada 60s — waiters vencidos se descartan, terminadas
+  viejas se purgan, y una emparejada sin resultado al vencer la **ventana de
+  envío** (2h, `SUBMIT_WINDOW_MS`) se marca expirada y se **cancela on-chain**
+  (reembolso a ambos). Además los envíos tardíos o a partidas ya decididas se
+  rechazan. Cubierto en `selftest`.
+
+### 🟡 Medios/bajos — RESUELTOS
+
+- **Mesas sin validar** en el árbitro (NaN/negativos/montos arbitrarios creaban
+  colas basura persistidas): ahora solo se aceptan las mesas permitidas
+  (`STAKES_ALLOWED`, default 1/2/5/10 — las del contrato). Cubierto en `selftest`.
+- **Direcciones sensibles a mayúsculas:** `0xAbC…` y `0xabc…` eran dos jugadores
+  distintos (doble ELO, errores de reenvío). Ahora se normalizan a minúsculas.
+- **Semilla con `Math.random`** (predecible): ahora `crypto.randomInt` (CSPRNG).
+- **Rate-limit con fuga de memoria** (una entrada por IP para siempre): limpieza
+  periódica. **Persistencia** que escribía TODO el archivo por request (bloqueo
+  del event loop): ahora con debounce + flush en el apagado (SIGTERM).
+- **Empates quemaban gas** si la partida no era cancelable on-chain: el árbitro
+  ahora **simula** `cancelMatch` antes de mandar la transacción.
+- **Config de producción:** la guarda ahora también exige `RPC_URL` (sin nodo no
+  hay reembolso automático de empates/vencidas). Cubierto en `selftest`.
+- **Web:** cabeceras de seguridad (anti-clickjacking `frame-ancestors 'none'`,
+  `nosniff`, `Referrer-Policy`, `Permissions-Policy`); el botón "vs Bot" ya no
+  aparece en producción; los **contadores sintéticos** de actividad ("N jugadores
+  en línea/esperando" — datos de demo) **no se muestran en mainnet** (inventar
+  actividad a gente que apuesta es engañarla); RPC propio configurable
+  (`NEXT_PUBLIC_RPC_URL`) para no depender del público en producción.
+
+### Verificación de esta ronda
+
+`npm run check` completo (tipos web+server, lint, formato, 36 tests, selftest con
+los casos nuevos) + `forge test` 9/9 + `check-integration.sh` (digest EIP-712) +
+`check-payment-e2e.sh` (pago y empate reales en cadena local con el árbitro
+modificado) + `next build` de producción. Todo en verde.
+
+### Sigue pendiente (sin cambios en esta ronda)
+
+- **Contrato sin cambios a propósito** (decisión sostenida: no tocar Solidity sin
+  auditoría humana). La **auditoría externa profesional** sigue pendiente.
+- **Llave del árbitro** en KMS/HSM y **owner multisig/hardware** — operacional.
+- **Lo legal** (licencias/KYC/edad/geobloqueo) — decisión del dueño del proyecto.
+- **Mono-instancia** (estado en disco local): para escalar horizontalmente hace
+  falta un store compartido (Redis/DB).
 
 Este documento es el resultado de revisar el **contrato** (`packages/contracts`),
 el **backend árbitro** (`apps/server`) y la **arquitectura** completa. La idea es

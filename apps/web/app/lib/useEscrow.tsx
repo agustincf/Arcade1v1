@@ -8,15 +8,22 @@
 // (ver packages/contracts/check-payment-e2e.sh).
 
 import { useWriteContract, usePublicClient } from "wagmi";
-import { maxUint256 } from "viem";
-import { ESCROW_ADDRESS, USDC_ADDRESS, escrowAbi, erc20Abi, toUsdcUnits } from "@/app/lib/escrow";
+import {
+  ESCROW_ADDRESS,
+  USDC_ADDRESS,
+  escrowAbi,
+  erc20Abi,
+  toUsdcUnits,
+  MatchStatus,
+} from "@/app/lib/escrow";
 
 export function useEscrow() {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
-  /** Solo aprueba el allowance hacia el escrow (sin depositar). Se hace ANTES de
-   *  emparejar: el árbitro verifica el allowance para no crear partidas sin fondos. */
+  /** Aprueba el allowance hacia el escrow (sin depositar), por el monto EXACTO
+   *  de la apuesta. Nada de approve infinito: si el contrato tuviera un bug,
+   *  lo máximo expuesto es la apuesta de esta partida, nunca toda la wallet. */
   async function approveStake(owner: `0x${string}`, betUsdc: number) {
     if (!ESCROW_ADDRESS || !USDC_ADDRESS || !publicClient) {
       throw new Error("on-chain no configurado");
@@ -28,14 +35,12 @@ export function useEscrow() {
       functionName: "allowance",
       args: [owner, ESCROW_ADDRESS],
     })) as bigint;
-    if (allowance >= amount) return; // ya estaba aprobado (una sola vez alcanza)
-    // Aprobamos un monto amplio UNA sola vez: así no hay que re-aprobar en cada
-    // partida (solo queda el depósito por jugar).
+    if (allowance >= amount) return; // ya alcanza para esta apuesta
     const hash = await writeContractAsync({
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
-      args: [ESCROW_ADDRESS, maxUint256],
+      args: [ESCROW_ADDRESS, amount],
     });
     await publicClient.waitForTransactionReceipt({ hash });
   }
@@ -56,10 +61,23 @@ export function useEscrow() {
     await publicClient.waitForTransactionReceipt({ hash });
   }
 
-  /** P2 se UNE depositando su apuesta (la partida ya fue abierta por P1). */
-  async function join(matchId: `0x${string}`) {
+  /** P2 se UNE depositando su apuesta (la partida ya fue abierta por P1).
+   *  ANTES de depositar verifica la partida REAL on-chain: que esté abierta,
+   *  que el monto sea el esperado y que los plazos sean los normales. Sin este
+   *  chequeo, un rival malicioso podía abrirla por su cuenta con un plazo de
+   *  juego lejano (años) y dejar el depósito de P2 atrapado hasta entonces. */
+  async function join(matchId: `0x${string}`, betUsdc: number) {
     if (!ESCROW_ADDRESS || !publicClient) {
       throw new Error("on-chain no configurado");
+    }
+    const m = await readMatch(matchId);
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (m.status !== MatchStatus.Open) throw new Error("la partida no está abierta");
+    if (m.stake !== toUsdcUnits(betUsdc)) throw new Error("el monto no coincide con la mesa");
+    // La web abre con fundDeadline = +1h y playDeadline = +2h; toleramos un
+    // margen chico. Cualquier plazo mayor es sospechoso: no depositamos.
+    if (m.fundDeadline > nowSec + 3900 || m.playDeadline > nowSec + 7500) {
+      throw new Error("plazos anormales: no es seguro unirse");
     }
     const hash = await writeContractAsync({
       address: ESCROW_ADDRESS,

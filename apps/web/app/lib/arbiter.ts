@@ -7,8 +7,13 @@ export type { MatchView };
 const BASE = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
 const client = new ArbiterClient(BASE);
 
-export function matchmake(game: string, stake: number, address: string) {
-  return client.matchmake(game, stake, address);
+export function matchmake(
+  game: string,
+  stake: number,
+  address: string,
+  auth?: { signature: string; ts: number },
+) {
+  return client.matchmake(game, stake, address, auth);
 }
 
 export function submitScore(

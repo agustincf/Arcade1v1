@@ -8,10 +8,17 @@ async function main() {
   const agent = createAgent({ arbiterUrl });
   console.log("Agente:", agent.address);
   const res = await agent.playAndSubmit({ game: "2048", stake: 5 });
-  console.log("Estado:", res.status, "· tu score:", res.scores[agent.address]);
+  // El árbitro indexa por dirección en minúsculas.
+  console.log("Estado:", res.status, "· tu score:", res.scores[agent.address.toLowerCase()]);
   if (res.status === "settled") {
-    console.log("Resultado:", res.winner === agent.address ? "GANASTE" : "perdiste",
-      "· tu score:", res.yourScore, "· rival:", res.rivalScore);
+    console.log(
+      "Resultado:",
+      res.winner?.toLowerCase() === agent.address.toLowerCase() ? "GANASTE" : "perdiste",
+      "· tu score:",
+      res.yourScore,
+      "· rival:",
+      res.rivalScore,
+    );
   } else {
     console.log("Esperando rival. Volvé a consultar el match", res.matchId, "más tarde.");
   }

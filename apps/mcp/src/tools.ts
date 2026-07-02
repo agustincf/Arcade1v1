@@ -35,10 +35,15 @@ export async function ratingTool(
 
 export async function matchmakeTool(agent: Agent, game: string, stake: number): Promise<MatchView> {
   assertGame(game);
-  return agent.client.matchmake(game, stake, agent.address);
+  // Firmado con la wallet del agente (el árbitro en producción lo exige).
+  return agent.matchmake(game, stake);
 }
 
-export async function playAndSubmitTool(agent: Agent, game: string, stake: number): Promise<MatchView> {
+export async function playAndSubmitTool(
+  agent: Agent,
+  game: string,
+  stake: number,
+): Promise<MatchView> {
   assertGame(game);
   return agent.playAndSubmit({ game, stake });
 }

@@ -56,6 +56,15 @@ app.use((req, res, next) => {
   }
   next();
 });
+// Limpieza periódica: sin esto, cada IP nueva quedaba en el mapa PARA SIEMPRE
+// (fuga de memoria lenta que un atacante con muchas IPs acelera a propósito).
+const rlSweep = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, arr] of hits) {
+    if (arr.length === 0 || now - arr[arr.length - 1] >= RL_WINDOW) hits.delete(ip);
+  }
+}, 30_000);
+rlSweep.unref?.();
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
@@ -69,9 +78,11 @@ app.get("/", (_req, res) =>
     agentReadyGames: ["invaders", "flappy", "2048", "snake", "tetris", "racing"],
     sharedEngine: "@arcade1v1/game-sdk",
     endpoints: {
-      "POST /matchmake": "{ game, stake, address } -> { matchId, seed, status }",
+      "POST /matchmake":
+        "{ game, stake, address, signature?, ts? } -> { matchId, seed, status }. " +
+        "In production sign matchmakeAuthMessage(game, stake, address, ts) with your wallet.",
       "POST /match/:id/score":
-        "{ address, score, replay } -> verifies & settles (replay shape per game)",
+        "{ address, score, replay, signature } -> verifies & settles (replay shape per game)",
       "GET /match/:id?address=":
         "match status; when settled returns rich feedback: { winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta }",
       "GET /leaderboard/:game?limit=": "ELO leaderboard for a game",
@@ -84,14 +95,16 @@ app.get("/", (_req, res) =>
 // Direccion publica del arbitro (debe coincidir con la del contrato).
 app.get("/arbiter", (_req, res) => res.json({ address: arbiterAddress() }));
 
-// Emparejar: el 2do en llegar se junta con el 1ro.
+// Emparejar: el 2do en llegar se junta con el 1ro. En producción exige la firma
+// del jugador ({ signature, ts }; ver matchmakeAuthMessage en el game-sdk).
 app.post("/matchmake", async (req, res) => {
-  const { game, stake, address } = req.body ?? {};
+  const { game, stake, address, signature, ts } = req.body ?? {};
   if (!game || !stake || !address) {
     return res.status(400).json({ error: "faltan game, stake o address" });
   }
   try {
-    res.json(await matchmake(String(game), Number(stake), String(address)));
+    const auth = signature ? { signature: String(signature), ts: Number(ts) } : undefined;
+    res.json(await matchmake(String(game), Number(stake), String(address), auth));
   } catch (e) {
     res.status(400).json({ error: (e as Error).message });
   }

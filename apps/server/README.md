@@ -16,9 +16,12 @@ el contrato pague. API por HTTP (los juegos son asincrónicos, no hay tiempo rea
 
 - `GET  /health` → `{ ok: true }`
 - `GET  /arbiter` → `{ address }` (debe coincidir con el árbitro del contrato)
-- `POST /matchmake` `{ game, stake, address }` → empareja o deja esperando
-- `POST /match/:id/score` `{ address, score }` → guarda puntaje; al estar los dos, firma
-- `GET  /match/:id` → estado y, si terminó, `{ winner, signature }`
+- `POST /matchmake` `{ game, stake, address, signature?, ts? }` → empareja o deja
+  esperando (en producción la firma es obligatoria: `matchmakeAuthMessage`)
+- `POST /match/:id/score` `{ address, score, replay, signature }` → verifica el
+  replay y guarda el puntaje; al estar los dos, decide y firma
+- `GET  /match/:id?address=` → estado (tu puntaje solamente hasta que se decida)
+  y, si terminó, `{ winner, signature, feedback rico }`
 
 ## Correr
 
@@ -28,7 +31,7 @@ npm run start -w @arcade1v1/server     # arranca en http://localhost:4000
 npm run selftest -w @arcade1v1/server  # prueba sin red (firma válida, empate, etc.)
 ```
 
-> Estado: árbitro + emparejamiento + firma funcionando y verificados (selftest OK).
-> Pendiente: anti-trampa por "replay" (re-jugar el intento en el servidor) y
-> conectar el frontend al árbitro. El despliegue del contrato a testnet queda
-> aparte (Fase 4 parte 2).
+> Estado: árbitro completo y verificado (selftest OK): emparejamiento firmado,
+> anti-trampa por replay en los 6 juegos (semilla forzada, un intento, ventana
+> de envío, puntaje del rival oculto hasta decidir), mesas permitidas, firma
+> EIP-712 y reembolso on-chain automático de empates y partidas vencidas.

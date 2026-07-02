@@ -14,6 +14,7 @@ import {
   TABLE_META,
   matchBars,
   onlinePlayers,
+  SHOW_SYNTHETIC_ACTIVITY,
   type MatchSpeed,
 } from "@/app/lib/config";
 
@@ -59,9 +60,11 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
           <span>
             {t(`game.${game.id}.name`).toUpperCase()} · {t("table.choose")}
           </span>
-          <span className="chip">
-            <span className="blink">🟢</span> {t("table.online", { n: online ?? "···" })}
-          </span>
+          {SHOW_SYNTHETIC_ACTIVITY && (
+            <span className="chip">
+              <span className="blink">🟢</span> {t("table.online", { n: online ?? "···" })}
+            </span>
+          )}
         </div>
 
         <div className="p-5">
@@ -101,25 +104,29 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
                   <div className="font-screen text-base text-[--color-win]">
                     {t("table.win", { n: prize })}
                   </div>
-                  <div className="mt-2 flex items-center justify-center gap-1">
-                    <SignalBars speed={m.speed} />
-                    <span className="font-screen text-sm text-[--color-muted-2]">
-                      👥 {m.playersWaiting}
-                    </span>
-                  </div>
+                  {SHOW_SYNTHETIC_ACTIVITY && (
+                    <div className="mt-2 flex items-center justify-center gap-1">
+                      <SignalBars speed={m.speed} />
+                      <span className="font-screen text-sm text-[--color-muted-2]">
+                        👥 {m.playersWaiting}
+                      </span>
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          {/* Nudge de CRO */}
-          <div className="mt-4 rounded border-2 border-[--color-ink] bg-[--color-ink] p-3 text-center">
-            <p className="font-screen text-lg text-[--color-accent-2]">
-              {meta.premium
-                ? t("table.nudgeVip", { n: meta.playersWaiting })
-                : t("table.nudgeNormal", { n: meta.playersWaiting, bet: selected })}
-            </p>
-          </div>
+          {/* Nudge de CRO (usa contadores sintéticos: solo fuera de mainnet) */}
+          {SHOW_SYNTHETIC_ACTIVITY && (
+            <div className="mt-4 rounded border-2 border-[--color-ink] bg-[--color-ink] p-3 text-center">
+              <p className="font-screen text-lg text-[--color-accent-2]">
+                {meta.premium
+                  ? t("table.nudgeVip", { n: meta.playersWaiting })
+                  : t("table.nudgeNormal", { n: meta.playersWaiting, bet: selected })}
+              </p>
+            </div>
+          )}
 
           {/* CTA */}
           <div className="mt-4">

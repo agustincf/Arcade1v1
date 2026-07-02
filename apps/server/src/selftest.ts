@@ -5,7 +5,14 @@ import "dotenv/config";
 import "./offline-env.js"; // el selftest corre offline a propósito (ver el módulo)
 import { recoverTypedDataAddress, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { matchmake, submitScore, replayTooLong } from "./matchmaking.js";
+import {
+  matchmake,
+  submitScore,
+  getMatch,
+  replayTooLong,
+  sweepMatches,
+  SUBMIT_WINDOW_MS,
+} from "./matchmaking.js";
 import { arbiterAddress, RESULT_TYPES, resultDomain } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { TetrisEngine, type TetrisAction } from "@arcade1v1/game-sdk/tetris";
@@ -13,7 +20,7 @@ import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
 import { RacingEngine, RACING_DT, type RaceAction } from "@arcade1v1/game-sdk/racing";
 import { SnakeEngine } from "@arcade1v1/game-sdk/snake";
 import { InvadersEngine, type InvaderAction } from "@arcade1v1/game-sdk/invaders";
-import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 
 function play2048(seed: number, maxMoves = 500) {
@@ -167,8 +174,9 @@ async function main() {
   // 6) AUTENTICACION: firma valida aceptada, firma que no corresponde rechazada.
   const wC = privateKeyToAccount(generatePrivateKey());
   const wD = privateKeyToAccount(generatePrivateKey());
-  const C = wC.address;
-  const D = wD.address;
+  // El árbitro normaliza las direcciones a minúsculas (claves internas).
+  const C = wC.address.toLowerCase();
+  const D = wD.address.toLowerCase();
   const cm = await matchmake("2048", 1, C);
   await matchmake("2048", 1, D);
   const pC = play2048(cm.seed, 30);
@@ -262,15 +270,97 @@ async function main() {
   }
   console.log("✓ reenvío de puntaje RECHAZADO (un intento):", resubmitRejected);
 
+  // 10b) MESAS PERMITIDAS: un stake fuera de la lista se rechaza (corta colas
+  //      basura con montos arbitrarios / NaN).
+  let stakeRejected = false;
+  try {
+    await matchmake("2048", 4, A); // 4 no está en STAKES_ALLOWED
+  } catch {
+    stakeRejected = true;
+  }
+  let stakeNaNRejected = false;
+  try {
+    await matchmake("2048", Number("nada"), A);
+  } catch {
+    stakeNaNRejected = true;
+  }
+  console.log("✓ mesa no permitida RECHAZADA (4 y NaN):", stakeRejected && stakeNaNRejected);
+
+  // 10c) ANTI-ESPIONAJE: el rival NO ve tu puntaje hasta que la partida se
+  //      decide (antes podía consultarlo y jugar sabiendo cuánto superar).
+  const H1 = "0x6666666666666666666666666666666666666666";
+  const H2 = "0x7777777777777777777777777777777777777777";
+  const am = await matchmake("snake", 3, H1);
+  await matchmake("snake", 3, H2);
+  const ph = playSnake(am.seed);
+  await submitScore(am.matchId, H1, ph.score, ph.replay);
+  const spy = getMatch(am.matchId, H2)!;
+  const hiddenOk =
+    spy.scores[H1] === undefined && spy.rivalSubmitted === true && spy.rivalReplay === undefined;
+  const anon = getMatch(am.matchId)!; // un tercero sin address: no ve nada
+  const anonOk = Object.keys(anon.scores).length === 0;
+  const ph2 = playSnake(am.seed);
+  const decidedView = await submitScore(am.matchId, H2, ph2.score, ph2.replay);
+  const revealedOk = decidedView.scores[H1] !== undefined; // al decidir, se revela
+  console.log(
+    "✓ puntaje del rival OCULTO hasta decidir (y revelado después):",
+    hiddenOk && anonOk && revealedOk,
+  );
+
+  // 10d) EMPAREJAR FIRMADO: firma válida aceptada; firma de otra wallet
+  //      rechazada; firma vencida (ts viejo) rechazada.
+  const wJ = privateKeyToAccount(generatePrivateKey());
+  const tsJ = Date.now();
+  const sigJ = await wJ.signMessage({
+    message: matchmakeAuthMessage("2048", 5, wJ.address, tsJ),
+  });
+  const mmOk = await matchmake("2048", 5, wJ.address, { signature: sigJ, ts: tsJ });
+  const wK = privateKeyToAccount(generatePrivateKey());
+  let mmForgedRejected = false;
+  try {
+    // reusar la firma de wJ para encolar a wK (suplantación) -> rechazado
+    await matchmake("2048", 5, wK.address, { signature: sigJ, ts: tsJ });
+  } catch {
+    mmForgedRejected = true;
+  }
+  let mmStaleRejected = false;
+  const tsOld = Date.now() - 11 * 60_000;
+  const sigOld = await wJ.signMessage({
+    message: matchmakeAuthMessage("2048", 5, wJ.address, tsOld),
+  });
+  try {
+    await matchmake("2048", 5, wJ.address, { signature: sigOld, ts: tsOld });
+  } catch {
+    mmStaleRejected = true;
+  }
+  const mmAuthOk = !!mmOk.matchId && mmForgedRejected && mmStaleRejected;
+  console.log("✓ emparejar firmado (válida sí / ajena no / vencida no):", mmAuthOk);
+
+  // 10e) BARRENDERO: una partida emparejada SIN resultado al vencer la ventana
+  //      se expira (draw -> reembolso); y ya decidida no acepta envíos tardíos.
+  const sw1 = await matchmake("tetris", 10, A);
+  await matchmake("tetris", 10, B);
+  sweepMatches(Date.now() + SUBMIT_WINDOW_MS + 16 * 60_000);
+  const swept = getMatch(sw1.matchId)!;
+  let lateRejected = false;
+  try {
+    const late = playTetris(sw1.seed);
+    await submitScore(sw1.matchId, A, late.score, late.replay);
+  } catch {
+    lateRejected = true;
+  }
+  const sweepOk = swept.status === "draw" && swept.outcome === "draw" && lateRejected;
+  console.log("✓ partida vencida expira a reembolso y rechaza envíos tardíos:", sweepOk);
+
   // 11) GUARDA DE CONFIG (mainnet): en producción con escrow activo, faltar
-  //     CHAIN_ID / clave del árbitro / origen permitido debe DETECTARSE (si no,
-  //     se firmaría para la red equivocada y los cobros no funcionarían).
+  //     CHAIN_ID / clave del árbitro / origen permitido / RPC debe DETECTARSE
+  //     (si no, se firmaría para la red equivocada y los cobros no funcionarían).
   const badCfg = productionConfigErrors({
     NODE_ENV: "production",
     ESCROW_ADDRESS: "0x000000000000000000000000000000000000dEaD",
-    // faltan CHAIN_ID, ARBITER_PRIVATE_KEY y ALLOWED_ORIGIN a propósito
+    // faltan CHAIN_ID, ARBITER_PRIVATE_KEY, ALLOWED_ORIGIN y RPC_URL a propósito
   } as NodeJS.ProcessEnv);
-  const cfgGuardOk = badCfg.length === 3;
+  const cfgGuardOk = badCfg.length === 4;
   console.log("✓ guarda de config mainnet detecta faltantes:", cfgGuardOk, `(${badCfg.length})`);
   const goodCfg = productionConfigErrors({
     NODE_ENV: "production",
@@ -278,6 +368,7 @@ async function main() {
     CHAIN_ID: "8453",
     ARBITER_PRIVATE_KEY: "0xabc",
     ALLOWED_ORIGIN: "https://arcade1v1.example",
+    RPC_URL: "https://mainnet.base.org",
   } as NodeJS.ProcessEnv);
   const cfgGoodOk = goodCfg.length === 0;
   console.log("✓ guarda de config mainnet OK con todo seteado:", cfgGoodOk);
@@ -321,6 +412,13 @@ async function main() {
     unknownRejected &&
     seedCheatRejected &&
     resubmitRejected &&
+    stakeRejected &&
+    stakeNaNRejected &&
+    hiddenOk &&
+    anonOk &&
+    revealedOk &&
+    mmAuthOk &&
+    sweepOk &&
     cfgGuardOk &&
     cfgGoodOk &&
     dosGuardOk &&

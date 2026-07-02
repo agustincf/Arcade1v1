@@ -36,11 +36,14 @@ function clients() {
   return { wallet: wallet!, pub: pub! };
 }
 
-/** En empate/disputa: el arbitro cancela y el contrato reembolsa a ambos. */
+/** En empate/disputa: el arbitro cancela y el contrato reembolsa a ambos.
+ *  Se SIMULA primero: si la partida no existe on-chain o no es cancelable
+ *  (nadie depositó, ya liquidada/reembolsada), no se manda la transacción y no
+ *  se quema gas del árbitro en un revert seguro. */
 export async function cancelMatchOnchain(matchId: Hex) {
   if (!onchainEnabled()) return;
   const { wallet: w, pub: p } = clients();
-  const hash = await w.writeContract({
+  const { request } = await p.simulateContract({
     address: ESCROW,
     abi: escrowAbi,
     functionName: "cancelMatch",
@@ -48,5 +51,6 @@ export async function cancelMatchOnchain(matchId: Hex) {
     account: w.account!,
     chain: chain(),
   });
+  const hash = await w.writeContract(request);
   await p.waitForTransactionReceipt({ hash });
 }

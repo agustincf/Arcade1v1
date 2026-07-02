@@ -20,6 +20,11 @@ export function getPayout(bet: number) {
 export const IS_MAINNET = process.env.NEXT_PUBLIC_CHAIN_ID === "8453";
 export const NETWORK_LABEL = IS_MAINNET ? "Base" : "Base Sepolia · TEST";
 
+/** Indicadores de actividad SINTÉTICOS ("jugadores en línea", "esperando en la
+ *  mesa"): son datos de mentira para la demo/test. Con dinero real (mainnet)
+ *  NO se muestran — inventar actividad a gente que apuesta es engañarla. */
+export const SHOW_SYNTHETIC_ACTIVITY = !IS_MAINNET;
+
 /** Mesa pre-seleccionada por defecto. */
 export const DEFAULT_BET = 5;
 

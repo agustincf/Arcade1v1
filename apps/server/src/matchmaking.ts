@@ -2,7 +2,7 @@
 // Modelo asincronico: el 2do en llegar se empareja con el 1ro; cada uno juega
 // su intento (misma semilla) y al tener los dos puntajes se decide y se firma.
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -14,7 +14,11 @@ import { verifyFlappy, type ReplayFlappy } from "@arcade1v1/game-sdk/flappy";
 import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
 import { verifyInvaders, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
-import { scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import {
+  scoreAuthMessage,
+  matchmakeAuthMessage,
+  MATCHMAKE_AUTH_TTL_MS,
+} from "@arcade1v1/game-sdk/auth";
 import { onchainEnabled, cancelMatchOnchain } from "./onchain.js";
 import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
 
@@ -120,14 +124,34 @@ export const AUTH_REQUIRED =
 
 const BOT = "0x000000000000000000000000000000000000b07a";
 
+// MESAS PERMITIDAS: deben coincidir con las del contrato (allowedStake). Sin esta
+// lista, cualquiera creaba colas basura con montos arbitrarios (NaN, negativos,
+// millones) que ensuciaban memoria/disco y el netPnl. Configurable por entorno.
+const STAKES_ALLOWED: number[] = (process.env.STAKES_ALLOWED ?? "1,2,5,10")
+  .split(",")
+  .map((s) => Number(s.trim()))
+  .filter((n) => Number.isFinite(n) && n > 0);
+
+/** Normaliza una dirección para usarla como clave interna (case-insensitive).
+ *  Sin esto, "0xAbC..." y "0xabc..." serían DOS jugadores distintos (doble ELO,
+ *  "not a player" al reenviar con otro formato, etc.). */
+const normAddr = (a: string) => String(a).toLowerCase();
+
 const matches = new Map<string, Match>();
 const queue = new Map<string, Hex>(); // "game:stake" -> id de la partida esperando rival
 
 const qkey = (game: string, stake: number) => `${game}:${stake}`;
 const randomId = () => ("0x" + randomBytes(32).toString("hex")) as Hex;
-const randomSeed = () => Math.floor(Math.random() * 1_000_000_000);
+// Semilla con CSPRNG: Math.random es predecible (xorshift128+); un observador
+// podría anticipar semillas futuras y practicarlas offline antes de emparejar.
+const randomSeed = () => randomInt(0, 2 ** 31 - 1);
 
 const WAIT_TTL = 60 * 60 * 1000; // 1 hora: un "waiter" abandonado se descarta de la cola
+
+// VENTANA DE ENVÍO: alineada al plazo on-chain (la web abre con playDeadline =
+// +2h). Pasada la ventana no se aceptan puntajes: corta la "práctica offline"
+// ilimitada con la semilla ya conocida y evita liquidar partidas ya reembolsadas.
+export const SUBMIT_WINDOW_MS = Number(process.env.SUBMIT_WINDOW_MS ?? 2 * 60 * 60 * 1000);
 
 // PERSISTENCIA (liviana, archivo JSON con escritura atómica; mismo patrón que el
 // ranking). Sobrevive a un reinicio del servidor: las partidas en curso vuelven
@@ -139,7 +163,7 @@ const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 const MATCHES_FILE = join(DATA_DIR, "matches.json");
 const FINISHED_TTL = 2 * 24 * 60 * 60 * 1000; // 2 días: purga partidas terminadas viejas
 
-function persist() {
+function persistNow() {
   if (!PERSIST) return;
   try {
     if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -157,6 +181,29 @@ function persist() {
     renameSync(tmp, MATCHES_FILE);
   } catch (e) {
     console.error("matches save:", (e as Error).message);
+  }
+}
+
+// Debounce: escribir el archivo entero en CADA request era una escritura síncrona
+// de disco por pedido (bloquea el event loop; con replays grandes, un DoS barato).
+// Se agrupan los cambios y se escribe a lo sumo 2 veces por segundo; en un apagado
+// ordenado (SIGTERM/SIGINT, típico de un redeploy) se hace un último flush.
+let persistTimer: NodeJS.Timeout | null = null;
+function persist() {
+  if (!PERSIST) return;
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persistNow();
+  }, 500);
+  persistTimer.unref?.();
+}
+if (PERSIST) {
+  for (const sig of ["SIGTERM", "SIGINT"] as const) {
+    process.once(sig, () => {
+      persistNow();
+      process.exit(0);
+    });
   }
 }
 
@@ -195,9 +242,44 @@ function createWaiting(k: string, game: string, stake: number, address: string) 
   return view(m, address);
 }
 
-export async function matchmake(game: string, stake: number, address: string) {
+/** Firma opcional del emparejamiento: { signature, ts } (ver matchmakeAuthMessage). */
+export interface MatchmakeAuth {
+  signature: string;
+  ts: number;
+}
+
+export async function matchmake(
+  game: string,
+  stake: number,
+  address: string,
+  auth?: MatchmakeAuth,
+) {
+  address = normAddr(address);
   // Default-deny: solo se emparejan juegos que el árbitro sabe verificar.
   if (!isKnownGame(game)) throw new Error(`unknown game: ${game}`);
+  // Solo mesas permitidas (las mismas que el contrato). Corta colas basura.
+  if (!STAKES_ALLOWED.includes(stake)) {
+    throw new Error(`stake not allowed: ${stake} (mesas: ${STAKES_ALLOWED.join(", ")})`);
+  }
+
+  // AUTENTICACIÓN del emparejamiento (mismo criterio que el envío de puntaje):
+  // el jugador firma "quiero emparejar" con su wallet. Sin esto, cualquiera
+  // encola direcciones AJENAS (suplantación) o llena la cola de rivales fantasma
+  // que nunca depositan (el rival real deposita y pierde tiempo y gas).
+  if (auth?.signature) {
+    const ts = Number(auth.ts);
+    if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > MATCHMAKE_AUTH_TTL_MS) {
+      throw new Error("auth expired");
+    }
+    const signer = await recoverMessageAddress({
+      message: matchmakeAuthMessage(game, stake, address, ts),
+      signature: auth.signature as Hex,
+    });
+    if (signer.toLowerCase() !== address) throw new Error("bad signature");
+  } else if (AUTH_REQUIRED) {
+    throw new Error("signature required");
+  }
+
   const k = qkey(game, stake);
   const waitingId = queue.get(k);
   let waiter = waitingId ? matches.get(waitingId) : undefined;
@@ -233,9 +315,17 @@ export async function submitScore(
   replay?: unknown,
   signature?: string,
 ) {
+  address = normAddr(address);
   const m = matches.get(id);
   if (!m) throw new Error("match not found");
   if (address !== m.p1 && address !== m.p2) throw new Error("not a player");
+
+  // Una partida ya decidida (pagada, empatada o expirada) no acepta más envíos.
+  if (m.status === "settled" || m.status === "draw") throw new Error("match already decided");
+
+  // VENTANA DE ENVÍO: pasado el plazo de juego, la partida se reembolsa (igual
+  // que on-chain con refundExpired); no se aceptan puntajes tardíos.
+  if (Date.now() - m.createdAt > SUBMIT_WINDOW_MS) throw new Error("match expired");
 
   // AUTENTICACION: el jugador firma su envio con la wallet -> probamos que
   // controla su direccion. Si se exige (REQUIRE_AUTH) y no hay firma, se rechaza.
@@ -350,7 +440,7 @@ export function onchainSettled(id: string): Promise<void> {
 export function getMatch(id: string, address?: string) {
   const m = matches.get(id);
   if (!m) return null;
-  return view(m, address);
+  return view(m, address ? normAddr(address) : undefined);
 }
 
 /** PnL neto (en USDC) para `address` segun el resultado. */
@@ -372,6 +462,8 @@ export interface MatchView {
   role?: "p1" | "p2";
   opponent?: string;
   scores: Record<string, number>;
+  /** ¿El rival ya envió su intento? (sin revelar el puntaje hasta decidir). */
+  rivalSubmitted?: boolean;
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
   signature?: Hex; // el ganador la presenta al contrato
@@ -387,6 +479,18 @@ export interface MatchView {
 }
 
 function view(m: Match, address?: string): MatchView {
+  // ANTI-ESPIONAJE: hasta que la partida se decide, cada jugador ve SOLO su
+  // propio puntaje. Sin este filtro, el rival consultaba GET /match/:id y veía
+  // tu puntaje ANTES de jugar su intento: sabía exactamente cuánto superar (o
+  // directamente no jugaba si no le convenía). Con plata en juego, es letal.
+  const decided = m.status === "settled" || m.status === "draw";
+  const scores: Record<string, number> = decided
+    ? m.scores
+    : address !== undefined && m.scores[address] !== undefined
+      ? { [address]: m.scores[address] }
+      : {};
+  const rival = address === m.p1 ? m.p2 : address === m.p2 ? m.p1 : undefined;
+
   const v: MatchView = {
     matchId: m.id,
     game: m.game,
@@ -395,7 +499,9 @@ function view(m: Match, address?: string): MatchView {
     status: m.status,
     role: address === m.p1 ? "p1" : address === m.p2 ? "p2" : undefined,
     opponent: address === m.p1 ? m.p2 : m.p1,
-    scores: m.scores,
+    scores,
+    // Señal de progreso sin filtrar el número: alcanza para la UX de espera.
+    rivalSubmitted: rival !== undefined ? m.scores[rival] !== undefined : undefined,
     outcome: m.outcome,
     winner: m.winner,
     signature: m.signature,
@@ -404,9 +510,7 @@ function view(m: Match, address?: string): MatchView {
 
   // FEEDBACK RICO para jugadores/agentes: solo cuando la partida YA termino,
   // asi nadie ve el puntaje ni el replay del rival antes de jugar (ventaja).
-  const decided = m.status === "settled" || m.status === "draw";
   if (decided && address && (address === m.p1 || address === m.p2)) {
-    const rival = address === m.p1 ? m.p2 : m.p1;
     const yourScore = m.scores[address];
     const rivalScore = rival ? m.scores[rival] : undefined;
     v.yourScore = yourScore;
@@ -423,3 +527,55 @@ function view(m: Match, address?: string): MatchView {
   }
   return v;
 }
+
+// ------------------------------------------------------------------------- //
+// BARRENDERO: sin esto, las partidas se acumulaban en memoria PARA SIEMPRE
+// (waiters huérfanos, partidas "ready" que nadie terminó) -> fuga de memoria y
+// fondos colgados. Cada minuto:
+//   - borra waiters vencidos (WAIT_TTL) y terminadas viejas (FINISHED_TTL);
+//   - una partida emparejada SIN resultado al vencer la ventana de juego se
+//     marca expirada (draw) y, si hay escrow, se CANCELA on-chain -> el contrato
+//     reembolsa a ambos YA, sin que nadie tenga que esperar plazos eternos
+//     (defensa extra si un rival malicioso abrió con playDeadline lejano).
+// Margen de 15 min sobre la ventana de envío para no pisar un envío al límite.
+// ------------------------------------------------------------------------- //
+const SWEEP_EVERY_MS = 60_000;
+const EXPIRE_GRACE_MS = 15 * 60_000;
+
+export function sweepMatches(now = Date.now()) {
+  let dirty = false;
+  for (const m of [...matches.values()]) {
+    const finished = m.status === "settled" || m.status === "draw";
+    if (finished) {
+      if (now - m.createdAt > FINISHED_TTL) {
+        matches.delete(m.id);
+      }
+      continue;
+    }
+    if (!m.p2) {
+      // Esperando rival: vencido, se descarta (igual criterio que la cola).
+      if (now - m.createdAt > WAIT_TTL) {
+        const k = qkey(m.game, m.stake);
+        if (queue.get(k) === m.id) queue.delete(k);
+        matches.delete(m.id);
+        dirty = true;
+      }
+      continue;
+    }
+    // Emparejada pero sin resultado al vencer la ventana: expira -> reembolso.
+    if (now - m.createdAt > SUBMIT_WINDOW_MS + EXPIRE_GRACE_MS) {
+      m.status = "draw";
+      m.outcome = "draw";
+      if (onchainEnabled()) {
+        m.refundPromise = cancelMatchOnchain(m.id).catch((e) =>
+          console.error("cancelMatch (expirada) onchain:", (e as Error).message),
+        );
+      }
+      dirty = true;
+    }
+  }
+  if (dirty) persist();
+}
+
+const sweeper = setInterval(sweepMatches, SWEEP_EVERY_MS);
+sweeper.unref?.(); // no mantener vivo un proceso que ya terminó (tests, scripts)

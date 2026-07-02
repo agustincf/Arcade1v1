@@ -9,7 +9,10 @@ export interface MatchView {
   status: "waiting" | "ready" | "settled" | "draw";
   role?: "p1" | "p2";
   opponent?: string;
+  /** Hasta que la partida se decide, solo aparece TU puntaje (anti-espionaje). */
   scores: Record<string, number>;
+  /** ¿El rival ya envió su intento? (sin revelar el puntaje hasta decidir). */
+  rivalSubmitted?: boolean;
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
   signature?: string;
@@ -50,11 +53,24 @@ export class ArbiterClient {
     return (await r.json()) as MatchView;
   }
 
-  matchmake(game: string, stake: number, address: string): Promise<MatchView> {
-    return this.post("/matchmake", { game, stake, address });
+  /** `auth` (firma de matchmakeAuthMessage + su ts) es obligatoria cuando el
+   *  árbitro corre en producción; en dev puede omitirse. */
+  matchmake(
+    game: string,
+    stake: number,
+    address: string,
+    auth?: { signature: string; ts: number },
+  ): Promise<MatchView> {
+    return this.post("/matchmake", { game, stake, address, ...(auth ?? {}) });
   }
 
-  submitScore(id: string, address: string, score: number, replay?: unknown, signature?: string): Promise<MatchView> {
+  submitScore(
+    id: string,
+    address: string,
+    score: number,
+    replay?: unknown,
+    signature?: string,
+  ): Promise<MatchView> {
     return this.post(`/match/${id}/score`, { address, score, replay, signature });
   }
 

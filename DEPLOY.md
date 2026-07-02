@@ -40,13 +40,17 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
   - `ARBITER_PRIVATE_KEY` — la llave del árbitro (guardar como secreto). Debe ser
     la cuenta que figura como **arbiter** en el contrato (Paso 1).
   - `CHAIN_ID=84532` y `ESCROW_ADDRESS=` (las del Paso 1).
-  - `RPC_URL=https://sepolia.base.org` — para que el árbitro pueda reembolsar
-    on-chain en caso de empate (`cancelMatch`). Ya no crea partidas (open/join).
+  - `RPC_URL=https://sepolia.base.org` — **obligatoria en producción con escrow**:
+    el árbitro reembolsa on-chain los empates y las partidas vencidas
+    (`cancelMatch`). Esa cuenta necesita un poco de **ETH para gas**.
   - `ALLOWED_ORIGIN=https://tudominio.com` — restringe el CORS a tu web.
-  - `REQUIRE_AUTH` — la firma de los envíos es **obligatoria por defecto** cuando
-    `NODE_ENV=production`. No hace falta setearla; solo poné `REQUIRE_AUTH=false`
-    si querés desactivarla a propósito (no recomendado con dinero en juego).
+  - `REQUIRE_AUTH` — la firma de los envíos **y del emparejamiento** es
+    **obligatoria por defecto** cuando `NODE_ENV=production`. No hace falta
+    setearla; solo poné `REQUIRE_AUTH=false` si querés desactivarla a propósito
+    (no recomendado con dinero en juego).
   - `NODE_ENV=production` — apaga el bot de prueba.
+  - Opcionales: `STAKES_ALLOWED=1,2,5,10` (mesas que acepta el árbitro; deben
+    coincidir con el contrato) y `SUBMIT_WINDOW_MS` (ventana de envío, default 2h).
 - Anotá la **URL pública** del árbitro (ej. `https://arcade1v1-arbiter.onrender.com`).
 
 ## Paso 3 — Publicar la web (Vercel)
@@ -55,8 +59,11 @@ Importá el repo en Vercel, raíz `apps/web`. Variables de entorno:
 
 - `NEXT_PUBLIC_SITE_URL` — tu dominio (para SEO / sitemap / Open Graph).
 - `NEXT_PUBLIC_ARBITER_URL` — la URL del árbitro (Paso 2).
-- `NEXT_PUBLIC_WC_PROJECT_ID` — el de WalletConnect/Reown.
+- `NEXT_PUBLIC_WC_PROJECT_ID` — el de WalletConnect/Reown (creá el TUYO en
+  cloud.reown.com; el fallback del código es solo para desarrollo).
 - `NEXT_PUBLIC_ESCROW_ADDRESS` y `NEXT_PUBLIC_USDC_ADDRESS` — las del Paso 1.
+- `NEXT_PUBLIC_RPC_URL` — (recomendado en producción) un RPC propio
+  (Alchemy/Infura/QuickNode); sin setear usa el público de la red.
 
 ## Después de publicar
 
@@ -79,8 +86,11 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
       multisig **Safe** más adelante). NUNCA una clave generada por script en un `.env`.
 - [ ] **Llave del árbitro resguardada** (KMS/HSM o secret del hosting), no en texto
       plano. Su dirección va en `ARBITER_ADDRESS` y debe coincidir con la del servidor.
-- [ ] **ETH real** para el gas en la wallet que despliega.
+- [ ] **ETH real** para el gas en la wallet que despliega **y un poco en la del
+      árbitro** (paga el gas de los reembolsos por empate/vencimiento).
 - [ ] `REQUIRE_AUTH` queda obligatorio por defecto en producción (no lo desactives).
+- [ ] `FEE_BPS` del deploy = el `FEE_BPS` del árbitro = el 15% que muestra la web
+      (si cambiás la comisión, cambiala en los tres lados).
 
 **Desplegar** (firma con hardware wallet, sin claves en disco):
 
@@ -98,14 +108,20 @@ La red la elige `NEXT_PUBLIC_CHAIN_ID`: sin setear queda en **testnet** (seguro)
 
 ## ✅ Checklist de producción (seguridad)
 
-- [x] Firma obligatoria en el árbitro — **por defecto en producción** (`NODE_ENV=production`); no desactivar con `REQUIRE_AUTH=false`.
+- [x] Firma obligatoria en el árbitro (envíos **y emparejamiento**) — **por defecto en producción** (`NODE_ENV=production`); no desactivar con `REQUIRE_AUTH=false`.
 - [ ] `NODE_ENV=production` (apaga el bot de prueba `/bot`).
 - [ ] La web en producción **no** muestra rival simulado (ya gateado por `NODE_ENV`).
 - [ ] Llave del árbitro en los **secrets** del hosting (nunca en el repo).
 - [ ] HTTPS en la web y en el árbitro.
 - [ ] CORS del árbitro restringido con `ALLOWED_ORIGIN` (el código ya lo soporta).
-- [x] Rate limiting en el árbitro (ya implementado: 120 pedidos/10s por IP → 429).
+- [x] Rate limiting en el árbitro (120 pedidos/10s por IP → 429, con limpieza).
+- [x] **Puntaje del rival oculto** hasta que la partida se decide (anti-espionaje).
+- [x] **Depósitos protegidos:** approve por el monto exacto + verificación
+      on-chain antes de unirse + reembolso automático de partidas vencidas.
+- [x] Cabeceras de seguridad en la web (anti-clickjacking, nosniff, etc.).
+- [x] En mainnet no se muestran contadores de actividad inventados.
 - [ ] Auditoría externa del contrato.
 - [x] **Anti-trampa:** los **6 juegos** verifican el replay (legítimo aceptado,
-      inventado rechazado en `selftest`).
+      inventado rechazado en `selftest`), semilla forzada, un intento por jugador,
+      ventana de envío.
 - [ ] **Legal:** asesoría + licencias + KYC/AML + edad + geobloqueo.

@@ -25,6 +25,11 @@ export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): st
   if (!env.ALLOWED_ORIGIN) {
     errors.push("Falta ALLOWED_ORIGIN (CORS quedaría abierto a '*').");
   }
+  if (!env.RPC_URL) {
+    errors.push(
+      "Falta RPC_URL (sin nodo, el árbitro no puede cancelar/reembolsar on-chain los empates ni las partidas vencidas).",
+    );
+  }
   return errors;
 }
 
