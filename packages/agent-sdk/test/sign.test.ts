@@ -8,7 +8,12 @@ test("la firma del score la recupera la wallet del agente", async () => {
   const w = randomWallet();
   const matchId = "0x" + "ab".repeat(32);
   const score = 1234;
-  const signature = await signScore({ matchId, address: w.address, score, privateKey: w.privateKey });
+  const signature = await signScore({
+    matchId,
+    address: w.address,
+    score,
+    privateKey: w.privateKey,
+  });
   const signer = await recoverMessageAddress({
     message: scoreAuthMessage(matchId, w.address, score),
     signature,

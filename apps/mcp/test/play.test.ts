@@ -7,19 +7,52 @@ import { ArbiterClient, createAgent } from "@arcade1v1/agent-sdk";
 import { matchmakeTool, playAndSubmitTool, getResultTool } from "../src/tools";
 
 class FakeArbiter extends ArbiterClient {
-  public submitted?: { id: string; address: string; score: number; replay: unknown; signature?: string };
+  public submitted?: {
+    id: string;
+    address: string;
+    score: number;
+    replay: unknown;
+    signature?: string;
+  };
   constructor() {
     super("http://fake");
   }
   async matchmake(game: string, stake: number, address: string) {
-    return { matchId: "0x" + "ab".repeat(32), game, stake, seed: 4242, status: "waiting", scores: {} } as any;
+    return {
+      matchId: "0x" + "ab".repeat(32),
+      game,
+      stake,
+      seed: 4242,
+      status: "waiting",
+      scores: {},
+    } as any;
   }
-  async submitScore(id: string, address: string, score: number, replay?: unknown, signature?: string) {
+  async submitScore(
+    id: string,
+    address: string,
+    score: number,
+    replay?: unknown,
+    signature?: string,
+  ) {
     this.submitted = { id, address, score, replay, signature };
-    return { matchId: id, game: "2048", stake: 5, seed: 4242, status: "settled", scores: { [address]: score } } as any;
+    return {
+      matchId: id,
+      game: "2048",
+      stake: 5,
+      seed: 4242,
+      status: "settled",
+      scores: { [address]: score },
+    } as any;
   }
   async getMatch(id: string) {
-    return { matchId: id, game: "2048", stake: 5, seed: 4242, status: "settled", scores: {} } as any;
+    return {
+      matchId: id,
+      game: "2048",
+      stake: 5,
+      seed: 4242,
+      status: "settled",
+      scores: {},
+    } as any;
   }
 }
 

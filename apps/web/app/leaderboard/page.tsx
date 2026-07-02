@@ -56,7 +56,9 @@ export default function LeaderboardPage() {
           {rows === null ? (
             <p className="font-screen py-8 text-center text-lg text-[--color-accent-2]">…</p>
           ) : rows.length === 0 ? (
-            <p className="font-screen py-8 text-center text-lg text-[--color-muted]">{t("lb.empty")}</p>
+            <p className="font-screen py-8 text-center text-lg text-[--color-muted]">
+              {t("lb.empty")}
+            </p>
           ) : (
             <ol className="flex flex-col gap-1">
               {rows.map((row, i) => {
@@ -88,7 +90,9 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      <p className="font-screen mt-3 text-center text-base text-[--color-muted-3]">{t("lb.note")}</p>
+      <p className="font-screen mt-3 text-center text-base text-[--color-muted-3]">
+        {t("lb.note")}
+      </p>
     </div>
   );
 }

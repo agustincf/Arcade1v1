@@ -914,11 +914,7 @@ const fr: Dict = {
 
 export const DICT: Record<Lang, Dict> = { en, es, hi, fr };
 
-export function translate(
-  lang: Lang,
-  key: string,
-  vars?: Record<string, string | number>,
-): string {
+export function translate(lang: Lang, key: string, vars?: Record<string, string | number>): string {
   let s = DICT[lang][key] ?? DICT.en[key] ?? key;
   if (vars) {
     for (const k of Object.keys(vars)) {

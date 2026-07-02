@@ -45,10 +45,12 @@ Expected: `88` (línea base; bajará a 0 en Task 5).
 ### Task 1: Extraer el diccionario a un módulo compartido (no-cliente)
 
 **Files:**
+
 - Create: `apps/web/app/lib/i18n-dict.ts`
 - Modify: `apps/web/app/lib/i18n.tsx`
 
 **Interfaces:**
+
 - Produces: `LANGS`, `Lang`, `LANG_LABELS`, `DICT: Record<Lang, Dict>`, `translate(lang: Lang, key: string, vars?: Record<string,string|number>): string` — todos importables tanto desde Server Components como desde Client Components.
 
 Razón: hoy el diccionario vive dentro de `i18n.tsx` que es `"use client"`. Para traducir en el servidor (Tasks 6–8) sin romper el SEO, los datos deben estar en un módulo sin `"use client"`.
@@ -58,11 +60,7 @@ Razón: hoy el diccionario vive dentro de `i18n.tsx` que es `"use client"`. Para
 Crear `apps/web/app/lib/i18n-dict.ts` (SIN `"use client"`). Mover desde `i18n.tsx`: la constante `LANGS`, el `type Lang`, `LANG_LABELS`, `type Dict`, los cuatro diccionarios `en`, `es`, `hi`, `fr`, y `const DICT`. Agregar la función pura de traducción:
 
 ```ts
-export function translate(
-  lang: Lang,
-  key: string,
-  vars?: Record<string, string | number>,
-): string {
+export function translate(lang: Lang, key: string, vars?: Record<string, string | number>): string {
   let s = DICT[lang][key] ?? DICT.en[key] ?? key;
   if (vars) {
     for (const k of Object.keys(vars)) {
@@ -108,9 +106,11 @@ git commit -m "refactor(i18n): extraer diccionario y translate() a módulo compa
 ### Task 2: Detección de idioma del lado del servidor
 
 **Files:**
+
 - Create: `apps/web/app/lib/serverLang.ts`
 
 **Interfaces:**
+
 - Consumes: `LANGS`, `Lang` de `./i18n-dict`.
 - Produces: `getLang(): Promise<Lang>` — lee la cookie `arcade.lang`; si no es válida, parsea `Accept-Language`; default `en`.
 
@@ -155,11 +155,13 @@ git commit -m "feat(i18n): getLang() de servidor (cookie + Accept-Language, defa
 ### Task 3: Pasar idioma inicial al cliente + eliminar el parpadeo
 
 **Files:**
+
 - Modify: `apps/web/app/lib/i18n.tsx` (provider acepta `initialLang`; `setLang` escribe cookie)
 - Modify: `apps/web/app/providers.tsx` (acepta y propaga `initialLang`)
 - Modify: `apps/web/app/layout.tsx` (async; `getLang()` → `<html lang>` + `<Providers initialLang>`)
 
 **Interfaces:**
+
 - Consumes: `getLang()` (Task 2), `Lang` (Task 1).
 - Produces: `I18nProvider` con prop opcional `initialLang?: Lang`; `Providers` con prop `initialLang?: Lang`.
 
@@ -232,7 +234,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={lang}>
       {/* ...resto igual... */}
-        <Providers initialLang={lang}>{children}</Providers>
+      <Providers initialLang={lang}>{children}</Providers>
       {/* ... */}
     </html>
   );
@@ -258,9 +260,11 @@ git commit -m "feat(i18n): idioma inicial desde el servidor (cookie) — elimina
 ### Task 4: Unificar "wallet" en ES y FR
 
 **Files:**
+
 - Modify: `apps/web/app/lib/i18n-dict.ts`
 
 **Interfaces:**
+
 - Consumes: nada nuevo. Cambios de texto en el diccionario.
 
 - [ ] **Step 1: Confirmar ocurrencias**
@@ -286,6 +290,7 @@ Expected: **0 resultados**.
 - [ ] **Step 5: Typecheck + commit**
 
 Run: `npm run typecheck:web` → PASS
+
 ```bash
 git add apps/web/app/lib/i18n-dict.ts
 git commit -m "fix(copy): unificar 'wallet' en ES y FR (elimina billetera/portefeuille)"
@@ -296,10 +301,12 @@ git commit -m "fix(copy): unificar 'wallet' en ES y FR (elimina billetera/portef
 ### Task 5: Tokens de texto apagado (reemplazar `slate-*`)
 
 **Files:**
+
 - Modify: `apps/web/app/globals.css` (agregar tokens)
 - Modify: todos los `.tsx` bajo `apps/web/app` que usen `text-slate-[0-9]` (≈19 archivos, 88 ocurrencias)
 
 **Interfaces:**
+
 - Consumes: convención `[--color-X]`.
 - Produces: tokens `--color-muted-bright`, `--color-muted`, `--color-muted-2`, `--color-muted-3`.
 
@@ -308,11 +315,11 @@ git commit -m "fix(copy): unificar 'wallet' en ES y FR (elimina billetera/portef
 En `apps/web/app/globals.css`, dentro de `@theme`, después del bloque "Estructurales", agregar:
 
 ```css
-  /* Texto apagado (reemplaza los grises slate-*, ahora con tinte de marca) */
-  --color-muted-bright: #ddd7f0;
-  --color-muted: #bcb4dd;
-  --color-muted-2: #9890bb;
-  --color-muted-3: #756e98;
+/* Texto apagado (reemplaza los grises slate-*, ahora con tinte de marca) */
+--color-muted-bright: #ddd7f0;
+--color-muted: #bcb4dd;
+--color-muted-2: #9890bb;
+--color-muted-3: #756e98;
 ```
 
 - [ ] **Step 2: Reemplazo sistemático slate → token (todo `apps/web/app`)**
@@ -326,9 +333,11 @@ Aplicar EXACTAMENTE este mapeo en todos los `.tsx` (solo clases de texto `text-s
 - `text-slate-500` → `text-[--color-muted-3]`
 
 Sugerencia de ejecución (revisar cada diff): por cada nivel,
+
 ```bash
 grep -rl "text-slate-300" apps/web/app --include=*.tsx
 ```
+
 y editar. Repetir por cada nivel.
 
 - [ ] **Step 3: Verificar 0 grises de texto restantes**
@@ -355,9 +364,11 @@ git commit -m "feat(ui): tokens de texto apagado (--color-muted*) en lugar de gr
 ### Task 6: Traducir `/unavailable` (server, multi-idioma)
 
 **Files:**
+
 - Modify: `apps/web/app/unavailable/page.tsx`
 
 **Interfaces:**
+
 - Consumes: `getLang()` (Task 2). Tokens de texto (Task 5).
 
 Patrón: el componente sigue siendo Server Component (mantiene `metadata`), se vuelve `async`, lee `getLang()` y elige el texto de un mapa local por idioma (en/es/hi/fr). Default `en`.
@@ -416,6 +427,7 @@ export default async function UnavailablePage() {
 - [ ] **Step 2: Typecheck + commit**
 
 Run: `npm run typecheck:web` → PASS
+
 ```bash
 git add apps/web/app/unavailable/page.tsx
 git commit -m "feat(i18n): traducir /unavailable por idioma de servidor (en/es/hi/fr)"
@@ -426,10 +438,12 @@ git commit -m "feat(i18n): traducir /unavailable por idioma de servidor (en/es/h
 ### Task 7: Traducir `/terms` (server, multi-idioma)
 
 **Files:**
+
 - Create: `apps/web/app/terms/content.ts` (mapa de copy por idioma)
 - Modify: `apps/web/app/terms/page.tsx` (async; `getLang()`; renderiza desde el mapa)
 
 **Interfaces:**
+
 - Consumes: `getLang()` (Task 2), `Lang` de `i18n-dict`. Tokens de texto (Task 5).
 
 - [ ] **Step 1: Leer el contenido actual**
@@ -453,6 +467,7 @@ Expected: **0** (el texto vive ahora en `content.ts`, no incrustado en el JSX).
 - [ ] **Step 5: Build + commit**
 
 Run: `cd apps/web && npx next build` → compila OK
+
 ```bash
 git add apps/web/app/terms/content.ts apps/web/app/terms/page.tsx
 git commit -m "feat(i18n): traducir /terms por idioma de servidor (en/es/hi/fr), en verbatim para SEO/legal"
@@ -463,13 +478,16 @@ git commit -m "feat(i18n): traducir /terms por idioma de servidor (en/es/hi/fr),
 ### Task 8: Traducir `/agents` preservando SEO (server, multi-idioma)
 
 **Files:**
+
 - Create: `apps/web/app/agents/content.ts` (mapa de copy por idioma)
 - Modify: `apps/web/app/agents/page.tsx` (async; `getLang()`; renderiza desde el mapa; metadata EN intacta)
 
 **Interfaces:**
+
 - Consumes: `getLang()` (Task 2), `Lang` de `i18n-dict`. Tokens de texto (Task 5).
 
 **SEO — restricciones duras de esta tarea:**
+
 - `export const metadata` queda EXACTAMENTE como está hoy (inglés, con `keywords` y `alternates.canonical`). No tocar.
 - La página sigue siendo Server Component (sin `"use client"`). Renderiza HTML completo en el servidor.
 - El contenido `en` del mapa debe ser **verbatim** el texto inglés actual (mismo wording orientado a SEO/agentes).
@@ -510,9 +528,11 @@ git commit -m "feat(i18n): /agents multi-idioma por servidor manteniendo SEO (me
 - [ ] **Step 1: Sin texto de pantalla hardcodeado en inglés fuera de mapas/metadata**
 
 Run:
+
 ```bash
 grep -rnE "text-slate-[0-9]" apps/web/app --include=*.tsx
 ```
+
 Expected: **0**.
 
 - [ ] **Step 2: Diccionario sin términos divergentes**

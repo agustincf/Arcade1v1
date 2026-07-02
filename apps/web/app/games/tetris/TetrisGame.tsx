@@ -230,7 +230,9 @@ export function TetrisGame({
       )}
 
       {/* Ayuda de teclado (en compu) */}
-      <p className="hidden text-center text-xs text-[--color-muted-3] sm:block">{t("g.tetris.keys")}</p>
+      <p className="hidden text-center text-xs text-[--color-muted-3] sm:block">
+        {t("g.tetris.keys")}
+      </p>
     </div>
   );
 }

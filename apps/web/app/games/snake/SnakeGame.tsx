@@ -208,7 +208,9 @@ export function SnakeGame({
         </div>
       )}
 
-      <p className="font-screen text-center text-base text-[--color-muted-3]">{t("g.snake.hint")}</p>
+      <p className="font-screen text-center text-base text-[--color-muted-3]">
+        {t("g.snake.hint")}
+      </p>
     </div>
   );
 }

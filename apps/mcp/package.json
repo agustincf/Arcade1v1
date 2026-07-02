@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "bin": { "arcade1v1-mcp": "src/index.ts" },
+  "bin": {
+    "arcade1v1-mcp": "src/index.ts"
+  },
   "scripts": {
     "start": "tsx src/index.ts"
   },

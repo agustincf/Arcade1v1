@@ -24,6 +24,7 @@
 ### Task 1: Scaffold + herramientas de solo-lectura (list_games, leaderboard, rating)
 
 **Files:**
+
 - Create: `apps/mcp/package.json`
 - Create: `apps/mcp/tsconfig.json`
 - Create: `apps/mcp/src/tools.ts`
@@ -31,6 +32,7 @@
 - Modify: `package.json` (root) — el glob `test` ya es `packages/*/test/*.test.ts`; ampliarlo para incluir apps: `"{packages,apps}/*/test/*.test.ts"`
 
 **Interfaces:**
+
 - Consumes: `ArbiterClient` de `@arcade1v1/agent-sdk`.
 - Produces:
   - `const GAMES: readonly string[]` (los 6 juegos)
@@ -41,6 +43,7 @@
 - [ ] **Step 1: Create the scaffold**
 
 `apps/mcp/package.json`:
+
 ```json
 {
   "name": "@arcade1v1/mcp",
@@ -64,6 +67,7 @@
 ```
 
 `apps/mcp/tsconfig.json`:
+
 ```json
 {
   "compilerOptions": {
@@ -85,6 +89,7 @@ Run `npm install` from the repo root to link the workspace.
 - [ ] **Step 2: Write the failing test**
 
 `apps/mcp/test/tools.test.ts`:
+
 ```ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -93,7 +98,10 @@ import { GAMES, listGames, leaderboardTool, ratingTool } from "../src/tools.ts";
 
 function clientReturning(body: unknown): ArbiterClient {
   const fetchImpl = (async () =>
-    new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })) as typeof fetch;
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })) as typeof fetch;
   return new ArbiterClient("http://arbiter.test", { fetchImpl });
 }
 
@@ -126,6 +134,7 @@ Expected: FAIL — `../src/tools.ts` no existe.
 - [ ] **Step 4: Write the implementation**
 
 `apps/mcp/src/tools.ts`:
+
 ```ts
 // Lógica de cada herramienta MCP como funciones puras (reciben un ArbiterClient
 // inyectable). server.ts solo las envuelve en herramientas MCP. Sin on-chain.
@@ -163,9 +172,11 @@ Expected: PASS (3 tests).
 - [ ] **Step 6: Wire the test glob + confirm full suite**
 
 In `package.json` (root), change `test` from `"node --import tsx --test packages/*/test/*.test.ts"` to:
+
 ```
 "node --import tsx --test \"{packages,apps}/*/test/*.test.ts\""
 ```
+
 Run: `npm test`
 Expected: PASS — game-sdk + agent-sdk + mcp tests, all green.
 
@@ -181,10 +192,12 @@ git commit -m "feat(mcp): scaffold + herramientas read-only (list_games, leaderb
 ### Task 2: Herramientas de juego (matchmake, play_and_submit, get_result)
 
 **Files:**
+
 - Modify: `apps/mcp/src/tools.ts` (agregar las 3 funciones)
 - Test: `apps/mcp/test/play.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createAgent`, `ArbiterClient` de `@arcade1v1/agent-sdk`; `GAMES` (Task 1).
 - Produces:
   - `type Agent = ReturnType<typeof createAgent>`
@@ -197,6 +210,7 @@ git commit -m "feat(mcp): scaffold + herramientas read-only (list_games, leaderb
 - [ ] **Step 1: Write the failing test**
 
 `apps/mcp/test/play.test.ts`:
+
 ```ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -207,19 +221,52 @@ import { ArbiterClient, createAgent } from "@arcade1v1/agent-sdk";
 import { matchmakeTool, playAndSubmitTool, getResultTool } from "../src/tools.ts";
 
 class FakeArbiter extends ArbiterClient {
-  public submitted?: { id: string; address: string; score: number; replay: unknown; signature?: string };
+  public submitted?: {
+    id: string;
+    address: string;
+    score: number;
+    replay: unknown;
+    signature?: string;
+  };
   constructor() {
     super("http://fake");
   }
   async matchmake(game: string, stake: number, address: string) {
-    return { matchId: "0x" + "ab".repeat(32), game, stake, seed: 4242, status: "waiting", scores: {} } as any;
+    return {
+      matchId: "0x" + "ab".repeat(32),
+      game,
+      stake,
+      seed: 4242,
+      status: "waiting",
+      scores: {},
+    } as any;
   }
-  async submitScore(id: string, address: string, score: number, replay?: unknown, signature?: string) {
+  async submitScore(
+    id: string,
+    address: string,
+    score: number,
+    replay?: unknown,
+    signature?: string,
+  ) {
     this.submitted = { id, address, score, replay, signature };
-    return { matchId: id, game: "2048", stake: 5, seed: 4242, status: "settled", scores: { [address]: score } } as any;
+    return {
+      matchId: id,
+      game: "2048",
+      stake: 5,
+      seed: 4242,
+      status: "settled",
+      scores: { [address]: score },
+    } as any;
   }
   async getMatch(id: string) {
-    return { matchId: id, game: "2048", stake: 5, seed: 4242, status: "settled", scores: {} } as any;
+    return {
+      matchId: id,
+      game: "2048",
+      stake: 5,
+      seed: 4242,
+      status: "settled",
+      scores: {},
+    } as any;
   }
 }
 
@@ -257,6 +304,7 @@ Expected: FAIL — `matchmakeTool`/`playAndSubmitTool`/`getResultTool` no existe
 - [ ] **Step 3: Write the implementation (append to tools.ts)**
 
 Add to the top imports of `apps/mcp/src/tools.ts`:
+
 ```ts
 import { createAgent, type MatchView } from "@arcade1v1/agent-sdk";
 
@@ -270,13 +318,18 @@ function assertGame(game: string): void {
 ```
 
 Append these functions to `apps/mcp/src/tools.ts`:
+
 ```ts
 export async function matchmakeTool(agent: Agent, game: string, stake: number): Promise<MatchView> {
   assertGame(game);
   return agent.client.matchmake(game, stake, agent.address);
 }
 
-export async function playAndSubmitTool(agent: Agent, game: string, stake: number): Promise<MatchView> {
+export async function playAndSubmitTool(
+  agent: Agent,
+  game: string,
+  stake: number,
+): Promise<MatchView> {
   assertGame(game);
   return agent.playAndSubmit({ game, stake });
 }
@@ -312,17 +365,20 @@ git commit -m "feat(mcp): herramientas de juego (matchmake, play_and_submit, get
 ### Task 3: Servidor MCP (stdio) + entrypoint + README
 
 **Files:**
+
 - Create: `apps/mcp/src/server.ts`
 - Create: `apps/mcp/src/index.ts`
 - Create: `apps/mcp/README.md`
 
 **Interfaces:**
+
 - Consumes: todas las funciones de `tools.ts` (Tasks 1-2); `createAgent`, `ArbiterClient` del SDK.
 - Produces: `function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpServer` (testeable sin stdio).
 
 - [ ] **Step 1: Write the failing test**
 
 `apps/mcp/test/server.test.ts`:
+
 ```ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -348,6 +404,7 @@ Expected: FAIL — `../src/server.ts` no existe.
 - [ ] **Step 3: Write the server**
 
 `apps/mcp/src/server.ts`:
+
 ```ts
 // Servidor MCP: registra cada herramienta (con esquema zod) y la cablea a las
 // funciones puras de tools.ts. buildServer() es testeable sin stdio.
@@ -365,7 +422,9 @@ import {
 } from "./tools";
 
 type Agent = ReturnType<typeof createAgent>;
-const ok = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] });
+const ok = (data: unknown) => ({
+  content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+});
 
 export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpServer {
   const { agent, client } = deps;
@@ -411,7 +470,8 @@ export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpS
     "play_and_submit",
     {
       title: "Play and submit",
-      description: "Empareja, juega con la estrategia por defecto y envía el puntaje (por ranking).",
+      description:
+        "Empareja, juega con la estrategia por defecto y envía el puntaje (por ranking).",
       inputSchema: { game: z.string(), stake: z.number() },
     },
     async ({ game, stake }) => ok(await playAndSubmitTool(agent, game, stake)),
@@ -436,6 +496,7 @@ export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpS
 - [ ] **Step 4: Write the entrypoint**
 
 `apps/mcp/src/index.ts`:
+
 ```ts
 // Entrypoint del servidor MCP por stdio. Config: ARBITER_URL (default = árbitro
 // publicado). Crea un agente con wallet efímera por sesión (solo firma; Fase 1).
@@ -469,6 +530,7 @@ Expected: sin errores. (Si el shape de `registerTool` difiere en la versión ins
 - [ ] **Step 6: Write the README**
 
 `apps/mcp/README.md`:
+
 ```markdown
 # @arcade1v1/mcp — servidor MCP
 
@@ -477,9 +539,11 @@ Desktop, etc.) juegue por ranking sin escribir código. Fase 1: por ELO, sin
 on-chain.
 
 ## Herramientas
+
 - `list_games` · `leaderboard` · `rating` · `matchmake` · `play_and_submit` · `get_result`
 
 ## Conectarlo a Claude Desktop
+
 En `claude_desktop_config.json`:
 
     {

@@ -23,7 +23,9 @@ export function BetQuickPlay() {
 
   return (
     <>
-      <p className="font-screen mt-5 text-center text-lg text-[--color-muted-2]">{t("quick.prompt")}</p>
+      <p className="font-screen mt-5 text-center text-lg text-[--color-muted-2]">
+        {t("quick.prompt")}
+      </p>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         {BET_AMOUNTS.map((b) => (
           <button

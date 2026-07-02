@@ -296,7 +296,9 @@ export function InvadersGame({
         </div>
       )}
 
-      <p className="font-screen text-center text-base text-[--color-muted-3]">{t("g.invaders.hint")}</p>
+      <p className="font-screen text-center text-base text-[--color-muted-3]">
+        {t("g.invaders.hint")}
+      </p>
     </div>
   );
 }

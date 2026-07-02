@@ -18,6 +18,8 @@ export default tseslint.config(
       "**/out/**",
       "**/*.tsbuildinfo",
       "packages/contracts/**", // Solidity + libs de Foundry
+      ".claude/**", // tooling local del asistente (no es parte del repo)
+      ".superpowers/**",
     ],
   },
   js.configs.recommended,

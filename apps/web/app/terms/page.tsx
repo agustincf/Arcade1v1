@@ -39,7 +39,9 @@ export default async function TermsPage() {
 
   return (
     <article className="mx-auto max-w-2xl pb-12">
-      <h1 className="font-pixel text-xl leading-relaxed text-[--color-accent] neon">{copy.title}</h1>
+      <h1 className="font-pixel text-xl leading-relaxed text-[--color-accent] neon">
+        {copy.title}
+      </h1>
       <p className="mt-3 text-sm text-[--color-muted-2]">{copy.updated}</p>
 
       <div className="mt-4 rounded-lg border-2 border-[--color-border] bg-[--color-surface] p-4 leading-relaxed text-[--color-muted]">

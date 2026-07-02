@@ -36,9 +36,11 @@ git checkout -b feat/ui-tokens
 - [ ] **Step 2: Verificar punto de partida (cuántos hex hay en tsx)**
 
 Run:
+
 ```bash
 grep -rnE "#[0-9a-fA-F]{3,8}" apps/web/app --include=*.tsx | wc -l
 ```
+
 Expected: un número > 0 (hoy ~125 contando juegos). Sirve como línea base.
 
 ---
@@ -46,17 +48,21 @@ Expected: un número > 0 (hoy ~125 contando juegos). Sirve como línea base.
 ### Task 1: Tokens nuevos en `@theme` + migrar hex internos de `globals.css`
 
 **Files:**
+
 - Modify: `apps/web/app/globals.css`
 
 **Interfaces:**
+
 - Produces: tokens nuevos disponibles para CSS (`var(--color-ink)`, `var(--color-ink-2)`, `var(--color-text)`, `var(--color-text-strong)`) y para Tailwind en JSX (`[--color-ink]`, `[--color-ink-2]`, `[--color-text]`, `[--color-text-strong]`). También el token de tamaño `--text-px10` → utilidad `text-px10`. Las tareas 2 y 3 dependen de estos.
 
 - [ ] **Step 1: "Test" — confirmar que los hex objetivo están presentes**
 
 Run:
+
 ```bash
 grep -nE "#0a0518|#efeaff|#1a0033|#fff([^0-9a-fA-F]|$)" apps/web/app/globals.css
 ```
+
 Expected: varias líneas (24, 83, 126, 128, 150, 152, 179, 210, 212, 220, 221, 222). Esto prueba que hay algo que migrar.
 
 - [ ] **Step 2: Agregar los tokens al bloque `@theme`**
@@ -64,14 +70,14 @@ Expected: varias líneas (24, 83, 126, 128, 150, 152, 179, 210, 212, 220, 221, 2
 En `apps/web/app/globals.css`, dentro de `@theme { ... }`, después del bloque "Estados", agregar:
 
 ```css
-  /* Estructurales */
-  --color-ink: #0a0518; /* borde/negro oficial repetido (unifica #0a0510) */
-  --color-ink-2: #1a0033; /* texto oscuro sobre fondos claros (gold) */
-  --color-text: #efeaff; /* texto base del body */
-  --color-text-strong: #ffffff; /* texto blanco (unifica #fff / #ffffff) */
+/* Estructurales */
+--color-ink: #0a0518; /* borde/negro oficial repetido (unifica #0a0510) */
+--color-ink-2: #1a0033; /* texto oscuro sobre fondos claros (gold) */
+--color-text: #efeaff; /* texto base del body */
+--color-text-strong: #ffffff; /* texto blanco (unifica #fff / #ffffff) */
 
-  /* Tipografía — tamaño pixel chico (antes text-[10px] suelto) */
-  --text-px10: 10px;
+/* Tipografía — tamaño pixel chico (antes text-[10px] suelto) */
+--text-px10: 10px;
 ```
 
 - [ ] **Step 3: Reemplazar los hex estructurales por `var(--color-*)`**
@@ -100,17 +106,21 @@ Aplicar estos reemplazos exactos en `apps/web/app/globals.css` (solo el valor de
 - [ ] **Step 4: "Test" — confirmar que los estructurales ya no están como literal**
 
 Run:
+
 ```bash
 grep -nE "#0a0518|#efeaff|#1a0033" apps/web/app/globals.css
 ```
+
 Expected: **0 resultados** (ya migrados a `var(--color-*)`).
 
 - [ ] **Step 5: Typecheck**
 
 Run:
+
 ```bash
 npm run typecheck:web
 ```
+
 Expected: PASS (sin errores).
 
 - [ ] **Step 6: Commit**
@@ -125,6 +135,7 @@ git commit -m "feat(ui): tokens estructurales de color en @theme + migrar hex in
 ### Task 2: Migrar hex → token en el chrome (5 `.tsx`)
 
 **Files:**
+
 - Modify: `apps/web/app/components/Header.tsx:13`
 - Modify: `apps/web/app/leaderboard/page.tsx:70`
 - Modify: `apps/web/app/game/[gameId]/match/page.tsx:635`
@@ -132,23 +143,29 @@ git commit -m "feat(ui): tokens estructurales de color en @theme + migrar hex in
 - Modify: `apps/web/app/agents/page.tsx:46,49,58,85`
 
 **Interfaces:**
+
 - Consumes: tokens `[--color-ink]` y `[--color-ink-2]` definidos en Task 1.
 
 - [ ] **Step 1: "Test" — confirmar hex presentes en los 5 archivos**
 
 Run:
+
 ```bash
 grep -rnE "#0a0518|#1a0033" apps/web/app/components/Header.tsx apps/web/app/leaderboard/page.tsx "apps/web/app/game/[gameId]/match/page.tsx" "apps/web/app/game/[gameId]/TableClient.tsx" apps/web/app/agents/page.tsx
 ```
+
 Expected: ~10 líneas.
 
 - [ ] **Step 2: Header.tsx** — reemplazar en la línea 13
 
 De:
+
 ```
 className="sticky top-0 z-40 border-b-2 border-[#0a0518] bg-[#0a0518]/95 backdrop-blur"
 ```
+
 A:
+
 ```
 className="sticky top-0 z-40 border-b-2 border-[--color-ink] bg-[--color-ink]/95 backdrop-blur"
 ```
@@ -166,19 +183,25 @@ A: `<div className="flex h-12 w-12 items-center justify-center rounded-lg border
 - [ ] **Step 5: TableClient.tsx** — reemplazar en líneas 90 y 116
 
 Línea 90, de:
+
 ```
 <span className="absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[#0a0518] bg-[--color-gold] text-xs font-extrabold text-[#1a0033]">
 ```
+
 A:
+
 ```
 <span className="absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[--color-ink] bg-[--color-gold] text-xs font-extrabold text-[--color-ink-2]">
 ```
 
 Línea 116, de:
+
 ```
 <div className="mt-4 rounded border-2 border-[#0a0518] bg-[#0a0518] p-3 text-center">
 ```
+
 A:
+
 ```
 <div className="mt-4 rounded border-2 border-[--color-ink] bg-[--color-ink] p-3 text-center">
 ```
@@ -191,29 +214,39 @@ A:
 `/** Código legible sobre el negro oficial de la plataforma (token ink). */`
 
 Línea 49, de:
+
 ```
 <pre className="overflow-x-auto rounded-md border-2 border-[#0a0518] bg-[#0a0518] p-4 font-mono text-[13px] leading-6 text-slate-200">
 ```
+
 A:
+
 ```
 <pre className="overflow-x-auto rounded-md border-2 border-[--color-ink] bg-[--color-ink] p-4 font-mono text-[13px] leading-6 text-slate-200">
 ```
+
 (El `text-[13px]` se deja: es one-off de un solo uso, ver Task 4.)
 
 Línea 58, de:
+
 ```
 <span className="font-pixel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 border-[#0a0518] bg-[--color-accent] text-xs text-[#0a0518]">
 ```
+
 A:
+
 ```
 <span className="font-pixel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 border-[--color-ink] bg-[--color-accent] text-xs text-[--color-ink]">
 ```
 
 Línea 85, de:
+
 ```
 <code className="rounded border border-[#0a0518] bg-[#0a0518] px-1.5 py-0.5 font-mono text-sm text-slate-200">
 ```
+
 A:
+
 ```
 <code className="rounded border border-[--color-ink] bg-[--color-ink] px-1.5 py-0.5 font-mono text-sm text-slate-200">
 ```
@@ -221,17 +254,21 @@ A:
 - [ ] **Step 7: "Test" — confirmar 0 hex estructurales en esos 5 archivos**
 
 Run:
+
 ```bash
 grep -rnE "#0a0518|#1a0033" apps/web/app/components/Header.tsx apps/web/app/leaderboard/page.tsx "apps/web/app/game/[gameId]/match/page.tsx" "apps/web/app/game/[gameId]/TableClient.tsx" apps/web/app/agents/page.tsx
 ```
+
 Expected: **0 resultados**.
 
 - [ ] **Step 8: Typecheck**
 
 Run:
+
 ```bash
 npm run typecheck:web
 ```
+
 Expected: PASS.
 
 - [ ] **Step 9: Commit**
@@ -246,12 +283,14 @@ git commit -m "feat(ui): migrar hex de chrome a tokens (ink, ink-2) en 5 vistas"
 ### Task 3: Normalizar el tamaño suelto `text-[10px]`
 
 **Files:**
+
 - Modify: `apps/web/app/game/[gameId]/match/page.tsx:639`
 - Modify: `apps/web/app/components/LanguageSelector.tsx:12`
 - Modify: `apps/web/app/components/Header.tsx:23,42`
 - Modify: `apps/web/app/games/tetris/TetrisGame.tsx:241,286`
 
 **Interfaces:**
+
 - Consumes: token `--text-px10` (→ utilidad `text-px10`) definido en Task 1.
 
 Nota: solo se migra `text-[10px]` (se repite 6 veces → vale token). Se **dejan** `text-[11px]` (`page.tsx:95`, único) y `text-[13px]` (`agents/page.tsx:49`, único) como one-offs documentados (Task 4). En Tetris, el `text-[10px]` está en un `<div>` HTML (label), no en el canvas — es seguro migrarlo.
@@ -259,9 +298,11 @@ Nota: solo se migra `text-[10px]` (se repite 6 veces → vale token). Se **dejan
 - [ ] **Step 1: "Test" — confirmar los 6 usos de `text-[10px]`**
 
 Run:
+
 ```bash
 grep -rnE "text-\[10px\]" apps/web/app --include=*.tsx
 ```
+
 Expected: 6 líneas (match:639, LanguageSelector:12, Header:23, Header:42, Tetris:241, Tetris:286).
 
 - [ ] **Step 2: Reemplazar `text-[10px]` → `text-px10` (preservando el `!` de override donde exista)**
@@ -276,17 +317,21 @@ Expected: 6 líneas (match:639, LanguageSelector:12, Header:23, Header:42, Tetri
 - [ ] **Step 3: "Test" — confirmar 0 `text-[10px]`**
 
 Run:
+
 ```bash
 grep -rnE "text-\[10px\]" apps/web/app --include=*.tsx
 ```
+
 Expected: **0 resultados**.
 
 - [ ] **Step 4: Typecheck**
 
 Run:
+
 ```bash
 npm run typecheck:web
 ```
+
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -301,9 +346,11 @@ git commit -m "feat(ui): tamaño pixel chico como token text-px10 (reemplaza tex
 ### Task 4: Documentar excepciones + verificación final (build + look)
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-06-27-ui-design-system-color-design.md` (agregar sección "Excepciones documentadas")
 
 **Interfaces:**
+
 - Consumes: el resultado de las Tasks 1–3.
 
 - [ ] **Step 1: Agregar la sección de excepciones al spec**
@@ -329,26 +376,32 @@ Al final de `docs/superpowers/specs/2026-06-27-ui-design-system-color-design.md`
 - [ ] **Step 2: "Test" — grep de color de éxito (excluyendo excepciones)**
 
 Run:
+
 ```bash
 grep -rnE "#[0-9a-fA-F]{3,8}" apps/web/app --include=*.tsx \
   | grep -vE "(/games/|GameIcon\.tsx|opengraph-image\.tsx|icon\.tsx|providers\.tsx)"
 ```
+
 Expected: **0 resultados**.
 
 - [ ] **Step 3: Build de producción**
 
 Run:
+
 ```bash
 cd apps/web && npx next build
 ```
+
 Expected: build OK (compila sin errores).
 
 - [ ] **Step 4: Verificación visual (manual)**
 
 Run:
+
 ```bash
 npm run dev
 ```
+
 Revisar que **se ve igual** que antes en: Home, Header, Leaderboard, Agents, detalle de juego (TableClient) y pantalla de match. Mismos colores, mismos tamaños.
 
 - [ ] **Step 5: Commit**

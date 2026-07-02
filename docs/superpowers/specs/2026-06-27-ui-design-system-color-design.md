@@ -12,6 +12,7 @@ CONSISTENCIA GENERAL (que se vea "de una sola pieza").
 ## Diagnóstico (hecho el 2026-06-27)
 
 Lo que **ya es consistente** (no tocar):
+
 - Componentes base se reutilizan: `.btn3d` en 18 archivos, **0 botones ad-hoc**;
   ventanas `.win`; `.chip`, `.marquee` definidos en `globals.css`.
 - Espaciado mayormente OK: solo unos pocos tamaños sueltos (`text-[10px]` ×6,
@@ -19,6 +20,7 @@ Lo que **ya es consistente** (no tocar):
 
 El **problema real es el COLOR**: ~120 colores hex escritos a mano en los 33 `.tsx`,
 con variantes casi-duplicadas. Conteos del diagnóstico:
+
 - `#0a0518` ×27 (borde negro-azulado) + `#0a0510` ×5 (casi idéntico) → mismo color, dos escrituras.
 - `#ffd23d` ×15, `#39ff7a` ×14, `#ff3df0` ×13, `#27e8ff` ×10, `#b6ff3d` ×3 → **ya son tokens** pero se escriben como hex.
 - `#ffffff` ×7 vs `#fff` ×3; `#ff4d6d` (token lose) ×3 vs `#ff3b3b` ×3 (rojo casi igual).
@@ -37,6 +39,7 @@ Una **única fuente de verdad para el color**: toda la UI usa tokens (vía Tailw
 ### 1. Cerrar la paleta de tokens (`globals.css`, bloque `@theme`)
 
 Mantener los existentes y **agregar los faltantes**:
+
 - `--color-ink: #0a0518;` (el borde oscuro repetido; `#0a0510` se unifica acá)
 - `--color-text: #efeaff;` (texto base, hoy hardcodeado en `body`)
 - `--color-text-strong: #ffffff;` (unifica `#fff`/`#ffffff`)

@@ -340,7 +340,9 @@ export function RacingGame({
         </div>
       )}
 
-      <p className="font-screen text-center text-base text-[--color-muted-3]">{t("g.racing.hint")}</p>
+      <p className="font-screen text-center text-base text-[--color-muted-3]">
+        {t("g.racing.hint")}
+      </p>
     </div>
   );
 }

@@ -5,7 +5,10 @@ import { GAMES, listGames, leaderboardTool, ratingTool } from "../src/tools";
 
 function clientReturning(body: unknown): ArbiterClient {
   const fetchImpl = (async () =>
-    new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })) as typeof fetch;
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })) as typeof fetch;
   return new ArbiterClient("http://arbiter.test", { fetchImpl });
 }
 

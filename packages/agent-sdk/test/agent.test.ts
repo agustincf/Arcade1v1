@@ -8,16 +8,42 @@ import { createAgent } from "../src/agent.ts";
 
 // ArbiterClient falso: devuelve una semilla fija al emparejar y captura el envío.
 class FakeArbiter extends ArbiterClient {
-  public submitted?: { id: string; address: string; score: number; replay: unknown; signature?: string };
+  public submitted?: {
+    id: string;
+    address: string;
+    score: number;
+    replay: unknown;
+    signature?: string;
+  };
   constructor() {
     super("http://fake");
   }
   async matchmake(game: string, stake: number, address: string) {
-    return { matchId: "0x" + "cd".repeat(32), game, stake, seed: 777, status: "waiting", scores: {} } as any;
+    return {
+      matchId: "0x" + "cd".repeat(32),
+      game,
+      stake,
+      seed: 777,
+      status: "waiting",
+      scores: {},
+    } as any;
   }
-  async submitScore(id: string, address: string, score: number, replay?: unknown, signature?: string) {
+  async submitScore(
+    id: string,
+    address: string,
+    score: number,
+    replay?: unknown,
+    signature?: string,
+  ) {
     this.submitted = { id, address, score, replay, signature };
-    return { matchId: id, game: "2048", stake: 5, seed: 777, status: "settled", scores: { [address]: score } } as any;
+    return {
+      matchId: id,
+      game: "2048",
+      stake: 5,
+      seed: 777,
+      status: "settled",
+      scores: { [address]: score },
+    } as any;
   }
 }
 
