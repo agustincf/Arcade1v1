@@ -25,10 +25,10 @@ function renderRich(text: string) {
 function Section({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-xl font-bold text-[--color-text]">
+      <h2 className="text-lg font-bold text-(--color-paper-ink)">
         {n}. {title}
       </h2>
-      <div className="mt-2 leading-relaxed text-[--color-muted]">{children}</div>
+      <div className="mt-2 leading-relaxed text-(--color-paper-muted)">{children}</div>
     </section>
   );
 }
@@ -39,20 +39,25 @@ export default async function TermsPage() {
 
   return (
     <article className="mx-auto max-w-2xl pb-12">
-      <h1 className="font-pixel text-xl leading-relaxed text-[--color-accent] neon">
+      <h1 className="font-pixel text-xl leading-relaxed text-(--color-text-strong)">
         {copy.title}
       </h1>
-      <p className="mt-3 text-sm text-[--color-muted-2]">{copy.updated}</p>
+      <p className="mt-3 text-sm text-(--color-muted-2)">{copy.updated}</p>
 
-      <div className="mt-4 rounded-lg border-2 border-[--color-border] bg-[--color-surface] p-4 leading-relaxed text-[--color-muted]">
-        {renderRich(copy.intro)}
+      {/* Documento de lectura: panel claro (paper) */}
+      <div className="paper mt-5">
+        <div className="p-6 sm:p-8">
+          <div className="rounded-lg border border-(--color-paper-border) bg-(--color-paper-2) p-4 leading-relaxed text-(--color-paper-muted)">
+            {renderRich(copy.intro)}
+          </div>
+
+          {copy.sections.map((s) => (
+            <Section key={s.n} n={s.n} title={s.title}>
+              {renderRich(s.body)}
+            </Section>
+          ))}
+        </div>
       </div>
-
-      {copy.sections.map((s) => (
-        <Section key={s.n} n={s.n} title={s.title}>
-          {renderRich(s.body)}
-        </Section>
-      ))}
     </article>
   );
 }

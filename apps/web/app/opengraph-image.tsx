@@ -15,14 +15,16 @@ export default function OpengraphImage() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "radial-gradient(circle at 50% 0%, #ff3df0 0%, #2a1054 45%, #140a2e 100%)",
-        color: "#ffffff",
+        background: "radial-gradient(circle at 50% 0%, #3a2a3a 0%, #221a2c 45%, #15111b 100%)",
+        color: "#f0ece1",
         fontFamily: "sans-serif",
       }}
     >
       <div style={{ fontSize: 120 }}>🕹️</div>
-      <div style={{ fontSize: 96, fontWeight: 900, letterSpacing: -2 }}>ARCADE1V1</div>
-      <div style={{ fontSize: 40, color: "#27e8ff", marginTop: 8 }}>
+      <div style={{ fontSize: 96, fontWeight: 900, letterSpacing: -2, color: "#e8845e" }}>
+        ARCADE1V1
+      </div>
+      <div style={{ fontSize: 40, color: "#bfb8a9", marginTop: 8 }}>
         Play 1v1 · Win USDC · Tetris · Flappy · Racing · 2048
       </div>
     </div>,

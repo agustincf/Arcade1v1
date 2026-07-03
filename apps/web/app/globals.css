@@ -1,33 +1,41 @@
 @import "tailwindcss";
 
 @theme {
-  /* Base (fondo oscuro retro) */
-  --color-bg: #140a2e;
-  --color-surface: #241a44;
-  --color-surface-2: #2f2358;
-  --color-border: #4b3b80;
+  /* Base (tinta ciruela profunda: oscuro arcade, sin caramelo) */
+  --color-bg: #15111b;
+  --color-surface: #1f1a29;
+  --color-surface-2: #292236;
+  --color-border: #3a3150;
 
-  /* Acentos neon Y2K */
-  --color-accent: #ff3df0; /* magenta */
-  --color-accent-2: #27e8ff; /* cyan */
-  --color-lime: #b6ff3d;
-  --color-gold: #ffd23d;
+  /* Acentos con rol asignado */
+  --color-accent: #e8845e; /* coral: acción primaria / marca */
+  --color-accent-2: #6cc9da; /* cyan calmo: info / secundario */
+  --color-lime: #b8e08a; /* estado "vivo" */
+  --color-gold: #f2c14e; /* dinero / premios */
 
   /* Estados */
-  --color-win: #39ff7a;
-  --color-lose: #ff4d6d;
+  --color-win: #5fd68a;
+  --color-lose: #f0716f;
 
   /* Estructurales */
-  --color-ink: #0a0518; /* borde/negro oficial repetido (casi-idéntico al #0a0510 del arte de canvas) */
-  --color-ink-2: #1a0033; /* texto oscuro sobre fondos claros (gold) */
-  --color-text: #efeaff; /* texto base del body */
-  --color-text-strong: #ffffff; /* texto blanco (unifica #fff / #ffffff) */
+  --color-ink: #0e0b13; /* negro oficial (bordes, barras, código) */
+  --color-ink-2: #2a1a10; /* texto oscuro sobre fondos coral/gold */
+  --color-text: #f0ece1; /* marfil: texto base del body */
+  --color-text-strong: #fffdf7;
 
-  /* Texto apagado (reemplaza los grises slate-*, ahora con tinte de marca) */
-  --color-muted-bright: #ddd7f0;
-  --color-muted: #bcb4dd;
-  --color-muted-2: #9890bb;
-  --color-muted-3: #756e98;
+  /* Texto apagado (cremas cálidas sobre fondo oscuro) */
+  --color-muted-bright: #ded8cb;
+  --color-muted: #bfb8a9;
+  --color-muted-2: #9d9686;
+  --color-muted-3: #7c7568;
+
+  /* Bloques "paper" (lectura clara, contraste de secciones) */
+  --color-paper: #f0eee6;
+  --color-paper-2: #e7e3d7;
+  --color-paper-border: #d8d2c2;
+  --color-paper-ink: #221d26;
+  --color-paper-muted: #5c554d;
+  --color-paper-muted-2: #837b70;
 
   /* Tipografía — tamaño pixel chico (antes text-[10px] suelto) */
   --text-px10: 10px;
@@ -39,223 +47,253 @@ body {
   color: var(--color-text);
 }
 
-/* Fondo: grilla "synthwave" + degrade */
+/* Fondo: sólido con grilla única ultra-sutil (sin radiales ni scanlines) */
 body {
-  font-family: Tahoma, Verdana, Geneva, sans-serif;
+  font-family:
+    Inter,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   background-image:
-    radial-gradient(circle at 50% -10%, rgba(255, 61, 240, 0.25), transparent 55%),
-    radial-gradient(circle at 50% 120%, rgba(39, 232, 255, 0.18), transparent 45%),
-    linear-gradient(rgba(75, 59, 128, 0.25) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(75, 59, 128, 0.25) 1px, transparent 1px);
+    linear-gradient(rgba(240, 236, 225, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(240, 236, 225, 0.025) 1px, transparent 1px);
   background-size:
-    100% 100%,
-    100% 100%,
-    32px 32px,
-    32px 32px;
+    36px 36px,
+    36px 36px;
   background-attachment: fixed;
 }
 
-/* Scanlines CRT sutiles */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 50;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0) 0,
-    rgba(0, 0, 0, 0) 2px,
-    rgba(0, 0, 0, 0.06) 3px
-  );
-}
-
-/* --- Tipografias --- */
-.font-pixel {
-  font-family: "Press Start 2P", "Courier New", monospace;
-  letter-spacing: 0.5px;
-  line-height: 1.5;
-}
-.font-screen {
-  font-family: "VT323", "Courier New", monospace;
-}
-
-/* Texto con brillo neon */
-.neon {
-  text-shadow:
-    0 0 4px rgba(255, 61, 240, 0.8),
-    0 0 12px rgba(255, 61, 240, 0.5);
-}
-.neon-cyan {
-  text-shadow:
-    0 0 4px rgba(39, 232, 255, 0.9),
-    0 0 12px rgba(39, 232, 255, 0.5);
-}
-
-/* --- "Ventana" estilo sistema operativo viejo --- */
-.win {
-  background: var(--color-surface);
-  border: 2px solid var(--color-ink);
-  border-radius: 6px;
-  box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.12),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.4),
-    0 8px 0 rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(255, 61, 240, 0.25);
-}
-/* Variante "destacada" (mesa recomendada): glow dorado */
-.win--hot {
-  box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.12),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.4),
-    0 0 0 2px var(--color-gold),
-    0 0 22px rgba(255, 210, 61, 0.7);
-  animation: hotpulse 1.6s ease-in-out infinite;
-}
-@keyframes hotpulse {
-  0%,
-  100% {
-    box-shadow:
-      inset 2px 2px 0 rgba(255, 255, 255, 0.12),
-      inset -2px -2px 0 rgba(0, 0, 0, 0.4),
-      0 0 0 2px var(--color-gold),
-      0 0 16px rgba(255, 210, 61, 0.5);
-  }
-  50% {
-    box-shadow:
-      inset 2px 2px 0 rgba(255, 255, 255, 0.12),
-      inset -2px -2px 0 rgba(0, 0, 0, 0.4),
-      0 0 0 2px var(--color-gold),
-      0 0 30px rgba(255, 210, 61, 0.9);
-  }
-}
-
-.win-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 10px;
-  font-family: "Press Start 2P", monospace;
-  font-size: 10px;
-  color: var(--color-text-strong);
-  background: linear-gradient(180deg, var(--color-accent), #b41fa6);
-  border-bottom: 2px solid var(--color-ink);
-  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
-}
-.win-title--cyan {
-  background: linear-gradient(180deg, var(--color-accent-2), #1597b8);
-}
-.win-dots {
-  display: flex;
-  gap: 4px;
-}
-.win-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(0, 0, 0, 0.5);
-}
-
-/* --- Boton biselado 3D --- */
-.btn3d {
-  font-family: "Press Start 2P", monospace;
-  font-size: 11px;
-  color: var(--color-ink-2);
-  padding: 12px 16px;
-  border: 2px solid var(--color-ink);
+/* Foco visible en todo el sitio (accesibilidad) */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
   border-radius: 4px;
-  background: linear-gradient(180deg, #ffe87a, #ffce2e 60%, #f5b400);
-  box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.7),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.35),
-    0 4px 0 #9c6b00;
-  cursor: pointer;
-  transition:
-    transform 0.05s,
-    box-shadow 0.05s;
-  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.4);
-}
-.btn3d:hover {
-  filter: brightness(1.06);
-}
-.btn3d:active {
-  transform: translateY(3px);
-  box-shadow:
-    inset 2px 2px 0 rgba(0, 0, 0, 0.25),
-    0 1px 0 #9c6b00;
-}
-.btn3d:disabled {
-  filter: grayscale(0.7) brightness(0.8);
-  cursor: not-allowed;
-}
-.btn3d--magenta {
-  color: var(--color-text-strong);
-  background: linear-gradient(180deg, #ff8df3, var(--color-accent) 60%, #c41fb0);
-  box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.5),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.35),
-    0 4px 0 #7a1270;
-  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
-}
-.btn3d--magenta:active {
-  box-shadow: 0 1px 0 #7a1270;
-}
-.btn3d--cyan {
-  color: #06262e;
-  background: linear-gradient(180deg, #9af4ff, var(--color-accent-2) 60%, #12a7c7);
-  box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.7),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.3),
-    0 4px 0 #0c6b80;
-}
-.btn3d--cyan:active {
-  box-shadow: 0 1px 0 #0c6b80;
 }
 
-/* Chip / etiqueta */
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: "VT323", monospace;
-  font-size: 16px;
-  padding: 2px 10px;
-  border: 2px solid var(--color-ink);
-  border-radius: 999px;
-  background: var(--color-ink);
-  color: var(--color-lime);
+::selection {
+  background: var(--color-accent);
+  color: var(--color-ink-2);
 }
 
-/* Marquesina */
-.marquee {
-  overflow: hidden;
-  white-space: nowrap;
-  border-top: 2px solid var(--color-ink);
-  border-bottom: 2px solid var(--color-ink);
-  background: var(--color-ink);
-}
-.marquee > span {
-  display: inline-block;
-  padding-left: 100%;
-  animation: marquee 18s linear infinite;
-  font-family: "VT323", monospace;
-  font-size: 18px;
-  color: var(--color-gold);
-}
-@keyframes marquee {
-  to {
-    transform: translateX(-100%);
+/* --- Tipografías --- */
+@layer components {
+  .font-pixel {
+    font-family: "Press Start 2P", "Courier New", monospace;
+    letter-spacing: 0.5px;
+    line-height: 1.6;
   }
-}
+  /* Antes VT323; ahora el cuerpo legible del sitio (mismo nombre para no tocar markup) */
+  .font-screen {
+    font-family:
+      Inter,
+      -apple-system,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+    letter-spacing: 0;
+  }
 
-/* Blink retro */
-.blink {
-  animation: blink 1s steps(2, start) infinite;
-}
-@keyframes blink {
-  to {
-    visibility: hidden;
+  /* Glow: casi nulo — el acento ordena, no grita */
+  .neon {
+    text-shadow: 0 0 18px rgba(232, 132, 94, 0.35);
+  }
+  .neon-cyan {
+    text-shadow: 0 0 18px rgba(108, 201, 218, 0.3);
+  }
+
+  /* --- Tarjeta "ventana" (chrome retro, cuerpo sobrio) --- */
+  .win {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  }
+  /* Variante "destacada" (mesa recomendada): anillo dorado sereno */
+  .win--hot {
+    border-color: var(--color-gold);
+    box-shadow:
+      0 0 0 1px var(--color-gold),
+      0 10px 28px rgba(0, 0, 0, 0.35),
+      0 0 24px rgba(242, 193, 78, 0.25);
+  }
+
+  .win-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 12px;
+    font-family: "Press Start 2P", monospace;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    color: var(--color-muted-bright);
+    background: var(--color-ink);
+    border-bottom: 1px solid var(--color-border);
+  }
+  /* La barra ya no cambia de color: la variante solo tiñe el acento del texto */
+  .win-title--cyan {
+    color: var(--color-accent-2);
+  }
+  .win-title > span:first-child::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    background: var(--color-accent);
+    vertical-align: 1px;
+  }
+  .win-title--cyan > span:first-child::before {
+    background: var(--color-accent-2);
+  }
+  .win-dots {
+    display: flex;
+    gap: 4px;
+  }
+  .win-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--color-border);
+  }
+
+  /* --- Botón pixel "apretable" (plano + una sombra dura) --- */
+  .btn3d {
+    font-family: "Press Start 2P", monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--color-ink-2);
+    padding: 12px 18px;
+    border: 1px solid var(--color-ink);
+    border-radius: 6px;
+    background: var(--color-gold);
+    box-shadow: 0 3px 0 #a97f1e;
+    cursor: pointer;
+    transition:
+      transform 0.05s,
+      box-shadow 0.05s,
+      filter 0.1s;
+  }
+  .btn3d:hover {
+    filter: brightness(1.07);
+  }
+  .btn3d:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+  .btn3d:disabled {
+    filter: grayscale(0.6) brightness(0.75);
+    cursor: not-allowed;
+  }
+  /* Primaria (coral). Conserva el nombre --magenta para no tocar markup. */
+  .btn3d--magenta {
+    color: var(--color-ink-2);
+    background: var(--color-accent);
+    box-shadow: 0 3px 0 #a04f30;
+  }
+  .btn3d--magenta:active {
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+  /* Secundaria (outline). Conserva el nombre --cyan. */
+  .btn3d--cyan {
+    color: var(--color-text);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 3px 0 var(--color-ink);
+  }
+  .btn3d--cyan:hover {
+    filter: none;
+    background: #332b44;
+  }
+  .btn3d--cyan:active {
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+
+  /* Chip / etiqueta */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: Inter, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 3px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-ink);
+    color: var(--color-lime);
+  }
+
+  /* Ticker (fino y discreto) */
+  .marquee {
+    overflow: hidden;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-ink);
+  }
+  .marquee > span {
+    display: inline-block;
+    padding: 5px 0 5px 100%;
+    animation: marquee 30s linear infinite;
+    font-family: Inter, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: color-mix(in srgb, var(--color-gold) 75%, var(--color-muted-2));
+  }
+  @keyframes marquee {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  /* Blink retro (reservado para el punto "en vivo") */
+  .blink {
+    animation: blink 1.4s steps(2, start) infinite;
+  }
+  @keyframes blink {
+    to {
+      visibility: hidden;
+    }
+  }
+
+  /* --- Panel "paper": bloque claro de lectura (contraste de secciones) --- */
+  .paper {
+    background: var(--color-paper);
+    border: 1px solid var(--color-paper-border);
+    border-radius: 10px;
+    overflow: hidden;
+    color: var(--color-paper-ink);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  }
+  .paper-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 12px;
+    font-family: "Press Start 2P", monospace;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    color: var(--color-paper-ink);
+    background: var(--color-paper-2);
+    border-bottom: 1px solid var(--color-paper-border);
+  }
+  .paper-title > span:first-child::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    background: var(--color-accent);
+    vertical-align: 1px;
+  }
+  .paper a {
+    color: #b05230;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 }

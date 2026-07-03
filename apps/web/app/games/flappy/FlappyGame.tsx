@@ -270,7 +270,7 @@ export function FlappyGame({
   return (
     <div className="flex flex-col items-center gap-3">
       <div
-        className="relative overflow-hidden rounded-lg border-2 border-[--color-ink]"
+        className="relative overflow-hidden rounded-lg border-2 border-(--color-ink)"
         style={{ width: "min(86vw, 320px)" }}
         onPointerDown={started && !over ? handleTap : undefined}
       >
@@ -308,7 +308,7 @@ export function FlappyGame({
         )}
       </div>
 
-      <p className="font-screen text-center text-base text-[--color-muted-3]">
+      <p className="font-screen text-center text-base text-(--color-muted-3)">
         {t("g.flappy.hint")}
       </p>
     </div>

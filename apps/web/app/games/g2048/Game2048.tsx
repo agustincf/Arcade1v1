@@ -97,15 +97,15 @@ export function Game2048Component({
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="flex w-full max-w-[320px] items-center justify-between">
-        <span className="font-pixel text-sm text-[--color-gold]">2048</span>
-        <span className="font-screen text-xl text-[--color-muted-bright]">
-          {t("g.score")}: <b className="text-[--color-accent-2]">{engine.score}</b>
+        <span className="font-pixel text-sm text-(--color-gold)">2048</span>
+        <span className="font-screen text-xl text-(--color-muted-bright)">
+          {t("g.score")}: <b className="text-(--color-accent-2)">{engine.score}</b>
         </span>
       </div>
 
       <div className="relative">
         <div
-          className="grid touch-none gap-2 rounded-lg border-2 border-[--color-ink] bg-[--color-ink] p-2"
+          className="grid touch-none gap-2 rounded-lg border-2 border-(--color-ink) bg-(--color-ink) p-2"
           style={{
             width: "min(86vw, 320px)",
             gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
@@ -165,7 +165,7 @@ export function Game2048Component({
         </div>
       )}
 
-      <p className="font-screen text-center text-base text-[--color-muted-3]">{t("g.2048.hint")}</p>
+      <p className="font-screen text-center text-base text-(--color-muted-3)">{t("g.2048.hint")}</p>
     </div>
   );
 }

@@ -101,7 +101,7 @@ export function GameIcon({ id, size = 48 }: { id: string; size?: number }) {
                 textAnchor="middle"
                 fontSize={13}
                 fontWeight="bold"
-                fontFamily="VT323, monospace"
+                fontFamily="monospace"
                 fill="#1a0033"
               >
                 {t.n}

@@ -296,7 +296,7 @@ export function RacingGame({
   return (
     <div className="flex flex-col items-center gap-3">
       <div
-        className="relative overflow-hidden rounded-lg border-2 border-[--color-ink]"
+        className="relative overflow-hidden rounded-lg border-2 border-(--color-ink)"
         style={{ width: "min(86vw, 320px)" }}
       >
         <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block h-auto w-full" />
@@ -340,7 +340,7 @@ export function RacingGame({
         </div>
       )}
 
-      <p className="font-screen text-center text-base text-[--color-muted-3]">
+      <p className="font-screen text-center text-base text-(--color-muted-3)">
         {t("g.racing.hint")}
       </p>
     </div>

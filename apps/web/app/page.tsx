@@ -13,13 +13,11 @@ export default function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="mb-8 text-center">
-        <h1 className="font-pixel text-2xl text-[--color-accent] neon sm:text-4xl">
+      <section className="mb-10 pt-4 text-center">
+        <h1 className="font-pixel text-2xl leading-relaxed text-(--color-text-strong) sm:text-3xl">
           {t("hero.title")}
         </h1>
-        <p className="font-screen mt-3 text-xl text-[--color-accent-2] neon-cyan">
-          {t("hero.sub")}
-        </p>
+        <p className="mx-auto mt-4 max-w-xl text-lg text-(--color-muted)">{t("hero.sub")}</p>
         <BetQuickPlay />
       </section>
 
@@ -39,7 +37,7 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="p-5">
-                  <div className="mb-3 flex justify-center">
+                  <div className="mb-4 flex justify-center">
                     <GameIcon id={game.id} size={64} />
                   </div>
                   <div className="flex items-center justify-center gap-2">
@@ -47,7 +45,7 @@ export default function HomePage() {
                       <span className="blink">●</span> {t("card.open")}
                     </span>
                   </div>
-                  <p className="font-screen mt-3 text-center text-lg text-[--color-muted]">
+                  <p className="mt-3 text-center text-base text-(--color-muted)">
                     {t(`game.${game.id}.desc`)}
                   </p>
                   <div className="mt-5 text-center">
@@ -60,40 +58,40 @@ export default function HomePage() {
         })}
       </section>
 
-      {/* Como funciona */}
-      <section className="win mt-8">
-        <div className="win-title win-title--cyan">
+      {/* Como funciona — panel claro de lectura */}
+      <section className="paper mt-10">
+        <div className="paper-title">
           <span>{t("how.title")}</span>
           <span className="win-dots">
             <span className="win-dot" />
             <span className="win-dot" />
           </span>
         </div>
-        <div className="font-screen grid grid-cols-1 gap-3 p-5 text-lg sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 p-6 text-base sm:grid-cols-3">
           <Step n="1" text={t("how.s1")} />
           <Step n="2" text={t("how.s2")} />
           <Step n="3" text={t("how.s3")} />
         </div>
-        <p className="font-screen px-5 pb-4 text-sm text-[--color-muted-3]">{t("how.fee")}</p>
+        <p className="px-6 pb-5 text-sm text-(--color-paper-muted-2)">{t("how.fee")}</p>
       </section>
 
-      {/* Preguntas frecuentes (SEO + motores de IA) */}
-      <section className="win mt-8">
-        <div className="win-title">
+      {/* Preguntas frecuentes (SEO + motores de IA) — panel claro de lectura */}
+      <section className="paper mt-8">
+        <div className="paper-title">
           <span>{t("faq.title")}</span>
           <span className="win-dots">
             <span className="win-dot" />
             <span className="win-dot" />
           </span>
         </div>
-        <div className="font-screen p-5 text-lg">
+        <div className="p-6 text-base">
           {[1, 2, 3, 4, 5, 6].map((n) => (
             <div
               key={n}
-              className="border-b-2 border-dashed border-[--color-border] py-3 last:border-0"
+              className="border-b border-(--color-paper-border) py-4 first:pt-1 last:border-0 last:pb-1"
             >
-              <h2 className="font-pixel text-[11px] text-[--color-accent-2]">{t(`faq.q${n}`)}</h2>
-              <p className="mt-2 text-[--color-muted]">{t(`faq.a${n}`)}</p>
+              <h2 className="text-base font-bold text-(--color-paper-ink)">{t(`faq.q${n}`)}</h2>
+              <p className="mt-2 leading-relaxed text-(--color-paper-muted)">{t(`faq.a${n}`)}</p>
             </div>
           ))}
         </div>
@@ -121,8 +119,10 @@ export default function HomePage() {
 function Step({ n, text }: { n: string; text: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="font-pixel text-sm text-[--color-gold]">{n}</span>
-      <span className="text-[--color-muted]">{text}</span>
+      <span className="font-pixel flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-(--color-accent) text-xs text-(--color-ink-2)">
+        {n}
+      </span>
+      <span className="leading-relaxed text-(--color-paper-muted)">{text}</span>
     </div>
   );
 }

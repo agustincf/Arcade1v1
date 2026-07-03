@@ -36,7 +36,10 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
   if (!game || game.status !== "live") {
     return (
       <div className="text-center">
-        <Link href="/" className="font-screen mt-4 inline-block text-xl text-[--color-accent-2]">
+        <Link
+          href="/"
+          className="mt-4 inline-block text-sm font-medium text-(--color-accent-2) hover:underline"
+        >
           {t("back")}
         </Link>
       </div>
@@ -51,7 +54,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link href="/" className="font-screen text-xl text-[--color-accent-2] hover:underline">
+      <Link href="/" className="text-sm font-medium text-(--color-accent-2) hover:underline">
         {t("back")}
       </Link>
 
@@ -62,15 +65,15 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
           </span>
           {SHOW_SYNTHETIC_ACTIVITY && (
             <span className="chip">
-              <span className="blink">🟢</span> {t("table.online", { n: online ?? "···" })}
+              <span className="blink">●</span> {t("table.online", { n: online ?? "···" })}
             </span>
           )}
         </div>
 
         <div className="p-5">
-          <div className="mb-4 flex items-center gap-3">
+          <div className="mb-5 flex items-center gap-3">
             <GameIcon id={game.id} size={52} />
-            <p className="font-screen text-xl text-[--color-muted-bright]">{t("table.q")}</p>
+            <p className="text-base font-medium text-(--color-muted-bright)">{t("table.q")}</p>
           </div>
 
           {/* Mesas */}
@@ -85,31 +88,31 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
                   onClick={() => setSelected(bet)}
                   className={`win relative p-3 text-center transition ${
                     active
-                      ? "-translate-y-1 outline outline-[3px] outline-[--color-gold] outline-offset-2"
-                      : "hover:-translate-y-0.5"
+                      ? "-translate-y-1 !border-(--color-accent) shadow-[0_0_0_1px_var(--color-accent)]"
+                      : "hover:-translate-y-0.5 hover:border-(--color-muted-3)"
                   }`}
                 >
                   {active && (
-                    <span className="absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[--color-ink] bg-[--color-gold] text-xs font-extrabold text-[--color-ink-2]">
+                    <span className="absolute bottom-1.5 right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-(--color-accent) text-xs font-extrabold text-(--color-ink-2)">
                       ✓
                     </span>
                   )}
-                  <div className="font-pixel text-base text-[--color-gold]">{bet}</div>
-                  <div className="font-screen text-base text-[--color-muted-2]">USDC</div>
+                  <div className="font-pixel text-base text-(--color-gold)">{bet}</div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-(--color-muted-2)">
+                    USDC
+                  </div>
                   {m.premium && (
-                    <div className="font-screen text-sm text-[--color-accent]">
+                    <div className="mt-0.5 text-xs font-bold uppercase tracking-wide text-(--color-accent)">
                       {t("table.vip")}
                     </div>
                   )}
-                  <div className="font-screen text-base text-[--color-win]">
+                  <div className="mt-0.5 text-sm font-semibold text-(--color-win)">
                     {t("table.win", { n: prize })}
                   </div>
                   {SHOW_SYNTHETIC_ACTIVITY && (
-                    <div className="mt-2 flex items-center justify-center gap-1">
+                    <div className="mt-2 flex items-center justify-center gap-1.5">
                       <SignalBars speed={m.speed} />
-                      <span className="font-screen text-sm text-[--color-muted-2]">
-                        👥 {m.playersWaiting}
-                      </span>
+                      <span className="text-xs text-(--color-muted-2)">{m.playersWaiting}</span>
                     </div>
                   )}
                 </button>
@@ -119,8 +122,8 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
 
           {/* Nudge de CRO (usa contadores sintéticos: solo fuera de mainnet) */}
           {SHOW_SYNTHETIC_ACTIVITY && (
-            <div className="mt-4 rounded border-2 border-[--color-ink] bg-[--color-ink] p-3 text-center">
-              <p className="font-screen text-lg text-[--color-accent-2]">
+            <div className="mt-5 rounded-lg border border-(--color-border) bg-(--color-ink) p-3 text-center">
+              <p className="text-sm font-medium text-(--color-accent-2)">
                 {meta.premium
                   ? t("table.nudgeVip", { n: meta.playersWaiting })
                   : t("table.nudgeNormal", { n: meta.playersWaiting, bet: selected })}
@@ -129,21 +132,19 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
           )}
 
           {/* CTA */}
-          <div className="mt-4">
+          <div className="mt-5">
             <button onClick={buscarRival} className="btn3d btn3d--magenta w-full">
               {t("table.cta", { bet: selected })}
             </button>
-            <p className="font-screen mt-2 text-center text-base text-[--color-muted-2]">
-              {t("table.norisk")}
-            </p>
+            <p className="mt-2 text-center text-sm text-(--color-muted-2)">{t("table.norisk")}</p>
           </div>
 
           {/* Desglose del pozo */}
-          <div className="win mt-4">
+          <div className="win mt-5">
             <div className="win-title win-title--cyan">
               <span>{t("table.pot")}</span>
             </div>
-            <div className="font-screen p-4 text-lg">
+            <div className="p-4 text-base">
               <Row label={t("table.yourBet")} value={`${selected} USDC`} />
               <Row label={t("table.rivalBet")} value={`${selected} USDC`} />
               <Row label={t("table.totalPot")} value={`${getPayout(selected).pot} USDC`} />
@@ -151,7 +152,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
                 label={t("table.fee", { pct: PLATFORM_FEE * 100 })}
                 value={`- ${getPayout(selected).fee} USDC`}
               />
-              <div className="my-2 border-t-2 border-dashed border-[--color-border]" />
+              <div className="my-2 border-t border-(--color-border)" />
               <Row label={t("table.prize")} value={`${getPayout(selected).prize} USDC`} highlight />
             </div>
           </div>
@@ -188,8 +189,8 @@ function SignalBars({ speed }: { speed: MatchSpeed }) {
 function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <span className="text-[--color-muted-2]">{label}</span>
-      <span className={highlight ? "font-pixel text-sm text-[--color-win]" : "text-[--color-text]"}>
+      <span className="text-(--color-muted-2)">{label}</span>
+      <span className={highlight ? "font-pixel text-sm text-(--color-win)" : "text-(--color-text)"}>
         {value}
       </span>
     </div>

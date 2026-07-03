@@ -156,7 +156,7 @@ export function TetrisGame({
       {/* Tablero */}
       <div className="relative">
         <div
-          className="grid gap-px rounded-lg border border-[--color-border] bg-black/40 p-1"
+          className="grid gap-px rounded-lg border border-(--color-border) bg-black/40 p-1"
           style={{
             width: "min(86vw, 260px)",
             gridTemplateColumns: `repeat(${COLS}, 1fr)`,
@@ -194,7 +194,7 @@ export function TetrisGame({
         {/* Pantalla: pausa */}
         {started && paused && !over && (
           <GameOverlay>
-            <h3 className="font-pixel text-base text-[--color-gold]">{t("g.pause")}</h3>
+            <h3 className="font-pixel text-base text-(--color-gold)">{t("g.pause")}</h3>
             <button onClick={() => setPaused(false)} className="btn3d btn3d--magenta mt-4">
               {t("g.resume")}
             </button>
@@ -230,7 +230,7 @@ export function TetrisGame({
       )}
 
       {/* Ayuda de teclado (en compu) */}
-      <p className="hidden text-center text-xs text-[--color-muted-3] sm:block">
+      <p className="hidden text-center text-xs text-(--color-muted-3) sm:block">
         {t("g.tetris.keys")}
       </p>
     </div>
@@ -239,8 +239,8 @@ export function TetrisGame({
 
 function Stat({ label, value, big }: { label: string; value: number; big?: boolean }) {
   return (
-    <div className="flex-1 rounded-lg border border-[--color-border] bg-[--color-surface] px-2 py-1 text-center">
-      <div className="text-px10 uppercase tracking-wide text-[--color-muted-3]">{label}</div>
+    <div className="flex-1 rounded-lg border border-(--color-border) bg-(--color-surface) px-2 py-1 text-center">
+      <div className="text-px10 uppercase tracking-wide text-(--color-muted-3)">{label}</div>
       <div className={`font-extrabold ${big ? "text-lg" : "text-base"}`}>{value}</div>
     </div>
   );
@@ -284,8 +284,8 @@ function NextPreview({
   label: string;
 }) {
   return (
-    <div className="rounded-lg border border-[--color-border] bg-[--color-surface] px-2 py-1 text-center">
-      <div className="text-px10 uppercase tracking-wide text-[--color-muted-3]">{label}</div>
+    <div className="rounded-lg border border-(--color-border) bg-(--color-surface) px-2 py-1 text-center">
+      <div className="text-px10 uppercase tracking-wide text-(--color-muted-3)">{label}</div>
       <div className="mt-1 flex flex-col items-center gap-px">
         {matrix.map((row, r) => (
           <div key={r} className="flex gap-px">
@@ -310,7 +310,7 @@ function TouchBtn({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
       onClick={onClick}
-      className="select-none rounded-xl border border-[--color-border] bg-[--color-surface] py-4 text-xl font-bold active:bg-[--color-surface-2]"
+      className="select-none rounded-xl border border-(--color-border) bg-(--color-surface) py-4 text-xl font-bold active:bg-(--color-surface-2)"
     >
       {label}
     </button>

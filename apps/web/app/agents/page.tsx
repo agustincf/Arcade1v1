@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   ],
 };
 
-/** Ventana de la plataforma (mismo chrome Y2K que el resto del sitio). */
+/** Panel de lectura (paper): documentación clara estilo docs. */
 function Win({
   title,
   cyan,
@@ -31,16 +31,17 @@ function Win({
   cyan?: boolean;
   children: React.ReactNode;
 }) {
+  void cyan; // la variante de color quedó unificada en el rediseño
   return (
-    <section className="win mt-6">
-      <div className={`win-title ${cyan ? "win-title--cyan" : ""}`}>
+    <section className="paper mt-6">
+      <div className="paper-title">
         <span>{title}</span>
         <span className="win-dots">
           <span className="win-dot" />
           <span className="win-dot" />
         </span>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-5 sm:p-6">{children}</div>
     </section>
   );
 }
@@ -48,7 +49,7 @@ function Win({
 /** Código legible sobre el negro oficial de la plataforma (token ink). */
 function Code({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-md border-2 border-[--color-ink] bg-[--color-ink] p-4 font-mono text-[13px] leading-6 text-[--color-muted-bright]">
+    <pre className="overflow-x-auto rounded-lg bg-(--color-ink) p-4 font-mono text-[13px] leading-6 text-(--color-muted-bright)">
       <code>{children}</code>
     </pre>
   );
@@ -57,26 +58,26 @@ function Code({ children }: { children: string }) {
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <li className="flex gap-4">
-      <span className="font-pixel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 border-[--color-ink] bg-[--color-accent] text-xs text-[--color-ink]">
+      <span className="font-pixel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-(--color-accent) text-xs text-(--color-ink-2)">
         {n}
       </span>
       <div>
-        <h3 className="text-lg font-bold text-[--color-text]">{title}</h3>
-        <p className="mt-1 leading-relaxed text-[--color-muted]">{children}</p>
+        <h3 className="text-base font-bold text-(--color-paper-ink)">{title}</h3>
+        <p className="mt-1 leading-relaxed text-(--color-paper-muted)">{children}</p>
       </div>
     </li>
   );
 }
 
 function Endpoint({ method, path, desc }: { method: string; path: string; desc: string }) {
-  const color = method === "GET" ? "text-[--color-lime]" : "text-[--color-gold]";
+  const color = method === "GET" ? "text-[#4a7d2f]" : "text-[#b05230]";
   return (
-    <div className="border-b-2 border-[--color-border] py-3 last:border-0">
+    <div className="border-b border-(--color-paper-border) py-3 last:border-0">
       <div className="flex items-baseline gap-3">
         <span className={`font-mono text-xs font-bold ${color}`}>{method}</span>
-        <code className="font-mono text-sm text-[--color-text]">{path}</code>
+        <code className="font-mono text-sm text-(--color-paper-ink)">{path}</code>
       </div>
-      <p className="mt-1 text-sm leading-relaxed text-[--color-muted-2]">{desc}</p>
+      <p className="mt-1 text-sm leading-relaxed text-(--color-paper-muted)">{desc}</p>
     </div>
   );
 }
@@ -104,7 +105,7 @@ function renderRich(text: string) {
 /** Pildora de código en linea, sobre el negro oficial. */
 function Inline({ children }: { children: string }) {
   return (
-    <code className="rounded border border-[--color-ink] bg-[--color-ink] px-1.5 py-0.5 font-mono text-sm text-[--color-muted-bright]">
+    <code className="rounded bg-(--color-ink) px-1.5 py-0.5 font-mono text-sm text-(--color-muted-bright)">
       {children}
     </code>
   );
@@ -155,30 +156,25 @@ export default async function AgentsPage() {
   return (
     <article className="mx-auto max-w-2xl pb-10">
       {/* Encabezado */}
-      <span className="chip !text-[--color-lime]">{c.chip}</span>
-      <h1 className="font-pixel mt-4 text-xl leading-relaxed text-[--color-accent] neon">
+      <span className="chip !text-(--color-lime)">{c.chip}</span>
+      <h1 className="font-pixel mt-4 text-xl leading-relaxed text-(--color-text-strong)">
         {c.h1Line1}
         <br />
         {c.h1Line2}
       </h1>
-      <p className="mt-4 text-lg leading-relaxed text-[--color-muted-bright]">{c.intro}</p>
+      <p className="mt-4 text-lg leading-relaxed text-(--color-muted)">{c.intro}</p>
 
       <Win title={c.winWhy}>
         <ul className="flex flex-col gap-4">
-          <li className="leading-relaxed text-[--color-muted] [&_b]:text-[--color-gold]">
+          <li className="leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
             {renderRich(c.why.value)}
           </li>
-          <li className="leading-relaxed text-[--color-muted] [&_b]:text-[--color-accent-2]">
+          <li className="leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
             {renderRich(c.why.feedback)}
           </li>
-          <li className="leading-relaxed text-[--color-muted] [&_b]:text-[--color-lime]">
+          <li className="leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
             {renderRich(c.why.reputationPre)}
-            <Link
-              href="/leaderboard"
-              className="text-[--color-accent-2] underline underline-offset-2"
-            >
-              {c.why.reputationLink}
-            </Link>
+            <Link href="/leaderboard">{c.why.reputationLink}</Link>
             {c.why.reputationPost}
           </li>
         </ul>
@@ -195,12 +191,14 @@ export default async function AgentsPage() {
       </Win>
 
       <Win title={c.winAgentTs}>
-        <p className="mb-3 leading-relaxed text-[--color-muted-2]">{renderRich(c.agentTsNote)}</p>
+        <p className="mb-3 leading-relaxed text-(--color-paper-muted)">
+          {renderRich(c.agentTsNote)}
+        </p>
         <Code>{exampleTs}</Code>
       </Win>
 
       <Win title={c.winArbiterApi} cyan>
-        <p className="mb-3 font-mono text-xs text-[--color-muted-3]">{ARBITER}</p>
+        <p className="mb-3 font-mono text-xs text-(--color-paper-muted-2)">{ARBITER}</p>
         <Endpoint method="POST" path="/matchmake" desc={c.endpoints.matchmake} />
         <Endpoint method="POST" path="/match/:id/score" desc={c.endpoints.score} />
         <Endpoint method="GET" path="/match/:id?address=" desc={c.endpoints.status} />
@@ -209,7 +207,7 @@ export default async function AgentsPage() {
       </Win>
 
       <Win title={c.winGoodToKnow}>
-        <ul className="flex flex-col gap-2 leading-relaxed text-[--color-muted-2]">
+        <ul className="flex flex-col gap-2 leading-relaxed text-(--color-paper-muted)">
           <li>{c.goodToKnow.games}</li>
           <li>{c.goodToKnow.auth}</li>
           <li>

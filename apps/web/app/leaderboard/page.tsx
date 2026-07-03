@@ -29,16 +29,18 @@ export default function LeaderboardPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="font-pixel text-2xl text-[--color-gold] neon-gold">{t("lb.title")}</h1>
-      <p className="font-screen mt-2 text-lg text-[--color-muted]">{t("lb.subtitle")}</p>
+      <h1 className="font-pixel text-xl leading-relaxed text-(--color-text-strong)">
+        {t("lb.title")}
+      </h1>
+      <p className="mt-2 text-base text-(--color-muted)">{t("lb.subtitle")}</p>
 
       {/* Selector de juego */}
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-5 flex flex-wrap gap-2">
         {GAMES.map((g) => (
           <button
             key={g.id}
             onClick={() => setGame(g.id)}
-            className={`btn3d ${game === g.id ? "btn3d--magenta" : "btn3d--cyan"} flex items-center gap-2 !px-3 !py-2 !text-xs`}
+            className={`btn3d ${game === g.id ? "btn3d--magenta" : "btn3d--cyan"} flex items-center gap-2 !px-3 !py-2 !text-px10`}
           >
             <GameIcon id={g.id} size={16} />
             {t(`game.${g.id}.name`)}
@@ -50,15 +52,13 @@ export default function LeaderboardPage() {
       <div className="win mt-4">
         <div className="win-title">
           <span>{t(`game.${game}.name`).toUpperCase()} · RANKING</span>
-          <span className="chip !text-[--color-gold]">{t("lb.rating")}</span>
+          <span className="chip !text-(--color-gold)">{t("lb.rating")}</span>
         </div>
         <div className="p-3">
           {rows === null ? (
-            <p className="font-screen py-8 text-center text-lg text-[--color-accent-2]">…</p>
+            <p className="py-8 text-center text-base text-(--color-accent-2)">…</p>
           ) : rows.length === 0 ? (
-            <p className="font-screen py-8 text-center text-lg text-[--color-muted]">
-              {t("lb.empty")}
-            </p>
+            <p className="py-8 text-center text-base text-(--color-muted)">{t("lb.empty")}</p>
           ) : (
             <ol className="flex flex-col gap-1">
               {rows.map((row, i) => {
@@ -66,22 +66,26 @@ export default function LeaderboardPage() {
                 return (
                   <li
                     key={row.address}
-                    className={`flex items-center justify-between rounded-lg border-2 px-3 py-2 ${
+                    className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${
                       mine
-                        ? "border-[--color-gold] bg-[--color-surface-2]"
-                        : "border-[--color-ink] bg-[--color-surface-2]"
+                        ? "border-(--color-accent) bg-(--color-surface-2)"
+                        : "border-transparent bg-(--color-surface-2)"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="font-pixel w-8 text-center text-sm text-[--color-muted-bright]">
+                      <span className="font-pixel w-8 text-center text-sm text-(--color-muted-bright)">
                         {medal(i)}
                       </span>
-                      <span className="font-screen text-base text-[--color-muted-bright]">
+                      <span className="font-mono text-sm text-(--color-muted-bright)">
                         {short(row.address)}
-                        {mine && <span className="ml-2 text-[--color-lime]">({t("lb.you")})</span>}
+                        {mine && (
+                          <span className="ml-2 font-sans font-semibold text-(--color-accent)">
+                            ({t("lb.you")})
+                          </span>
+                        )}
                       </span>
                     </div>
-                    <span className="font-pixel text-sm text-[--color-gold]">{row.rating}</span>
+                    <span className="font-pixel text-sm text-(--color-gold)">{row.rating}</span>
                   </li>
                 );
               })}
@@ -90,9 +94,7 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      <p className="font-screen mt-3 text-center text-base text-[--color-muted-3]">
-        {t("lb.note")}
-      </p>
+      <p className="mt-3 text-center text-sm text-(--color-muted-3)">{t("lb.note")}</p>
     </div>
   );
 }

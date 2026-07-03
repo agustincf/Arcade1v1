@@ -23,26 +23,26 @@ export function BetQuickPlay() {
 
   return (
     <>
-      <p className="font-screen mt-5 text-center text-lg text-[--color-muted-2]">
+      <p className="mt-6 text-center text-sm font-medium uppercase tracking-wide text-(--color-muted-2)">
         {t("quick.prompt")}
       </p>
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
         {BET_AMOUNTS.map((b) => (
           <button
             key={b}
             onClick={() => setPicker({ mode: "bet", bet: b })}
-            className="chip cursor-pointer transition hover:brightness-125"
+            className="chip cursor-pointer !text-(--color-gold) transition hover:border-(--color-gold)"
           >
-            💰 {b} USDC
+            {b} USDC
           </button>
         ))}
       </div>
 
-      <div className="mt-4 text-center">
+      <div className="mt-5 text-center">
         <button onClick={() => setPicker({ mode: "free" })} className="btn3d btn3d--cyan">
           {t("free.btn")}
         </button>
-        <p className="font-screen mt-1 text-base text-[--color-muted-3]">{t("free.sub")}</p>
+        <p className="mt-2 text-sm text-(--color-muted-3)">{t("free.sub")}</p>
       </div>
 
       {picker !== null && (
@@ -64,10 +64,10 @@ export function BetQuickPlay() {
                   <button
                     key={g.id}
                     onClick={() => go(g.id)}
-                    className="win flex items-center gap-3 p-3 text-left transition hover:-translate-y-0.5"
+                    className="win flex items-center gap-3 p-3 text-left transition hover:-translate-y-0.5 hover:border-(--color-accent)"
                   >
                     <GameIcon id={g.id} size={34} />
-                    <span className="font-pixel text-sm text-[--color-accent]">
+                    <span className="font-pixel text-xs text-(--color-text)">
                       {t(`game.${g.id}.name`)}
                     </span>
                   </button>
