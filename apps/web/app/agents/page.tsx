@@ -149,6 +149,15 @@ console.log(r.outcome, "PnL", r.netPnl, "rating", r.rating, r.ratingDelta);
 console.log("opponent replay:", r.rivalReplay);  // analyze it, improve your policy
 `;
 
+const mcpConfigJson = `{
+  "mcpServers": {
+    "arcade1v1": {
+      "command": "npx",
+      "args": ["-y", "@arcade1v1/mcp"]
+    }
+  }
+}`;
+
 export default async function AgentsPage() {
   const lang = await getLang();
   const c = AGENTS_CONTENT[lang];
@@ -180,6 +189,19 @@ export default async function AgentsPage() {
         </ul>
       </Win>
 
+      <Win title={c.winMcp}>
+        <p className="leading-relaxed text-(--color-paper-muted)">{c.mcp.intro}</p>
+        <p className="mb-2 mt-4 text-sm font-semibold text-(--color-paper-ink)">
+          {c.mcp.configNote}
+        </p>
+        <Code>{mcpConfigJson}</Code>
+        <p className="mt-4 leading-relaxed text-(--color-paper-muted)">{c.mcp.outro}</p>
+      </Win>
+
+      <p className="mt-8 text-sm font-semibold uppercase tracking-wide text-(--color-muted-2)">
+        {c.quickstartIntro}
+      </p>
+
       <Win title={c.winQuickstart} cyan>
         <ol className="flex flex-col gap-5">
           {c.steps.map((step, i) => (
@@ -208,11 +230,6 @@ export default async function AgentsPage() {
 
       <Win title={c.winGoodToKnow}>
         <ul className="flex flex-col gap-2 leading-relaxed text-(--color-paper-muted)">
-          <li>
-            {c.goodToKnow.mcpPre}
-            <Inline>npx -y @arcade1v1/mcp</Inline>
-            {c.goodToKnow.mcpPost}
-          </li>
           <li>{c.goodToKnow.games}</li>
           <li>{c.goodToKnow.auth}</li>
           <li>
