@@ -30,10 +30,24 @@ if (tp !== undefined) app.set("trust proxy", tp);
 
 app.use(express.json({ limit: "256kb" }));
 
-// CORS: en produccion restringir a tu dominio con ALLOWED_ORIGIN. En dev, abierto.
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
-app.use((_req, res, next) => {
-  res.header("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+// CORS: en produccion restringir a tu(s) dominio(s) con ALLOWED_ORIGIN. Acepta
+// UNO o VARIOS orígenes separados por coma (ej. dominio propio + el de Vercel
+// durante la transición). El header CORS admite un solo valor, así que
+// devolvemos el origen del pedido si está en la lista. En dev, abierto ("*").
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGIN || "*")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.includes("*")) {
+    res.header("Access-Control-Allow-Origin", "*");
+  } else if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    // Eco del origen permitido + Vary para no cachear la respuesta de un dominio
+    // y servírsela a otro.
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+  }
   res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type");
   next();
