@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { NETWORK_LABEL } from "@/app/lib/config";
 import { SoundToggle } from "@/app/components/SoundToggle";
 import { LanguageSelector } from "@/app/components/LanguageSelector";
 import { useT } from "@/app/lib/i18n";
 
+// Header minimalista: logo + controles. Ranking vive en el footer y la red
+// (testnet) se informa en el footer — acá no compite con la acción principal.
 export function Header() {
   const { t } = useT();
   return (
@@ -17,18 +18,7 @@ export function Header() {
           <span className="font-pixel text-sm text-(--color-accent)">Arcade1v1</span>
         </Link>
 
-        <div className="flex items-center gap-3">
-          <Link
-            href="/leaderboard"
-            className="font-pixel hidden text-px10 text-(--color-muted-bright) transition hover:text-(--color-gold) sm:inline"
-          >
-            {t("nav.ranking")}
-          </Link>
-
-          <span className="chip hidden sm:inline-flex">
-            <span className="blink">●</span> {NETWORK_LABEL}
-          </span>
-
+        <div className="flex items-center gap-2 sm:gap-3">
           <SoundToggle />
           <LanguageSelector />
 
@@ -41,7 +31,14 @@ export function Header() {
                   onClick={connected ? openAccountModal : openConnectModal}
                   className={`btn3d whitespace-nowrap !px-3 !py-2 !text-px10 ${connected ? "btn3d--cyan" : "btn3d--magenta"}`}
                 >
-                  {connected ? `● ${account.displayName}` : t("connect")}
+                  {connected ? (
+                    `● ${account.displayName}`
+                  ) : (
+                    <>
+                      <span className="sm:hidden">WALLET</span>
+                      <span className="hidden sm:inline">{t("connect")}</span>
+                    </>
+                  )}
                 </button>
               );
             }}

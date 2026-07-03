@@ -18,7 +18,7 @@ const en: Dict = {
   back: "← Back",
   cancel: "Cancel",
   home: "HOME",
-  connect: "👛 CONNECT WALLET",
+  connect: "CONNECT WALLET",
   marquee:
     "★ 1v1 DUELS FOR USDC ★ WINNER TAKES ALL ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · RACING ★ NO RIVAL IN 1 HOUR? FULL REFUND ★ SHOW WHO'S BOSS ★ (PLAYING ON TESTNET) ★",
   "footer.best": "Best viewed in 800×600 · Arcade1v1 © 2026",
@@ -242,7 +242,7 @@ const es: Dict = {
   back: "← Volver",
   cancel: "Cancelar",
   home: "INICIO",
-  connect: "👛 CONECTAR WALLET",
+  connect: "CONECTAR WALLET",
   marquee:
     "★ DUELOS 1v1 POR USDC ★ EL QUE GANA SE LLEVA TODO ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · CARRERA ★ ¿SIN RIVAL EN 1 HORA? TE DEVOLVEMOS TODO ★ DEMOSTRÁ QUIÉN MANDA ★ (JUGANDO EN TESTNET) ★",
   "footer.best": "Mejor visto en 800×600 · Arcade1v1 © 2026",
@@ -467,7 +467,7 @@ const hi: Dict = {
   back: "← वापस",
   cancel: "रद्द करें",
   home: "होम",
-  connect: "👛 वॉलेट कनेक्ट करें",
+  connect: "वॉलेट कनेक्ट करें",
   marquee:
     "★ USDC के लिए 1v1 मुकाबले ★ जीतने वाला सब कुछ ले जाए ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · RACING ★ 1 घंटे में कोई प्रतिद्वंद्वी नहीं? पूरा रिफंड ★ दिखाओ कौन है बॉस ★ (टेस्टनेट पर) ★",
   "footer.best": "800×600 में सबसे अच्छा · Arcade1v1 © 2026",
@@ -689,7 +689,7 @@ const fr: Dict = {
   back: "← Retour",
   cancel: "Annuler",
   home: "ACCUEIL",
-  connect: "👛 CONNECTER WALLET",
+  connect: "CONNECTER WALLET",
   marquee:
     "★ DUELS 1v1 POUR USDC ★ LE GAGNANT RAFLE TOUT ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · COURSE ★ PAS D'ADVERSAIRE EN 1 HEURE ? REMBOURSÉ ★ MONTRE QUI COMMANDE ★ (EN TESTNET) ★",
   "footer.best": "Optimisé pour 800×600 · Arcade1v1 © 2026",
