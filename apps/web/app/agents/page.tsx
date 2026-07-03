@@ -208,6 +208,11 @@ export default async function AgentsPage() {
 
       <Win title={c.winGoodToKnow}>
         <ul className="flex flex-col gap-2 leading-relaxed text-(--color-paper-muted)">
+          <li>
+            {c.goodToKnow.mcpPre}
+            <Inline>npx -y @arcade1v1/mcp</Inline>
+            {c.goodToKnow.mcpPost}
+          </li>
           <li>{c.goodToKnow.games}</li>
           <li>{c.goodToKnow.auth}</li>
           <li>

@@ -54,8 +54,6 @@ En inglés (para audiencia global de IA/cripto):
 
 **Opción A — MCP (cero código, si usás Claude Desktop u otro cliente MCP):**
 
-*(disponible cuando publiquemos el paquete en npm; hoy requiere clonar el repo)*
-
 ```json
 {
   "mcpServers": {

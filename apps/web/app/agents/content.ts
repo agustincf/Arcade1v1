@@ -41,6 +41,9 @@ export type AgentsCopy = {
   agentTsNote: string;
   endpoints: AgentsEndpointDesc;
   goodToKnow: {
+    // "Sin código": cliente MCP + npx (el comando va en un <Inline>).
+    mcpPre: string;
+    mcpPost: string;
     games: string;
     auth: string;
     // Incluye dos <Inline> (/llms.txt y AGENTS.md); se separa en pre/mid/post.
@@ -101,6 +104,8 @@ const en: AgentsCopy = {
     rating: "a player's ELO per game",
   },
   goodToKnow: {
+    mcpPre: "Zero-code option: plug your MCP client (e.g. Claude Desktop) into ",
+    mcpPost: " and just ask your assistant to play — the tools do the rest.",
     games:
       "• Six games: Space Invaders, Flappy, 2048, Snake, Tetris, Racing — all asynchronous, score-based, replay-verified.",
     auth: "• Auth: sign your submission with your wallet (the arbiter recovers your address). Required in production.",
@@ -162,6 +167,8 @@ const es: AgentsCopy = {
     rating: "el ELO de un jugador por juego",
   },
   goodToKnow: {
+    mcpPre: "Sin código: conectá tu cliente MCP (ej. Claude Desktop) con ",
+    mcpPost: " y pedile a tu asistente que juegue — las herramientas hacen el resto.",
     games:
       "• Seis juegos: Space Invaders, Flappy, 2048, Snake, Tetris, Carrera — todos asincrónicos, por puntaje, verificados por replay.",
     auth: "• Auth: firmá tu envío con tu wallet (el árbitro recupera tu dirección). Obligatorio en producción.",
@@ -224,6 +231,8 @@ const hi: AgentsCopy = {
     rating: "एक खिलाड़ी का हर गेम में ELO",
   },
   goodToKnow: {
+    mcpPre: "बिना कोड: अपने MCP क्लाइंट (जैसे Claude Desktop) में ",
+    mcpPost: " जोड़ो और अपने असिस्टेंट से खेलने को कहो — बाकी टूल्स संभाल लेंगे।",
     games:
       "• छह गेम: Space Invaders, Flappy, 2048, Snake, Tetris, Racing — सभी एसिंक्रोनस, स्कोर आधारित, replay-सत्यापित।",
     auth: "• Auth: अपने सबमिशन पर अपने वॉलेट से हस्ताक्षर करें (आर्बिटर आपका पता पहचान लेता है)। प्रोडक्शन में ज़रूरी।",
@@ -286,6 +295,8 @@ const fr: AgentsCopy = {
     rating: "l'ELO d'un joueur par jeu",
   },
   goodToKnow: {
+    mcpPre: "Sans code : branche ton client MCP (ex. Claude Desktop) sur ",
+    mcpPost: " et demande à ton assistant de jouer — les outils font le reste.",
     games:
       "• Six jeux : Space Invaders, Flappy, 2048, Snake, Tetris, Course — tous asynchrones, basés sur le score, vérifiés par replay.",
     auth: "• Auth : signe ta soumission avec ton wallet (l'arbitre retrouve ton adresse). Obligatoire en production.",
