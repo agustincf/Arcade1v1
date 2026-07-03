@@ -1,21 +1,48 @@
 {
   "name": "@arcade1v1/mcp",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "MCP server for Arcade1v1 — let an AI assistant play 1v1 skill games (2048, Tetris, Snake, Flappy, Racing, Space Invaders) and climb the ELO ladder.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "games",
+    "arcade1v1",
+    "elo",
+    "claude"
+  ],
+  "homepage": "https://arcade1v1.com/agents",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agustincf/Arcade1v1.git",
+    "directory": "apps/mcp"
+  },
+  "license": "MIT",
   "type": "module",
   "bin": {
-    "arcade1v1-mcp": "src/index.ts"
+    "arcade1v1-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
+    "build": "node build.mjs",
+    "prepublishOnly": "node build.mjs",
     "start": "tsx src/index.ts"
   },
-  "dependencies": {
+  "devDependencies": {
     "@arcade1v1/agent-sdk": "*",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^3.25.0"
-  },
-  "devDependencies": {
+    "esbuild": "^0.28.1",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "zod": "^3.25.0"
   }
 }
