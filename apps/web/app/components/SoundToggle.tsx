@@ -29,11 +29,12 @@ export function SoundToggle() {
   }
 
   // Sin slider: el volumen lo regula el usuario desde su SO (PC/celular).
+  // Control "fantasma": el único CTA del header es conectar la wallet.
   return (
     <button
       onClick={toggle}
       title={on ? "Silenciar efectos" : "Activar efectos"}
-      className="btn3d btn3d--cyan !px-3 !py-2 !text-base"
+      className="rounded-md p-1.5 text-base opacity-60 transition hover:bg-(--color-surface-2) hover:opacity-100"
     >
       {on ? "🔊" : "🔇"}
     </button>

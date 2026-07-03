@@ -1,22 +1,12 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getGame } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
-import {
-  BET_AMOUNTS,
-  getPayout,
-  PLATFORM_FEE,
-  DEFAULT_BET,
-  TABLE_META,
-  matchBars,
-  onlinePlayers,
-  SHOW_SYNTHETIC_ACTIVITY,
-  type MatchSpeed,
-} from "@/app/lib/config";
+import { BET_AMOUNTS, getPayout, PLATFORM_FEE, DEFAULT_BET, VIP_BET } from "@/app/lib/config";
 
 export function TableClient({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = use(params);
@@ -30,8 +20,6 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
     ? betParam
     : DEFAULT_BET;
   const [selected, setSelected] = useState<number>(initial);
-  const [online, setOnline] = useState<number | null>(null);
-  useEffect(() => setOnline(onlinePlayers()), []);
 
   if (!game || game.status !== "live") {
     return (
@@ -45,8 +33,6 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
       </div>
     );
   }
-
-  const meta = TABLE_META[selected];
 
   function buscarRival() {
     router.push(`/game/${gameId}/match?bet=${selected}`);
@@ -63,11 +49,6 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
           <span>
             {t(`game.${game.id}.name`).toUpperCase()} · {t("table.choose")}
           </span>
-          {SHOW_SYNTHETIC_ACTIVITY && (
-            <span className="chip">
-              <span className="blink">●</span> {t("table.online", { n: online ?? "···" })}
-            </span>
-          )}
         </div>
 
         <div className="p-5">
@@ -80,13 +61,12 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {BET_AMOUNTS.map((bet) => {
               const { prize } = getPayout(bet);
-              const m = TABLE_META[bet];
               const active = selected === bet;
               return (
                 <button
                   key={bet}
                   onClick={() => setSelected(bet)}
-                  className={`win relative p-3 text-center transition ${
+                  className={`win relative p-3 pb-4 text-center transition ${
                     active
                       ? "-translate-y-1 !border-(--color-accent) shadow-[0_0_0_1px_var(--color-accent)]"
                       : "hover:-translate-y-0.5 hover:border-(--color-muted-3)"
@@ -101,7 +81,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
                   <div className="text-xs font-medium uppercase tracking-wide text-(--color-muted-2)">
                     USDC
                   </div>
-                  {m.premium && (
+                  {bet === VIP_BET && (
                     <div className="mt-0.5 text-xs font-bold uppercase tracking-wide text-(--color-accent)">
                       {t("table.vip")}
                     </div>
@@ -109,27 +89,15 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
                   <div className="mt-0.5 text-sm font-semibold text-(--color-win)">
                     {t("table.win", { n: prize })}
                   </div>
-                  {SHOW_SYNTHETIC_ACTIVITY && (
-                    <div className="mt-2 flex items-center justify-center gap-1.5">
-                      <SignalBars speed={m.speed} />
-                      <span className="text-xs text-(--color-muted-2)">{m.playersWaiting}</span>
-                    </div>
-                  )}
                 </button>
               );
             })}
           </div>
 
-          {/* Nudge de CRO (usa contadores sintéticos: solo fuera de mainnet) */}
-          {SHOW_SYNTHETIC_ACTIVITY && (
-            <div className="mt-5 rounded-lg border border-(--color-border) bg-(--color-ink) p-3 text-center">
-              <p className="text-sm font-medium text-(--color-accent-2)">
-                {meta.premium
-                  ? t("table.nudgeVip", { n: meta.playersWaiting })
-                  : t("table.nudgeNormal", { n: meta.playersWaiting, bet: selected })}
-              </p>
-            </div>
-          )}
+          {/* La verdad del modelo: asincrónico, sin espera en vivo */}
+          <p className="mt-5 text-center text-sm leading-relaxed text-(--color-muted-2)">
+            {t("table.async")}
+          </p>
 
           {/* CTA */}
           <div className="mt-5">
@@ -159,30 +127,6 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
         </div>
       </div>
     </div>
-  );
-}
-
-function SignalBars({ speed }: { speed: MatchSpeed }) {
-  const n = matchBars(speed);
-  const color =
-    speed === "rapido"
-      ? "var(--color-win)"
-      : speed === "medio"
-        ? "var(--color-gold)"
-        : "var(--color-lose)";
-  return (
-    <span className="flex items-end gap-0.5">
-      {[1, 2, 3].map((i) => (
-        <span
-          key={i}
-          style={{
-            height: `${i * 3 + 3}px`,
-            backgroundColor: i <= n ? color : "var(--color-border)",
-          }}
-          className="w-1 rounded-sm"
-        />
-      ))}
-    </span>
   );
 }
 

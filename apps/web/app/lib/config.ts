@@ -1,4 +1,4 @@
-// Configuracion central de la plataforma (datos de mentira por ahora).
+// Configuracion central de la plataforma.
 
 /** Mesas de apuesta fijas, en USDC. */
 export const BET_AMOUNTS = [1, 2, 5, 10] as const;
@@ -20,42 +20,8 @@ export function getPayout(bet: number) {
 export const IS_MAINNET = process.env.NEXT_PUBLIC_CHAIN_ID === "8453";
 export const NETWORK_LABEL = IS_MAINNET ? "Base" : "Base Sepolia · TEST";
 
-/** Indicadores de actividad SINTÉTICOS ("jugadores en línea", "esperando en la
- *  mesa"): son datos de mentira para la demo/test. Con dinero real (mainnet)
- *  NO se muestran — inventar actividad a gente que apuesta es engañarla. */
-export const SHOW_SYNTHETIC_ACTIVITY = !IS_MAINNET;
-
 /** Mesa pre-seleccionada por defecto. */
 export const DEFAULT_BET = 5;
 
-/** Velocidad de emparejamiento de una mesa (para los indicadores de CRO). */
-export type MatchSpeed = "rapido" | "medio" | "lento";
-
-/** Metadatos por mesa para los empujones de conversion (CRO).
- *  La de 20 es la mas popular: mas gente buscando = empareja mas rapido. */
-export const TABLE_META: Record<
-  number,
-  {
-    playersWaiting: number;
-    speed: MatchSpeed;
-    premium?: boolean;
-  }
-> = {
-  // La actividad escala con la apuesta (a mas plata, mas accion). La de 10 es VIP.
-  1: { playersWaiting: 17, speed: "medio" },
-  2: { playersWaiting: 24, speed: "rapido" },
-  5: { playersWaiting: 31, speed: "rapido" },
-  10: { playersWaiting: 39, speed: "rapido", premium: true },
-};
-
-/** Barras de señal segun la velocidad de emparejamiento (1 a 3). */
-export function matchBars(speed: MatchSpeed): number {
-  return speed === "rapido" ? 3 : speed === "medio" ? 2 : 1;
-}
-
-/** "Jugadores en linea" (prueba social). Varia un poco para sentirse vivo. */
-export function onlinePlayers(): number {
-  const base = 128;
-  const wave = Math.floor((Date.now() / 60000) % 40);
-  return base + wave;
-}
+/** Mesa de apuesta máxima: se etiqueta VIP. */
+export const VIP_BET = 10;
