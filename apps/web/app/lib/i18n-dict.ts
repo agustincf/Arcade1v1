@@ -21,8 +21,8 @@ const en: Dict = {
   connect: "CONNECT WALLET",
   marquee:
     "★ 1v1 DUELS FOR USDC ★ WINNER TAKES THE POT ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · RACING ★ NO RIVAL IN 1 HOUR? FULL REFUND ★ SHOW WHO'S BOSS ★ (PLAYING ON TESTNET) ★",
-  "footer.best": "Best viewed in 800×600 · Arcade1v1 © 2026",
-  "footer.demo": "Demo on testnet · play money ·",
+  "footer.best": "© 2026",
+  "footer.demo": "Demo on testnet · play money",
   "hero.title": "PLAY. WIN. CASH OUT.",
   "hero.sub": "Challenge a rival 1v1 and play for the pot in USDC. May the best win",
   "quick.prompt": "Quick play — pick an amount:",
@@ -244,8 +244,8 @@ const es: Dict = {
   connect: "CONECTAR WALLET",
   marquee:
     "★ DUELOS 1v1 POR USDC ★ EL QUE GANA SE LLEVA EL POZO ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · CARRERA ★ ¿SIN RIVAL EN 1 HORA? TE DEVOLVEMOS TODO ★ DEMOSTRÁ QUIÉN MANDA ★ (JUGANDO EN TESTNET) ★",
-  "footer.best": "Mejor visto en 800×600 · Arcade1v1 © 2026",
-  "footer.demo": "Demostración en testnet · dinero de prueba ·",
+  "footer.best": "© 2026",
+  "footer.demo": "Demostración en testnet · dinero de prueba",
   "hero.title": "JUGÁ. GANÁ. COBRÁ.",
   "hero.sub": "Retá a un rival 1v1 y jugate el pozo en USDC. Que gane el mejor",
   "quick.prompt": "Jugá rápido — elegí un monto:",
@@ -468,8 +468,8 @@ const hi: Dict = {
   connect: "वॉलेट कनेक्ट करें",
   marquee:
     "★ USDC के लिए 1v1 मुकाबले ★ जीतने वाला पॉट ले जाए ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · RACING ★ 1 घंटे में कोई प्रतिद्वंद्वी नहीं? पूरा रिफंड ★ दिखाओ कौन है बॉस ★ (टेस्टनेट पर) ★",
-  "footer.best": "800×600 में सबसे अच्छा · Arcade1v1 © 2026",
-  "footer.demo": "टेस्टनेट डेमो · नकली पैसा ·",
+  "footer.best": "© 2026",
+  "footer.demo": "टेस्टनेट डेमो · नकली पैसा",
   "hero.title": "खेलो. जीतो. कमाओ.",
   "hero.sub": "किसी प्रतिद्वंद्वी को 1v1 चुनौती दो और USDC में दांव खेलो। सबसे अच्छा जीते",
   "quick.prompt": "जल्दी खेलो — एक रकम चुनो:",
@@ -689,8 +689,8 @@ const fr: Dict = {
   connect: "CONNECTER WALLET",
   marquee:
     "★ DUELS 1v1 POUR USDC ★ LE GAGNANT REMPORTE LE POT ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · COURSE ★ PAS D'ADVERSAIRE EN 1 HEURE ? REMBOURSÉ ★ MONTRE QUI COMMANDE ★ (EN TESTNET) ★",
-  "footer.best": "Optimisé pour 800×600 · Arcade1v1 © 2026",
-  "footer.demo": "Démo en testnet · argent fictif ·",
+  "footer.best": "© 2026",
+  "footer.demo": "Démo en testnet · argent fictif",
   "hero.title": "JOUE. GAGNE. ENCAISSE.",
   "hero.sub": "Défie un rival en 1v1 et joue la cagnotte en USDC. Que le meilleur gagne",
   "quick.prompt": "Jouer vite — choisis un montant :",
