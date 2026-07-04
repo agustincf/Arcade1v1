@@ -26,28 +26,36 @@ export function BetQuickPlay() {
     <>
       {/* CTAs principales: construir un agente / probar los juegos */}
       <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-        <Link href="/agents" className="btn3d btn3d--magenta inline-block">
+        <Link
+          href="/agents"
+          className="btn3d btn3d--magenta btn3d--hero inline-block whitespace-nowrap"
+        >
           🤖 {t("agents.cta")}
         </Link>
-        <button onClick={() => setPicker({ mode: "free" })} className="btn3d btn3d--cyan">
+        <button
+          onClick={() => setPicker({ mode: "free" })}
+          className="btn3d btn3d--cyan btn3d--hero whitespace-nowrap"
+        >
           {t("free.btn")}
         </button>
       </div>
 
-      {/* Partidas con stake: botones dorados apretables */}
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-        <span className="mr-1 text-sm font-medium uppercase tracking-wide text-(--color-muted-2)">
+      {/* Partidas con stake: botones dorados apretables, siempre en una fila */}
+      <div className="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+        <span className="text-sm font-medium uppercase tracking-wide text-(--color-muted-2)">
           {t("quick.prompt")}
         </span>
-        {BET_AMOUNTS.map((b) => (
-          <button
-            key={b}
-            onClick={() => setPicker({ mode: "bet", bet: b })}
-            className="btn3d btn3d--sm"
-          >
-            {b} USDC
-          </button>
-        ))}
+        <div className="flex w-full max-w-sm justify-center gap-2 sm:w-auto sm:max-w-none">
+          {BET_AMOUNTS.map((b) => (
+            <button
+              key={b}
+              onClick={() => setPicker({ mode: "bet", bet: b })}
+              className="btn3d btn3d--sm flex-1 whitespace-nowrap sm:flex-none"
+            >
+              {b} USDC
+            </button>
+          ))}
+        </div>
       </div>
 
       {picker !== null && (

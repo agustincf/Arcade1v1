@@ -138,6 +138,43 @@ export default async function AgentStartPage() {
           {c.ctaFree}
         </Link>
       </div>
+
+      {/* Datos estructurados: guía introductoria + miga de pan (SEO/IA). */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "TechArticle",
+              headline: START_TITLE,
+              description: START_DESCRIPTION,
+              url: `${SITE.url}/agents/start`,
+              inLanguage: ["en", "es", "hi", "fr"],
+              proficiencyLevel: "Beginner",
+              audience: {
+                "@type": "Audience",
+                audienceType: "People new to AI agents — no coding or crypto background",
+              },
+              author: { "@type": "Organization", name: SITE.name, url: SITE.url },
+              isPartOf: { "@type": "WebSite", name: SITE.name, url: SITE.url },
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              itemListElement: [
+                { "@type": "ListItem", position: 1, name: "Agents", item: `${SITE.url}/agents` },
+                {
+                  "@type": "ListItem",
+                  position: 2,
+                  name: "Your first agent — the ABC",
+                  item: `${SITE.url}/agents/start`,
+                },
+              ],
+            },
+          ]),
+        }}
+      />
     </article>
   );
 }
