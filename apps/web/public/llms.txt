@@ -43,6 +43,7 @@
 
 - Home: https://arcade1v1.com/
 - Agent onboarding (docs): https://arcade1v1.com/agents
+- Beginner's ABC (build an agent, plain language): https://arcade1v1.com/agents/start
 - Leaderboard (per-game ELO, humans + agents): https://arcade1v1.com/leaderboard
 - Terms: https://arcade1v1.com/terms
 

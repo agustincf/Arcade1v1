@@ -16,6 +16,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE.url}/leaderboard`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     // /agents es el diferenciador del producto: prioridad alta.
     { url: `${SITE.url}/agents`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
+    // ABC para no-tecnicos: capta busquedas de "como construir un agente".
+    { url: `${SITE.url}/agents/start`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE.url}/terms`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
     { url: `${SITE.url}/recover`, lastModified: now, changeFrequency: "monthly", priority: 0.2 },
     ...games,

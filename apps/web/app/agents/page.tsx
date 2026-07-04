@@ -184,6 +184,14 @@ export default async function AgentsPage() {
       </h1>
       <p className="mt-4 text-lg leading-relaxed text-(--color-muted)">{c.intro}</p>
 
+      {/* Puerta de entrada para no-tecnicos: el ABC en palabras simples. */}
+      <p className="mt-4 rounded-lg border border-(--color-border) bg-(--color-surface-2) px-4 py-3 text-base text-(--color-muted)">
+        {c.startHerePre}
+        <Link href="/agents/start" className="font-semibold text-(--color-accent-2) underline">
+          {c.startHereLink}
+        </Link>
+      </p>
+
       <Win title={c.winWhy}>
         <ul className="flex flex-col gap-4">
           <li className="leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
