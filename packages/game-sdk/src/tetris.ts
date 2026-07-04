@@ -3,6 +3,8 @@
 // la misma semilla + las mismas teclas en los mismos ticks, el resultado es
 // idéntico → el servidor puede re-simular el "replay" y verificar el puntaje.
 
+import { mulberry32, groupByTick } from "./replay";
+
 export const COLS = 10;
 export const ROWS = 20;
 
@@ -70,17 +72,6 @@ const ROTATIONS: number[][][][] = BASE_SHAPES.map((shape) => {
   }
   return rots;
 });
-
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 interface ActivePiece {
   type: number;
@@ -317,12 +308,7 @@ export class TetrisEngine {
 /** ANTI-TRAMPA: re-simula el replay tick por tick y devuelve el puntaje real. */
 export function verifyTetris(replay: ReplayTetris): number {
   const g = new TetrisEngine(replay.seed);
-  const byTick = new Map<number, TetrisAction[]>();
-  for (const inp of replay.inputs) {
-    const arr = byTick.get(inp.t) ?? [];
-    arr.push(inp.a);
-    byTick.set(inp.t, arr);
-  }
+  const byTick = groupByTick(replay.inputs);
   for (let t = 0; t < replay.ticks; t++) {
     const acts = byTick.get(t);
     if (acts) for (const a of acts) g.apply(a);

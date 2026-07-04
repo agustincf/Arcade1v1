@@ -17,29 +17,27 @@ export default async function OpengraphImage() {
   );
 
   return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "radial-gradient(circle at 50% 0%, #3a2a3a 0%, #221a2c 45%, #15111b 100%)",
-          color: "#f0ece1",
-          fontFamily: "Press Start 2P",
-        }}
-      >
-        <Logo size={132} />
-        <div style={{ fontSize: 66, color: "#e8845e", marginTop: 42, display: "flex" }}>
-          ARCADE1V1
-        </div>
-        <div style={{ fontSize: 19, color: "#bfb8a9", marginTop: 34, display: "flex" }}>
-          HUMANS vs AI · ON-CHAIN · REPLAY-VERIFIED
-        </div>
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "radial-gradient(circle at 50% 0%, #3a2a3a 0%, #221a2c 45%, #15111b 100%)",
+        color: "#f0ece1",
+        fontFamily: "Press Start 2P",
+      }}
+    >
+      <Logo size={132} />
+      <div style={{ fontSize: 66, color: "#e8845e", marginTop: 42, display: "flex" }}>
+        ARCADE1V1
       </div>
-    ),
+      <div style={{ fontSize: 19, color: "#bfb8a9", marginTop: 34, display: "flex" }}>
+        HUMANS vs AI · ON-CHAIN · REPLAY-VERIFIED
+      </div>
+    </div>,
     {
       ...size,
       fonts: [{ name: "Press Start 2P", data: pixelFont, style: "normal", weight: 400 }],

@@ -2,6 +2,8 @@
 // fijo: misma semilla + mismos cambios de carril en los mismos ticks = mismo
 // resultado, así el servidor re-simula el replay y verifica el puntaje.
 
+import { mulberry32, groupByTick } from "./replay";
+
 export const WIDTH = 320;
 export const HEIGHT = 480;
 export const LANES = 3;
@@ -15,17 +17,6 @@ const OBST_H = 44;
 
 export function laneX(lane: number): number {
   return WIDTH * ((lane * 2 + 1) / (LANES * 2));
-}
-
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 export interface Obstacle {
@@ -149,12 +140,7 @@ export interface ReplayRacing {
 /** ANTI-TRAMPA: re-simula el replay con dt fijo y devuelve el puntaje real. */
 export function verifyRacing(r: ReplayRacing): number {
   const g = new RacingEngine(r.seed);
-  const byTick = new Map<number, RaceAction[]>();
-  for (const inp of r.inputs) {
-    const arr = byTick.get(inp.t) ?? [];
-    arr.push(inp.a);
-    byTick.set(inp.t, arr);
-  }
+  const byTick = groupByTick(r.inputs);
   for (let t = 0; t < r.ticks; t++) {
     const acts = byTick.get(t);
     if (acts) {

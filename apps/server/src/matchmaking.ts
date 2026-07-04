@@ -420,7 +420,10 @@ export async function addBot(id: string) {
   if (m.p2) return view(m, m.p1); // ya tiene rival real
   m.p2 = BOT;
   m.isBot = true;
-  queue.delete(qkey(m.game, m.stake));
+  // Sacarla de la cola SOLO si la cola apunta a esta partida (otra podría estar
+  // esperando con la misma clave juego:mesa; no hay que desencolarla a ella).
+  const k = qkey(m.game, m.stake);
+  if (queue.get(k) === m.id) queue.delete(k);
   const p1score = m.scores[m.p1];
   m.scores[BOT] =
     p1score !== undefined

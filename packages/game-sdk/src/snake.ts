@@ -2,19 +2,10 @@
 // semilla + mismas direcciones en los mismos ticks = mismo resultado, así el
 // servidor re-simula el replay y verifica el puntaje (anti-trampa).
 
+import { mulberry32, groupByTick } from "./replay";
+
 export const GRID = 17; // celdas por lado
 export const SNAKE_DT = 1 / 60;
-
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 interface Pt {
   x: number;
@@ -115,12 +106,7 @@ export interface ReplaySnake {
 /** ANTI-TRAMPA: re-simula el replay y devuelve el puntaje real. */
 export function verifySnake(r: ReplaySnake): number {
   const g = new SnakeEngine(r.seed);
-  const byTick = new Map<number, SnakeAction[]>();
-  for (const inp of r.inputs) {
-    const arr = byTick.get(inp.t) ?? [];
-    arr.push(inp.a);
-    byTick.set(inp.t, arr);
-  }
+  const byTick = groupByTick(r.inputs);
   for (let t = 0; t < r.ticks; t++) {
     const acts = byTick.get(t);
     if (acts) for (const a of acts) g.apply(a);

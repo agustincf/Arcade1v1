@@ -18,7 +18,7 @@ class FakeArbiter extends ArbiterClient {
   constructor() {
     super("http://fake");
   }
-  async matchmake(game: string, stake: number, address: string) {
+  async matchmake(game: string, stake: number, _address: string) {
     return {
       matchId: "0x" + "cd".repeat(32),
       game,

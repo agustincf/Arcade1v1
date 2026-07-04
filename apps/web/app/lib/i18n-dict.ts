@@ -38,8 +38,7 @@ const en: Dict = {
   "pillars.p2b":
     "Stakes sit in an escrow on Base and the arbiter re-simulates every replay: scores are proven, not trusted.",
   "pillars.p3t": "A live AI benchmark",
-  "pillars.p3b":
-    "A public per-game ELO measures the skill of models and humans, match by match.",
+  "pillars.p3b": "A public per-game ELO measures the skill of models and humans, match by match.",
   "how.title": "HOW_IT_WORKS.TXT",
   "how.s1": "Pick a game and a stake. Both sides deposit the same USDC into the on-chain escrow.",
   "how.s2":
@@ -276,7 +275,8 @@ const es: Dict = {
   "how.s1": "Elegí un juego y un stake. Los dos depositan el mismo USDC en el escrow on-chain.",
   "how.s2":
     "Te cruzamos con un rival — humano o agente de IA. Cada uno juega su intento, sin esperar en vivo.",
-  "how.s3": "El árbitro verifica ambos replays; el escrow le paga automáticamente al puntaje más alto.",
+  "how.s3":
+    "El árbitro verifica ambos replays; el escrow le paga automáticamente al puntaje más alto.",
   "how.fee":
     "* La plataforma retiene el 15% del pozo. ¿Sin rival en 1 hora, o empate? El escrow te devuelve todo.",
   "agents.title": "AGENTES.TXT",
@@ -508,7 +508,8 @@ const hi: Dict = {
   "how.s1": "एक गेम और स्टेक चुनो। दोनों पक्ष ऑन-चेन एस्क्रो में बराबर USDC जमा करते हैं।",
   "how.s2":
     "तुम्हें एक प्रतिद्वंद्वी से मिलाया जाता है — इंसान या AI एजेंट। हर कोई अपनी बारी खेलता है, कोई लाइव इंतज़ार नहीं।",
-  "how.s3": "आर्बिटर दोनों replay सत्यापित करता है; एस्क्रो ज़्यादा स्कोर वाले को अपने आप भुगतान करता है।",
+  "how.s3":
+    "आर्बिटर दोनों replay सत्यापित करता है; एस्क्रो ज़्यादा स्कोर वाले को अपने आप भुगतान करता है।",
   "how.fee":
     "* प्लेटफ़ॉर्म पॉट का 15% रखता है। 1 घंटे में कोई प्रतिद्वंद्वी नहीं, या बराबरी? एस्क्रो सब लौटा देता है।",
   "agents.title": "एजेंट.TXT",
@@ -735,7 +736,8 @@ const fr: Dict = {
   "pillars.p3b":
     "Un ELO public par jeu mesure le skill des modèles et des humains, partie après partie.",
   "how.title": "COMMENT_CA_MARCHE.TXT",
-  "how.s1": "Choisis un jeu et une mise. Les deux camps déposent le même USDC dans l'escrow on-chain.",
+  "how.s1":
+    "Choisis un jeu et une mise. Les deux camps déposent le même USDC dans l'escrow on-chain.",
   "how.s2":
     "On te trouve un rival — humain ou agent IA. Chacun joue sa manche, sans attente en direct.",
   "how.s3": "L'arbitre vérifie les deux replays ; l'escrow paie automatiquement le meilleur score.",
@@ -781,7 +783,8 @@ const fr: Dict = {
   "game.2048.desc":
     "Glisse, fusionne les tuiles égales et atteins le plus grand nombre. Plus de points, la cagnotte.",
   "table.choose": "CHOISIR TABLE",
-  "table.q": "Choisis la mise. Les deux camps déposent pareil ; le gagnant vérifié rafle la cagnotte.",
+  "table.q":
+    "Choisis la mise. Les deux camps déposent pareil ; le gagnant vérifié rafle la cagnotte.",
   "table.win": "gagne {n}",
   "table.vip": "VIP",
   "table.pot": "CAGNOTTE.LOG",
@@ -805,7 +808,8 @@ const fr: Dict = {
   "match.modeFree": "MODE LIBRE",
   "match.gratis": "GRATUIT",
   "match.pot": "CAGN. {n}",
-  "match.freeIntro": "Essaie le jeu gratuitement, sans mise. Joue une partie classée quand tu veux.",
+  "match.freeIntro":
+    "Essaie le jeu gratuitement, sans mise. Joue une partie classée quand tu veux.",
   "match.playing": "EN_JEU.EXE",
   "match.pairNote":
     "On te trouve un rival par ordre d'arrivée. Si personne ne vient en 1 heure, tout est remboursé.",

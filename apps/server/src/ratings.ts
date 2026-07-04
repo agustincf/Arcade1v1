@@ -69,11 +69,13 @@ export function applyResult(
 
 /** Tabla de posiciones de un juego (mayor rating primero). */
 export function leaderboard(game: string, limit = 20): { address: string; rating: number }[] {
+  // Un limit no numérico (?limit=abc -> NaN) cae al default, no a una tabla vacía.
+  const lim = Number.isFinite(limit) ? limit : 20;
   return Object.entries(store)
     .map(([address, games]) => ({ address, rating: games[game] }))
     .filter((x): x is { address: string; rating: number } => typeof x.rating === "number")
     .sort((a, b) => b.rating - a.rating)
-    .slice(0, Math.max(1, Math.min(100, limit)));
+    .slice(0, Math.max(1, Math.min(100, lim)));
 }
 
 /** Todos los ratings de un jugador (por juego). */

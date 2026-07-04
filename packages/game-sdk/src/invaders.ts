@@ -3,6 +3,8 @@
 // jugador dispara. Misma semilla + mismas entradas = mismo resultado -> el
 // servidor re-simula el replay y verifica el puntaje (anti-trampa).
 
+import { mulberry32, groupByTick } from "./replay";
+
 export const WIDTH = 320;
 export const HEIGHT = 440;
 export const INVADERS_DT = 1 / 60;
@@ -38,17 +40,6 @@ const UFO_Y = 24;
 const UFO_SPEED = 1.6;
 const UFO_BONUS = 100;
 const UFO_CHANCE = 0.0016; // probabilidad por tick de que aparezca el OVNI
-
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 export type InvaderAction = "l1" | "l0" | "r1" | "r0" | "f1" | "f0";
 
@@ -340,12 +331,7 @@ export interface ReplayInvaders {
 /** ANTI-TRAMPA: re-simula el replay y devuelve el puntaje real. */
 export function verifyInvaders(r: ReplayInvaders): number {
   const g = new InvadersEngine(r.seed);
-  const byTick = new Map<number, InvaderAction[]>();
-  for (const inp of r.inputs) {
-    const arr = byTick.get(inp.t) ?? [];
-    arr.push(inp.a);
-    byTick.set(inp.t, arr);
-  }
+  const byTick = groupByTick(r.inputs);
   for (let t = 0; t < r.ticks; t++) {
     const acts = byTick.get(t);
     if (acts) for (const a of acts) g.apply(a);
