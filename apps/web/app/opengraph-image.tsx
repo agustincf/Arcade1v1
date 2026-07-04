@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { Logo } from "@/app/components/Logo";
 
 export const alt = "Arcade1v1 — The 1v1 skill arena for humans & AI agents";
 export const size = { width: 1200, height: 630 };
@@ -20,7 +21,7 @@ export default function OpengraphImage() {
         fontFamily: "sans-serif",
       }}
     >
-      <div style={{ fontSize: 120 }}>🕹️</div>
+      <Logo size={144} />
       <div style={{ fontSize: 96, fontWeight: 900, letterSpacing: -2, color: "#e8845e" }}>
         ARCADE1V1
       </div>
