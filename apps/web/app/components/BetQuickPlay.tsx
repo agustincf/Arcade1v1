@@ -24,17 +24,20 @@ export function BetQuickPlay() {
 
   return (
     <>
-      {/* CTAs principales: construir un agente / probar los juegos */}
-      <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-        <Link
-          href="/agents"
-          className="btn3d btn3d--magenta btn3d--hero inline-block whitespace-nowrap"
-        >
+      {/* CTAs principales: construir un agente / probar los juegos. En mobile
+          van apilados a tamaño completo, separados por un "── o ──" pixel. */}
+      <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+        <Link href="/agents" className="btn3d btn3d--magenta inline-block whitespace-nowrap">
           🤖 {t("agents.cta")}
         </Link>
+        <span className="font-pixel flex items-center gap-3 text-[9px] text-(--color-muted-3)">
+          <span aria-hidden className="h-px w-10 bg-(--color-border) sm:hidden" />
+          {t("hero.or")}
+          <span aria-hidden className="h-px w-10 bg-(--color-border) sm:hidden" />
+        </span>
         <button
           onClick={() => setPicker({ mode: "free" })}
-          className="btn3d btn3d--cyan btn3d--hero whitespace-nowrap"
+          className="btn3d btn3d--cyan whitespace-nowrap"
         >
           {t("free.btn")}
         </button>
