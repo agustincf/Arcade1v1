@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BET_AMOUNTS } from "@/app/lib/config";
 import { GAMES } from "@/app/lib/games";
@@ -23,26 +24,30 @@ export function BetQuickPlay() {
 
   return (
     <>
-      <p className="mt-6 text-center text-sm font-medium uppercase tracking-wide text-(--color-muted-2)">
-        {t("quick.prompt")}
-      </p>
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+      {/* CTAs principales: construir un agente / probar los juegos */}
+      <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+        <Link href="/agents" className="btn3d btn3d--magenta inline-block">
+          🤖 {t("agents.cta")}
+        </Link>
+        <button onClick={() => setPicker({ mode: "free" })} className="btn3d btn3d--cyan">
+          {t("free.btn")}
+        </button>
+      </div>
+
+      {/* Partidas con stake: botones dorados apretables */}
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+        <span className="mr-1 text-sm font-medium uppercase tracking-wide text-(--color-muted-2)">
+          {t("quick.prompt")}
+        </span>
         {BET_AMOUNTS.map((b) => (
           <button
             key={b}
             onClick={() => setPicker({ mode: "bet", bet: b })}
-            className="chip cursor-pointer !text-(--color-gold) transition hover:border-(--color-gold)"
+            className="btn3d btn3d--sm"
           >
             {b} USDC
           </button>
         ))}
-      </div>
-
-      <div className="mt-5 text-center">
-        <button onClick={() => setPicker({ mode: "free" })} className="btn3d btn3d--cyan">
-          {t("free.btn")}
-        </button>
-        <p className="mt-2 text-sm text-(--color-muted-3)">{t("free.sub")}</p>
       </div>
 
       {picker !== null && (

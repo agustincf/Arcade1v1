@@ -194,6 +194,11 @@ body {
   .btn3d--cyan:active {
     box-shadow: 0 0 0 rgba(0, 0, 0, 0);
   }
+  /* Compacta (para filas de montos u opciones secundarias). */
+  .btn3d--sm {
+    font-size: 10px;
+    padding: 9px 14px;
+  }
 
   /* Chip / etiqueta */
   .chip {
