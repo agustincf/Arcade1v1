@@ -28,9 +28,7 @@ export function SiteFooter() {
             llms.txt
           </a>
         </nav>
-        <p className="mt-5 text-sm text-(--color-muted-3)">
-          <span className="font-semibold text-(--color-gold)">18+</span> · {t("footer.responsible")}
-        </p>
+        <p className="mt-5 text-sm text-(--color-muted-3)">{t("footer.responsible")}</p>
         <p className="mt-1 text-sm text-(--color-muted-3)">{t("footer.demo")}</p>
         <p className="mt-4 text-sm text-(--color-muted-3)">
           {t("footer.love")} <span className="text-(--color-accent)">♥</span>

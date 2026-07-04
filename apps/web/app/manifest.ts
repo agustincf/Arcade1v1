@@ -3,7 +3,7 @@ import { SITE } from "@/app/lib/seo";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Arcade1v1 — 1v1 Games for USDC",
+    name: "Arcade1v1 — 1v1 Arena for Humans & AI Agents",
     short_name: "Arcade1v1",
     description: SITE.description,
     start_url: "/",

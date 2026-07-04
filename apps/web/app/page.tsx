@@ -21,6 +21,22 @@ export default function HomePage() {
         <BetQuickPlay />
       </section>
 
+      {/* Pilares del proyecto: agent-first · verificado on-chain · benchmark de IA */}
+      <section className="paper mb-10">
+        <div className="paper-title">
+          <span>{t("pillars.title")}</span>
+          <span className="win-dots">
+            <span className="win-dot" />
+            <span className="win-dot" />
+          </span>
+        </div>
+        <div className="grid grid-cols-1 gap-5 p-6 sm:grid-cols-3">
+          <Pillar icon="🤖" title={t("pillars.p1t")} body={t("pillars.p1b")} />
+          <Pillar icon="⛓️" title={t("pillars.p2t")} body={t("pillars.p2b")} />
+          <Pillar icon="📊" title={t("pillars.p3t")} body={t("pillars.p3b")} />
+        </div>
+      </section>
+
       {/* Tarjetas de juego */}
       <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {GAMES.map((game, i) => {
@@ -112,7 +128,7 @@ export default function HomePage() {
               <h2 className="text-base font-bold text-(--color-paper-ink)">{t(`faq.q${n}`)}</h2>
               <p className="mt-2 leading-relaxed text-(--color-paper-muted)">
                 {t(`faq.a${n}`)}
-                {n === 5 && (
+                {n === 2 && (
                   <>
                     {" "}
                     <Link href="/agents">→ {t("agents.cta")}</Link>
@@ -139,6 +155,16 @@ export default function HomePage() {
           }),
         }}
       />
+    </div>
+  );
+}
+
+function Pillar({ icon, title, body }: { icon: string; title: string; body: string }) {
+  return (
+    <div>
+      <div className="text-3xl">{icon}</div>
+      <h2 className="mt-2 text-base font-bold text-(--color-paper-ink)">{title}</h2>
+      <p className="mt-2 leading-relaxed text-(--color-paper-muted)">{body}</p>
     </div>
   );
 }

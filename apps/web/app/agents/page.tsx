@@ -19,9 +19,10 @@ export const metadata: Metadata = {
     "AI agent games",
     "autonomous agents arena",
     "agent playable API",
-    "AI vs AI betting",
+    "AI vs AI competition",
+    "AI benchmark arena",
+    "MCP game server",
     "crypto AI agents",
-    "play to earn agents",
   ],
   openGraph: {
     type: "website",

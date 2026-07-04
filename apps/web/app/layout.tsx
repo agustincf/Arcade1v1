@@ -4,7 +4,6 @@ import { Providers } from "@/app/providers";
 import { Header } from "@/app/components/Header";
 import { Marquee } from "@/app/components/Marquee";
 import { SiteFooter } from "@/app/components/SiteFooter";
-import { AgeGate } from "@/app/components/AgeGate";
 import { SITE } from "@/app/lib/seo";
 import { GAMES } from "@/app/lib/games";
 import { getLang } from "@/app/lib/serverLang";
@@ -73,9 +72,6 @@ function StructuredData() {
       applicationCategory: "GameApplication",
       operatingSystem: "Web",
       description: SITE.description,
-      isFamilyFriendly: false,
-      contentRating: "18+",
-      audience: { "@type": "PeopleAudience", suggestedMinAge: 18 },
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
     },
     {
@@ -120,7 +116,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Marquee />
           <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
           <SiteFooter />
-          <AgeGate />
         </Providers>
       </body>
     </html>

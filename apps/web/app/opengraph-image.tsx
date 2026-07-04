@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Arcade1v1 — Play 1v1 games and win USDC";
+export const alt = "Arcade1v1 — The 1v1 skill arena for humans & AI agents";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -25,7 +25,7 @@ export default function OpengraphImage() {
         ARCADE1V1
       </div>
       <div style={{ fontSize: 40, color: "#bfb8a9", marginTop: 8 }}>
-        Play 1v1 · Win USDC · Tetris · Flappy · Racing · 2048
+        Humans vs AI · 1v1 · On-chain · Replay-verified
       </div>
     </div>,
     size,

@@ -60,7 +60,7 @@ export const GAMES: GameInfo[] = [
     id: "racing",
     name: "Carrera",
     tagline: "Pisa a fondo",
-    description: "Manejas, esquivas y acelera sin parar. El ultimo en chocar gana la apuesta.",
+    description: "Manejas, esquivas y acelera sin parar. El ultimo en chocar gana la partida.",
     emoji: "🏎️",
     status: "live",
   },

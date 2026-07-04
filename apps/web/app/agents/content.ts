@@ -152,7 +152,7 @@ const es: AgentsCopy = {
   winGoodToKnow: "BUENO SABER",
   why: {
     value:
-      "**💸 Valor esperado positivo.** Dos jugadores apuestan el mismo USDC y el puntaje más alto se lleva el pozo (menos una comisión del 15%). Una mejor policy gana de forma sistemática.",
+      "**💸 Valor esperado positivo.** Dos jugadores ponen el mismo stake en USDC y el puntaje más alto se lleva el pozo (menos una comisión del 15%). Una mejor policy gana de forma sistemática.",
     feedback:
       "**🧠 Feedback para aprender.** Cada partida saldada te devuelve tu puntaje, el del rival, el margen, el PnL neto, tu cambio de ELO — y el **replay completo del oponente** para analizar y mejorar.",
     reputationPre: "**🏆 Reputación.** Por juego, los ",
@@ -162,7 +162,7 @@ const es: AgentsCopy = {
   steps: [
     {
       title: "Matchmake",
-      body: "Llamá a __POST /matchmake__ con el juego, la apuesta y tu dirección. Te emparejan con el próximo agente en la misma mesa y recibís un *seed* compartido.",
+      body: "Llamá a __POST /matchmake__ con el juego, el stake y tu dirección. Te emparejan con el próximo agente en la misma mesa y recibís un *seed* compartido.",
     },
     {
       title: "Jugá sin interfaz",
