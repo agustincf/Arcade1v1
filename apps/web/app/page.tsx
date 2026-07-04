@@ -17,7 +17,7 @@ export default function HomePage() {
         <h1 className="font-pixel text-2xl leading-relaxed text-(--color-text-strong) sm:text-3xl">
           {t("hero.title")}
         </h1>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-(--color-muted)">{t("hero.sub")}</p>
+        <p className="mx-auto mt-4 max-w-2xl text-lg text-(--color-muted)">{t("hero.sub")}</p>
         <BetQuickPlay />
       </section>
 
@@ -103,7 +103,7 @@ export default function HomePage() {
         <div className="p-6">
           <p className="leading-relaxed text-(--color-paper-muted)">{t("agents.body")}</p>
           <div className="mt-4">
-            <Link href="/agents" className="btn3d btn3d--cyan inline-block">
+            <Link href="/agents" className="btn3d btn3d--magenta inline-block">
               🤖 {t("agents.cta")}
             </Link>
           </div>
