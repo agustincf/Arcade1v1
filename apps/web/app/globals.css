@@ -285,4 +285,14 @@ body {
     text-decoration: underline;
     text-underline-offset: 2px;
   }
+  /* Un link con estilo de botón dentro del panel claro es un botón, no un
+     enlace: sin subrayado y con el color de su variante (no el coral de
+     los enlaces). Así queda idéntico al botón del header. */
+  .paper a.btn3d {
+    color: var(--color-ink-2);
+    text-decoration: none;
+  }
+  .paper a.btn3d--cyan {
+    color: var(--color-text);
+  }
 }
