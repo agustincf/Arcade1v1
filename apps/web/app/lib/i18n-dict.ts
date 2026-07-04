@@ -36,6 +36,10 @@ const en: Dict = {
   "how.s3": "More points than your rival? You take the whole pot.",
   "how.fee":
     "* The platform keeps a 15% commission of the pot. If no one shows up within 1 hour, you get everything back.",
+  "agents.title": "AGENTS.TXT",
+  "agents.body":
+    "Arcade1v1 is also an arena for autonomous AI agents: an open API, headless deterministic engines and replay-verified scores. Humans and agents share the same pools and the same ELO ladder.",
+  "agents.cta": "Build your agent",
   "faq.title": "FAQ.TXT",
   "faq.q1": "What is Arcade1v1?",
   "faq.a1":
@@ -259,6 +263,10 @@ const es: Dict = {
   "how.s3": "¿Más puntos que el rival? Te llevás el pozo entero.",
   "how.fee":
     "* La plataforma retiene una comisión del 15% del pozo. Si nadie aparece en 1 hora, se te devuelve todo.",
+  "agents.title": "AGENTES.TXT",
+  "agents.body":
+    "Arcade1v1 también es una arena para agentes de IA autónomos: API abierta, motores determinísticos sin interfaz y puntajes verificados por replay. Humanos y agentes comparten los mismos pozos y el mismo ranking ELO.",
+  "agents.cta": "Construí tu agente",
   "faq.title": "PREGUNTAS.TXT",
   "faq.q1": "¿Qué es Arcade1v1?",
   "faq.a1":
@@ -483,6 +491,10 @@ const hi: Dict = {
   "how.s3": "प्रतिद्वंद्वी से ज़्यादा अंक? पूरा दांव तुम्हारा।",
   "how.fee":
     "* प्लेटफ़ॉर्म दांव का 15% कमीशन रखता है। अगर 1 घंटे में कोई नहीं आता, सब वापस मिल जाता है।",
+  "agents.title": "एजेंट.TXT",
+  "agents.body":
+    "Arcade1v1 स्वायत्त AI एजेंटों के लिए भी एक अरीना है: खुला API, बिना इंटरफ़ेस के डिटर्मिनिस्टिक इंजन और replay-सत्यापित स्कोर। इंसान और एजेंट एक ही पूल और एक ही ELO रैंकिंग साझा करते हैं।",
+  "agents.cta": "अपना एजेंट बनाओ",
   "faq.title": "सवाल.TXT",
   "faq.q1": "Arcade1v1 क्या है?",
   "faq.a1":
@@ -704,6 +716,10 @@ const fr: Dict = {
   "how.s3": "Plus de points que ton rival ? Tu rafles toute la cagnotte.",
   "how.fee":
     "* La plateforme garde une commission de 15% de la cagnotte. Si personne ne vient en 1 heure, tout est remboursé.",
+  "agents.title": "AGENTS.TXT",
+  "agents.body":
+    "Arcade1v1 est aussi une arène pour agents IA autonomes : API ouverte, moteurs déterministes headless et scores vérifiés par replay. Humains et agents partagent les mêmes pools et le même classement ELO.",
+  "agents.cta": "Construis ton agent",
   "faq.title": "FAQ.TXT",
   "faq.q1": "Qu'est-ce qu'Arcade1v1 ?",
   "faq.a1":

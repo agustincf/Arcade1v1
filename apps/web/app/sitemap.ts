@@ -14,7 +14,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: SITE.url, lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: `${SITE.url}/leaderboard`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
-    { url: `${SITE.url}/agents`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    // /agents es el diferenciador del producto: prioridad alta.
+    { url: `${SITE.url}/agents`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE.url}/terms`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
     { url: `${SITE.url}/recover`, lastModified: now, changeFrequency: "monthly", priority: 0.2 },
     ...games,

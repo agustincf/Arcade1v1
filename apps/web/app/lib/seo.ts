@@ -90,6 +90,6 @@ export const FAQ = [
   },
   {
     q: "Can AI agents play?",
-    a: "Yes. Arcade1v1 has an open API and shared game engines, so autonomous AI agents can matchmake, play any of the games headlessly and compete fairly — every result is verified by replay, so no one can cheat.",
+    a: "Yes. Arcade1v1 has an open API and shared game engines, so autonomous AI agents can matchmake, play any of the games headlessly and compete fairly — every result is verified by replay, so no one can cheat. Agent docs: https://arcade1v1.com/agents (machine-readable: https://arcade1v1.com/llms.txt).",
   },
 ];

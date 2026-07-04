@@ -1,6 +1,23 @@
 {
   "name": "@arcade1v1/agent-sdk",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Build an AI agent that competes on Arcade1v1 in a few lines: matchmake, play headlessly, sign and submit a replay-verified score — then read the rich result (PnL, ELO, the opponent's replay) and improve.",
+  "keywords": [
+    "arcade1v1",
+    "ai-agents",
+    "autonomous-agents",
+    "games",
+    "elo",
+    "replay",
+    "viem"
+  ],
+  "homepage": "https://arcade1v1.com/agents",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agustincf/Arcade1v1.git",
+    "directory": "packages/agent-sdk"
+  },
+  "license": "MIT",
   "private": true,
   "type": "module",
   "exports": {
@@ -10,7 +27,8 @@
     "./strategies": "./src/strategies.ts"
   },
   "scripts": {
-    "example": "tsx examples/play-2048.ts"
+    "example": "tsx examples/play-2048.ts",
+    "release": "node ../../scripts/publish-sdk.mjs agent-sdk"
   },
   "dependencies": {
     "@arcade1v1/game-sdk": "*",

@@ -27,19 +27,19 @@ Combinar tres fuentes, cada una aporta algo puntual:
 
 Se conservan los NOMBRES de las variables (así el 90 % de la app se re-tematiza sola). Cambian los valores:
 
-| Token | Antes | Ahora | Rol |
-|---|---|---|---|
-| `--color-bg` | `#140a2e` violeta | `#15111b` ciruela-tinta profundo | fondo de página |
-| `--color-surface` | `#241a44` | `#1f1a29` | tarjetas |
-| `--color-surface-2` | `#2f2358` | `#292236` | elevación 2 |
-| `--color-border` | `#4b3b80` | `#3a3150` | bordes |
-| `--color-accent` | `#ff3df0` magenta neón | `#e8845e` coral | acción primaria / marca |
-| `--color-accent-2` | `#27e8ff` cyan neón | `#6cc9da` cyan calmo | info / secundario |
-| `--color-gold` | `#ffd23d` | `#f2c14e` | dinero / premios |
-| `--color-lime` | `#b6ff3d` | `#b8e08a` | estado "vivo" |
-| `--color-text` | `#efeaff` | `#f0ece1` marfil | texto base |
-| `--color-win` / `--color-lose` | neón | `#5fd68a` / `#f0716f` | resultado |
-| muted 1-3 | grises violáceos | cremas apagadas | texto secundario |
+| Token                          | Antes                  | Ahora                            | Rol                     |
+| ------------------------------ | ---------------------- | -------------------------------- | ----------------------- |
+| `--color-bg`                   | `#140a2e` violeta      | `#15111b` ciruela-tinta profundo | fondo de página         |
+| `--color-surface`              | `#241a44`              | `#1f1a29`                        | tarjetas                |
+| `--color-surface-2`            | `#2f2358`              | `#292236`                        | elevación 2             |
+| `--color-border`               | `#4b3b80`              | `#3a3150`                        | bordes                  |
+| `--color-accent`               | `#ff3df0` magenta neón | `#e8845e` coral                  | acción primaria / marca |
+| `--color-accent-2`             | `#27e8ff` cyan neón    | `#6cc9da` cyan calmo             | info / secundario       |
+| `--color-gold`                 | `#ffd23d`              | `#f2c14e`                        | dinero / premios        |
+| `--color-lime`                 | `#b6ff3d`              | `#b8e08a`                        | estado "vivo"           |
+| `--color-text`                 | `#efeaff`              | `#f0ece1` marfil                 | texto base              |
+| `--color-win` / `--color-lose` | neón                   | `#5fd68a` / `#f0716f`            | resultado               |
+| muted 1-3                      | grises violáceos       | cremas apagadas                  | texto secundario        |
 
 Nuevos tokens **paper** (bloques claros estilo btcpolicy/Claude): `--color-paper #f0eee6`, `--color-paper-2 #e7e3d7`, `--color-paper-border #d8d2c2`, `--color-paper-ink #221d26`, `--color-paper-muted #5c554d`.
 

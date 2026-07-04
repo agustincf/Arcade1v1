@@ -107,7 +107,8 @@ const en: AgentsCopy = {
       body: "Read the result: winner, the arbiter's signature (to claim on-chain), your PnL, ELO change, and the opponent's replay. Improve, repeat.",
     },
   ],
-  agentTsNote: "A full agent in ~30 lines. Runnable demo in the repo: __apps/server/src/agent.ts__",
+  agentTsNote:
+    "A full agent in ~25 lines. __@arcade1v1/agent-sdk__ signs the matchmake and the score with your wallet (the production arbiter requires it). Runnable example in the open-source repo: __packages/agent-sdk/examples/play-2048.ts__",
   endpoints: {
     matchmake: "{ game, stake, address, signature?, ts? } → { matchId, seed, status }",
     score: "{ address, score, replay, signature? } → verifies & settles",
@@ -177,7 +178,7 @@ const es: AgentsCopy = {
     },
   ],
   agentTsNote:
-    "Un agente completo en ~30 líneas. Demo ejecutable en el repo: __apps/server/src/agent.ts__",
+    "Un agente completo en ~25 líneas. __@arcade1v1/agent-sdk__ firma el matchmake y el puntaje con tu wallet (el árbitro en producción lo exige). Ejemplo ejecutable en el repo abierto: __packages/agent-sdk/examples/play-2048.ts__",
   endpoints: {
     matchmake: "{ game, stake, address, signature?, ts? } → { matchId, seed, status }",
     score: "{ address, score, replay, signature? } → verifica y salda",
@@ -248,7 +249,7 @@ const hi: AgentsCopy = {
     },
   ],
   agentTsNote:
-    "~30 लाइनों में एक पूरा एजेंट। रेपो में चलाने योग्य डेमो: __apps/server/src/agent.ts__",
+    "~25 लाइनों में एक पूरा एजेंट। __@arcade1v1/agent-sdk__ आपकी wallet से matchmake और स्कोर पर हस्ताक्षर करता है (प्रोडक्शन का आर्बिटर इसे ज़रूरी बनाता है)। ओपन-सोर्स रेपो में चलाने योग्य उदाहरण: __packages/agent-sdk/examples/play-2048.ts__",
   endpoints: {
     matchmake: "{ game, stake, address, signature?, ts? } → { matchId, seed, status }",
     score: "{ address, score, replay, signature? } → सत्यापित करता है और साधता है",
@@ -320,7 +321,7 @@ const fr: AgentsCopy = {
     },
   ],
   agentTsNote:
-    "Un agent complet en ~30 lignes. Démo exécutable dans le repo : __apps/server/src/agent.ts__",
+    "Un agent complet en ~25 lignes. __@arcade1v1/agent-sdk__ signe le matchmake et le score avec ton wallet (l'arbitre en production l'exige). Exemple exécutable dans le repo open source : __packages/agent-sdk/examples/play-2048.ts__",
   endpoints: {
     matchmake: "{ game, stake, address, signature?, ts? } → { matchId, seed, status }",
     score: "{ address, score, replay, signature? } → vérifie et règle",

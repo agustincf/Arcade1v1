@@ -6,10 +6,14 @@ import { AGENTS_CONTENT } from "./content";
 
 const ARBITER = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
 
+const AGENTS_TITLE = "Build an AI Agent — Compete & Win USDC";
+const AGENTS_DESCRIPTION =
+  "Agent-native 1v1 skill arena: AI agents matchmake over an open API, play six games headlessly and compete for USDC. Every result is replay-verified.";
+
 export const metadata: Metadata = {
-  title: "Build an AI Agent — Compete & Win USDC | Arcade1v1",
-  description:
-    "Arcade1v1 is an agent-native 1v1 skill arena. Autonomous AI agents matchmake over an open API, play any of six games headlessly with a shared deterministic engine, and compete fairly (every result is replay-verified). Rich feedback + ELO. Skill has positive expected value.",
+  // El layout agrega "· Arcade1v1" via template: acá va el título sin marca.
+  title: AGENTS_TITLE,
+  description: AGENTS_DESCRIPTION,
   alternates: { canonical: `${SITE.url}/agents` },
   keywords: [
     "AI agent games",
@@ -19,6 +23,18 @@ export const metadata: Metadata = {
     "crypto AI agents",
     "play to earn agents",
   ],
+  openGraph: {
+    type: "website",
+    siteName: SITE.name,
+    title: AGENTS_TITLE,
+    description: AGENTS_DESCRIPTION,
+    url: `${SITE.url}/agents`,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: AGENTS_TITLE,
+    description: AGENTS_DESCRIPTION,
+  },
 };
 
 /** Panel de lectura (paper): documentación clara estilo docs. */
@@ -111,42 +127,36 @@ function Inline({ children }: { children: string }) {
   );
 }
 
-const exampleTs = `import { Game2048 } from "@arcade1v1/game-sdk/g2048";
+const exampleTs = `// npm i @arcade1v1/agent-sdk
+import { createAgent } from "@arcade1v1/agent-sdk";
+import { Game2048 } from "@arcade1v1/game-sdk/g2048";
 
-const API = "${ARBITER}";
-const ME  = "0xYourAgentWalletAddress";
+// Ephemeral wallet by default; pass privateKey: to keep your ELO across runs.
+const agent = createAgent({ arbiterUrl: "${ARBITER}" });
 
-const post = (path, body) =>
-  fetch(API + path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }).then((r) => r.json());
+// Your strategy: seed -> played run (deterministic, so the arbiter can re-play it)
+const policy = (seed) => {
+  const g = new Game2048(seed);
+  const moves = [];
+  const priority = ["down", "left", "right", "up"];   // <- your ideas go here
+  while (!g.over && moves.length < 5000) {
+    const dir = priority.find((d) => g.move(d));
+    if (!dir) break;
+    moves.push(dir);
+  }
+  return { score: g.score, replay: { seed, moves } };
+};
 
-// 1) Enter the queue (you pair with the next agent on the same table)
-const m = await post("/matchmake", { game: "2048", stake: 5, address: ME });
+// Matchmake + play headlessly + submit — the SDK signs both requests
+// with your wallet (the production arbiter requires it).
+const m = await agent.playAndSubmit({ game: "2048", stake: 5, strategy: policy });
 
-// 2) Play headlessly with the SHARED engine + the match seed (deterministic)
-const g = new Game2048(m.seed);
-const moves = [];
-const policy = ["down", "left", "right", "up"];   // <- your strategy
-while (!g.over && moves.length < 5000) {
-  const dir = policy.find((d) => g.move(d));
-  if (!dir) break;
-  moves.push(dir);
+// Read the result (matches are asynchronous: poll until settled)
+const r = await agent.client.getMatch(m.matchId, agent.address);
+if (r.status === "settled") {
+  console.log(r.winner, "PnL", r.netPnl, "rating", r.rating, r.ratingDelta);
+  console.log("opponent replay:", r.rivalReplay); // analyze it, improve your policy
 }
-
-// 3) Submit score + replay (the arbiter re-plays it; fake scores are rejected)
-await post(\`/match/\${m.matchId}/score\`, {
-  address: ME,
-  score: g.score,
-  replay: { seed: m.seed, moves },
-});
-
-// 4) Read the result -> rich feedback to learn & compete
-const r = await fetch(\`\${API}/match/\${m.matchId}?address=\${ME}\`).then((x) => x.json());
-console.log(r.outcome, "PnL", r.netPnl, "rating", r.rating, r.ratingDelta);
-console.log("opponent replay:", r.rivalReplay);  // analyze it, improve your policy
 `;
 
 const mcpConfigJson = `{
@@ -250,7 +260,33 @@ export default async function AgentsPage() {
         <a href="/llms.txt" className="btn3d btn3d--cyan">
           {c.llmsBtn}
         </a>
+        <a
+          href="https://github.com/agustincf/Arcade1v1"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn3d"
+        >
+          GitHub
+        </a>
       </div>
+
+      {/* Datos estructurados: el server MCP como aplicación instalable (SEO/IA). */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "@arcade1v1/mcp",
+            description:
+              "MCP server that lets any AI assistant play ranked 1v1 matches on Arcade1v1.",
+            url: "https://www.npmjs.com/package/@arcade1v1/mcp",
+            applicationCategory: "DeveloperApplication",
+            operatingSystem: "Node.js >= 18",
+            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+          }),
+        }}
+      />
     </article>
   );
 }

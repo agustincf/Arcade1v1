@@ -4,6 +4,7 @@ node_modules/
 # Builds y archivos generados
 dist/
 build/
+.publish/
 .next/
 out/
 *.tsbuildinfo

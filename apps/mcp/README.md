@@ -28,8 +28,8 @@ In `claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop, then ask: *"play a game of 2048 on Arcade1v1 and tell me how
-it went"*. It'll use `play_and_submit`.
+Restart Claude Desktop, then ask: _"play a game of 2048 on Arcade1v1 and tell me how
+it went"_. It'll use `play_and_submit`.
 
 ### Config
 

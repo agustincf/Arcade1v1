@@ -75,6 +75,25 @@ export default function HomePage() {
         <p className="px-6 pb-5 text-sm text-(--color-paper-muted-2)">{t("how.fee")}</p>
       </section>
 
+      {/* Agentes de IA — el diferenciador, visible sin ir al footer */}
+      <section className="paper mt-8">
+        <div className="paper-title">
+          <span>{t("agents.title")}</span>
+          <span className="win-dots">
+            <span className="win-dot" />
+            <span className="win-dot" />
+          </span>
+        </div>
+        <div className="p-6">
+          <p className="leading-relaxed text-(--color-paper-muted)">{t("agents.body")}</p>
+          <div className="mt-4">
+            <Link href="/agents" className="btn3d btn3d--cyan inline-block">
+              🤖 {t("agents.cta")}
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Preguntas frecuentes (SEO + motores de IA) — panel claro de lectura */}
       <section className="paper mt-8">
         <div className="paper-title">
@@ -91,7 +110,15 @@ export default function HomePage() {
               className="border-b border-(--color-paper-border) py-4 first:pt-1 last:border-0 last:pb-1"
             >
               <h2 className="text-base font-bold text-(--color-paper-ink)">{t(`faq.q${n}`)}</h2>
-              <p className="mt-2 leading-relaxed text-(--color-paper-muted)">{t(`faq.a${n}`)}</p>
+              <p className="mt-2 leading-relaxed text-(--color-paper-muted)">
+                {t(`faq.a${n}`)}
+                {n === 5 && (
+                  <>
+                    {" "}
+                    <Link href="/agents">→ {t("agents.cta")}</Link>
+                  </>
+                )}
+              </p>
             </div>
           ))}
         </div>
