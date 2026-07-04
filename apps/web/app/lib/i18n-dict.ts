@@ -72,18 +72,14 @@ const en: Dict = {
   "quick.titleBet": "WHICH GAME · {bet} USDC STAKE?",
   "quick.titleFree": "TRY FREE · WHICH GAME?",
   "game.tetris.name": "Tetris",
-  "game.tetris.tagline": "The scoring king",
   "game.tetris.desc":
     "Stack, clear lines and blow up the board. Outscore your rival = take the pot.",
   "game.flappy.name": "Flappy 1v1",
-  "game.flappy.tagline": "One tap, all nerves",
   "game.flappy.desc":
     "Dodge the pipes and last longer than your rival. Steel nerves, full pockets.",
   "game.racing.name": "Racing",
-  "game.racing.tagline": "Pedal to the metal",
   "game.racing.desc": "Drive, dodge and never stop accelerating. Last to crash wins the match.",
   "game.2048.name": "2048",
-  "game.2048.tagline": "Add up & rule",
   "game.2048.desc":
     "Swipe, merge equal tiles and reach the highest number. More points, you take the pot.",
   "table.choose": "CHOOSE TABLE",
@@ -147,8 +143,6 @@ const en: Dict = {
   "match.depositWait": "Processing…",
   "match.depositRetry": "Couldn't deposit — the match may still be starting. Try again.",
   "match.connectFirst": "Connect your wallet to deposit and play.",
-  "match.waitJoin":
-    "Waiting for an opponent to join this table… the on-chain match is created when a rival arrives. You can leave anytime — you haven't deposited yet.",
   "match.claimBtn": "CLAIM {prize} USDC",
   "match.claimDone": "Claimed! 🎉 The pot is in your wallet.",
   "match.claimErr": "Couldn't claim — try again.",
@@ -196,11 +190,9 @@ const en: Dict = {
   "g.racing.hint": "Arrows ← → (or the buttons) to change lanes.",
   "g.2048.hint": "Arrow keys or swipe on the board.",
   "game.snake.name": "Snake",
-  "game.snake.tagline": "Grow, don't crash",
   "game.snake.desc":
     "Eat, grow and don't crash. The longer you get, the more points — most eaten wins.",
   "game.invaders.name": "Space Invaders",
-  "game.invaders.tagline": "Defend the galaxy",
   "game.invaders.desc": "Blast waves of aliens before they invade. More aliens down = more pot.",
   "g.snake.title": "SNAKE",
   "g.snake.instr":
@@ -305,18 +297,14 @@ const es: Dict = {
   "quick.titleBet": "¿QUÉ JUEGO · STAKE DE {bet} USDC?",
   "quick.titleFree": "PROBAR GRATIS · ¿QUÉ JUEGO?",
   "game.tetris.name": "Tetris",
-  "game.tetris.tagline": "El rey del puntaje",
   "game.tetris.desc":
     "Apila, hace líneas y revienta el tablero. Más puntaje que tu rival = te llevás el pozo.",
   "game.flappy.name": "Flappy 1v1",
-  "game.flappy.tagline": "Un toque, mil nervios",
   "game.flappy.desc":
     "Esquiva los tubos y aguanta más que el rival. Pulso de acero, bolsillo lleno.",
   "game.racing.name": "Carrera",
-  "game.racing.tagline": "Pisá a fondo",
   "game.racing.desc": "Manejás, esquivás y acelera sin parar. El último en chocar gana la partida.",
   "game.2048.name": "2048",
-  "game.2048.tagline": "Sumá y dominá",
   "game.2048.desc":
     "Desliza, combina fichas iguales y hace el número más alto. Más puntaje, te llevás el pozo.",
   "table.choose": "ELEGIR MESA",
@@ -380,8 +368,6 @@ const es: Dict = {
   "match.depositWait": "Procesando…",
   "match.depositRetry": "No se pudo depositar — la partida puede estar creándose. Probá de nuevo.",
   "match.connectFirst": "Conectá tu wallet para depositar y jugar.",
-  "match.waitJoin":
-    "Esperando que entre un rival a esta mesa… la partida on-chain se crea cuando aparece un oponente. Podés salir cuando quieras: todavía no depositaste.",
   "match.claimBtn": "COBRAR {prize} USDC",
   "match.claimDone": "¡Cobrado! 🎉 El pozo está en tu wallet.",
   "match.claimErr": "No se pudo cobrar — probá de nuevo.",
@@ -429,11 +415,9 @@ const es: Dict = {
   "g.racing.hint": "Flechas ← → (o los botones) para cambiar de carril.",
   "g.2048.hint": "Flechas del teclado o deslizá en el tablero.",
   "game.snake.name": "Snake",
-  "game.snake.tagline": "Crecé sin chocar",
   "game.snake.desc":
     "Comé, crecé y no te choques. Cuanto más largo, más puntos: el que más come gana.",
   "game.invaders.name": "Space Invaders",
-  "game.invaders.tagline": "Defendé la galaxia",
   "game.invaders.desc":
     "Destruí oleadas de aliens antes de que te invadan. Más naves abatidas = más pozo.",
   "g.snake.title": "SNAKE",
@@ -538,17 +522,13 @@ const hi: Dict = {
   "quick.titleBet": "कौन सा गेम · {bet} USDC स्टेक?",
   "quick.titleFree": "मुफ़्त आज़माओ · कौन सा गेम?",
   "game.tetris.name": "Tetris",
-  "game.tetris.tagline": "स्कोर का राजा",
   "game.tetris.desc":
     "ब्लॉक जमाओ, लाइनें बनाओ और बोर्ड साफ़ करो। प्रतिद्वंद्वी से ज़्यादा स्कोर = पॉट तुम्हारा।",
   "game.flappy.name": "Flappy 1v1",
-  "game.flappy.tagline": "एक टैप, पूरी हिम्मत",
   "game.flappy.desc": "पाइपों से बचो और प्रतिद्वंद्वी से ज़्यादा टिको। मज़बूत नसें, भरी जेब।",
   "game.racing.name": "रेसिंग",
-  "game.racing.tagline": "पूरी रफ़्तार",
   "game.racing.desc": "चलाओ, बचो और रफ़्तार बढ़ाते रहो। आख़िरी में टकराने वाला जीतता है।",
   "game.2048.name": "2048",
-  "game.2048.tagline": "जोड़ो और राज करो",
   "game.2048.desc":
     "स्वाइप करो, बराबर टाइलें मिलाओ और सबसे बड़ा नंबर बनाओ। ज़्यादा अंक, पॉट तुम्हारा।",
   "table.choose": "टेबल चुनो",
@@ -613,8 +593,6 @@ const hi: Dict = {
   "match.depositWait": "प्रोसेस हो रहा है…",
   "match.depositRetry": "जमा नहीं हो सका — मैच अभी शुरू हो रहा होगा। फिर से कोशिश करें।",
   "match.connectFirst": "जमा करने और खेलने के लिए अपना वॉलेट कनेक्ट करें।",
-  "match.waitJoin":
-    "इस टेबल पर किसी प्रतिद्वंद्वी का इंतज़ार… ऑन-चेन मैच तब बनता है जब कोई प्रतिद्वंद्वी आता है। आप कभी भी जा सकते हैं — आपने अभी जमा नहीं किया।",
   "match.claimBtn": "{prize} USDC क्लेम करें",
   "match.claimDone": "क्लेम हो गया! 🎉 पॉट आपके वॉलेट में है।",
   "match.claimErr": "क्लेम नहीं हो सका — फिर से कोशिश करें।",
@@ -661,11 +639,9 @@ const hi: Dict = {
   "g.racing.hint": "लेन बदलने के लिए ← → (या बटन)।",
   "g.2048.hint": "कीबोर्ड के तीर या बोर्ड पर स्वाइप।",
   "game.snake.name": "Snake",
-  "game.snake.tagline": "बढ़ो, टकराओ मत",
   "game.snake.desc":
     "खाओ, बढ़ो और टकराओ मत। जितने लंबे, उतने अंक — सबसे ज़्यादा खाने वाला जीतता है।",
   "game.invaders.name": "Space Invaders",
-  "game.invaders.tagline": "आकाशगंगा बचाओ",
   "game.invaders.desc": "एलियंस की लहरों को हमले से पहले उड़ाओ। जितने ज़्यादा गिराओ, उतना पॉट।",
   "g.snake.title": "SNAKE",
   "g.snake.instr": "तीर (या स्वाइप) से खाना खाओ और बढ़ो। दीवारों या ख़ुद से मत टकराओ!",
@@ -769,17 +745,13 @@ const fr: Dict = {
   "quick.titleBet": "QUEL JEU · MISE DE {bet} USDC ?",
   "quick.titleFree": "ESSAYER GRATUIT · QUEL JEU ?",
   "game.tetris.name": "Tetris",
-  "game.tetris.tagline": "Le roi du score",
   "game.tetris.desc":
     "Empile, fais des lignes et explose le plateau. Plus de points que ton rival = la cagnotte.",
   "game.flappy.name": "Flappy 1v1",
-  "game.flappy.tagline": "Un tap, max de nerfs",
   "game.flappy.desc": "Évite les tuyaux et tiens plus longtemps. Nerfs d'acier, poches pleines.",
   "game.racing.name": "Course",
-  "game.racing.tagline": "À fond la caisse",
   "game.racing.desc": "Conduis, esquive et accélère sans cesse. Le dernier à crasher gagne.",
   "game.2048.name": "2048",
-  "game.2048.tagline": "Additionne & règne",
   "game.2048.desc":
     "Glisse, fusionne les tuiles égales et atteins le plus grand nombre. Plus de points, la cagnotte.",
   "table.choose": "CHOISIR TABLE",
@@ -847,8 +819,6 @@ const fr: Dict = {
   "match.depositRetry":
     "Dépôt impossible — la partie est peut-être en cours de création. Réessaie.",
   "match.connectFirst": "Connecte ton wallet pour déposer et jouer.",
-  "match.waitJoin":
-    "En attente d'un adversaire sur cette table… la partie on-chain se crée quand un rival arrive. Tu peux partir à tout moment : tu n'as pas encore déposé.",
   "match.claimBtn": "RÉCLAMER {prize} USDC",
   "match.claimDone": "Réclamé ! 🎉 La cagnotte est dans ton wallet.",
   "match.claimErr": "Réclamation impossible — réessaie.",
@@ -897,11 +867,9 @@ const fr: Dict = {
   "g.racing.hint": "Flèches ← → (ou les boutons) pour changer de voie.",
   "g.2048.hint": "Flèches du clavier ou glisse sur le plateau.",
   "game.snake.name": "Snake",
-  "game.snake.tagline": "Grandis sans crasher",
   "game.snake.desc":
     "Mange, grandis et évite de crasher. Plus tu es long, plus de points — le plus gros mangeur gagne.",
   "game.invaders.name": "Space Invaders",
-  "game.invaders.tagline": "Défends la galaxie",
   "game.invaders.desc":
     "Détruis les vagues d'aliens avant l'invasion. Plus d'aliens abattus = plus de cagnotte.",
   "g.snake.title": "SNAKE",
