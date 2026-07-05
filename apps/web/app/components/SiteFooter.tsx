@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useT } from "@/app/lib/i18n";
+
+// Dirección de propinas (BTC, on-chain nativo). Va como constante para copiarla
+// SIEMPRE exacta: transcribir a mano una bech32 de 42 chars es un desastre y un
+// solo carácter mal = fondos perdidos.
+const BTC_TIP_ADDRESS = "bc1qfhu02cny3fakla8tgw2dlujvjwk6h3r3wt88jv";
 
 export function SiteFooter() {
   const { t } = useT();
@@ -36,7 +42,39 @@ export function SiteFooter() {
         <p className="mt-4 text-sm text-(--color-muted-3)">
           {t("footer.love")} <span className="text-(--color-accent)">♥</span>
         </p>
+        <BtcTip />
       </div>
     </footer>
+  );
+}
+
+/** Propina en BTC: la dirección es un botón que la copia al portapapeles
+ *  (con feedback), para que nadie tenga que transcribirla a mano. */
+function BtcTip() {
+  const { t } = useT();
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(BTC_TIP_ADDRESS);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* algunos navegadores bloquean el portapapeles: el texto sigue visible para copiar a mano */
+    }
+  }
+
+  return (
+    <div className="mt-3 flex flex-col items-center gap-1.5">
+      <span className="text-px10 text-(--color-muted-3)">{t("footer.tip")}</span>
+      <button
+        onClick={copy}
+        aria-label={t("footer.tip")}
+        className="inline-flex max-w-full items-center gap-2 rounded border border-(--color-border) bg-(--color-surface-2) px-2.5 py-1 font-mono text-xs text-(--color-muted-2) transition hover:text-(--color-text)"
+      >
+        <span className="break-all">{BTC_TIP_ADDRESS}</span>
+        <span className="shrink-0 text-(--color-accent)">{copied ? t("footer.copied") : "⧉"}</span>
+      </button>
+    </div>
   );
 }

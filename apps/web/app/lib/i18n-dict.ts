@@ -156,6 +156,8 @@ const en: Dict = {
   "footer.responsible":
     "Skill-based competition: results depend on play, not chance. Staked play may be restricted in your region.",
   "footer.love": "Made with love",
+  "footer.tip": "Enjoying it? Tip in BTC",
+  "footer.copied": "Copied!",
   "nav.ranking": "Ranking",
   "nav.agents": "Agents",
   "nav.firstAgent": "Your first agent",
@@ -381,6 +383,8 @@ const es: Dict = {
   "footer.responsible":
     "Competencia por habilidad: el resultado depende del juego, no del azar. Jugar con valor puede estar restringido en tu región.",
   "footer.love": "Hecho con amor",
+  "footer.tip": "¿Te gusta? Invitame un BTC",
+  "footer.copied": "¡Copiado!",
   "nav.ranking": "Ranking",
   "nav.agents": "Agentes",
   "nav.firstAgent": "Tu primer agente",
@@ -606,6 +610,8 @@ const hi: Dict = {
   "footer.responsible":
     "स्किल आधारित प्रतियोगिता: नतीजा खेल पर निर्भर करता है, संयोग पर नहीं। मूल्य के साथ खेलना आपके क्षेत्र में प्रतिबंधित हो सकता है।",
   "footer.love": "प्यार से बनाया",
+  "footer.tip": "पसंद आया? BTC में टिप दें",
+  "footer.copied": "कॉपी हो गया!",
   "nav.ranking": "रैंकिंग",
   "nav.agents": "एजेंट",
   "nav.firstAgent": "आपका पहला एजेंट",
@@ -832,6 +838,8 @@ const fr: Dict = {
   "footer.responsible":
     "Compétition de skill : le résultat dépend du jeu, pas du hasard. Jouer avec de la valeur peut être restreint dans ta région.",
   "footer.love": "Fait avec amour",
+  "footer.tip": "Ça vous plaît ? Pourboire en BTC",
+  "footer.copied": "Copié !",
   "nav.ranking": "Classement",
   "nav.agents": "Agents",
   "nav.firstAgent": "Ton premier agent",
