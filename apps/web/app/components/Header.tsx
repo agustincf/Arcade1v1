@@ -13,13 +13,15 @@ export function Header() {
   const { t } = useT();
   return (
     <header className="sticky top-0 z-40 border-b border-(--color-border) bg-(--color-ink)/95 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center gap-2">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
+        <Link href="/" className="flex shrink-0 items-center gap-2">
           <Logo size={24} />
           <span className="font-pixel text-sm text-(--color-accent)">Arcade1v1</span>
         </Link>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* min-w-0 permite que la dirección de la wallet se recorte con "…" en
+            vez de desbordar la pantalla (en mobile generaba scroll lateral). */}
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <SoundToggle />
           <LanguageSelector />
 
@@ -30,10 +32,12 @@ export function Header() {
               return (
                 <button
                   onClick={connected ? openAccountModal : openConnectModal}
-                  className={`btn3d whitespace-nowrap !px-3 !py-2 !text-px10 ${connected ? "btn3d--cyan" : "btn3d--magenta"}`}
+                  className={`btn3d min-w-0 whitespace-nowrap !px-3 !py-2 !text-px10 ${connected ? "btn3d--cyan" : "btn3d--magenta"}`}
                 >
                   {connected ? (
-                    `● ${account.displayName}`
+                    <span className="block max-w-[7.5rem] truncate sm:max-w-none">
+                      ● {account.displayName}
+                    </span>
                   ) : (
                     <>
                       <span className="sm:hidden">WALLET</span>
