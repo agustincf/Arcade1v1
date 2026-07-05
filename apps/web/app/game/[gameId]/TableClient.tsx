@@ -1,9 +1,10 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getGame } from "@/app/lib/games";
+import { warmUpArbiter } from "@/app/lib/arbiter";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { BET_AMOUNTS, getPayout, PLATFORM_FEE, DEFAULT_BET, VIP_BET } from "@/app/lib/config";
@@ -20,6 +21,12 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
     ? betParam
     : DEFAULT_BET;
   const [selected, setSelected] = useState<number>(initial);
+
+  // El hosting del árbitro duerme cuando nadie juega: lo despertamos mientras
+  // el jugador elige la mesa, para que "buscar rival" no lo encuentre frío.
+  useEffect(() => {
+    warmUpArbiter();
+  }, []);
 
   if (!game || game.status !== "live") {
     return (

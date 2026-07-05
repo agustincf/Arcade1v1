@@ -18,6 +18,7 @@ import {
   getMatch,
   playBot,
   playerId,
+  warmUpArbiter,
   type MatchView,
 } from "@/app/lib/arbiter";
 import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
@@ -36,7 +37,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const router = useRouter();
   const search = useSearchParams();
   const { t } = useT();
-  const { address } = useWallet();
+  const { address, connect } = useWallet();
   const { signMessageAsync } = useSignMessage();
   const free = search.get("free") === "1";
   const bet = Number(search.get("bet") ?? 0);
@@ -49,7 +50,12 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [round, setRound] = useState(0);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
-  const [error, setError] = useState(false);
+  // Distinguimos el motivo del error para no mentirle al usuario: "sign" es
+  // que canceló la firma en su wallet; "server" es que el árbitro no respondió.
+  // En ambos casos hay botón de REINTENTAR (antes quedaba trancado sin salida).
+  const [error, setError] = useState<null | "sign" | "server">(null);
+  const [retry, setRetry] = useState(0);
+  const [slowHint, setSlowHint] = useState(false);
   // En produccion NUNCA simulamos un rival: si el arbitro no responde, error.
   const devMode = process.env.NODE_ENV !== "production";
   const [playing, setPlaying] = useState(false);
@@ -72,48 +78,80 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [winnerAddr, setWinnerAddr] = useState<string | null>(null);
   const [claimState, setClaimState] = useState<"idle" | "claiming" | "done" | "error">("idle");
   const pidRef = useRef<string>("");
+  const lastRunRef = useRef<{ score: number; replay?: unknown } | null>(null);
+  // Evita disparar DOS pedidos de firma/emparejamiento a la vez (pasaba en
+  // desarrollo por el doble montaje de React, y al cambiar de cuenta con un
+  // pedido en vuelo): el usuario veía dos popups y parecía un loop.
+  const mmStarted = useRef(false);
+
+  // Al entrar a la partida, despertamos al árbitro por si vino directo por URL
+  // (si pasó por la mesa, ya está despierto).
+  useEffect(() => {
+    if (!free) warmUpArbiter();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Emparejamiento con el arbitro (solo partidas de plata). Si el servidor no
-  // responde, seguimos en modo "offline" con rival simulado (no se cuelga).
+  // responde o el usuario cancela la firma, mostramos el motivo con REINTENTAR.
   useEffect(() => {
-    if (free || matchId) return;
+    if (free || matchId || error) return;
     // Modo plata on-chain: con la wallet conectada alcanza para emparejar (orden
     // de llegada). El depósito (approve + open/join) viene después, en un paso.
     if (needsDeposit && !address) return;
+    if (mmStarted.current) return;
+    mmStarted.current = true;
     pidRef.current = playerId(address ?? null);
-    let cancel = false;
     (async () => {
-      try {
-        // Con wallet conectada, el emparejamiento va FIRMADO (en producción el
-        // árbitro lo exige: evita que alguien encole direcciones ajenas).
-        let auth: { signature: string; ts: number } | undefined;
-        if (address) {
-          const ts = Date.now();
+      // Con wallet conectada, el emparejamiento va FIRMADO (en producción el
+      // árbitro lo exige: evita que alguien encole direcciones ajenas).
+      let auth: { signature: string; ts: number } | undefined;
+      if (address) {
+        const ts = Date.now();
+        try {
           const signature = await signMessageAsync({
             message: matchmakeAuthMessage(game!.id, bet, pidRef.current, ts),
           });
           auth = { signature, ts };
+        } catch {
+          // Canceló (o no vio) la firma en su wallet. En producción sin firma
+          // no hay emparejamiento: avisamos claro y dejamos reintentar.
+          if (!devMode) {
+            mmStarted.current = false;
+            setError("sign");
+            return;
+          }
+          /* en dev se puede emparejar sin firma */
         }
+      }
+      try {
         const v = await matchmake(game!.id, bet, pidRef.current, auth);
-        if (cancel) return;
         setMatchId(v.matchId);
         setSeed(v.seed);
         setRole(v.role ?? null);
       } catch {
-        if (cancel) return;
+        mmStarted.current = false;
         if (devMode) {
           setOffline(true);
           setSeed(rnd());
         } else {
-          setError(true);
+          setError("server");
         }
       }
     })();
-    return () => {
-      cancel = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address]);
+  }, [address, retry]);
+
+  // Si "Conectando…" se estira (el hosting gratuito del árbitro despierta de a
+  // poco), lo decimos: sin este aviso parecía colgado.
+  const searching = !free && seed === null && !error && !(needsDeposit && !address);
+  useEffect(() => {
+    if (!searching) {
+      setSlowHint(false);
+      return;
+    }
+    const tm = setTimeout(() => setSlowHint(true), 5000);
+    return () => clearTimeout(tm);
+  }, [searching]);
 
   // Aviso del navegador si cierra/recarga durante el intento (de plata).
   useEffect(() => {
@@ -227,9 +265,12 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       setFreeDone(true);
       return;
     }
+    // Guardamos el intento: si el envío falla (red/server), REINTENTAR lo
+    // reenvía tal cual en vez de perder la corrida (clave con plata en juego).
+    lastRunRef.current = { score, replay };
     if (offline || !matchId) {
       if (devMode) simulate(score);
-      else setError(true);
+      else setError("server");
       return;
     }
     setSubmitting(true);
@@ -251,7 +292,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       else setWaiting(true);
     } catch {
       if (devMode) simulate(score);
-      else setError(true);
+      else setError("server");
     } finally {
       setSubmitting(false);
     }
@@ -280,6 +321,17 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     setForfeit(true);
     setRivalScore(youScore ?? 0);
     setOutcome("lose");
+  }
+
+  // REINTENTAR tras un error: si ya jugamos, reenvía el puntaje guardado; si
+  // el error fue antes (firma o emparejamiento), vuelve a buscar rival.
+  function retryAfterError() {
+    setError(null);
+    if (matchId && lastRunRef.current) {
+      finishMatch(lastRunRef.current.score, lastRunRef.current.replay);
+    } else {
+      setRetry((r) => r + 1);
+    }
   }
 
   function replayFree() {
@@ -338,17 +390,34 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
         </div>
         <div className="p-5">
           {error ? (
-            <p className="py-10 text-center text-base font-medium text-(--color-lose)">
-              {t("match.error")}
-            </p>
+            <div className="py-8 text-center">
+              <p className="text-base font-medium text-(--color-lose)">
+                {error === "sign" ? t("match.signCancelled") : t("match.error")}
+              </p>
+              <button onClick={retryAfterError} className="btn3d btn3d--magenta mt-5">
+                {t("match.retry")}
+              </button>
+            </div>
           ) : needsDeposit && !address ? (
-            <p className="py-10 text-center text-base font-medium text-(--color-accent-2)">
-              {t("match.connectFirst")}
-            </p>
+            <div className="py-8 text-center">
+              <p className="text-base font-medium text-(--color-accent-2)">
+                {t("match.connectFirst")}
+              </p>
+              <button onClick={connect} className="btn3d btn3d--magenta mt-5">
+                {t("connect")}
+              </button>
+            </div>
           ) : seed === null ? (
-            <p className="py-10 text-center text-base font-medium text-(--color-accent-2)">
-              {t("match.connecting")}
-            </p>
+            <div className="py-10 text-center">
+              <p className="text-base font-medium text-(--color-accent-2)">
+                {t("match.connecting")}
+              </p>
+              {slowHint && (
+                <p className="mx-auto mt-3 max-w-sm text-sm text-(--color-muted-2)">
+                  {t("match.waking")}
+                </p>
+              )}
+            </div>
           ) : needsDeposit && !deposited ? (
             <div className="py-6 text-center">
               <p className="font-pixel text-sm text-(--color-gold)">{t("match.playTitle")}</p>

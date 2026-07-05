@@ -143,6 +143,10 @@ const en: Dict = {
   "match.depositWait": "Processing…",
   "match.depositRetry": "Couldn't deposit — the match may still be starting. Try again.",
   "match.connectFirst": "Connect your wallet to deposit and play.",
+  "match.retry": "RETRY",
+  "match.signCancelled":
+    "Your wallet asks for a free signature to find you a rival (it moves no funds). The request was cancelled — try again.",
+  "match.waking": "Waking up the server… the first match in a while can take up to a minute.",
   "match.claimBtn": "CLAIM {prize} USDC",
   "match.claimDone": "Claimed! 🎉 The pot is in your wallet.",
   "match.claimErr": "Couldn't claim — try again.",
@@ -370,6 +374,11 @@ const es: Dict = {
   "match.depositWait": "Procesando…",
   "match.depositRetry": "No se pudo depositar — la partida puede estar creándose. Probá de nuevo.",
   "match.connectFirst": "Conectá tu wallet para depositar y jugar.",
+  "match.retry": "REINTENTAR",
+  "match.signCancelled":
+    "Tu wallet pide una firma gratuita para buscarte rival (no mueve fondos). El pedido se canceló — probá de nuevo.",
+  "match.waking":
+    "Despertando el servidor… la primera partida en un rato puede tardar hasta un minuto.",
   "match.claimBtn": "COBRAR {prize} USDC",
   "match.claimDone": "¡Cobrado! 🎉 El pozo está en tu wallet.",
   "match.claimErr": "No se pudo cobrar — probá de nuevo.",
@@ -597,6 +606,10 @@ const hi: Dict = {
   "match.depositWait": "प्रोसेस हो रहा है…",
   "match.depositRetry": "जमा नहीं हो सका — मैच अभी शुरू हो रहा होगा। फिर से कोशिश करें।",
   "match.connectFirst": "जमा करने और खेलने के लिए अपना वॉलेट कनेक्ट करें।",
+  "match.retry": "फिर कोशिश करें",
+  "match.signCancelled":
+    "प्रतिद्वंद्वी खोजने के लिए आपका वॉलेट एक मुफ़्त हस्ताक्षर मांगता है (कोई फंड नहीं जाता)। अनुरोध रद्द हो गया — फिर से कोशिश करें।",
+  "match.waking": "सर्वर जाग रहा है… काफ़ी देर बाद का पहला मैच एक मिनट तक ले सकता है।",
   "match.claimBtn": "{prize} USDC क्लेम करें",
   "match.claimDone": "क्लेम हो गया! 🎉 पॉट आपके वॉलेट में है।",
   "match.claimErr": "क्लेम नहीं हो सका — फिर से कोशिश करें।",
@@ -825,6 +838,11 @@ const fr: Dict = {
   "match.depositRetry":
     "Dépôt impossible — la partie est peut-être en cours de création. Réessaie.",
   "match.connectFirst": "Connecte ton wallet pour déposer et jouer.",
+  "match.retry": "RÉESSAYER",
+  "match.signCancelled":
+    "Ton wallet demande une signature gratuite pour te trouver un rival (aucun fonds déplacé). La demande a été annulée — réessaie.",
+  "match.waking":
+    "Réveil du serveur… la première partie depuis un moment peut prendre jusqu'à une minute.",
   "match.claimBtn": "RÉCLAMER {prize} USDC",
   "match.claimDone": "Réclamé ! 🎉 La cagnotte est dans ton wallet.",
   "match.claimErr": "Réclamation impossible — réessaie.",

@@ -5,7 +5,23 @@ import { ArbiterClient, type MatchView } from "@arcade1v1/agent-sdk";
 export type { MatchView };
 
 const BASE = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
-const client = new ArbiterClient(BASE);
+
+// Timeout de red: el hosting gratuito duerme el servidor y el primer pedido
+// puede tardar ~1 minuto en despertar. Le damos margen, pero NUNCA dejamos un
+// fetch colgado para siempre (la UI quedaba en "Conectando…" sin salida).
+const FETCH_TIMEOUT_MS = 75_000;
+const fetchWithTimeout: typeof fetch = (input, init) =>
+  fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+
+const client = new ArbiterClient(BASE, { fetchImpl: fetchWithTimeout });
+
+/** Despierta al árbitro (hosting gratuito que duerme) sin bloquear la UI.
+ * Se llama al entrar a la mesa, así el server ya está listo al buscar rival. */
+export function warmUpArbiter(): void {
+  fetch(`${BASE}/health`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }).catch(() => {
+    /* solo calienta; si falla, el matchmake real mostrará el error */
+  });
+}
 
 export function matchmake(
   game: string,
