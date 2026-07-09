@@ -157,6 +157,7 @@ const en: Dict = {
   "lb.you": "you",
   "lb.note": "Rating rises when you win, falls when you lose. Per game.",
   "nav.terms": "Terms",
+  "nav.changelog": "Changelog",
   "footer.responsible":
     "Skill-based competition: results depend on play, not chance. Staked play may be restricted in your region.",
   "footer.love": "Made with love",
@@ -524,6 +525,7 @@ const es: Dict = {
   "lb.you": "vos",
   "lb.note": "El rating sube cuando ganás y baja cuando perdés. Por juego.",
   "nav.terms": "Términos",
+  "nav.changelog": "Historial",
   "footer.responsible":
     "Competencia por habilidad: el resultado depende del juego, no del azar. Jugar con valor puede estar restringido en tu región.",
   "footer.love": "Hecho con amor",
@@ -889,6 +891,7 @@ const hi: Dict = {
   "lb.you": "आप",
   "lb.note": "जीतने पर रेटिंग बढ़ती है, हारने पर घटती है। हर गेम के लिए।",
   "nav.terms": "शर्तें",
+  "nav.changelog": "बदलाव लॉग",
   "footer.responsible":
     "स्किल आधारित प्रतियोगिता: नतीजा खेल पर निर्भर करता है, संयोग पर नहीं। मूल्य के साथ खेलना आपके क्षेत्र में प्रतिबंधित हो सकता है।",
   "footer.love": "प्यार से बनाया",
@@ -1256,6 +1259,7 @@ const fr: Dict = {
   "lb.you": "toi",
   "lb.note": "Le rating monte quand tu gagnes, baisse quand tu perds. Par jeu.",
   "nav.terms": "Conditions",
+  "nav.changelog": "Journal",
   "footer.responsible":
     "Compétition de skill : le résultat dépend du jeu, pas du hasard. Jouer avec de la valeur peut être restreint dans ta région.",
   "footer.love": "Fait avec amour",

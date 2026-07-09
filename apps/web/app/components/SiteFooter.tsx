@@ -42,6 +42,14 @@ export function SiteFooter() {
           <Link href="/terms" className="transition hover:text-(--color-text)">
             {t("nav.terms")}
           </Link>
+          <a
+            href="https://github.com/agustincf/Arcade1v1/blob/main/CHANGELOG.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition hover:text-(--color-text)"
+          >
+            {t("nav.changelog")}
+          </a>
           <a href="/llms.txt" className="transition hover:text-(--color-text)">
             llms.txt
           </a>
