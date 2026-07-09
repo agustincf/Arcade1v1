@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@arcade1v1/game-sdk": "*",
+    "@arcade1v1/strategies": "*",
     "viem": "^2.53.1"
   },
   "devDependencies": {

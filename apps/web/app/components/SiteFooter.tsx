@@ -18,6 +18,15 @@ export function SiteFooter() {
           Arcade1v1 <span className="ml-1 text-(--color-muted-3)">{t("footer.best")}</span>
         </p>
         <nav className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-(--color-muted-2)">
+          <Link href="/build" className="transition hover:text-(--color-text)">
+            {t("nav.build")}
+          </Link>
+          <Link href="/my-agents" className="transition hover:text-(--color-text)">
+            {t("nav.myagents")}
+          </Link>
+          <Link href="/watch" className="transition hover:text-(--color-text)">
+            {t("nav.watch")}
+          </Link>
           <Link href="/leaderboard" className="transition hover:text-(--color-text)">
             {t("nav.ranking")}
           </Link>
@@ -33,9 +42,21 @@ export function SiteFooter() {
           <Link href="/terms" className="transition hover:text-(--color-text)">
             {t("nav.terms")}
           </Link>
+          <a
+            href="https://github.com/agustincf/Arcade1v1/blob/main/CHANGELOG.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition hover:text-(--color-text)"
+          >
+            {t("nav.changelog")}
+          </a>
           <a href="/llms.txt" className="transition hover:text-(--color-text)">
             llms.txt
           </a>
+          {/* Relanzar el tour de bienvenida (?tour=1 lo fuerza en la landing) */}
+          <Link href="/?tour=1" className="transition hover:text-(--color-text)">
+            {t("nav.tour")}
+          </Link>
         </nav>
         <p className="mt-5 text-sm text-(--color-muted-3)">{t("footer.responsible")}</p>
         <p className="mt-1 text-sm text-(--color-muted-3)">{t("footer.demo")}</p>

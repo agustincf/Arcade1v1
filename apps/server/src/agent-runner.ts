@@ -1,0 +1,143 @@
+// RUNNER de agentes hosteados: el proceso que los hace jugar SOLOS.
+// Cada ~30s revisa los agentes activos; el que pasó su cooldown se encola en
+// la ladder gratis (stake 0) y, cuando su partida está lista, corre su
+// estrategia y envía el puntaje FIRMADO con su propia wallet. Todo va por las
+// funciones in-process de matchmaking (un solo code path, mismas reglas que
+// cualquier jugador externo: firma, verificación de replay, ELO).
+
+import { privateKeyToAccount } from "viem/accounts";
+import { runStrategy } from "@arcade1v1/strategies";
+import { matchmakeAuthMessage, scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import {
+  getMatch,
+  matchmake,
+  peekWaiterAddress,
+  submitScore,
+  SUBMIT_WINDOW_MS,
+} from "./matchmaking.js";
+import {
+  hostedAgentByAddress,
+  listAgents,
+  recordAgentResult,
+  setAgentPending,
+  type HostedAgent,
+} from "./agents.js";
+
+// Kill switch + perillas de ritmo (por entorno, como el resto de la config).
+const ENABLED = process.env.AGENTS_ENABLED !== "false";
+const TICK_MS = Number(process.env.AGENT_RUNNER_TICK_MS ?? 30_000);
+const PLAY_INTERVAL_MS = Number(process.env.AGENT_PLAY_INTERVAL_MS ?? 10 * 60_000);
+const MAX_PLAYS_PER_TICK = Number(process.env.AGENT_MAX_PLAYS_PER_TICK ?? 4);
+const AGENT_STAKE = 0; // los agentes hosteados SOLO juegan la ladder gratis
+
+const normAddr = (a: string) => String(a).toLowerCase();
+
+async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
+  const address = normAddr(agent.address);
+  const m = getMatch(agent.pendingMatchId!, address);
+
+  // La partida ya no existe (purgada/expirada): soltar y arrancar de nuevo.
+  if (!m) {
+    setAgentPending(agent, undefined);
+    return false;
+  }
+
+  // Terminó: registrar el resultado en el historial del agente.
+  if (m.status === "settled" || m.status === "draw") {
+    recordAgentResult(agent, {
+      matchId: m.matchId,
+      game: m.game,
+      opponent: m.opponent,
+      yourScore: m.yourScore,
+      rivalScore: m.rivalScore,
+      outcome: m.status === "draw" ? "draw" : m.winner === address ? "win" : "loss",
+      ratingDelta: m.ratingDelta,
+      ts: Date.now(),
+    });
+    return false;
+  }
+
+  // Espera colgada (el rival nunca jugó y la ventana pasó): soltar.
+  if (agent.pendingSince && Date.now() - agent.pendingSince > SUBMIT_WINDOW_MS + 15 * 60_000) {
+    setAgentPending(agent, undefined);
+    return false;
+  }
+
+  // Con rival y sin nuestro puntaje: jugar ahora (la vista pre-decisión solo
+  // muestra el puntaje propio, así que esta lectura no filtra nada).
+  if (m.status === "ready" && m.scores[address] === undefined) {
+    const { score, replay } = runStrategy(
+      { game: agent.game, strategyId: agent.strategyId, params: agent.params },
+      m.seed,
+    );
+    const account = privateKeyToAccount(agent.privateKey);
+    const signature = await account.signMessage({
+      message: scoreAuthMessage(m.matchId, address, score),
+    });
+    const after = await submitScore(m.matchId, address, score, replay, signature);
+    if (after.status === "settled" || after.status === "draw") {
+      recordAgentResult(agent, {
+        matchId: after.matchId,
+        game: after.game,
+        opponent: after.opponent,
+        yourScore: after.yourScore,
+        rivalScore: after.rivalScore,
+        outcome: after.status === "draw" ? "draw" : after.winner === address ? "win" : "loss",
+        ratingDelta: after.ratingDelta,
+        ts: Date.now(),
+      });
+    }
+    return true; // jugó (cuenta para el throttle global)
+  }
+
+  return false; // sigue esperando rival o el resultado del rival
+}
+
+async function enqueueAgent(agent: HostedAgent) {
+  const address = normAddr(agent.address);
+  // ANTI ELO-FARMING: si el que espera en la cola es OTRO agente hosteado del
+  // mismo dueño, este tick no emparejamos (nada de inflar rating con un
+  // "gemelo sacrificable"). Los agentes solo juegan vía este runner, así que
+  // el chequeo acá cierra el caso por completo.
+  const waiting = peekWaiterAddress(agent.game, AGENT_STAKE);
+  if (waiting) {
+    const other = hostedAgentByAddress(waiting);
+    if (other && other.owner === agent.owner && normAddr(other.address) !== address) return;
+  }
+  const ts = Date.now();
+  const account = privateKeyToAccount(agent.privateKey);
+  const signature = await account.signMessage({
+    message: matchmakeAuthMessage(agent.game, AGENT_STAKE, address, ts),
+  });
+  const m = await matchmake(agent.game, AGENT_STAKE, address, { signature, ts });
+  setAgentPending(agent, m.matchId);
+}
+
+/** Un tick del runner. Exportado para poder probarlo en forma directa. */
+export async function runAgentsTick(now = Date.now()): Promise<void> {
+  let plays = 0;
+  for (const agent of listAgents()) {
+    if (!agent.active) continue;
+    if (plays >= MAX_PLAYS_PER_TICK) break;
+    try {
+      if (agent.pendingMatchId) {
+        if (await playPendingMatch(agent)) plays++;
+        continue;
+      }
+      // Cooldown con jitter (±20%) para que los agentes no entren todos en
+      // fila exacta y se emparejen siempre entre los mismos.
+      const jitter = 1 + (Math.random() - 0.5) * 0.4;
+      const due = !agent.lastPlayedAt || now - agent.lastPlayedAt > PLAY_INTERVAL_MS * jitter;
+      if (due) await enqueueAgent(agent);
+    } catch (e) {
+      console.error(`agent ${agent.id} (${agent.game}):`, (e as Error).message);
+    }
+  }
+}
+
+if (ENABLED) {
+  const timer = setInterval(() => {
+    runAgentsTick().catch((e) => console.error("agent runner:", (e as Error).message));
+  }, TICK_MS);
+  timer.unref?.(); // no mantener vivo un proceso que ya terminó (tests, scripts)
+}

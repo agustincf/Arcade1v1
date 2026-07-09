@@ -2,7 +2,7 @@
 const nextConfig = {
   // El motor compartido (game-sdk) y el cliente del arbitro (agent-sdk)
   // vienen en TypeScript: Next los transpila.
-  transpilePackages: ["@arcade1v1/game-sdk", "@arcade1v1/agent-sdk"],
+  transpilePackages: ["@arcade1v1/game-sdk", "@arcade1v1/agent-sdk", "@arcade1v1/strategies"],
 
   // Cabeceras de seguridad para una app que firma transacciones de dinero:
   // sobre todo prohibir que OTRO sitio nos meta en un iframe (clickjacking

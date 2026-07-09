@@ -80,6 +80,16 @@ interface ActivePiece {
   y: number;
 }
 
+/** Celdas ocupadas [fila, columna] de una pieza en una rotación dada.
+ *  Solo lectura: lo usan los bots/estrategias para buscar dónde encajarla. */
+export function pieceCells(type: number, rot: number): [number, number][] {
+  const m = ROTATIONS[type][rot % 4];
+  const out: [number, number][] = [];
+  for (let r = 0; r < m.length; r++)
+    for (let c = 0; c < m.length; c++) if (m[r][c]) out.push([r, c]);
+  return out;
+}
+
 const LINE_SCORE = [0, 40, 100, 300, 1200];
 // Cuadros (a 60 ticks/seg) por caida, segun nivel 0..28 (tabla clasica NES).
 const FRAMES = [

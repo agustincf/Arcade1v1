@@ -21,6 +21,7 @@ import {
   warmUpArbiter,
   type MatchView,
 } from "@/app/lib/arbiter";
+import { ReplayPlayer } from "@/app/components/replay/ReplayPlayer";
 import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
 import { FlappyGame, type FlappyResult } from "@/app/games/flappy/FlappyGame";
 import { RacingGame, type RacingResult } from "@/app/games/racing/RacingGame";
@@ -41,10 +42,14 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const { signMessageAsync } = useSignMessage();
   const free = search.get("free") === "1";
   const bet = Number(search.get("bet") ?? 0);
+  // LADDER GRATIS (bet=0, sin ?free=1): partida rankeada de verdad — pasa por
+  // el árbitro (rival real + ELO) pero sin depósito. ?free=1 queda como el modo
+  // práctica offline de siempre (sin árbitro ni ranking).
+  const rankedFree = !free && bet === 0;
   const payout = getPayout(bet);
   const escrow = useEscrow();
   // Si hay contrato configurado y es partida de plata, hay que depositar antes.
-  const needsDeposit = onchainEnabled && !free;
+  const needsDeposit = onchainEnabled && !free && bet > 0;
 
   const [seed, setSeed] = useState<number | null>(free ? rnd() : null);
   const [round, setRound] = useState(0);
@@ -58,6 +63,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [slowHint, setSlowHint] = useState(false);
   // En produccion NUNCA simulamos un rival: si el arbitro no responde, error.
   const devMode = process.env.NODE_ENV !== "production";
+  // Wallet requerida para emparejar: partidas de plata siempre; la ladder
+  // gratis también en producción (el árbitro exige la firma anti-suplantación;
+  // en dev se puede probar como invitado).
+  const needsWallet = !address && (needsDeposit || (rankedFree && !devMode));
   const [playing, setPlaying] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [youScore, setYouScore] = useState<number | null>(null);
@@ -76,6 +85,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [submitting, setSubmitting] = useState(false); // enviando puntaje (firma + envío)
   const [winnerSig, setWinnerSig] = useState<string | null>(null);
   const [winnerAddr, setWinnerAddr] = useState<string | null>(null);
+  // Replay del rival (llega con el resultado): se puede MIRAR su corrida para
+  // aprender — es el mismo feedback rico que reciben los agentes.
+  const [rivalReplay, setRivalReplay] = useState<unknown>(null);
+  const [showRival, setShowRival] = useState(false);
   const [claimState, setClaimState] = useState<"idle" | "claiming" | "done" | "error">("idle");
   const pidRef = useRef<string>("");
   const lastRunRef = useRef<{ score: number; replay?: unknown } | null>(null);
@@ -97,7 +110,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     if (free || matchId || error) return;
     // Modo plata on-chain: con la wallet conectada alcanza para emparejar (orden
     // de llegada). El depósito (approve + open/join) viene después, en un paso.
-    if (needsDeposit && !address) return;
+    if (needsWallet) return;
     if (mmStarted.current) return;
     mmStarted.current = true;
     pidRef.current = playerId(address ?? null);
@@ -143,7 +156,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
 
   // Si "Conectando…" se estira (el hosting gratuito del árbitro despierta de a
   // poco), lo decimos: sin este aviso parecía colgado.
-  const searching = !free && seed === null && !error && !(needsDeposit && !address);
+  const searching = !free && seed === null && !error && !needsWallet;
   useEffect(() => {
     if (!searching) {
       setSlowHint(false);
@@ -201,6 +214,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       setRating(v.rating);
       setRatingDelta(v.ratingDelta ?? 0);
     }
+    if (v.rivalReplay) setRivalReplay(v.rivalReplay);
   }
 
   // UNA sola acción para entrar a la partida: aprueba el USDC (solo la 1ra vez;
@@ -357,10 +371,13 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       <div className="win mt-3">
         <div className="win-title">
           <span>
-            {t(`game.${game.id}.name`).toUpperCase()} · {free ? t("match.modeFree") : `${bet} USDC`}
+            {t(`game.${game.id}.name`).toUpperCase()} ·{" "}
+            {free ? t("match.modeFree") : rankedFree ? t("match.freeLadder") : `${bet} USDC`}
           </span>
           {free ? (
             <span className="chip !text-(--color-lime)">{t("match.gratis")}</span>
+          ) : rankedFree ? (
+            <span className="chip !text-(--color-lime)">{t("match.rankedChip")}</span>
           ) : (
             <span className="chip !text-(--color-gold)">{t("match.pot", { n: payout.pot })}</span>
           )}
@@ -398,7 +415,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                 {t("match.retry")}
               </button>
             </div>
-          ) : needsDeposit && !address ? (
+          ) : needsWallet ? (
             <div className="py-8 text-center">
               <p className="text-base font-medium text-(--color-accent-2)">
                 {t("match.connectFirst")}
@@ -611,36 +628,51 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                   </span>
                 </p>
               )}
-              <div className="win mt-5">
-                <div className="win-title">
-                  <span>{t("match.cashlog")}</span>
+              {rivalReplay != null && !forfeit && (
+                <button
+                  onClick={() => setShowRival(true)}
+                  className="btn3d btn3d--cyan mt-4 w-full"
+                >
+                  🎬 {t("match.watchRival")}
+                </button>
+              )}
+              {rankedFree && (
+                <p className="mt-4 text-sm leading-relaxed text-(--color-muted)">
+                  {t("match.freeRankedNote")}
+                </p>
+              )}
+              {!rankedFree && (
+                <div className="win mt-5">
+                  <div className="win-title">
+                    <span>{t("match.cashlog")}</span>
+                  </div>
+                  <div className="p-4 text-base">
+                    {outcome === "win" && (
+                      <>
+                        <Money label={t("table.totalPot")} value={`${payout.pot} USDC`} />
+                        <Money
+                          label={t("table.fee", { pct: PLATFORM_FEE * 100 })}
+                          value={`- ${payout.fee} USDC`}
+                        />
+                        <div className="my-2 border-t border-(--color-border)" />
+                        <div className="flex justify-between">
+                          <span className="text-(--color-muted)">{t("match.cobras")}</span>
+                          <span className="font-pixel text-sm text-(--color-win)">
+                            {payout.prize} USDC
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {outcome === "lose" && (
+                      <p className="text-(--color-muted)">{t("match.loseText", { bet })}</p>
+                    )}
+                    {outcome === "draw" && (
+                      <p className="text-(--color-muted)">{t("match.drawText", { bet })}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="p-4 text-base">
-                  {outcome === "win" && (
-                    <>
-                      <Money label={t("table.totalPot")} value={`${payout.pot} USDC`} />
-                      <Money
-                        label={t("table.fee", { pct: PLATFORM_FEE * 100 })}
-                        value={`- ${payout.fee} USDC`}
-                      />
-                      <div className="my-2 border-t border-(--color-border)" />
-                      <div className="flex justify-between">
-                        <span className="text-(--color-muted)">{t("match.cobras")}</span>
-                        <span className="font-pixel text-sm text-(--color-win)">
-                          {payout.prize} USDC
-                        </span>
-                      </div>
-                    </>
-                  )}
-                  {outcome === "lose" && (
-                    <p className="text-(--color-muted)">{t("match.loseText", { bet })}</p>
-                  )}
-                  {outcome === "draw" && (
-                    <p className="text-(--color-muted)">{t("match.drawText", { bet })}</p>
-                  )}
-                </div>
-              </div>
-              {outcome === "win" && onchainEnabled && winnerSig && (
+              )}
+              {outcome === "win" && !rankedFree && onchainEnabled && winnerSig && (
                 <div className="mt-4">
                   {claimState === "done" ? (
                     <p className="text-base font-medium text-(--color-win)">
@@ -670,7 +702,12 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           <div className="mt-5 flex gap-3">
             {!forfeit && (
               <button
-                onClick={() => router.push(`/game/${gameId}`)}
+                onClick={() => {
+                  // Revancha gratis: recarga limpia de la misma URL (el estado
+                  // del emparejamiento no es re-entrante). De plata: a la mesa.
+                  if (rankedFree) window.location.assign(`/game/${gameId}/match?bet=0`);
+                  else router.push(`/game/${gameId}`);
+                }}
                 className="btn3d btn3d--magenta flex-1"
               >
                 {t("match.rematch")}
@@ -680,6 +717,16 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
               {t("home")}
             </button>
           </div>
+        </Modal>
+      )}
+
+      {/* Replay del rival (feedback rico: mirá cómo jugó para aprender) */}
+      {showRival && rivalReplay != null && (
+        <Modal title={t("match.rivalRun")}>
+          <ReplayPlayer game={game.id} replay={rivalReplay} />
+          <button onClick={() => setShowRival(false)} className="btn3d btn3d--magenta mt-4 w-full">
+            {t("close")}
+          </button>
         </Modal>
       )}
     </div>

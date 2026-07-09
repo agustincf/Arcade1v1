@@ -14,6 +14,28 @@ export function scoreAuthMessage(matchId: string, address: string, score: number
 /** Ventana de validez (ms) de la firma de emparejamiento (anti-replay). */
 export const MATCHMAKE_AUTH_TTL_MS = 10 * 60 * 1000;
 
+/** Ventana de validez (ms) de la firma de administración de agentes. */
+export const AGENT_AUTH_TTL_MS = 10 * 60 * 1000;
+
+/** Mensaje a firmar para ADMINISTRAR un agente hosteado (crear, editar,
+ *  pausar, borrar). Ata: acción + agente + dueño + momento (ts). `agentRef`
+ *  es el id del agente (o, al crear, "juego:estrategia:nombre"). Sin esta
+ *  firma, cualquiera manejaría los agentes de otro con solo saber su address. */
+export function agentAuthMessage(
+  action: string,
+  agentRef: string,
+  owner: string,
+  ts: number,
+): string {
+  return [
+    "Arcade1v1: administro mi agente",
+    `action: ${action}`,
+    `agent: ${agentRef}`,
+    `owner: ${owner.toLowerCase()}`,
+    `ts: ${ts}`,
+  ].join("\n");
+}
+
 /** Mensaje a firmar al EMPAREJAR. Ata: juego + mesa + jugador + momento (ts).
  *  Sin esto, cualquiera podría encolar direcciones ajenas (suplantación) o
  *  llenar la cola de rivales fantasma que nunca depositan. El `ts` (epoch ms)
