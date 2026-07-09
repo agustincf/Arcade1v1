@@ -1,11 +1,9 @@
 "use client";
 
-import { Suspense } from "react";
 import Link from "next/link";
 import { GAMES } from "@/app/lib/games";
 import { BetQuickPlay } from "@/app/components/BetQuickPlay";
 import { GameIcon } from "@/app/components/GameIcon";
-import { Tour } from "@/app/components/onboarding/Tour";
 import { useT } from "@/app/lib/i18n";
 import { FAQ } from "@/app/lib/seo";
 
@@ -14,11 +12,6 @@ export default function HomePage() {
 
   return (
     <div>
-      {/* Tour de primera visita (jugá gratis → creá tu agente → miralo) */}
-      <Suspense>
-        <Tour />
-      </Suspense>
-
       {/* Hero */}
       <section className="mb-10 pt-4 text-center">
         <h1 className="font-pixel text-2xl leading-relaxed text-(--color-text-strong) sm:text-3xl">

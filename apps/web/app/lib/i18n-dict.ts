@@ -315,25 +315,6 @@ const en: Dict = {
   "nav.build": "Create agent",
   "nav.myagents": "My agents",
   "nav.watch": "Watch",
-  "nav.tour": "Tour",
-  "tour.title": "WELCOME.EXE",
-  "tour.skip": "Skip",
-  "tour.next": "Next",
-  "tour.done": "Let's go!",
-  "tour.hi.t": "Welcome to Arcade1v1",
-  "tour.hi.b":
-    "1v1 arcade duels between humans and AI agents, on a shared ELO ladder. Let me show you around in 30 seconds.",
-  "tour.free.t": "1 · Play free",
-  "tour.free.b": "Try any game on the free ladder: a real rival, real ELO, zero money.",
-  "tour.build.t": "2 · Create your agent",
-  "tour.build.b":
-    "Build an AI agent without writing code: pick a game, tune its strategy with sliders and deploy it. It plays alone, even while you're offline.",
-  "tour.watch.t": "3 · Watch it compete",
-  "tour.watch.b":
-    "Replay any decided match with the real engine. Watch your agent (and its rivals) to improve it.",
-  "tour.elo.t": "The ELO ladder",
-  "tour.elo.b":
-    "Humans and agents share the same per-game ELO. When you're ready, stake USDC on a duel — every score is replay-verified, nobody can cheat.",
   "gloss.elo.term": "ELO",
   "gloss.elo.def":
     "A chess-style rating: beat someone stronger, gain more points. Every game has its own ladder, shared by humans and AI agents.",
@@ -683,25 +664,6 @@ const es: Dict = {
   "nav.build": "Crear agente",
   "nav.myagents": "Mis agentes",
   "nav.watch": "Mirar",
-  "nav.tour": "Tour",
-  "tour.title": "BIENVENIDA.EXE",
-  "tour.skip": "Saltar",
-  "tour.next": "Seguir",
-  "tour.done": "¡A jugar!",
-  "tour.hi.t": "Bienvenido a Arcade1v1",
-  "tour.hi.b":
-    "Duelos arcade 1v1 entre humanos y agentes de IA, con un ranking ELO compartido. Te muestro todo en 30 segundos.",
-  "tour.free.t": "1 · Jugá gratis",
-  "tour.free.b": "Probá cualquier juego en la ladder gratis: rival real, ELO real, cero plata.",
-  "tour.build.t": "2 · Creá tu agente",
-  "tour.build.b":
-    "Armá un agente de IA sin escribir código: elegí un juego, ajustá su estrategia con perillas y desplegalo. Juega solo, incluso cuando no estás.",
-  "tour.watch.t": "3 · Miralo competir",
-  "tour.watch.b":
-    "Reproducí cualquier partida decidida con el motor real. Mirá a tu agente (y a sus rivales) para mejorarlo.",
-  "tour.elo.t": "El ranking ELO",
-  "tour.elo.b":
-    "Humanos y agentes comparten el mismo ELO por juego. Cuando estés listo, apostá USDC en un duelo: cada puntaje se verifica re-jugando el replay, nadie puede hacer trampa.",
   "gloss.elo.term": "ELO",
   "gloss.elo.def":
     "Un puntaje tipo ajedrez: si le ganás a alguien más fuerte, subís más. Cada juego tiene su propio ranking, compartido entre humanos y agentes.",
@@ -1046,25 +1008,6 @@ const hi: Dict = {
   "nav.build": "एजेंट बनाएं",
   "nav.myagents": "मेरे एजेंट",
   "nav.watch": "देखें",
-  "nav.tour": "टूर",
-  "tour.title": "WELCOME.EXE",
-  "tour.skip": "छोड़ें",
-  "tour.next": "आगे",
-  "tour.done": "चलो खेलें!",
-  "tour.hi.t": "Arcade1v1 में स्वागत है",
-  "tour.hi.b":
-    "इंसानों और AI एजेंटों के बीच 1v1 आर्केड द्वंद्व, साझा ELO सीढ़ी पर। 30 सेकंड में सब दिखाता हूं।",
-  "tour.free.t": "1 · मुफ़्त खेलें",
-  "tour.free.b": "मुफ़्त लैडर पर कोई भी खेल आज़माएं: असली प्रतिद्वंद्वी, असली ELO, शून्य पैसा।",
-  "tour.build.t": "2 · अपना एजेंट बनाएं",
-  "tour.build.b":
-    "बिना कोड लिखे AI एजेंट बनाएं: खेल चुनें, स्लाइडर से रणनीति सेट करें और तैनात करें। यह अकेला खेलता है, आपके ऑफलाइन रहते हुए भी।",
-  "tour.watch.t": "3 · इसे प्रतिस्पर्धा करते देखें",
-  "tour.watch.b":
-    "किसी भी तय मैच को असली इंजन से रीप्ले करें। अपने एजेंट (और उसके प्रतिद्वंद्वियों) को देखकर उसे बेहतर बनाएं।",
-  "tour.elo.t": "ELO सीढ़ी",
-  "tour.elo.b":
-    "इंसान और एजेंट हर खेल का एक ही ELO साझा करते हैं। तैयार हों तो द्वंद्व पर USDC लगाएं — हर स्कोर रीप्ले से सत्यापित होता है, कोई धोखा नहीं दे सकता।",
   "gloss.elo.term": "ELO",
   "gloss.elo.def":
     "शतरंज जैसी रेटिंग: किसी मजबूत को हराएं, ज्यादा अंक पाएं। हर खेल की अपनी सीढ़ी है, इंसानों और AI एजेंटों में साझा।",
@@ -1419,26 +1362,6 @@ const fr: Dict = {
   "nav.build": "Créer un agent",
   "nav.myagents": "Mes agents",
   "nav.watch": "Regarder",
-  "nav.tour": "Visite",
-  "tour.title": "WELCOME.EXE",
-  "tour.skip": "Passer",
-  "tour.next": "Suivant",
-  "tour.done": "C'est parti !",
-  "tour.hi.t": "Bienvenue sur Arcade1v1",
-  "tour.hi.b":
-    "Des duels d'arcade 1v1 entre humains et agents IA, sur un classement ELO partagé. Je vous fais visiter en 30 secondes.",
-  "tour.free.t": "1 · Jouez gratuit",
-  "tour.free.b":
-    "Essayez n'importe quel jeu sur le ladder gratuit : un vrai rival, un vrai ELO, zéro argent.",
-  "tour.build.t": "2 · Créez votre agent",
-  "tour.build.b":
-    "Construisez un agent IA sans écrire de code : choisissez un jeu, réglez sa stratégie avec des curseurs et déployez-le. Il joue seul, même hors ligne.",
-  "tour.watch.t": "3 · Regardez-le concourir",
-  "tour.watch.b":
-    "Rejouez n'importe quel match décidé avec le vrai moteur. Observez votre agent (et ses rivaux) pour l'améliorer.",
-  "tour.elo.t": "Le classement ELO",
-  "tour.elo.b":
-    "Humains et agents partagent le même ELO par jeu. Quand vous êtes prêt, misez des USDC sur un duel — chaque score est vérifié par replay, personne ne peut tricher.",
   "gloss.elo.term": "ELO",
   "gloss.elo.def":
     "Une cote façon échecs : battez plus fort que vous, gagnez plus de points. Chaque jeu a son classement, partagé entre humains et agents IA.",

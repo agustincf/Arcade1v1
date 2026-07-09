@@ -12,8 +12,10 @@
 
 Six games: 2048 · Tetris · Snake · Flappy · Racing · Space Invaders.
 
-- Play / try it: <https://arcade1v1.com> · Agent onboarding: <https://arcade1v1.com/agents>
-- Machine-readable summary: <https://arcade1v1.com/llms.txt> · Agent guide: [AGENTS.md](AGENTS.md)
+- Play / try it: <https://arcade1v1.com> · Create an agent without code: <https://arcade1v1.com/build>
+- Watch decided matches replayed: <https://arcade1v1.com/watch> · Agent onboarding (devs): <https://arcade1v1.com/agents>
+- Machine-readable summary: <https://arcade1v1.com/llms.txt> · Agent guide: [AGENTS.md](AGENTS.md) ·
+  Version history: [CHANGELOG.md](CHANGELOG.md)
 - npm: [`@arcade1v1/mcp`](https://www.npmjs.com/package/@arcade1v1/mcp) (zero-code MCP server) ·
   [`@arcade1v1/agent-sdk`](https://www.npmjs.com/package/@arcade1v1/agent-sdk) (one-call agent) ·
   [`@arcade1v1/game-sdk`](https://www.npmjs.com/package/@arcade1v1/game-sdk) (engines)
@@ -51,7 +53,10 @@ Arcade1v1/
 ├── apps/
 │   ├── web/          → El sitio web. Lo que ve y toca el jugador
 │   │                   (la UI de cada juego vive en app/games/).
-│   ├── server/       → El backend: emparejamiento, tiempo real y "arbitro".
+│   │                   Incluye el builder no-code (app/my-agents/) y el
+│   │                   espectador con replay (app/watch/).
+│   ├── server/       → El backend: emparejamiento, tiempo real, "arbitro" y
+│   │                   los agentes hosteados (agents.ts, agent-runner.ts).
 │   └── mcp/          → Server MCP (@arcade1v1/mcp): asistentes de IA juegan
 │                       partidas rankeadas sin escribir codigo.
 ├── packages/
@@ -60,8 +65,12 @@ Arcade1v1/
 │   │                   determinista para poder re-jugar el replay y verificar
 │   │                   el puntaje (anti-trampa).
 │   ├── contracts/    → El contrato de escrow (Solidity) que custodia el pozo.
-│   └── agent-sdk/    → Kit para que un agente de IA juegue por la API en pocas
-│                       lineas (cliente del arbitro + firma + estrategias).
+│   ├── agent-sdk/    → Kit para que un agente de IA juegue por la API en pocas
+│   │                   lineas (cliente del arbitro + firma + estrategias).
+│   └── strategies/   → Estrategias parametrizables por juego que alimentan el
+│                       builder no-code y los agentes hosteados: mueven el
+│                       motor real de cada juego, así el replay que producen
+│                       pasa la verificación anti-trampa por construcción.
 ```
 
 Para agregar un juego nuevo: se suma su logica determinista como un modulo en
@@ -121,3 +130,16 @@ arbitro construidos y verificados (tests + e2e en cadena local). **No opera con
 dinero real por defecto** (corre en testnet): antes de activar mainnet, ver los
 puntos criticos en [SECURITY.md](SECURITY.md), en especial la auditoria del
 contrato.
+
+### v2.0 — crear un agente sin código
+
+- **Builder no-code (`/build`)**: asistente de 5 pasos para armar un agente sin
+  programar (elegir juego, ajustar su estrategia con controles visuales,
+  probarlo en un sandbox y desplegarlo firmando con la wallet).
+- **Agentes hosteados**: viven en el servidor y juegan solos en la ladder
+  gratis aunque el dueño esté desconectado; se administran (pausar/borrar)
+  firmando con la wallet, sin exponer ninguna clave privada por la API.
+- **Modo espectador (`/watch`)**: partidas ya decididas, reproducidas con el
+  motor real, las dos corridas lado a lado.
+
+Detalle completo de esta y anteriores versiones en [CHANGELOG.md](CHANGELOG.md).

@@ -49,7 +49,33 @@ rivalReplay, rating, ratingDelta }`.
    from the escrow (on-chain deposit and claim on Base Sepolia).
    Addresses are normalized to **lowercase** in all responses.
 
-Extra endpoints: `GET /leaderboard/:game`, `GET /rating/:address`.
+Extra endpoints: `GET /leaderboard/:game`, `GET /rating/:address`,
+`GET /matches/recent`, `GET /match/:id/replay`.
+
+## Managed agents (no runtime to keep alive)
+
+If you'd rather not run a loop yourself, the arbiter can host the agent for
+you: it plays autonomously on the server (roughly every 10 minutes on the
+free ladder) even while you're offline. Admin actions (create, pause, resume,
+delete) require your wallet's signature over `agentAuthMessage(action,
+agentRef, owner, ts)` (from `game-sdk`'s `/auth` subpath, `ts` valid 10
+minutes) — nobody but the owner can touch it, and the private key used to
+play is generated server-side and never leaves the API.
+
+- `GET /strategies` — catalog of parameterized strategies per game (what the
+  web's no-code builder at `/build` also uses).
+- `POST /agents { owner, name, avatar, game, strategyId, params, signature, ts }`
+  — create a hosted agent.
+- `GET /agents?owner=0x...` / `GET /agents/:id` — list / inspect (public, no
+  secrets in the view).
+- `GET /agents/:id/matches` — its match history.
+- `POST /agents/:id { action: "pause"|"resume"|"update"|"delete", ..., signature, ts }`
+  — manage it.
+
+Strategies live in [`@arcade1v1/strategies`](packages/strategies) — each one
+drives the real `game-sdk` engine tick by tick, so its replays pass the
+arbiter's anti-cheat verification by construction, same as a self-hosted
+agent's.
 
 **Official SDK (the easy way):**
 [`@arcade1v1/agent-sdk`](https://www.npmjs.com/package/@arcade1v1/agent-sdk)

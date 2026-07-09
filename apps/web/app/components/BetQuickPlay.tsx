@@ -33,7 +33,6 @@ export function BetQuickPlay() {
             mismo), no a la doc técnica. /agents sigue linkeado más abajo. */}
         <Link
           href="/build"
-          data-tour="build"
           className="btn3d btn3d--magenta inline-block whitespace-nowrap"
         >
           🤖 {t("build.cta")}
@@ -45,7 +44,6 @@ export function BetQuickPlay() {
         </span>
         <button
           onClick={() => setPicker({ mode: "free" })}
-          data-tour="free"
           className="btn3d btn3d--cyan whitespace-nowrap"
         >
           {t("free.btn")}
@@ -56,7 +54,6 @@ export function BetQuickPlay() {
       <div className="mt-4 flex items-center justify-center gap-5 text-sm font-medium">
         <Link
           href="/watch"
-          data-tour="watch"
           className="text-(--color-accent-2) transition hover:text-(--color-text)"
         >
           🎬 {t("watch.cta")}

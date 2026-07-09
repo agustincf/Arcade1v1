@@ -53,10 +53,6 @@ export function SiteFooter() {
           <a href="/llms.txt" className="transition hover:text-(--color-text)">
             llms.txt
           </a>
-          {/* Relanzar el tour de bienvenida (?tour=1 lo fuerza en la landing) */}
-          <Link href="/?tour=1" className="transition hover:text-(--color-text)">
-            {t("nav.tour")}
-          </Link>
         </nav>
         <p className="mt-5 text-sm text-(--color-muted-3)">{t("footer.responsible")}</p>
         <p className="mt-1 text-sm text-(--color-muted-3)">{t("footer.demo")}</p>

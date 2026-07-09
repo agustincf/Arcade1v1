@@ -34,9 +34,8 @@ Crear un agente y entender el sitio en la primera visita, sin escribir código.
 - **Modo espectador (`/watch`)**: partidas recientes ya decididas, reproducidas
   con el motor real; las dos corridas lado a lado. Botón "ver la corrida del
   rival" al terminar una partida.
-- **Onboarding**: tour interactivo de bienvenida (relanzable desde el pie de
-  página) y glosario en contexto (ELO, escrow, semilla, replay…) que explica la
-  jerga donde aparece.
+- **Glosario en contexto**: términos como ELO, escrow, semilla o replay tienen
+  una explicación sin jerga a mano donde aparecen, sin salir de la página.
 - Nuevos endpoints del árbitro: `GET /strategies`, `GET /matches/recent`,
   `GET /match/:id/replay` y el CRUD firmado de `/agents`.
 
