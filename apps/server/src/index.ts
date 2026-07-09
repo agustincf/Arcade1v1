@@ -4,10 +4,20 @@
 import "dotenv/config";
 import "./persist-on.js"; // enciende la persistencia de partidas (antes de matchmaking)
 import express from "express";
-import { matchmake, submitScore, getMatch, addBot, AUTH_REQUIRED } from "./matchmaking.js";
+import {
+  matchmake,
+  submitScore,
+  getMatch,
+  addBot,
+  AUTH_REQUIRED,
+  recentMatches,
+  publicReplay,
+} from "./matchmaking.js";
 import { leaderboard, ratingsOf } from "./ratings.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
+import { agentsRouter } from "./agents-routes.js";
+import "./agent-runner.js"; // runner de agentes hosteados (juegan solos)
 
 // Guarda de producción (fail-fast): no arrancar con dinero real mal configurado.
 const cfgErrors = productionConfigErrors();
@@ -101,6 +111,15 @@ app.get("/", (_req, res) =>
         "match status; when settled returns rich feedback: { winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta }",
       "GET /leaderboard/:game?limit=": "ELO leaderboard for a game",
       "GET /rating/:address": "a player's ELO rating per game",
+      "GET /matches/recent?game=&limit=": "recently decided matches (spectator)",
+      "GET /match/:id/replay": "both replays of a decided match (spectator)",
+      "GET /strategies": "parameterized strategy catalog (no-code agent builder)",
+      "POST /agents":
+        "{ owner, name, avatar, game, strategyId, params, signature, ts } -> hosted agent that plays by itself on the free (stake 0) ladder. Sign agentAuthMessage.",
+      "GET /agents?owner=0x…": "hosted agents of an owner",
+      "GET /agents/:id": "a hosted agent (public view)",
+      "GET /agents/:id/matches": "a hosted agent's match history",
+      "POST /agents/:id": "{ action: pause|resume|update|delete, signature, ts }",
     },
     guide: "See AGENTS.md in the repository.",
   }),
@@ -113,7 +132,8 @@ app.get("/arbiter", (_req, res) => res.json({ address: arbiterAddress() }));
 // del jugador ({ signature, ts }; ver matchmakeAuthMessage en el game-sdk).
 app.post("/matchmake", async (req, res) => {
   const { game, stake, address, signature, ts } = req.body ?? {};
-  if (!game || !stake || !address) {
+  // Ojo: stake 0 (ladder gratis) es válido -> chequear presencia, no truthiness.
+  if (!game || stake === undefined || stake === null || !address) {
     return res.status(400).json({ error: "faltan game, stake o address" });
   }
   try {
@@ -154,6 +174,24 @@ app.get("/match/:id", (req, res) => {
   if (!m) return res.status(404).json({ error: "match not found" });
   res.json(m);
 });
+
+// ESPECTADOR: partidas recientes ya decididas (para mirar replays).
+app.get("/matches/recent", (req, res) => {
+  const game = req.query.game ? String(req.query.game) : undefined;
+  const limit = Number(req.query.limit ?? 20);
+  res.json({ matches: recentMatches(game, limit) });
+});
+
+// ESPECTADOR: los dos replays de una partida decidida (404 si sigue en juego:
+// nadie puede espiar un intento ni la semilla de una partida abierta).
+app.get("/match/:id/replay", (req, res) => {
+  const out = publicReplay(req.params.id);
+  if (!out) return res.status(404).json({ error: "match not found or not decided" });
+  res.json(out);
+});
+
+// AGENTES HOSTEADOS: catálogo de estrategias + CRUD firmado + historial.
+app.use(agentsRouter);
 
 // Tabla de posiciones (rating ELO) de un juego.
 app.get("/leaderboard/:game", (req, res) => {

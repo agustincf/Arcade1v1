@@ -1,9 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { GAMES } from "@/app/lib/games";
 import { BetQuickPlay } from "@/app/components/BetQuickPlay";
 import { GameIcon } from "@/app/components/GameIcon";
+import { Tour } from "@/app/components/onboarding/Tour";
 import { useT } from "@/app/lib/i18n";
 import { FAQ } from "@/app/lib/seo";
 
@@ -12,6 +14,11 @@ export default function HomePage() {
 
   return (
     <div>
+      {/* Tour de primera visita (jugá gratis → creá tu agente → miralo) */}
+      <Suspense>
+        <Tour />
+      </Suspense>
+
       {/* Hero */}
       <section className="mb-10 pt-4 text-center">
         <h1 className="font-pixel text-2xl leading-relaxed text-(--color-text-strong) sm:text-3xl">
@@ -102,9 +109,13 @@ export default function HomePage() {
         </div>
         <div className="p-6">
           <p className="leading-relaxed text-(--color-paper-muted)">{t("agents.body")}</p>
-          <div className="mt-4">
-            <Link href="/agents" className="btn3d btn3d--magenta inline-block">
-              🤖 {t("agents.cta")}
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <Link href="/build" className="btn3d btn3d--magenta inline-block">
+              🤖 {t("build.cta")}
+            </Link>
+            {/* Para quien programa: la doc técnica (SDK, API, MCP) sigue viva */}
+            <Link href="/agents" className="font-medium text-(--color-paper-ink) underline">
+              {t("agents.devLink")} →
             </Link>
           </div>
         </div>

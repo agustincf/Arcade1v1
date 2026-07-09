@@ -72,6 +72,120 @@ export async function getLeaderboard(game: string, limit = 20): Promise<LeaderRo
   }
 }
 
+// ------------------------------------------------------------------------- //
+// AGENTES HOSTEADOS (builder no-code): CRUD + historial + catálogo.
+// La administración va FIRMADA por el dueño (agentAuthMessage del game-sdk).
+// ------------------------------------------------------------------------- //
+
+async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const r = await fetchWithTimeout(`${BASE}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  });
+  const body = (await r.json().catch(() => ({}))) as T & { error?: string };
+  if (!r.ok) throw new Error(body?.error || `arbiter ${path} ${r.status}`);
+  return body;
+}
+
+export interface AgentView {
+  id: string;
+  owner: string;
+  name: string;
+  avatar: string;
+  game: string;
+  strategyId: string;
+  params: Record<string, unknown>;
+  address: string;
+  active: boolean;
+  createdAt: number;
+  lastPlayedAt?: number;
+  stats: { matches: number; wins: number; losses: number; draws: number };
+  rating: number;
+}
+
+export interface AgentMatchSummary {
+  matchId: string;
+  game: string;
+  opponent?: string;
+  yourScore?: number;
+  rivalScore?: number;
+  outcome: "win" | "loss" | "draw";
+  ratingDelta?: number;
+  ts: number;
+}
+
+export function createAgent(input: {
+  owner: string;
+  name: string;
+  avatar: string;
+  game: string;
+  strategyId: string;
+  params: Record<string, unknown>;
+  signature?: string;
+  ts?: number;
+}): Promise<AgentView> {
+  return req("/agents", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function listAgents(owner: string): Promise<AgentView[]> {
+  const out = await req<{ agents: AgentView[] }>(`/agents?owner=${encodeURIComponent(owner)}`);
+  return out.agents;
+}
+
+export function getAgent(id: string): Promise<AgentView> {
+  return req(`/agents/${encodeURIComponent(id)}`);
+}
+
+export async function getAgentMatches(id: string): Promise<AgentMatchSummary[]> {
+  const out = await req<{ matches: AgentMatchSummary[] }>(
+    `/agents/${encodeURIComponent(id)}/matches`,
+  );
+  return out.matches;
+}
+
+export function agentAction(
+  id: string,
+  input: {
+    action: "pause" | "resume" | "update" | "delete";
+    name?: string;
+    avatar?: string;
+    params?: Record<string, unknown>;
+    signature?: string;
+    ts?: number;
+  },
+): Promise<AgentView | { ok: true }> {
+  return req(`/agents/${encodeURIComponent(id)}`, { method: "POST", body: JSON.stringify(input) });
+}
+
+// ------------------------------------------------------------------------- //
+// ESPECTADOR: partidas recientes decididas + replays públicos.
+// ------------------------------------------------------------------------- //
+
+export interface RecentMatch {
+  matchId: string;
+  game: string;
+  stake: number;
+  players: { address: string; score?: number }[];
+  outcome?: "p1" | "p2" | "draw";
+  winner?: string;
+  createdAt: number;
+}
+
+export interface PublicReplay extends RecentMatch {
+  seed: number;
+  players: { address: string; score?: number; replay?: unknown }[];
+}
+
+export async function getRecentMatches(game?: string, limit = 20): Promise<RecentMatch[]> {
+  const q = game ? `?game=${encodeURIComponent(game)}&limit=${limit}` : `?limit=${limit}`;
+  const out = await req<{ matches: RecentMatch[] }>(`/matches/recent${q}`);
+  return out.matches;
+}
+
+export function getPublicReplay(matchId: string): Promise<PublicReplay> {
+  return req(`/match/${encodeURIComponent(matchId)}/replay`);
+}
+
 /** Identificador del jugador: wallet si esta conectada, o un "invitado" local. */
 export function playerId(walletAddress: string | null): string {
   if (walletAddress) return walletAddress;

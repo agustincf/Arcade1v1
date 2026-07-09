@@ -257,9 +257,11 @@ export async function matchmake(
   address = normAddr(address);
   // Default-deny: solo se emparejan juegos que el árbitro sabe verificar.
   if (!isKnownGame(game)) throw new Error(`unknown game: ${game}`);
-  // Solo mesas permitidas (las mismas que el contrato). Corta colas basura.
-  if (!STAKES_ALLOWED.includes(stake)) {
-    throw new Error(`stake not allowed: ${stake} (mesas: ${STAKES_ALLOWED.join(", ")})`);
+  // Solo mesas permitidas (las mismas que el contrato) o la LADDER GRATIS
+  // (stake 0): partidas rankeadas sin depósito, donde juegan los agentes
+  // hosteados y cualquier humano que quiera ELO sin arriesgar plata.
+  if (stake !== 0 && !STAKES_ALLOWED.includes(stake)) {
+    throw new Error(`stake not allowed: ${stake} (mesas: 0, ${STAKES_ALLOWED.join(", ")})`);
   }
 
   // AUTENTICACIÓN del emparejamiento (mismo criterio que el envío de puntaje):
@@ -446,6 +448,28 @@ export function getMatch(id: string, address?: string) {
   return view(m, address ? normAddr(address) : undefined);
 }
 
+/** Quién está esperando rival en (juego, mesa), si hay alguien. Lo usa el
+ *  runner de agentes hosteados para NO emparejar dos agentes del mismo dueño
+ *  (anti inflado de ELO con un "gemelo sacrificable"). */
+export function peekWaiterAddress(game: string, stake: number): string | null {
+  const waitingId = queue.get(qkey(game, stake));
+  const waiter = waitingId ? matches.get(waitingId) : undefined;
+  if (!waiter || waiter.p2 || Date.now() - waiter.createdAt > WAIT_TTL) return null;
+  return waiter.p1;
+}
+
+/** Descarta una partida EN ESPERA (sin rival). Se usa al pausar/borrar un
+ *  agente hosteado que quedó en la cola: sin esto, el próximo en emparejar
+ *  se juntaba con un "fantasma" que nunca iba a jugar su intento. */
+export function dropWaitingMatch(id: string) {
+  const m = matches.get(id);
+  if (!m || m.p2 || m.status !== "waiting") return;
+  const k = qkey(m.game, m.stake);
+  if (queue.get(k) === m.id) queue.delete(k);
+  matches.delete(m.id);
+  persist();
+}
+
 /** PnL neto (en USDC) para `address` segun el resultado. */
 function netPnl(m: Match, address: string): number {
   if (m.outcome === "draw" || !m.outcome) return 0; // empate -> reembolso
@@ -529,6 +553,63 @@ function view(m: Match, address?: string): MatchView {
     }
   }
   return v;
+}
+
+// ------------------------------------------------------------------------- //
+// ESPECTADOR: partidas ya decididas, para mirar. Una partida decidida ya
+// reveló ambos puntajes y replays a sus jugadores (la semilla está "gastada"),
+// así que hacerla pública no filtra nada explotable.
+// ------------------------------------------------------------------------- //
+
+export function recentMatches(game?: string, limit = 20) {
+  const lim = Math.max(1, Math.min(50, Number.isFinite(limit) ? limit : 20));
+  return [...matches.values()]
+    .filter(
+      (m) =>
+        (m.status === "settled" || m.status === "draw") &&
+        !m.isBot &&
+        m.p2 !== undefined &&
+        // Solo partidas mirables: con los dos replays (una expirada no los tiene).
+        m.replays[m.p1] !== undefined &&
+        m.replays[m.p2] !== undefined,
+    )
+    .filter((m) => !game || m.game === game)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, lim)
+    .map((m) => ({
+      matchId: m.id,
+      game: m.game,
+      stake: m.stake,
+      players: [
+        { address: m.p1, score: m.scores[m.p1] },
+        { address: m.p2!, score: m.scores[m.p2!] },
+      ],
+      outcome: m.outcome,
+      winner: m.winner,
+      createdAt: m.createdAt,
+    }));
+}
+
+/** Replays completos de una partida YA decidida. Antes de decidirse devuelve
+ *  null: nadie puede ver el intento (ni la semilla en uso) de otro jugador. */
+export function publicReplay(id: string) {
+  const m = matches.get(id);
+  if (!m || !m.p2) return null;
+  if (m.status !== "settled" && m.status !== "draw") return null;
+  return {
+    matchId: m.id,
+    game: m.game,
+    stake: m.stake,
+    seed: m.seed,
+    outcome: m.outcome,
+    winner: m.winner,
+    createdAt: m.createdAt,
+    players: [m.p1, m.p2].map((p) => ({
+      address: p,
+      score: m.scores[p],
+      replay: m.replays[p],
+    })),
+  };
 }
 
 // ------------------------------------------------------------------------- //

@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
+import Link from "next/link";
 import { getLeaderboard, type LeaderRow } from "@/app/lib/arbiter";
 import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
+import { HelpTip } from "@/app/components/onboarding/HelpTip";
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const medal = (i: number) => (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`);
@@ -32,7 +34,12 @@ export default function LeaderboardPage() {
       <h1 className="font-pixel text-xl leading-relaxed text-(--color-text-strong)">
         {t("lb.title")}
       </h1>
-      <p className="mt-2 text-base text-(--color-muted)">{t("lb.subtitle")}</p>
+      <p className="mt-2 text-base text-(--color-muted)">
+        {t("lb.subtitle")} <HelpTip k="elo" /> ·{" "}
+        <Link href="/watch" className="font-medium text-(--color-accent-2) hover:underline">
+          🎬 {t("watch.cta")}
+        </Link>
+      </p>
 
       {/* Selector de juego */}
       <div className="mt-5 flex flex-wrap gap-2">

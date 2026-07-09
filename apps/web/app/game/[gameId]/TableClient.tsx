@@ -8,6 +8,7 @@ import { warmUpArbiter } from "@/app/lib/arbiter";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { BET_AMOUNTS, getPayout, PLATFORM_FEE, DEFAULT_BET, VIP_BET } from "@/app/lib/config";
+import { HelpTip } from "@/app/components/onboarding/HelpTip";
 
 export function TableClient({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = use(params);
@@ -111,7 +112,9 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
             <button onClick={buscarRival} className="btn3d btn3d--magenta w-full">
               {t("table.cta", { bet: selected })}
             </button>
-            <p className="mt-2 text-center text-sm text-(--color-muted-2)">{t("table.norisk")}</p>
+            <p className="mt-2 text-center text-sm text-(--color-muted-2)">
+              {t("table.norisk")} <HelpTip k="escrow" />
+            </p>
           </div>
 
           {/* Desglose del pozo */}
