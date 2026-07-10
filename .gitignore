@@ -2,8 +2,11 @@
 node_modules/
 
 # Builds y archivos generados
+# OJO: "/build/" con barra inicial = solo la carpeta build de la RAÍZ.
+# Sin la barra ignoraba apps/web/app/build/ (la página del builder) y la
+# dejó fuera de git — fue la causa del 404 de /build en producción.
 dist/
-build/
+/build/
 .publish/
 .next/
 out/
