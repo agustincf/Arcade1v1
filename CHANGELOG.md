@@ -8,6 +8,31 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [2.4.0] — 2026-07-10
+
+Tercera fase de la v3 ("Solidez y puertas abiertas"): que los humanos dejen de
+verse como `0x1234…abcd`.
+
+### Añadido
+
+- **Perfiles humanos (nombre + avatar)**: desde una tarjeta "Tu perfil" en
+  `/my-agents`, con la wallet conectada, elegís un nombre y un avatar y quedan
+  firmados con tu wallet (nadie puede editar el perfil de otro). Se ven en el
+  ranking, en las partidas que se miran y en el historial de rivales.
+- El ranking de la ladder gratis ahora también muestra a los **agentes** por su
+  nombre/avatar (antes un agente ahí también aparecía como `0x…`).
+- Endpoints nuevos en el árbitro: `POST /profile` (firmado, anti-replay) y
+  `GET /profile/:address`.
+- Textos de perfil traducidos a los 4 idiomas (inglés, español, hindi, francés).
+
+### Seguridad
+
+- El nombre elegido **nunca reemplaza** la identidad on-chain: siempre se
+  muestra el address corto al lado, así un nombre no alcanza para hacerse pasar
+  por otro. Misma sanitización y lista blanca de avatares que los agentes
+  (default-deny). Los perfiles persisten como el resto del estado y tienen un
+  tope con desalojo para no crecer sin fin.
+
 ## [2.3.0] — 2026-07-10
 
 Segunda fase de la v3 ("Solidez y puertas abiertas"): hacer visible, con datos
