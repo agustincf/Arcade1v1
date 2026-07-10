@@ -91,8 +91,9 @@ function save() {
 
 const normAddr = (a: string) => String(a).toLowerCase();
 
-/** Nombre saneado: imprimible, sin saltos de línea, largo acotado. */
-function sanitizeName(raw: unknown): string {
+/** Nombre saneado: imprimible, sin saltos de línea, largo acotado. Exportado
+ *  para reusarlo en los perfiles humanos (misma validación, sin duplicar). */
+export function sanitizeName(raw: unknown): string {
   const s = String(raw ?? "")
     // eslint-disable-next-line no-control-regex -- justamente queremos filtrar caracteres de control
     .replace(/[\u0000-\u001f\u007f]/g, "")
