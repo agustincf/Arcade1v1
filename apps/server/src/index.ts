@@ -12,8 +12,11 @@ import {
   AUTH_REQUIRED,
   recentMatches,
   publicReplay,
+  restoreMatches,
 } from "./matchmaking.js";
-import { leaderboard, ratingsOf } from "./ratings.js";
+import { leaderboard, ratingsOf, restoreRatings } from "./ratings.js";
+import { restoreAgents } from "./agents.js";
+import { persistenceBackend } from "./persist.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 import { agentsRouter } from "./agents-routes.js";
@@ -227,10 +230,15 @@ app.get("/rating/:address", (req, res) => {
   res.json({ address: req.params.address, ratings: ratingsOf(req.params.address) });
 });
 
+// Restaurar el estado persistido ANTES de escuchar: si Redis está configurado
+// y falla, mejor no arrancar que arrancar "vacío" y pisar los datos reales.
+await Promise.all([restoreMatches(), restoreRatings(), restoreAgents()]);
+
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
   console.log(`Arbitro escuchando en http://localhost:${port}`);
   console.log(`Direccion del arbitro: ${arbiterAddress()}`);
+  console.log(`Persistencia: ${persistenceBackend}`);
   console.log(`Auth obligatoria (firma): ${AUTH_REQUIRED ? "SÍ" : "no"}`);
   if (process.env.NODE_ENV === "production" && !AUTH_REQUIRED) {
     console.warn(

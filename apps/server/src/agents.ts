@@ -2,17 +2,15 @@
 // Cada agente es una wallet generada acá (la clave privada NUNCA sale del
 // servidor) + una config de estrategia del registro compartido. El runner
 // (agent-runner.ts) los hace jugar solos en la ladder gratis (stake 0).
-// Persistencia: mismo patrón que ratings.json (JSON atómico, sin base de datos).
+// Persistencia vía persist.ts (Redis o archivo; opt-in, ver ese módulo).
 
 import { randomBytes } from "node:crypto";
-import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import type { Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { getStrategy, validateParams, AGENT_AVATARS } from "@arcade1v1/strategies";
 import { isKnownGame, dropWaitingMatch } from "./matchmaking.js";
 import { getRating } from "./ratings.js";
+import { jsonStore } from "./persist.js";
 
 export { AGENT_AVATARS };
 
@@ -71,27 +69,24 @@ export interface AgentView {
   rating: number;
 }
 
-const DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
-const FILE = join(DIR, "agents.json");
-
+const store$ = jsonStore("agents");
 const agents = new Map<string, HostedAgent>();
-try {
-  const arr = JSON.parse(readFileSync(FILE, "utf8")) as HostedAgent[];
-  for (const a of arr) agents.set(a.id, a);
-  if (arr.length) console.log(`Agentes hosteados recuperados de disco: ${arr.length}`);
-} catch {
-  /* sin archivo: arrancamos limpio */
+
+/** Restaura los agentes guardados. La llama index.ts ANTES de escuchar. */
+export async function restoreAgents(): Promise<void> {
+  const raw = await store$.load();
+  if (!raw) return;
+  try {
+    const arr = JSON.parse(raw) as HostedAgent[];
+    for (const a of arr) agents.set(a.id, a);
+    if (arr.length) console.log(`Agentes hosteados recuperados: ${arr.length}`);
+  } catch (e) {
+    console.error("agents restore (dato corrupto, arrancamos limpio):", (e as Error).message);
+  }
 }
 
 function save() {
-  try {
-    if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true });
-    const tmp = `${FILE}.tmp`;
-    writeFileSync(tmp, JSON.stringify([...agents.values()]));
-    renameSync(tmp, FILE);
-  } catch (e) {
-    console.error("agents save:", (e as Error).message);
-  }
+  store$.save(() => JSON.stringify([...agents.values()]));
 }
 
 const normAddr = (a: string) => String(a).toLowerCase();

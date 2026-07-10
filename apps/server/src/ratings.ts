@@ -1,12 +1,9 @@
 // Sistema de rating ELO por jugador y por juego (ser bueno en Tetris != Snake).
-// Persistencia simple en archivo JSON (sobrevive reinicios, sin base de datos).
+// Persistencia vía persist.ts (Redis o archivo; opt-in, ver ese módulo).
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { jsonStore } from "./persist.js";
 
-const DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
-const FILE = join(DIR, "ratings.json");
+const store$ = jsonStore("ratings");
 const START = 1000; // rating inicial
 const K = 32; // factor K (cuanto pesa cada partida)
 
@@ -20,29 +17,27 @@ const MAX_RATED_ADDRESSES = Number(process.env.MAX_RATED_ADDRESSES ?? 5000);
 type Store = Record<string, Record<string, number>>; // address -> game -> rating
 let store: Store = {};
 let lastSeen: Record<string, number> = {}; // address -> última partida (para el desalojo)
-try {
-  const raw = JSON.parse(readFileSync(FILE, "utf8"));
-  if (raw && typeof raw === "object" && "store" in raw) {
-    store = raw.store ?? {};
-    lastSeen = raw.lastSeen ?? {};
-  } else {
-    store = raw ?? {}; // formato viejo (solo el store): se migra al guardar
+
+/** Restaura los ratings guardados. La llama index.ts ANTES de escuchar. */
+export async function restoreRatings(): Promise<void> {
+  const raw = await store$.load();
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && "store" in parsed) {
+      store = parsed.store ?? {};
+      lastSeen = parsed.lastSeen ?? {};
+    } else {
+      store = parsed ?? {}; // formato viejo (solo el store): se migra al guardar
+    }
+    console.log(`Ratings recuperados: ${Object.keys(store).length} direcciones`);
+  } catch (e) {
+    console.error("ratings restore (dato corrupto, arrancamos limpio):", (e as Error).message);
   }
-} catch {
-  store = {};
 }
 
 function save() {
-  try {
-    if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true });
-    // Escritura atomica: a un temporal y luego rename, asi un corte a mitad de
-    // escritura no deja el archivo de ratings corrupto.
-    const tmp = `${FILE}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ store, lastSeen }));
-    renameSync(tmp, FILE);
-  } catch (e) {
-    console.error("ratings save:", (e as Error).message);
-  }
+  store$.save(() => JSON.stringify({ store, lastSeen }));
 }
 
 /** Marca actividad de una dirección y, si se superó el tope, desaloja las

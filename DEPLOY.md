@@ -49,8 +49,17 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     setearla; solo poné `REQUIRE_AUTH=false` si querés desactivarla a propósito
     (no recomendado con dinero en juego).
   - `NODE_ENV=production` — apaga el bot de prueba.
+  - `UPSTASH_REDIS_REST_URL` y `UPSTASH_REDIS_REST_TOKEN` — **persistencia
+    durable** (¡importante en Render y similares!). El disco de esos hostings es
+    **efímero**: cada deploy/reinicio lo borra, y sin estas variables se pierden
+    los agentes hosteados, el ranking ELO y las partidas en curso. Se crean
+    gratis en [upstash.com](https://upstash.com) (base Redis → pestaña "REST");
+    con las dos variables seteadas el árbitro guarda ahí en lugar del disco.
+    Si al arrancar Redis no responde, el server **no arranca** (mejor eso que
+    arrancar vacío y pisar los datos buenos).
   - Opcionales: `STAKES_ALLOWED=1,2,5,10` (mesas que acepta el árbitro; deben
-    coincidir con el contrato) y `SUBMIT_WINDOW_MS` (ventana de envío, default 2h).
+    coincidir con el contrato), `SUBMIT_WINDOW_MS` (ventana de envío, default 2h)
+    y `RL_MAX` / `RL_MAX_EXPENSIVE` (rate limit global / de endpoints caros).
 - Anotá la **URL pública** del árbitro (ej. `https://arcade1v1-arbiter.onrender.com`).
 
 ## Paso 3 — Publicar la web (Vercel)
@@ -114,7 +123,10 @@ La red la elige `NEXT_PUBLIC_CHAIN_ID`: sin setear queda en **testnet** (seguro)
 - [ ] Llave del árbitro en los **secrets** del hosting (nunca en el repo).
 - [ ] HTTPS en la web y en el árbitro.
 - [ ] CORS del árbitro restringido con `ALLOWED_ORIGIN` (el código ya lo soporta).
-- [x] Rate limiting en el árbitro (120 pedidos/10s por IP → 429, con limpieza).
+- [x] Rate limiting en el árbitro (120 pedidos/10s por IP → 429, con limpieza,
+      y límite estricto aparte para los endpoints CPU-caros).
+- [ ] Persistencia durable configurada (Upstash Redis) — sin esto, cada deploy
+      borra agentes hosteados, ELO y partidas en curso.
 - [x] **Puntaje del rival oculto** hasta que la partida se decide (anti-espionaje).
 - [x] **Depósitos protegidos:** approve por el monto exacto + verificación
       on-chain antes de unirse + reembolso automático de partidas vencidas.

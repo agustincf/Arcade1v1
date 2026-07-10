@@ -3,9 +3,6 @@
 // su intento (misma semilla) y al tener los dos puntajes se decide y se firma.
 
 import { randomBytes, randomInt } from "node:crypto";
-import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import { recoverMessageAddress, type Hex } from "viem";
 import { signResult } from "./sign.js";
 import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
@@ -21,6 +18,7 @@ import {
 } from "@arcade1v1/game-sdk/auth";
 import { onchainEnabled, cancelMatchOnchain } from "./onchain.js";
 import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
+import { jsonStore } from "./persist.js";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
 
@@ -153,75 +151,43 @@ const WAIT_TTL = 60 * 60 * 1000; // 1 hora: un "waiter" abandonado se descarta d
 // ilimitada con la semilla ya conocida y evita liquidar partidas ya reembolsadas.
 export const SUBMIT_WINDOW_MS = Number(process.env.SUBMIT_WINDOW_MS ?? 2 * 60 * 60 * 1000);
 
-// PERSISTENCIA (liviana, archivo JSON con escritura atómica; mismo patrón que el
-// ranking). Sobrevive a un reinicio del servidor: las partidas en curso vuelven
-// y un ganador puede recuperar su firma para cobrar. Es OPT-IN: solo se activa en
-// el servidor real (que importa "./persist-on.js"); en tests/e2e queda apagada
-// para no romper la corrida hermética ni cargar estado viejo.
-const PERSIST = process.env.ARCADE_PERSIST_MATCHES === "1";
-const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
-const MATCHES_FILE = join(DATA_DIR, "matches.json");
+// PERSISTENCIA vía persist.ts (Redis o archivo; opt-in, ver ese módulo).
+// Sobrevive a un reinicio del servidor: las partidas en curso vuelven y un
+// ganador puede recuperar su firma para cobrar. El debounce y el flush de
+// apagado (SIGTERM/SIGINT) los maneja el adaptador.
+const store$ = jsonStore("matches");
 const FINISHED_TTL = 2 * 24 * 60 * 60 * 1000; // 2 días: purga partidas terminadas viejas
 
-function persistNow() {
-  if (!PERSIST) return;
-  try {
-    if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-    const now = Date.now();
-    const arr = [...matches.values()].filter((m) => {
-      const finished = m.status === "settled" || m.status === "draw";
-      return !finished || now - m.createdAt < FINISHED_TTL; // mantené lo vivo y lo reciente
-    });
-    const tmp = `${MATCHES_FILE}.tmp`;
-    // El replacer descarta `refundPromise` (no es serializable; es transitorio).
-    writeFileSync(
-      tmp,
-      JSON.stringify(arr, (k, v) => (k === "refundPromise" ? undefined : v)),
-    );
-    renameSync(tmp, MATCHES_FILE);
-  } catch (e) {
-    console.error("matches save:", (e as Error).message);
-  }
+function serializeMatches(): string {
+  const now = Date.now();
+  const arr = [...matches.values()].filter((m) => {
+    const finished = m.status === "settled" || m.status === "draw";
+    return !finished || now - m.createdAt < FINISHED_TTL; // mantené lo vivo y lo reciente
+  });
+  // El replacer descarta `refundPromise` (no es serializable; es transitorio).
+  return JSON.stringify(arr, (k, v) => (k === "refundPromise" ? undefined : v));
 }
 
-// Debounce: escribir el archivo entero en CADA request era una escritura síncrona
-// de disco por pedido (bloquea el event loop; con replays grandes, un DoS barato).
-// Se agrupan los cambios y se escribe a lo sumo 2 veces por segundo; en un apagado
-// ordenado (SIGTERM/SIGINT, típico de un redeploy) se hace un último flush.
-let persistTimer: NodeJS.Timeout | null = null;
 function persist() {
-  if (!PERSIST) return;
-  if (persistTimer) return;
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    persistNow();
-  }, 500);
-  persistTimer.unref?.();
-}
-if (PERSIST) {
-  for (const sig of ["SIGTERM", "SIGINT"] as const) {
-    process.once(sig, () => {
-      persistNow();
-      process.exit(0);
-    });
-  }
+  store$.save(serializeMatches);
 }
 
-function loadMatches() {
-  if (!PERSIST) return;
+/** Restaura las partidas guardadas. La llama index.ts ANTES de escuchar. */
+export async function restoreMatches(): Promise<void> {
+  const raw = await store$.load();
+  if (!raw) return;
   try {
-    const arr = JSON.parse(readFileSync(MATCHES_FILE, "utf8")) as Match[];
+    const arr = JSON.parse(raw) as Match[];
     for (const m of arr) {
       matches.set(m.id, m);
       // Reconstruimos la cola: una partida en espera (sin rival) vuelve a la fila.
       if (m.status === "waiting" && !m.p2) queue.set(qkey(m.game, m.stake), m.id);
     }
-    console.log(`Partidas recuperadas de disco: ${arr.length}`);
-  } catch {
-    /* no hay archivo (o está vacío): arrancamos limpio */
+    console.log(`Partidas recuperadas: ${arr.length}`);
+  } catch (e) {
+    console.error("matches restore (dato corrupto, arrancamos limpio):", (e as Error).message);
   }
 }
-loadMatches();
 
 /** Crea una partida en espera para `address` y la deja en la cola. */
 function createWaiting(k: string, game: string, stake: number, address: string) {
