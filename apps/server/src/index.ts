@@ -17,6 +17,8 @@ import {
 import { leaderboard, ratingsOf, restoreRatings } from "./ratings.js";
 import { restoreAgents, listAgents } from "./agents.js";
 import { statsSnapshot, restoreStats } from "./stats.js";
+import { profilesRouter } from "./profiles-routes.js";
+import { restoreProfiles, resolveDisplay } from "./profiles.js";
 import { persistenceBackend } from "./persist.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
@@ -145,6 +147,9 @@ app.get("/", (_req, res) =>
       "GET /agents/:id": "a hosted agent (public view)",
       "GET /agents/:id/matches": "a hosted agent's match history",
       "POST /agents/:id": "{ action: pause|resume|update|delete, signature, ts }",
+      "POST /profile":
+        "{ address, name, avatar, signature, ts } -> set your human display (name+avatar). Sign profileAuthMessage.",
+      "GET /profile/:address": "a player's profile (name+avatar) or null",
     },
     guide: "See AGENTS.md in the repository.",
   }),
@@ -211,7 +216,11 @@ app.get("/match/:id", (req, res) => {
 app.get("/matches/recent", (req, res) => {
   const game = req.query.game ? String(req.query.game) : undefined;
   const limit = Number(req.query.limit ?? 20);
-  res.json({ matches: recentMatches(game, limit) });
+  const matches = recentMatches(game, limit).map((m) => ({
+    ...m,
+    players: m.players.map((p) => ({ ...p, ...resolveDisplay(p.address) })),
+  }));
+  res.json({ matches });
 });
 
 // ESPECTADOR: los dos replays de una partida decidida (404 si sigue en juego:
@@ -219,7 +228,7 @@ app.get("/matches/recent", (req, res) => {
 app.get("/match/:id/replay", (req, res) => {
   const out = publicReplay(req.params.id);
   if (!out) return res.status(404).json({ error: "match not found or not decided" });
-  res.json(out);
+  res.json({ ...out, players: out.players.map((p) => ({ ...p, ...resolveDisplay(p.address) })) });
 });
 
 // AGENTES HOSTEADOS: catálogo de estrategias + CRUD firmado + historial.
@@ -230,10 +239,20 @@ app.use("/agents", (req, res, next) =>
 );
 app.use(agentsRouter);
 
+// PERFILES humanos: editar (POST) recupera una firma -> límite estricto; leer libre.
+app.use("/profile", (req, res, next) =>
+  req.method === "POST" ? strictLimit(req, res, next) : next(),
+);
+app.use(profilesRouter);
+
 // Tabla de posiciones (rating ELO) de un juego.
 app.get("/leaderboard/:game", (req, res) => {
   const limit = Number(req.query.limit ?? 20);
-  res.json({ game: req.params.game, top: leaderboard(req.params.game, limit) });
+  const top = leaderboard(req.params.game, limit).map((row) => ({
+    ...row,
+    ...resolveDisplay(row.address),
+  }));
+  res.json({ game: req.params.game, top });
 });
 
 // Rating de un jugador (por juego).
@@ -243,7 +262,13 @@ app.get("/rating/:address", (req, res) => {
 
 // Restaurar el estado persistido ANTES de escuchar: si Redis está configurado
 // y falla, mejor no arrancar que arrancar "vacío" y pisar los datos reales.
-await Promise.all([restoreMatches(), restoreRatings(), restoreAgents(), restoreStats()]);
+await Promise.all([
+  restoreMatches(),
+  restoreRatings(),
+  restoreAgents(),
+  restoreStats(),
+  restoreProfiles(),
+]);
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
