@@ -31,10 +31,7 @@ export function BetQuickPlay() {
       <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
         {/* v2: el CTA principal lleva al BUILDER no-code (crear un agente acá
             mismo), no a la doc técnica. /agents sigue linkeado más abajo. */}
-        <Link
-          href="/build"
-          className="btn3d btn3d--magenta inline-block whitespace-nowrap"
-        >
+        <Link href="/build" className="btn3d btn3d--magenta inline-block whitespace-nowrap">
           🤖 {t("build.cta")}
         </Link>
         <span className="font-pixel flex items-center gap-3 text-[9px] text-(--color-muted-3)">
