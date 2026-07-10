@@ -186,6 +186,30 @@ export function getPublicReplay(matchId: string): Promise<PublicReplay> {
   return req(`/match/${encodeURIComponent(matchId)}/replay`);
 }
 
+// ------------------------------------------------------------------------- //
+// MÉTRICAS públicas del árbitro (página /status). Todo real, sin inflar.
+// ------------------------------------------------------------------------- //
+
+export interface StatsCounters {
+  matchesCreated: number;
+  matchesSettled: number;
+  verificationsRejected: number;
+}
+
+export interface StatsView {
+  startedAt: number;
+  uptimeSeconds: number;
+  since: number;
+  totals: StatsCounters;
+  today: StatsCounters;
+  activeAgents: number;
+  daily: Array<{ date: string } & StatsCounters>;
+}
+
+export function getStats(): Promise<StatsView> {
+  return req("/stats");
+}
+
 /** Identificador del jugador: wallet si esta conectada, o un "invitado" local. */
 export function playerId(walletAddress: string | null): string {
   if (walletAddress) return walletAddress;

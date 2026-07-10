@@ -36,6 +36,9 @@ export function SiteFooter() {
           <Link href="/agents" className="transition hover:text-(--color-text)">
             {t("nav.agents")}
           </Link>
+          <Link href="/status" className="transition hover:text-(--color-text)">
+            {t("nav.status")}
+          </Link>
           <Link href="/recover" className="transition hover:text-(--color-text)">
             {t("nav.recover")}
           </Link>
