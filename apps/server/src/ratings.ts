@@ -10,10 +10,24 @@ const FILE = join(DIR, "ratings.json");
 const START = 1000; // rating inicial
 const K = 32; // factor K (cuanto pesa cada partida)
 
+// TOPE de direcciones con rating: en la ladder gratis cualquiera puede generar
+// wallets infinitas y auto-firmarse partidas — sin tope, el store crecía para
+// siempre (todo lo demás del servidor tiene purga o límite). Al superarlo se
+// desalojan las direcciones MENOS activas; los agentes hosteados juegan cada
+// ~10 min, así que nunca son los desalojados.
+const MAX_RATED_ADDRESSES = Number(process.env.MAX_RATED_ADDRESSES ?? 5000);
+
 type Store = Record<string, Record<string, number>>; // address -> game -> rating
 let store: Store = {};
+let lastSeen: Record<string, number> = {}; // address -> última partida (para el desalojo)
 try {
-  store = JSON.parse(readFileSync(FILE, "utf8"));
+  const raw = JSON.parse(readFileSync(FILE, "utf8"));
+  if (raw && typeof raw === "object" && "store" in raw) {
+    store = raw.store ?? {};
+    lastSeen = raw.lastSeen ?? {};
+  } else {
+    store = raw ?? {}; // formato viejo (solo el store): se migra al guardar
+  }
 } catch {
   store = {};
 }
@@ -24,10 +38,26 @@ function save() {
     // Escritura atomica: a un temporal y luego rename, asi un corte a mitad de
     // escritura no deja el archivo de ratings corrupto.
     const tmp = `${FILE}.tmp`;
-    writeFileSync(tmp, JSON.stringify(store));
+    writeFileSync(tmp, JSON.stringify({ store, lastSeen }));
     renameSync(tmp, FILE);
   } catch (e) {
     console.error("ratings save:", (e as Error).message);
+  }
+}
+
+/** Marca actividad de una dirección y, si se superó el tope, desaloja las
+ *  menos activas (nunca la recién tocada). */
+function touch(address: string) {
+  lastSeen[address] = Date.now();
+  const addrs = Object.keys(store);
+  if (addrs.length <= MAX_RATED_ADDRESSES) return;
+  const victims = addrs
+    .filter((a) => a !== address)
+    .sort((a, b) => (lastSeen[a] ?? 0) - (lastSeen[b] ?? 0))
+    .slice(0, addrs.length - MAX_RATED_ADDRESSES);
+  for (const v of victims) {
+    delete store[v];
+    delete lastSeen[v];
   }
 }
 
@@ -60,6 +90,8 @@ export function applyResult(
   const n2 = Math.round(r2 + K * (1 - s1 - (1 - e1)));
   set(p1, game, n1);
   set(p2, game, n2);
+  touch(p1);
+  touch(p2);
   save();
   return {
     p1: { before: r1, after: n1, delta: n1 - r1 },

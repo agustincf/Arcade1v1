@@ -405,8 +405,10 @@ async function settleIfReady(m: Match) {
     const winner = s1 > s2 ? m.p1 : m.p2;
     m.winner = winner;
     m.outcome = winner === m.p1 ? "p1" : "p2";
-    m.signature = await signResult(m.id, winner as Hex);
+    // El status se marca ANTES del await: durante la firma (async) una
+    // invocación concurrente pasaría el guard de arriba y liquidaría dos veces.
     m.status = "settled";
+    m.signature = await signResult(m.id, winner as Hex);
   }
 
   // Rating ELO por juego (las partidas contra el bot de prueba no cuentan).

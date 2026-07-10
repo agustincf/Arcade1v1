@@ -64,28 +64,39 @@ app.use((req, res, next) => {
 });
 app.options("/*splat", (_req, res) => res.sendStatus(204));
 
-// Rate limiting simple por IP (anti-spam / DoS): 120 pedidos cada 10s.
+// Rate limiting simple por IP (anti-spam / DoS), en dos niveles:
+// - global: 120 pedidos cada 10s en cualquier ruta.
+// - estricto: para los endpoints CAROS de CPU — verificar un puntaje re-simula
+//   hasta 200k ticks y crear/administrar un agente recupera una firma. Con el
+//   límite global solo, una IP podía forzar ~12 re-simulaciones POR SEGUNDO.
 const RL_WINDOW = 10_000;
-const RL_MAX = 120;
-const hits = new Map<string, number[]>();
-app.use((req, res, next) => {
-  const ip = req.ip || req.socket.remoteAddress || "?";
-  const now = Date.now();
-  const arr = (hits.get(ip) || []).filter((t) => now - t < RL_WINDOW);
-  arr.push(now);
-  hits.set(ip, arr);
-  if (arr.length > RL_MAX) {
-    res.status(429).json({ error: "demasiados pedidos, esperá un momento" });
-    return;
-  }
-  next();
-});
-// Limpieza periódica: sin esto, cada IP nueva quedaba en el mapa PARA SIEMPRE
+const rlMaps: Map<string, number[]>[] = [];
+function rateLimiter(max: number) {
+  const hits = new Map<string, number[]>();
+  rlMaps.push(hits);
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const ip = req.ip || req.socket.remoteAddress || "?";
+    const now = Date.now();
+    const arr = (hits.get(ip) || []).filter((t) => now - t < RL_WINDOW);
+    arr.push(now);
+    hits.set(ip, arr);
+    if (arr.length > max) {
+      res.status(429).json({ error: "demasiados pedidos, esperá un momento" });
+      return;
+    }
+    next();
+  };
+}
+app.use(rateLimiter(Number(process.env.RL_MAX ?? 120)));
+const strictLimit = rateLimiter(Number(process.env.RL_MAX_EXPENSIVE ?? 12));
+// Limpieza periódica: sin esto, cada IP nueva quedaba en los mapas PARA SIEMPRE
 // (fuga de memoria lenta que un atacante con muchas IPs acelera a propósito).
 const rlSweep = setInterval(() => {
   const now = Date.now();
-  for (const [ip, arr] of hits) {
-    if (arr.length === 0 || now - arr[arr.length - 1] >= RL_WINDOW) hits.delete(ip);
+  for (const hits of rlMaps) {
+    for (const [ip, arr] of hits) {
+      if (arr.length === 0 || now - arr[arr.length - 1] >= RL_WINDOW) hits.delete(ip);
+    }
   }
 }, 30_000);
 rlSweep.unref?.();
@@ -145,10 +156,17 @@ app.post("/matchmake", async (req, res) => {
 });
 
 // Enviar puntaje. Cuando estan los dos, decide y firma.
-app.post("/match/:id/score", async (req, res) => {
+// (límite estricto: la verificación re-simula el replay entero, es CPU-cara)
+app.post("/match/:id/score", strictLimit, async (req, res) => {
   try {
     const { address, score, replay, signature } = req.body ?? {};
-    const out = await submitScore(req.params.id, String(address), Number(score), replay, signature);
+    const out = await submitScore(
+      String(req.params.id),
+      String(address),
+      Number(score),
+      replay,
+      signature,
+    );
     res.json(out);
   } catch (e) {
     res.status(400).json({ error: (e as Error).message });
@@ -191,6 +209,11 @@ app.get("/match/:id/replay", (req, res) => {
 });
 
 // AGENTES HOSTEADOS: catálogo de estrategias + CRUD firmado + historial.
+// Las mutaciones (POST) pasan por el límite estricto: generan claves y
+// recuperan firmas; las lecturas (GET) quedan con el límite global.
+app.use("/agents", (req, res, next) =>
+  req.method === "POST" ? strictLimit(req, res, next) : next(),
+);
 app.use(agentsRouter);
 
 // Tabla de posiciones (rating ELO) de un juego.
