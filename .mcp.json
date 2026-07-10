@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "arcade1v1": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "tsx",
+        "apps/mcp/src/index.ts"
+      ],
+      "env": {
+        "ARBITER_URL": "https://arcade1v1.onrender.com"
+      }
+    }
+  }
+}

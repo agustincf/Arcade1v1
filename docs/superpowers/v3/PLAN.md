@@ -20,7 +20,7 @@ sobrevive deploys vía Redis externo o archivo
 
 ## Estado
 
-- [ ] Fase 1 — Faucet integrado
+- [x] Fase 1 — Faucet integrado (2.2.0, 2026-07-10)
 - [ ] Fase 2 — Métricas y página de estado
 - [ ] Fase 3 — Perfiles humanos
 - [ ] Fase 4 — Duelos directos
