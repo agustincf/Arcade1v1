@@ -62,6 +62,8 @@ export async function playBot(id: string): Promise<MatchView> {
 export interface LeaderRow {
   address: string;
   rating: number;
+  name?: string;
+  avatar?: string;
 }
 
 export async function getLeaderboard(game: string, limit = 20): Promise<LeaderRow[]> {
@@ -112,6 +114,10 @@ export interface AgentMatchSummary {
   outcome: "win" | "loss" | "draw";
   ratingDelta?: number;
   ts: number;
+  // Display del RIVAL (nombre/avatar), resuelto por el árbitro; el address
+  // corto queda de fallback en la UI.
+  name?: string;
+  avatar?: string;
 }
 
 export function createAgent(input: {
@@ -165,7 +171,7 @@ export interface RecentMatch {
   matchId: string;
   game: string;
   stake: number;
-  players: { address: string; score?: number }[];
+  players: { address: string; score?: number; name?: string; avatar?: string }[];
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
   createdAt: number;
@@ -173,7 +179,7 @@ export interface RecentMatch {
 
 export interface PublicReplay extends RecentMatch {
   seed: number;
-  players: { address: string; score?: number; replay?: unknown }[];
+  players: { address: string; score?: number; replay?: unknown; name?: string; avatar?: string }[];
 }
 
 export async function getRecentMatches(game?: string, limit = 20): Promise<RecentMatch[]> {
@@ -208,6 +214,34 @@ export interface StatsView {
 
 export function getStats(): Promise<StatsView> {
   return req("/stats");
+}
+
+// ------------------------------------------------------------------------- //
+// PERFILES humanos: nombre + avatar por wallet (editar va FIRMADO por el dueño).
+// ------------------------------------------------------------------------- //
+
+export interface Profile {
+  name: string;
+  avatar: string;
+  updatedAt: number;
+}
+
+export async function getProfile(address: string): Promise<Profile | null> {
+  const out = await req<{ profile: Profile | null }>(`/profile/${encodeURIComponent(address)}`);
+  return out.profile;
+}
+
+export function setProfile(input: {
+  address: string;
+  name: string;
+  avatar: string;
+  signature: string;
+  ts: number;
+}): Promise<Profile> {
+  return req<{ profile: Profile }>("/profile", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }).then((o) => o.profile);
 }
 
 /** Identificador del jugador: wallet si esta conectada, o un "invitado" local. */
