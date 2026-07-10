@@ -7,10 +7,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { profileAuthMessage } from "../src/auth.ts";
+import { profileAuthMessage } from "@arcade1v1/game-sdk/auth";
 
 test("profileAuthMessage: formato estable y address en minúsculas", () => {
-  const msg = profileAuthMessage("set", "0xABCDef0000000000000000000000000000000001", 1730000000000);
+  const msg = profileAuthMessage(
+    "set",
+    "0xABCDef0000000000000000000000000000000001",
+    1730000000000,
+  );
   assert.equal(
     msg,
     [
