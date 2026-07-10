@@ -11,6 +11,7 @@ import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
 import { GameIcon } from "@/app/components/GameIcon";
 import { listAgents, agentAction, warmUpArbiter, type AgentView } from "@/app/lib/arbiter";
+import { ProfileEditor } from "./ProfileEditor";
 
 export default function MyAgentsPage() {
   const { t } = useT();
@@ -57,6 +58,13 @@ export default function MyAgentsPage() {
       <Link href="/" className="text-sm font-medium text-(--color-accent-2) hover:underline">
         {t("back")}
       </Link>
+
+      {/* Tu perfil humano (nombre + avatar): vive acá, el hub del que ya entró. */}
+      {address && (
+        <div className="mt-3">
+          <ProfileEditor address={address} />
+        </div>
+      )}
 
       <div className="win mt-3">
         <div className="win-title">
