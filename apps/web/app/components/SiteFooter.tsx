@@ -13,11 +13,13 @@ export function SiteFooter() {
   const { t } = useT();
   return (
     <footer className="mt-12 border-t border-(--color-border) bg-(--color-ink)/60">
-      <div className="mx-auto max-w-5xl px-4 py-10 text-center">
+      <div className="mx-auto max-w-5xl px-4 py-7 text-center">
         <p className="font-pixel text-px10 text-(--color-accent)">
           Arcade1v1 <span className="ml-1 text-(--color-muted-3)">{t("footer.best")}</span>
         </p>
-        <nav className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-(--color-muted-2)">
+        {/* Un solo nivel de links, podado: "Tu primer agente" vive dentro de
+            Construí/Agentes, no necesita entrada propia acá. */}
+        <nav className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm font-medium text-(--color-muted-2)">
           <Link href="/build" className="transition hover:text-(--color-text)">
             {t("nav.build")}
           </Link>
@@ -32,9 +34,6 @@ export function SiteFooter() {
           </Link>
           <Link href="/agents" className="transition hover:text-(--color-text)">
             {t("nav.agents")}
-          </Link>
-          <Link href="/agents/start" className="transition hover:text-(--color-text)">
-            {t("nav.firstAgent")}
           </Link>
           <Link href="/recover" className="transition hover:text-(--color-text)">
             {t("nav.recover")}
@@ -54,22 +53,27 @@ export function SiteFooter() {
             llms.txt
           </a>
         </nav>
-        <p className="mt-5 text-sm text-(--color-muted-3)">{t("footer.responsible")}</p>
-        <p className="mt-1 text-sm text-(--color-muted-3)">{t("footer.demo")}</p>
+        {/* Aviso legal + estado de la red en UNA línea: mismo tono, misma voz */}
         <p className="mt-4 text-sm text-(--color-muted-3)">
-          {t("footer.love")} <span className="text-(--color-accent)">♥</span>
+          {t("footer.responsible")} · {t("footer.demo")}
         </p>
-        <BtcTip />
+        <p className="mt-3 text-sm text-(--color-muted-3)">
+          {t("footer.love")} <span className="text-(--color-accent)">♥</span>
+          <span className="mx-2 text-(--color-muted-3)">·</span>
+          <BtcTip />
+        </p>
       </div>
     </footer>
   );
 }
 
-/** Propina en BTC: la dirección es un botón que la copia al portapapeles
- *  (con feedback), para que nadie tenga que transcribirla a mano. */
+/** Propina en BTC plegada a un botón chico: muestra la dirección truncada y
+ *  copia la COMPLETA al portapapeles (con feedback). La dirección entera de
+ *  42 chars ocupaba 3 renglones en mobile y agrandaba todo el footer. */
 function BtcTip() {
   const { t } = useT();
   const [copied, setCopied] = useState(false);
+  const short = `${BTC_TIP_ADDRESS.slice(0, 8)}…${BTC_TIP_ADDRESS.slice(-4)}`;
 
   async function copy() {
     try {
@@ -77,21 +81,21 @@ function BtcTip() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* algunos navegadores bloquean el portapapeles: el texto sigue visible para copiar a mano */
+      /* algunos navegadores bloquean el portapapeles: el title conserva la dirección completa */
     }
   }
 
   return (
-    <div className="mt-3 flex flex-col items-center gap-1.5">
-      <span className="text-px10 text-(--color-muted-3)">{t("footer.tip")}</span>
-      <button
-        onClick={copy}
-        aria-label={t("footer.tip")}
-        className="inline-flex max-w-full items-center gap-2 rounded border border-(--color-border) bg-(--color-surface-2) px-2.5 py-1 font-mono text-xs text-(--color-muted-2) transition hover:text-(--color-text)"
-      >
-        <span className="break-all">{BTC_TIP_ADDRESS}</span>
-        <span className="shrink-0 text-(--color-accent)">{copied ? t("footer.copied") : "⧉"}</span>
-      </button>
-    </div>
+    <button
+      onClick={copy}
+      title={BTC_TIP_ADDRESS}
+      aria-label={`${t("footer.tip")} — ${BTC_TIP_ADDRESS}`}
+      className="inline-flex items-center gap-1.5 align-middle font-mono text-xs text-(--color-muted-2) transition hover:text-(--color-text)"
+    >
+      <span>
+        ₿ {t("footer.tip")} · {short}
+      </span>
+      <span className="text-(--color-accent)">{copied ? t("footer.copied") : "⧉"}</span>
+    </button>
   );
 }

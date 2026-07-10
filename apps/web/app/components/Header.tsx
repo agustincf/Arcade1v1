@@ -22,6 +22,14 @@ export function Header() {
         {/* min-w-0 permite que la dirección de la wallet se recorte con "…" en
             vez de desbordar la pantalla (en mobile generaba scroll lateral). */}
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          {/* "Mis agentes" es de quien vuelve: vive acá y no en el hero. En
+              mobile el header no da el ancho; queda el acceso del footer. */}
+          <Link
+            href="/my-agents"
+            className="hidden text-sm font-medium text-(--color-muted-2) transition hover:text-(--color-text) sm:inline"
+          >
+            {t("nav.myagents")}
+          </Link>
           <SoundToggle />
           <LanguageSelector />
 

@@ -26,7 +26,6 @@ const en: Dict = {
   "hero.title": "HOW GOOD IS YOUR AGENT?",
   "hero.sub": "Build it, play it 1v1, measure it on the on-chain ELO.",
   "hero.or": "or",
-  "quick.prompt": "Play for stakes:",
   "free.btn": "🎮 TRY FREE",
   "card.cta": "► PLAY 1V1",
   "card.open": "OPEN",
@@ -69,7 +68,6 @@ const en: Dict = {
   "faq.q6": "Is it live with real money?",
   "faq.a6":
     "Not yet. Arcade1v1 currently runs on the Base Sepolia testnet with play money while it is being built and audited.",
-  "quick.titleBet": "WHICH GAME · {bet} USDC STAKE?",
   "quick.titleFree": "TRY FREE · WHICH GAME?",
   "game.tetris.name": "Tetris",
   "game.tetris.desc":
@@ -165,7 +163,6 @@ const en: Dict = {
   "footer.copied": "Copied!",
   "nav.ranking": "Ranking",
   "nav.agents": "Agents",
-  "nav.firstAgent": "Your first agent",
   "result.exe": "RESULT.EXE",
   "g.start": "START ▶",
   "g.confirm": "SUBMIT SCORE ▶",
@@ -372,7 +369,6 @@ const es: Dict = {
   "hero.title": "¿QUÉ TAN BUENO ES TU AGENTE?",
   "hero.sub": "Construilo, ponelo a jugar 1v1 y medilo en el ELO on-chain.",
   "hero.or": "o",
-  "quick.prompt": "Jugá con stake:",
   "free.btn": "🎮 PROBAR GRATIS",
   "card.cta": "► JUGAR 1V1",
   "card.open": "ABIERTO",
@@ -417,7 +413,6 @@ const es: Dict = {
   "faq.q6": "¿Ya funciona con dinero real?",
   "faq.a6":
     "Todavía no. Arcade1v1 corre en la testnet Base Sepolia con dinero de prueba mientras se construye y audita.",
-  "quick.titleBet": "¿QUÉ JUEGO · STAKE DE {bet} USDC?",
   "quick.titleFree": "PROBAR GRATIS · ¿QUÉ JUEGO?",
   "game.tetris.name": "Tetris",
   "game.tetris.desc":
@@ -514,7 +509,6 @@ const es: Dict = {
   "footer.copied": "¡Copiado!",
   "nav.ranking": "Ranking",
   "nav.agents": "Agentes",
-  "nav.firstAgent": "Tu primer agente",
   "result.exe": "RESULTADO.EXE",
   "g.start": "EMPEZAR ▶",
   "g.confirm": "ENVIAR PUNTAJE ▶",
@@ -721,7 +715,6 @@ const hi: Dict = {
   "hero.title": "आपका एजेंट कितना अच्छा है?",
   "hero.sub": "उसे बनाओ, 1v1 खिलाओ और ऑन-चेन ELO पर मापो।",
   "hero.or": "या",
-  "quick.prompt": "स्टेक के साथ खेलो:",
   "free.btn": "🎮 मुफ़्त आज़माओ",
   "card.cta": "► 1v1 खेलो",
   "card.open": "खुला",
@@ -765,7 +758,6 @@ const hi: Dict = {
   "faq.q6": "क्या यह असली पैसे के साथ चालू है?",
   "faq.a6":
     "अभी नहीं। Arcade1v1 फ़िलहाल Base Sepolia टेस्टनेट पर नकली पैसे के साथ चलता है, जबकि इसे बनाया और ऑडिट किया जा रहा है।",
-  "quick.titleBet": "कौन सा गेम · {bet} USDC स्टेक?",
   "quick.titleFree": "मुफ़्त आज़माओ · कौन सा गेम?",
   "game.tetris.name": "Tetris",
   "game.tetris.desc":
@@ -861,7 +853,6 @@ const hi: Dict = {
   "footer.copied": "कॉपी हो गया!",
   "nav.ranking": "रैंकिंग",
   "nav.agents": "एजेंट",
-  "nav.firstAgent": "आपका पहला एजेंट",
   "result.exe": "रिज़ल्ट.EXE",
   "g.start": "शुरू ▶",
   "g.confirm": "स्कोर भेजें ▶",
@@ -1065,7 +1056,6 @@ const fr: Dict = {
   "hero.title": "QUE VAUT TON AGENT ?",
   "hero.sub": "Construis-le, fais-le jouer 1v1, mesure-le à l'ELO on-chain.",
   "hero.or": "ou",
-  "quick.prompt": "Joue avec mise :",
   "free.btn": "🎮 ESSAYER GRATUIT",
   "card.cta": "► JOUER EN 1V1",
   "card.open": "OUVERT",
@@ -1110,7 +1100,6 @@ const fr: Dict = {
   "faq.q6": "Est-ce live avec du vrai argent ?",
   "faq.a6":
     "Pas encore. Arcade1v1 tourne pour l'instant sur le testnet Base Sepolia avec de l'argent fictif, le temps d'être construit et audité.",
-  "quick.titleBet": "QUEL JEU · MISE DE {bet} USDC ?",
   "quick.titleFree": "ESSAYER GRATUIT · QUEL JEU ?",
   "game.tetris.name": "Tetris",
   "game.tetris.desc":
@@ -1210,7 +1199,6 @@ const fr: Dict = {
   "footer.copied": "Copié !",
   "nav.ranking": "Classement",
   "nav.agents": "Agents",
-  "nav.firstAgent": "Ton premier agent",
   "result.exe": "RÉSULTAT.EXE",
   "g.start": "DÉMARRER ▶",
   "g.confirm": "ENVOYER LE SCORE ▶",
