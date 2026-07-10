@@ -2,8 +2,9 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { getGame } from "@/app/lib/games";
-import { getPayout, PLATFORM_FEE } from "@/app/lib/config";
+import { getPayout, PLATFORM_FEE, IS_MAINNET } from "@/app/lib/config";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
@@ -457,7 +458,17 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
               {funding !== "" ? (
                 <p className="mt-3 text-sm text-(--color-muted-2)">{t("match.fundingNote")}</p>
               ) : depositErr ? (
-                <p className="mt-3 text-sm text-(--color-lose)">{t("match.depositRetry")}</p>
+                <>
+                  <p className="mt-3 text-sm text-(--color-lose)">{t("match.depositRetry")}</p>
+                  {/* Causa típica del fallo en testnet: sin fichas de prueba. Atajo al faucet. */}
+                  {!IS_MAINNET && (
+                    <p className="mt-2 text-sm">
+                      <Link href="/faucet" className="text-(--color-accent-2) hover:underline">
+                        {t("match.faucetLink")}
+                      </Link>
+                    </p>
+                  )}
+                </>
               ) : null}
             </div>
           ) : game.id === "tetris" ? (

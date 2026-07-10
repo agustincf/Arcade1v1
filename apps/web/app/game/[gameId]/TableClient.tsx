@@ -7,7 +7,15 @@ import { getGame } from "@/app/lib/games";
 import { warmUpArbiter } from "@/app/lib/arbiter";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
-import { BET_AMOUNTS, getPayout, PLATFORM_FEE, DEFAULT_BET, VIP_BET } from "@/app/lib/config";
+import {
+  BET_AMOUNTS,
+  getPayout,
+  PLATFORM_FEE,
+  DEFAULT_BET,
+  VIP_BET,
+  IS_MAINNET,
+} from "@/app/lib/config";
+import { onchainEnabled } from "@/app/lib/escrow";
 import { HelpTip } from "@/app/components/onboarding/HelpTip";
 
 export function TableClient({ params }: { params: Promise<{ gameId: string }> }) {
@@ -115,6 +123,14 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
             <p className="mt-2 text-center text-sm text-(--color-muted-2)">
               {t("table.norisk")} <HelpTip k="escrow" />
             </p>
+            {/* Para depositar hacen falta fichas de prueba (testnet): atajo al faucet. */}
+            {onchainEnabled && !IS_MAINNET && (
+              <p className="mt-2 text-center text-sm">
+                <Link href="/faucet" className="text-(--color-accent-2) hover:underline">
+                  {t("table.faucet")}
+                </Link>
+              </p>
+            )}
           </div>
 
           {/* Desglose del pozo */}

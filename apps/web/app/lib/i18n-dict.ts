@@ -214,6 +214,7 @@ const en: Dict = {
   "err.retry": "RETRY ▶",
   loading: "LOADING...",
   "nav.recover": "Recover funds",
+  "nav.faucet": "Get test tokens",
   "recover.title": "RECOVER FUNDS",
   "recover.intro":
     "If you opened a paid match and no rival showed up in time — or the match was full but ended without a result — you can get your deposit back here. Funds are always safe in the contract.",
@@ -239,6 +240,27 @@ const en: Dict = {
   "recover.done": "Refunded ✓",
   "recover.error": "Couldn't refund. Try again in a moment.",
   "recover.dismiss": "Dismiss",
+  // ---- v3 fase 1: faucet integrado (solo testnet) ----
+  "faucet.title": "GET TEST TOKENS",
+  "faucet.intro":
+    "Paid tables run on Base Sepolia with test USDC — play money, not real funds. Mint yourself some here in one click and you're ready for the paid tables.",
+  "faucet.mainnet":
+    "The faucet only exists on testnet. On the real network you fund your wallet with real USDC — there are no free tokens to mint.",
+  "faucet.connectPrompt": "Connect your wallet to mint test tokens.",
+  "faucet.gasTitle": "1 · A little gas first",
+  "faucet.gasBody":
+    "Every on-chain action needs a tiny bit of test ETH to pay the network fee (gas). Grab some free from a Base Sepolia faucet — it takes a minute.",
+  "faucet.gasLink": "Open a gas faucet",
+  "faucet.mintTitle": "2 · Mint test USDC",
+  "faucet.mintBody": "Mint {n} test USDC into your wallet. Free — you only pay the gas above.",
+  "faucet.mintBtn": "Get {n} test USDC",
+  "faucet.minting": "Minting...",
+  "faucet.mintingNote": "Confirm the transaction in your wallet.",
+  "faucet.done": "Done — you've got tokens to play with ✓",
+  "faucet.error": "Couldn't mint. Make sure you have a little test ETH for gas, then try again.",
+  "faucet.play": "Play a paid table",
+  "table.faucet": "No tokens? Get them free",
+  "match.faucetLink": "Out of tokens? Get more",
   // ---- v2.0: builder de agentes, espectador, onboarding ----
   close: "Close",
   "match.freeLadder": "FREE LADDER",
@@ -561,6 +583,7 @@ const es: Dict = {
   "err.retry": "REINTENTAR ▶",
   loading: "CARGANDO...",
   "nav.recover": "Recuperar fondos",
+  "nav.faucet": "Conseguí fichas",
   "recover.title": "RECUPERAR FONDOS",
   "recover.intro":
     "Si abriste una partida de plata y no apareció rival a tiempo —o la partida se llenó pero terminó sin resultado— acá podés recuperar tu depósito. Los fondos siempre están seguros en el contrato.",
@@ -586,6 +609,29 @@ const es: Dict = {
   "recover.done": "Reembolsado ✓",
   "recover.error": "No se pudo reembolsar. Probá de nuevo en un momento.",
   "recover.dismiss": "Descartar",
+  // ---- v3 fase 1: faucet integrado (solo testnet) ----
+  "faucet.title": "CONSEGUÍ FICHAS",
+  "faucet.intro":
+    "Las mesas pagas corren en Base Sepolia con USDC de prueba — dinero de juego, no fondos reales. Acuñate unas acá en un clic y ya podés jugar las mesas pagas.",
+  "faucet.mainnet":
+    "El faucet solo existe en testnet. En la red real la wallet se fondea con USDC de verdad — no hay fichas gratis para acuñar.",
+  "faucet.connectPrompt": "Conectá tu wallet para acuñar fichas de prueba.",
+  "faucet.gasTitle": "1 · Un poco de gas primero",
+  "faucet.gasBody":
+    "Cada acción on-chain necesita un poquito de ETH de prueba para pagar la comisión de la red (el gas). Conseguí un poco gratis en un faucet de Base Sepolia — tarda un minuto.",
+  "faucet.gasLink": "Abrir un faucet de gas",
+  "faucet.mintTitle": "2 · Acuñá USDC de prueba",
+  "faucet.mintBody":
+    "Acuñá {n} USDC de prueba en tu wallet. Es gratis — solo pagás el gas de arriba.",
+  "faucet.mintBtn": "Conseguí {n} USDC de prueba",
+  "faucet.minting": "Acuñando...",
+  "faucet.mintingNote": "Confirmá la transacción en tu wallet.",
+  "faucet.done": "¡Listo! Ya tenés fichas para jugar ✓",
+  "faucet.error":
+    "No se pudo acuñar. Asegurate de tener un poco de ETH de prueba para el gas y probá de nuevo.",
+  "faucet.play": "Jugar una mesa paga",
+  "table.faucet": "¿Sin fichas? Conseguilas gratis",
+  "match.faucetLink": "¿Te quedaste sin fichas? Conseguí más",
   // ---- v2.0: builder de agentes, espectador, onboarding ----
   close: "Cerrar",
   "match.freeLadder": "LADDER GRATIS",
@@ -902,6 +948,7 @@ const hi: Dict = {
   "err.retry": "फिर कोशिश ▶",
   loading: "लोड हो रहा है...",
   "nav.recover": "फंड वापस पाएं",
+  "nav.faucet": "टेस्ट टोकन पाएं",
   "recover.title": "फंड वापस पाएं",
   "recover.intro":
     "अगर आपने पैसों वाला मैच खोला और समय पर कोई प्रतिद्वंद्वी नहीं आया — या मैच भर गया पर बिना नतीजे के खत्म हुआ — तो यहाँ अपनी जमा राशि वापस पा सकते हैं। फंड हमेशा कॉन्ट्रैक्ट में सुरक्षित रहते हैं।",
@@ -927,6 +974,28 @@ const hi: Dict = {
   "recover.done": "वापस कर दिया गया ✓",
   "recover.error": "रिफंड नहीं हो सका। थोड़ी देर में फिर कोशिश करें।",
   "recover.dismiss": "हटाएं",
+  // ---- v3 fase 1: faucet integrado (solo testnet) ----
+  "faucet.title": "टेस्ट टोकन पाएं",
+  "faucet.intro":
+    "पेड टेबल Base Sepolia पर टेस्ट USDC के साथ चलती हैं — नकली पैसा, असली फंड नहीं। यहाँ एक क्लिक में कुछ मिंट करें और पेड टेबल खेलने के लिए तैयार।",
+  "faucet.mainnet":
+    "फॉसेट सिर्फ टेस्टनेट पर है। असली नेटवर्क पर आप अपना वॉलेट असली USDC से भरते हैं — मिंट करने के लिए कोई मुफ्त टोकन नहीं है।",
+  "faucet.connectPrompt": "टेस्ट टोकन मिंट करने के लिए अपना वॉलेट कनेक्ट करें।",
+  "faucet.gasTitle": "1 · पहले थोड़ा गैस",
+  "faucet.gasBody":
+    "हर ऑन-चेन क्रिया को नेटवर्क शुल्क (गैस) चुकाने के लिए थोड़ा टेस्ट ETH चाहिए। Base Sepolia फॉसेट से मुफ्त में लें — एक मिनट लगता है।",
+  "faucet.gasLink": "गैस फॉसेट खोलें",
+  "faucet.mintTitle": "2 · टेस्ट USDC मिंट करें",
+  "faucet.mintBody":
+    "अपने वॉलेट में {n} टेस्ट USDC मिंट करें। मुफ्त — आप सिर्फ ऊपर वाला गैस चुकाते हैं।",
+  "faucet.mintBtn": "{n} टेस्ट USDC पाएं",
+  "faucet.minting": "मिंट हो रहा है...",
+  "faucet.mintingNote": "अपने वॉलेट में लेन-देन की पुष्टि करें।",
+  "faucet.done": "हो गया — अब आपके पास खेलने के लिए टोकन हैं ✓",
+  "faucet.error": "मिंट नहीं हो सका। गैस के लिए थोड़ा टेस्ट ETH रखें, फिर दोबारा कोशिश करें।",
+  "faucet.play": "पेड टेबल खेलें",
+  "table.faucet": "टोकन नहीं? मुफ्त में पाएं",
+  "match.faucetLink": "टोकन खत्म? और पाएं",
   // ---- v2.0 (traducción automática, revisar) ----
   close: "बंद करें",
   "match.freeLadder": "फ्री लैडर",
@@ -1252,6 +1321,7 @@ const fr: Dict = {
   "err.retry": "RÉESSAYER ▶",
   loading: "CHARGEMENT...",
   "nav.recover": "Récupérer les fonds",
+  "nav.faucet": "Obtenir des jetons test",
   "recover.title": "RÉCUPÉRER LES FONDS",
   "recover.intro":
     "Si vous avez ouvert une partie en argent et qu'aucun rival n'est venu à temps — ou que la partie était pleine mais s'est terminée sans résultat — vous pouvez récupérer votre dépôt ici. Les fonds sont toujours en sécurité dans le contrat.",
@@ -1277,6 +1347,29 @@ const fr: Dict = {
   "recover.done": "Remboursé ✓",
   "recover.error": "Échec du remboursement. Réessayez dans un instant.",
   "recover.dismiss": "Ignorer",
+  // ---- v3 fase 1: faucet integrado (solo testnet) ----
+  "faucet.title": "OBTENIR DES JETONS TEST",
+  "faucet.intro":
+    "Les tables payantes tournent sur Base Sepolia avec de l'USDC de test — de l'argent fictif, pas de vrais fonds. Génères-en ici en un clic et tu es prêt pour les tables payantes.",
+  "faucet.mainnet":
+    "Le faucet n'existe que sur testnet. Sur le vrai réseau, tu alimentes ton wallet avec du vrai USDC — il n'y a pas de jetons gratuits à générer.",
+  "faucet.connectPrompt": "Connecte ton wallet pour générer des jetons de test.",
+  "faucet.gasTitle": "1 · Un peu de gas d'abord",
+  "faucet.gasBody":
+    "Chaque action on-chain a besoin d'un petit peu d'ETH de test pour payer les frais de réseau (le gas). Prends-en gratuitement sur un faucet Base Sepolia — ça prend une minute.",
+  "faucet.gasLink": "Ouvrir un faucet de gas",
+  "faucet.mintTitle": "2 · Générer de l'USDC de test",
+  "faucet.mintBody":
+    "Génère {n} USDC de test dans ton wallet. Gratuit — tu paies seulement le gas ci-dessus.",
+  "faucet.mintBtn": "Obtenir {n} USDC de test",
+  "faucet.minting": "Génération...",
+  "faucet.mintingNote": "Confirme la transaction dans ton wallet.",
+  "faucet.done": "C'est fait — tu as des jetons pour jouer ✓",
+  "faucet.error":
+    "Impossible de générer. Assure-toi d'avoir un peu d'ETH de test pour le gas, puis réessaie.",
+  "faucet.play": "Jouer une table payante",
+  "table.faucet": "Pas de jetons ? Obtiens-en gratuitement",
+  "match.faucetLink": "Plus de jetons ? Obtiens-en",
   // ---- v2.0 (traducción automática, revisar) ----
   close: "Fermer",
   "match.freeLadder": "LADDER GRATUIT",

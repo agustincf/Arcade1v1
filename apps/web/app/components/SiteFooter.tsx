@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useT } from "@/app/lib/i18n";
+import { IS_MAINNET } from "@/app/lib/config";
 
 // Dirección de propinas (BTC, on-chain nativo). Va como constante para copiarla
 // SIEMPRE exacta: transcribir a mano una bech32 de 42 chars es un desastre y un
@@ -38,6 +39,13 @@ export function SiteFooter() {
           <Link href="/recover" className="transition hover:text-(--color-text)">
             {t("nav.recover")}
           </Link>
+          {/* El faucet solo tiene sentido en testnet (mint abierto del USDC de
+              prueba). En la red real no aparece. */}
+          {!IS_MAINNET && (
+            <Link href="/faucet" className="transition hover:text-(--color-text)">
+              {t("nav.faucet")}
+            </Link>
+          )}
           <Link href="/terms" className="transition hover:text-(--color-text)">
             {t("nav.terms")}
           </Link>
