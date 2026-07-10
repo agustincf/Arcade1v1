@@ -36,6 +36,18 @@ export function agentAuthMessage(
   ].join("\n");
 }
 
+/** Mensaje a firmar para editar el PERFIL humano (nombre + avatar). Ata:
+ *  acción + la propia address + momento (ts). El firmante debe ser esa address:
+ *  nadie edita el perfil de otro. */
+export function profileAuthMessage(action: string, address: string, ts: number): string {
+  return [
+    "Arcade1v1: edito mi perfil",
+    `action: ${action}`,
+    `player: ${address.toLowerCase()}`,
+    `ts: ${ts}`,
+  ].join("\n");
+}
+
 /** Mensaje a firmar al EMPAREJAR. Ata: juego + mesa + jugador + momento (ts).
  *  Sin esto, cualquiera podría encolar direcciones ajenas (suplantación) o
  *  llenar la cola de rivales fantasma que nunca depositan. El `ts` (epoch ms)
