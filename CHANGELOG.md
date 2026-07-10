@@ -8,6 +8,26 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [2.3.0] — 2026-07-10
+
+Segunda fase de la v3 ("Solidez y puertas abiertas"): hacer visible, con datos
+reales, qué está pasando por dentro.
+
+### Añadido
+
+- **Página de estado pública (`/status`)**: números reales y en vivo del
+  árbitro, sin contadores inventados (regla de la casa). Muestra el estado del
+  servidor y su uptime, partidas creadas y decididas (total y del día), envíos
+  rechazados por el anti-trampa, agentes hosteados activos, y un desglose por
+  día. Accesible desde el footer.
+- **Endpoint `GET /stats`** en el árbitro: métricas públicas bajo el rate-limit
+  existente, también útiles para agentes.
+- Contadores acumulados en el servidor (partidas creadas/decididas y rechazos de
+  verificación de replay), persistidos con el mismo store que ratings y agentes:
+  **sobreviven un redeploy**. El detalle diario se poda a los últimos 30 días.
+- Textos de `/status` traducidos a los 4 idiomas (inglés, español, hindi,
+  francés).
+
 ## [2.2.0] — 2026-07-10
 
 Primera fase de la v3 ("Solidez y puertas abiertas"): quitar la fricción de
