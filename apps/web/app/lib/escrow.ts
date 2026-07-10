@@ -90,6 +90,19 @@ export const MatchStatus = {
 } as const;
 
 export const erc20Abi = [
+  // mint ABIERTO del USDC de PRUEBA (TestUSDC.sol): cualquiera acuña fichas
+  // gratis en testnet. En mainnet el USDC real no tiene esta función — la
+  // página /faucet se bloquea con IS_MAINNET, así que nunca se llega a llamar.
+  {
+    type: "function",
+    name: "mint",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
   {
     type: "function",
     name: "allowance",

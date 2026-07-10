@@ -45,6 +45,36 @@ export function useEscrow() {
     await publicClient.waitForTransactionReceipt({ hash });
   }
 
+  /** Acuña USDC de PRUEBA para la wallet (faucet integrado, solo testnet). El
+   *  TestUSDC.sol tiene mint abierto: no cuesta nada salvo el gas. La página
+   *  /faucet se bloquea en mainnet, así que esto nunca corre con dinero real. */
+  async function mintTestUsdc(to: `0x${string}`, amountUsdc: number) {
+    if (!USDC_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    const hash = await writeContractAsync({
+      address: USDC_ADDRESS,
+      abi: erc20Abi,
+      functionName: "mint",
+      args: [to, toUsdcUnits(amountUsdc)],
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+  }
+
+  /** Lee el saldo de USDC de una wallet (en unidades del token, 6 decimales).
+   *  Se divide por 1_000_000 para mostrarlo como monto legible. */
+  async function readUsdcBalance(owner: `0x${string}`): Promise<bigint> {
+    if (!USDC_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    return (await publicClient.readContract({
+      address: USDC_ADDRESS,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [owner],
+    })) as bigint;
+  }
+
   /** P1 ABRE la partida depositando su apuesta (modelo asincronico: el 1ro abre,
    *  el 2do se une; nadie espera colgado). El approve ya se hizo antes. */
   async function open(matchId: `0x${string}`, betUsdc: number) {
@@ -162,5 +192,15 @@ export function useEscrow() {
     };
   }
 
-  return { approveStake, open, join, claim, refundUnfunded, refundExpired, readMatch };
+  return {
+    approveStake,
+    mintTestUsdc,
+    readUsdcBalance,
+    open,
+    join,
+    claim,
+    refundUnfunded,
+    refundExpired,
+    readMatch,
+  };
 }
