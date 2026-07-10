@@ -48,11 +48,23 @@ export default function BuildPage() {
   const [sandbox, setSandbox] = useState<PlayResult | null>(null);
   const [deploying, setDeploying] = useState(false);
   const [deployError, setDeployError] = useState(false);
+  const [slowHint, setSlowHint] = useState(false);
 
   // El deploy pega al árbitro; despertarlo ya (hosting gratuito que duerme).
   useEffect(() => {
     warmUpArbiter();
   }, []);
+
+  // Si "Desplegando…" se estira (el hosting gratuito despierta de a poco),
+  // lo decimos: sin este aviso parecía colgado (mismo patrón que la mesa).
+  useEffect(() => {
+    if (!deploying) {
+      setSlowHint(false);
+      return;
+    }
+    const tm = setTimeout(() => setSlowHint(true), 5000);
+    return () => clearTimeout(tm);
+  }, [deploying]);
 
   const def = strategyId ? getStrategy(strategyId) : undefined;
 
@@ -326,6 +338,11 @@ export default function BuildPage() {
                 >
                   {deploying ? t("build.deploying") : `🚀 ${t("build.deploy")}`}
                 </button>
+              )}
+              {deploying && slowHint && (
+                <p className="mx-auto mt-3 max-w-sm text-center text-sm text-(--color-muted-2)">
+                  {t("build.waking")}
+                </p>
               )}
               {deployError && (
                 <p className="mt-3 text-center text-sm text-(--color-lose)">{t("match.error")}</p>

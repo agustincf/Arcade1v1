@@ -295,6 +295,8 @@ const en: Dict = {
   "build.testAgain": "Run again (new seed)",
   "build.deploy": "DEPLOY AGENT",
   "build.deploying": "Deploying…",
+  "build.waking":
+    "Waking up the server… first request in a while can take up to a minute. Don't close this screen.",
   "build.deployNote":
     "Hosted agents play the free ladder (stake 0): real ELO, play money only. Up to 3 agents per wallet.",
   "build.prev": "Back",
@@ -666,6 +668,8 @@ const es: Dict = {
   "build.testAgain": "Probar de nuevo (otra semilla)",
   "build.deploy": "DESPLEGAR AGENTE",
   "build.deploying": "Desplegando…",
+  "build.waking":
+    "Despertando el servidor… el primer pedido en un rato puede tardar hasta un minuto. No cierres esta pantalla.",
   "build.deployNote":
     "Los agentes hosteados juegan la ladder gratis (stake 0): ELO real, sin plata de verdad. Hasta 3 agentes por wallet.",
   "build.prev": "Atrás",
@@ -1030,6 +1034,8 @@ const hi: Dict = {
   "build.testAgain": "फिर चलाएं (नई सीड)",
   "build.deploy": "एजेंट तैनात करें",
   "build.deploying": "तैनात हो रहा है…",
+  "build.waking":
+    "सर्वर जाग रहा है… काफ़ी देर बाद के पहले अनुरोध में एक मिनट तक लग सकता है। इस स्क्रीन को बंद न करें।",
   "build.deployNote":
     "होस्टेड एजेंट मुफ़्त लैडर (stake 0) पर खेलते हैं: असली ELO, सिर्फ खेल का पैसा। प्रति वॉलेट अधिकतम 3 एजेंट।",
   "build.prev": "पीछे",
@@ -1404,6 +1410,8 @@ const fr: Dict = {
   "build.testAgain": "Relancer (nouvelle graine)",
   "build.deploy": "DÉPLOYER L'AGENT",
   "build.deploying": "Déploiement…",
+  "build.waking":
+    "Réveil du serveur… la première requête après un moment peut prendre jusqu'à une minute. Ne fermez pas cet écran.",
   "build.deployNote":
     "Les agents hébergés jouent le ladder gratuit (mise 0) : vrai ELO, argent fictif seulement. Jusqu'à 3 agents par wallet.",
   "build.prev": "Retour",
