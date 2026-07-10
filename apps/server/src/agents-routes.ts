@@ -17,6 +17,7 @@ import {
   toView,
   updateAgent,
 } from "./agents.js";
+import { resolveDisplay } from "./profiles.js";
 
 const normAddr = (a: string) => String(a).toLowerCase();
 
@@ -103,7 +104,12 @@ agentsRouter.get("/agents/:id", (req, res) => {
 agentsRouter.get("/agents/:id/matches", (req, res) => {
   const a = getAgent(req.params.id);
   if (!a) return res.status(404).json({ error: "agent not found" });
-  res.json({ agentId: a.id, matches: a.history });
+  // name/avatar acá describen al RIVAL de cada partida (cada fila es "vs X").
+  const matches = a.history.map((m) => ({
+    ...m,
+    ...(m.opponent ? resolveDisplay(m.opponent) : {}),
+  }));
+  res.json({ agentId: a.id, matches });
 });
 
 // Administrar: pause / resume / update / delete. Firma del dueño sobre el id.
