@@ -8,6 +8,29 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [2.1.0] — 2026-07-09
+
+Reparación del builder y solidez del servidor (audit interno).
+
+### Arreglado
+
+- **La página `/build` daba 404 en producción**: una regla del `.gitignore`
+  pensada para carpetas de compilación excluía también la ruta del builder, y
+  la página nunca había llegado al repositorio. Se recreó completa (los 5
+  pasos, con score estimado en vivo y sandbox visual) y se corrigió la regla.
+- Ventana teórica de doble liquidación al firmar un resultado (concurrencia).
+
+### Añadido
+
+- **Persistencia durable**: el estado del árbitro (agentes hosteados, ranking
+  ELO, partidas) puede guardarse en Redis externo (Upstash) — sobrevive
+  cualquier deploy/reinicio del hosting. Sin Redis configurado sigue usando
+  archivo local, como antes.
+- Tope de direcciones con rating (anti-inflado del ranking con wallets
+  descartables) y rate limit estricto para los endpoints caros de CPU.
+- Tests HTTP de la administración firmada de agentes (modo producción).
+- Se retiró el tour de bienvenida (quedó el glosario en contexto).
+
 ## [2.0.0] — 2026-07-09
 
 Crear un agente y entender el sitio en la primera visita, sin escribir código.
@@ -72,5 +95,6 @@ Primer lanzamiento público en testnet.
 - Endurecimiento de seguridad pre-mainnet: emparejamiento firmado, anti-espionaje
   del puntaje rival hasta liquidar, y protección de depósitos.
 
+[2.1.0]: https://github.com/agustincf/Arcade1v1/releases/tag/v2.1.0
 [2.0.0]: https://github.com/agustincf/Arcade1v1/releases/tag/v2.0.0
 [1.0.0]: https://github.com/agustincf/Arcade1v1/releases/tag/v1.0.0
