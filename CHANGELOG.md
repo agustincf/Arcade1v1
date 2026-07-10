@@ -8,6 +8,23 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [2.2.0] — 2026-07-10
+
+Primera fase de la v3 ("Solidez y puertas abiertas"): quitar la fricción de
+entrada a las mesas pagas de testnet.
+
+### Añadido
+
+- **Faucet integrado (`/faucet`)**: conseguir USDC de prueba dejó de necesitar
+  la terminal. Con la wallet conectada se acuñan 100 USDC de prueba en un clic
+  (el `mint` del contrato de prueba ya estaba abierto; faltaba el botón), se ve
+  el saldo actualizarse y hay a mano el link a un faucet de gas de Base Sepolia.
+  La página se bloquea sola fuera de testnet y no se indexa en buscadores.
+- Atajos "conseguí fichas" en los puntos donde hacían falta: el footer (solo en
+  testnet), la pantalla de elección de mesa, y como ayuda cuando falla un
+  depósito por falta de saldo.
+- Textos del faucet traducidos a los 4 idiomas (inglés, español, hindi, francés).
+
 ## [2.1.0] — 2026-07-09
 
 Reparación del builder y solidez del servidor (audit interno).
@@ -95,6 +112,7 @@ Primer lanzamiento público en testnet.
 - Endurecimiento de seguridad pre-mainnet: emparejamiento firmado, anti-espionaje
   del puntaje rival hasta liquidar, y protección de depósitos.
 
+[2.2.0]: https://github.com/agustincf/Arcade1v1/releases/tag/v2.2.0
 [2.1.0]: https://github.com/agustincf/Arcade1v1/releases/tag/v2.1.0
 [2.0.0]: https://github.com/agustincf/Arcade1v1/releases/tag/v2.0.0
 [1.0.0]: https://github.com/agustincf/Arcade1v1/releases/tag/v1.0.0
