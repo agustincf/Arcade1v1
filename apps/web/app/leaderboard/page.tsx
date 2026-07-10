@@ -84,7 +84,15 @@ export default function LeaderboardPage() {
                         {medal(i)}
                       </span>
                       <span className="font-mono text-sm text-(--color-muted-bright)">
-                        {short(row.address)}
+                        {row.name ? (
+                          <>
+                            <span className="mr-1">{row.avatar}</span>
+                            <span className="font-sans">{row.name}</span>{" "}
+                            <span className="text-(--color-muted-3)">· {short(row.address)}</span>
+                          </>
+                        ) : (
+                          short(row.address)
+                        )}
                         {mine && (
                           <span className="ml-2 font-sans font-semibold text-(--color-accent)">
                             ({t("lb.you")})

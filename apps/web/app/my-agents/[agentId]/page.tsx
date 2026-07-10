@@ -194,7 +194,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
                     {m.yourScore ?? "?"} - {m.rivalScore ?? "?"}
                   </span>
                   <span className="text-(--color-muted-2)">
-                    {t("agent.vs")} {m.opponent ? shortAddress(m.opponent) : "?"}
+                    {t("agent.vs")}{" "}
+                    {m.name
+                      ? `${m.avatar ?? ""} ${m.name}`
+                      : m.opponent
+                        ? shortAddress(m.opponent)
+                        : "?"}
                   </span>
                   {typeof m.ratingDelta === "number" && (
                     <span
