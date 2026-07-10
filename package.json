@@ -13,11 +13,14 @@
     "test": "node --import tsx --test \"{packages,apps}/*/test/*.test.ts\"",
     "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
     "typecheck:server": "tsc --noEmit -p apps/server/tsconfig.json",
+    "typecheck:mcp": "tsc --noEmit -p apps/mcp/tsconfig.json",
+    "typecheck:packages": "tsc --noEmit -p packages/game-sdk/tsconfig.json && tsc --noEmit -p packages/strategies/tsconfig.json && tsc --noEmit -p packages/agent-sdk/tsconfig.json",
+    "typecheck": "npm run typecheck:web && npm run typecheck:server && npm run typecheck:mcp && npm run typecheck:packages",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "selftest": "npm run --workspace apps/server selftest",
-    "check": "npm run typecheck:web && npm run typecheck:server && npm run lint && npm run format:check && npm test && npm run selftest"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run selftest"
   },
   "overrides": {
     "qr": "0.5.5"

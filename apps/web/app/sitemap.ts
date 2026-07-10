@@ -14,6 +14,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: SITE.url, lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: `${SITE.url}/leaderboard`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    // /build es el CTA principal del sitio (crear un agente sin código).
+    { url: `${SITE.url}/build`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${SITE.url}/watch`, lastModified: now, changeFrequency: "daily", priority: 0.6 },
     // /agents es el diferenciador del producto: prioridad alta.
     { url: `${SITE.url}/agents`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     // ABC para no-tecnicos: capta busquedas de "como construir un agente".
