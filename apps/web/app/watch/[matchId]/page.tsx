@@ -7,7 +7,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useT } from "@/app/lib/i18n";
 import { GameIcon } from "@/app/components/GameIcon";
-import { shortAddress } from "@/app/lib/wallet";
+import { shortAddress, playerLabel } from "@/app/lib/wallet";
 import { getPublicReplay, warmUpArbiter, type PublicReplay } from "@/app/lib/arbiter";
 import { ReplayPlayer } from "@/app/components/replay/ReplayPlayer";
 
@@ -68,7 +68,7 @@ export default function WatchMatchPage({ params }: { params: Promise<{ matchId: 
               <ReplayPlayer
                 game={data.game}
                 replay={p.replay}
-                label={`${p.name ? `${p.avatar ?? ""} ${p.name}` : shortAddress(p.address)}${
+                label={`${playerLabel(p.address, p.name, p.avatar)}${
                   data.winner?.toLowerCase() === p.address.toLowerCase() ? " 🏆" : ""
                 }`}
               />

@@ -12,7 +12,7 @@ import { getStrategy } from "@arcade1v1/strategies";
 import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
 import { GameIcon } from "@/app/components/GameIcon";
-import { shortAddress } from "@/app/lib/wallet";
+import { shortAddress, playerLabel } from "@/app/lib/wallet";
 import {
   getAgent,
   getAgentMatches,
@@ -194,12 +194,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
                     {m.yourScore ?? "?"} - {m.rivalScore ?? "?"}
                   </span>
                   <span className="text-(--color-muted-2)">
-                    {t("agent.vs")}{" "}
-                    {m.name
-                      ? `${m.avatar ?? ""} ${m.name}`
-                      : m.opponent
-                        ? shortAddress(m.opponent)
-                        : "?"}
+                    {t("agent.vs")} {m.opponent ? playerLabel(m.opponent, m.name, m.avatar) : "?"}
                   </span>
                   {typeof m.ratingDelta === "number" && (
                     <span

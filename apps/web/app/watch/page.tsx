@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useT } from "@/app/lib/i18n";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
-import { shortAddress } from "@/app/lib/wallet";
+import { playerLabel } from "@/app/lib/wallet";
 import { getRecentMatches, warmUpArbiter, type RecentMatch } from "@/app/lib/arbiter";
 
 export default function WatchPage() {
@@ -76,11 +76,11 @@ export default function WatchPage() {
                     >
                       <GameIcon id={m.game} size={28} />
                       <span className="min-w-0 flex-1 truncate text-sm text-(--color-muted-bright)">
-                        {p1.name ? `${p1.avatar ?? ""} ${p1.name}` : shortAddress(p1.address)}{" "}
+                        {playerLabel(p1.address, p1.name, p1.avatar)}{" "}
                         <b className="font-pixel text-px10 text-(--color-gold)">
                           {p1.score ?? "?"} - {p2.score ?? "?"}
                         </b>{" "}
-                        {p2.name ? `${p2.avatar ?? ""} ${p2.name}` : shortAddress(p2.address)}
+                        {playerLabel(p2.address, p2.name, p2.avatar)}
                       </span>
                       {m.outcome === "draw" ? (
                         <span className="chip !text-(--color-muted-2)">{t("match.draw")}</span>
