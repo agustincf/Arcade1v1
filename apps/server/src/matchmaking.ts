@@ -19,6 +19,7 @@ import {
 import { onchainEnabled, cancelMatchOnchain } from "./onchain.js";
 import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
 import { jsonStore } from "./persist.js";
+import { recordMatchCreated, recordMatchSettled, recordVerificationRejected } from "./stats.js";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
 
@@ -204,6 +205,7 @@ function createWaiting(k: string, game: string, stake: number, address: string) 
   };
   matches.set(m.id, m);
   queue.set(k, m.id);
+  recordMatchCreated(); // métrica: una partida nueva (unirse a una existente no crea otra)
   persist();
   return view(m, address);
 }
@@ -319,26 +321,32 @@ export async function submitScore(
   // ANTI-TRAMPA (default-deny): TODO juego debe tener verificador. Re-jugamos el
   // replay y exigimos que el puntaje declarado coincida con el verificado. Si el
   // juego es desconocido o el replay no valida/no coincide, se rechaza: nunca se
-  // confía en un puntaje sin re-jugarlo.
-  const verifier = VERIFIERS[m.game];
-  if (!verifier) throw new Error(`unknown game: ${m.game}`);
-  if (!verifier.valid(replay)) throw new Error("replay required");
-  // ANTI-DoS: cortar replays absurdamente largos ANTES de re-jugarlos (ver helper).
-  if (replayTooLong(replay)) throw new Error("replay too long");
-  // ANTI-TRAMPA (semilla): el replay debe declarar EXACTAMENTE la semilla de la
-  // partida. Sin esto, un jugador probaría muchas semillas offline y mandaría una
-  // favorable (eligiendo el "azar" a su gusto) -> ganaría con dinero real de forma
-  // desleal. Además forzamos la semilla real al re-jugar: el árbitro manda sobre el
-  // azar, nunca el cliente.
-  const replaySeed = (replay as { seed?: unknown }).seed;
-  if (replaySeed !== m.seed) {
-    throw new Error(`seed mismatch (expected ${m.seed}, got ${String(replaySeed)})`);
+  // confía en un puntaje sin re-jugarlo. Todo rechazo de este bloque cuenta como
+  // "verificación rechazada" en las métricas (el catch incrementa y re-lanza).
+  try {
+    const verifier = VERIFIERS[m.game];
+    if (!verifier) throw new Error(`unknown game: ${m.game}`);
+    if (!verifier.valid(replay)) throw new Error("replay required");
+    // ANTI-DoS: cortar replays absurdamente largos ANTES de re-jugarlos (ver helper).
+    if (replayTooLong(replay)) throw new Error("replay too long");
+    // ANTI-TRAMPA (semilla): el replay debe declarar EXACTAMENTE la semilla de la
+    // partida. Sin esto, un jugador probaría muchas semillas offline y mandaría una
+    // favorable (eligiendo el "azar" a su gusto) -> ganaría con dinero real de forma
+    // desleal. Además forzamos la semilla real al re-jugar: el árbitro manda sobre el
+    // azar, nunca el cliente.
+    const replaySeed = (replay as { seed?: unknown }).seed;
+    if (replaySeed !== m.seed) {
+      throw new Error(`seed mismatch (expected ${m.seed}, got ${String(replaySeed)})`);
+    }
+    const verified = verifier.verify({ ...(replay as object), seed: m.seed });
+    if (verified !== finalScore) {
+      throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
+    }
+    finalScore = verified;
+  } catch (e) {
+    recordVerificationRejected();
+    throw e;
   }
-  const verified = verifier.verify({ ...(replay as object), seed: m.seed });
-  if (verified !== finalScore) {
-    throw new Error(`score mismatch (claimed ${finalScore}, verified ${verified})`);
-  }
-  finalScore = verified;
 
   m.scores[address] = finalScore;
   m.replays[address] = replay; // guardamos el replay (feedback para el rival/agente)
@@ -377,9 +385,12 @@ async function settleIfReady(m: Match) {
     m.signature = await signResult(m.id, winner as Hex);
   }
 
-  // Rating ELO por juego (las partidas contra el bot de prueba no cuentan).
+  // Rating ELO + métrica de partidas decididas (las de bot de prueba no cuentan,
+  // igual criterio que el ELO). settleIfReady corre una sola vez por partida
+  // (el guard de arriba corta si ya no está "ready"/"waiting").
   if (!m.isBot && m.p2 && m.outcome) {
     m.eloUpdate = applyElo(m.game, m.p1, m.p2, m.outcome);
+    recordMatchSettled();
   }
 }
 

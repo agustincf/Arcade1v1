@@ -15,7 +15,8 @@ import {
   restoreMatches,
 } from "./matchmaking.js";
 import { leaderboard, ratingsOf, restoreRatings } from "./ratings.js";
-import { restoreAgents } from "./agents.js";
+import { restoreAgents, listAgents } from "./agents.js";
+import { statsSnapshot, restoreStats } from "./stats.js";
 import { persistenceBackend } from "./persist.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
@@ -106,6 +107,14 @@ rlSweep.unref?.();
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
+// MÉTRICAS públicas (página /status): datos reales del árbitro, sin inflar.
+// activeAgents se cuenta en vivo acá (vive en agents.ts) y se inyecta al
+// snapshot para no acoplar stats.ts con agents.ts.
+app.get("/stats", (_req, res) => {
+  const activeAgents = listAgents().filter((a) => a.active).length;
+  res.json(statsSnapshot(activeAgents));
+});
+
 // API auto-descriptiva: un agente que pega a la raiz aprende como usarla.
 app.get("/", (_req, res) =>
   res.json({
@@ -116,6 +125,8 @@ app.get("/", (_req, res) =>
     agentReadyGames: ["invaders", "flappy", "2048", "snake", "tetris", "racing"],
     sharedEngine: "@arcade1v1/game-sdk",
     endpoints: {
+      "GET /stats":
+        "public arbiter metrics: uptime, matches created/settled, verification rejects, active agents",
       "POST /matchmake":
         "{ game, stake, address, signature?, ts? } -> { matchId, seed, status }. " +
         "In production sign matchmakeAuthMessage(game, stake, address, ts) with your wallet.",
@@ -232,7 +243,7 @@ app.get("/rating/:address", (req, res) => {
 
 // Restaurar el estado persistido ANTES de escuchar: si Redis está configurado
 // y falla, mejor no arrancar que arrancar "vacío" y pisar los datos reales.
-await Promise.all([restoreMatches(), restoreRatings(), restoreAgents()]);
+await Promise.all([restoreMatches(), restoreRatings(), restoreAgents(), restoreStats()]);
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
