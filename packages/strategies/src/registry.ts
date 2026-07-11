@@ -9,6 +9,7 @@ import { strategySnakeGreedy } from "./snake";
 import { strategySnakeSurvivor } from "./snake-survivor";
 import { strategyFlappyThreshold } from "./flappy";
 import { strategyRacingDodger } from "./racing";
+import { strategyRacingWeaver } from "./racing-weaver";
 import { strategyInvadersHunter } from "./invaders";
 import { strategyTetrisHeuristic } from "./tetris";
 
@@ -21,6 +22,7 @@ const ALL: StrategyDef[] = [
   strategySnakeSurvivor,
   strategyTetrisHeuristic,
   strategyRacingDodger,
+  strategyRacingWeaver,
 ];
 
 export const STRATEGIES: Record<string, StrategyDef> = Object.fromEntries(
