@@ -20,7 +20,8 @@ import { createHostedAgent, deleteAgent, getAgent } from "../src/agents.js";
 // con /^0x[0-9a-f]{40}$/, así que el tag debe ser hex).
 const base = BigInt("0x" + Date.now().toString(16).padStart(12, "0") + "000000");
 let ctr = 0;
-const addr = (_tag?: string) => "0x" + (base + BigInt(++ctr)).toString(16).padStart(40, "0").slice(-40);
+const addr = (_tag?: string) =>
+  "0x" + (base + BigInt(++ctr)).toString(16).padStart(40, "0").slice(-40);
 
 test("createChallenge no entra en la cola general (matchmake no lo toma)", async () => {
   const chA = addr("c1");

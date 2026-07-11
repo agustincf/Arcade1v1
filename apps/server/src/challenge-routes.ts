@@ -5,7 +5,11 @@
 
 import { Router } from "express";
 import { recoverMessageAddress, type Hex } from "viem";
-import { challengeAuthMessage, agentAuthMessage, AGENT_AUTH_TTL_MS } from "@arcade1v1/game-sdk/auth";
+import {
+  challengeAuthMessage,
+  agentAuthMessage,
+  AGENT_AUTH_TTL_MS,
+} from "@arcade1v1/game-sdk/auth";
 import { AUTH_REQUIRED, createChallenge } from "./matchmaking.js";
 import { getAgent, setAgentPending } from "./agents.js";
 
