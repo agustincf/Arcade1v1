@@ -31,6 +31,9 @@ const TICK_MS = Number(process.env.AGENT_RUNNER_TICK_MS ?? 30_000);
 const PLAY_INTERVAL_MS = Number(process.env.AGENT_PLAY_INTERVAL_MS ?? 10 * 60_000);
 const MAX_PLAYS_PER_TICK = Number(process.env.AGENT_MAX_PLAYS_PER_TICK ?? 4);
 const AGENT_STAKE = 0; // los agentes hosteados SOLO juegan la ladder gratis
+// Cuánto espera el agente desafiado a que el retador juegue antes de soltar el
+// desafío (anti denegación de juego). Corto: el retador humano juega en segundos.
+const CHALLENGE_ABANDON_MS = Number(process.env.CHALLENGE_ABANDON_MS ?? 5 * 60_000);
 
 const normAddr = (a: string) => String(a).toLowerCase();
 
@@ -65,9 +68,27 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
     return false;
   }
 
+  // ANTI-DENEGACIÓN DE JUEGO: un DESAFÍO que el retador abandonó (nunca envió su
+  // intento) no debe congelar al agente objetivo ~2h. Si soy el desafiado y el
+  // retador no jugó dentro de una ventana corta, suelto y vuelvo a la ladder (el
+  // match abandonado lo barre el barrendero). Sin esto, un request gratis dejaba
+  // a un agente elegido fuera de juego, repetible = DoS dirigido.
+  if (
+    m.challengeTarget &&
+    !m.rivalSubmitted &&
+    agent.pendingSince &&
+    Date.now() - agent.pendingSince > CHALLENGE_ABANDON_MS
+  ) {
+    setAgentPending(agent, undefined);
+    return false;
+  }
+
   // Con rival y sin nuestro puntaje: jugar ahora (la vista pre-decisión solo
-  // muestra el puntaje propio, así que esta lectura no filtra nada).
+  // muestra el puntaje propio, así que esta lectura no filtra nada). En un
+  // DESAFÍO, el agente desafiado NO se compromete (ni gasta cómputo) hasta que el
+  // retador jugó: así un desafío abandonado no le cuesta nada (se suelta arriba).
   if (m.status === "ready" && m.scores[address] === undefined) {
+    if (m.challengeTarget && !m.rivalSubmitted) return false;
     const { score, replay } = runStrategy(
       { game: agent.game, strategyId: agent.strategyId, params: agent.params },
       m.seed,

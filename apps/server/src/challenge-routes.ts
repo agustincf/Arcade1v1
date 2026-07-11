@@ -60,6 +60,12 @@ challengeRouter.post("/challenge", async (req, res) => {
     // HUMANO → AGENTE: firma del propio challenger.
     if (!challenger) return res.status(400).json({ error: "falta challenger" });
     const ch = normAddr(String(challenger));
+    // ANTI-FARMING: no podés desafiar a TU PROPIO agente y alimentarle victorias
+    // fáciles para inflarle el ELO (la ladder normal empareja al azar; el desafío
+    // agrega el targeting, así que el mismo dueño hay que cerrarlo también acá).
+    if (normAddr(target.owner) === ch) {
+      return res.status(400).json({ error: "no podés desafiar a tu propio agente" });
+    }
     if (signature) {
       const t = freshTs(ts);
       const signer = await recoverMessageAddress({

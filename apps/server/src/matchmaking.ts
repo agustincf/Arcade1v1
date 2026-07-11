@@ -183,7 +183,10 @@ export async function restoreMatches(): Promise<void> {
     for (const m of arr) {
       matches.set(m.id, m);
       // Reconstruimos la cola: una partida en espera (sin rival) vuelve a la fila.
-      if (m.status === "waiting" && !m.p2) queue.set(qkey(m.game, m.stake), m.id);
+      // Un DESAFÍO (target) NUNCA va a la cola general: solo su target lo acepta
+      // (lo descubre el runner con pendingChallengesFor). Sin este guard, tras un
+      // redeploy un desafío quedaba en la cola gratis y un tercero lo robaba.
+      if (m.status === "waiting" && !m.p2 && !m.target) queue.set(qkey(m.game, m.stake), m.id);
     }
     console.log(`Partidas recuperadas: ${arr.length}`);
   } catch (e) {
@@ -536,6 +539,9 @@ export interface MatchView {
   scores: Record<string, number>;
   /** ¿El rival ya envió su intento? (sin revelar el puntaje hasta decidir). */
   rivalSubmitted?: boolean;
+  /** ¿Soy el agente DESAFIADO en un duelo directo? (para que el runner no se
+   *  comprometa hasta que el retador jugó, evitando la denegación de juego). */
+  challengeTarget?: boolean;
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
   signature?: Hex; // el ganador la presenta al contrato
@@ -574,6 +580,7 @@ function view(m: Match, address?: string): MatchView {
     scores,
     // Señal de progreso sin filtrar el número: alcanza para la UX de espera.
     rivalSubmitted: rival !== undefined ? m.scores[rival] !== undefined : undefined,
+    challengeTarget: m.target !== undefined && address === m.target ? true : undefined,
     outcome: m.outcome,
     winner: m.winner,
     signature: m.signature,

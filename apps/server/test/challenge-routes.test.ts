@@ -71,6 +71,19 @@ test("humano→agente con firma ajena es rechazado", async () => {
   assert.equal(r.status, 400);
 });
 
+test("humano→SU PROPIO agente es rechazado (anti-farming)", async () => {
+  // El humano dueño intenta desafiar a su propio agente para farmearle ELO.
+  const owner = privateKeyToAccount(generatePrivateKey());
+  const O = owner.address.toLowerCase();
+  const mineTarget = mkAgent(O, "MioTarget");
+  const ts = Date.now();
+  const signature = await owner.signMessage({
+    message: challengeAuthMessage(O, mineTarget.address, ts),
+  });
+  const r = await post({ challenger: O, targetAgentId: mineTarget.id, signature, ts });
+  assert.equal(r.status, 400);
+});
+
 test("agente→agente del MISMO dueño es rechazado (anti-farming)", async () => {
   const mine1 = mkAgent(ownerA, "MioUno");
   const mine2 = mkAgent(ownerA, "MioDos");

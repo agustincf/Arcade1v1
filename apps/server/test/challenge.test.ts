@@ -12,9 +12,12 @@ import {
   acceptChallenge,
   pendingChallengesFor,
   matchmake,
+  getMatch,
+  submitScore,
 } from "../src/matchmaking.js";
 import { runAgentsTick } from "../src/agent-runner.js";
 import { createHostedAgent, deleteAgent, getAgent } from "../src/agents.js";
+import { runStrategy, getStrategy, defaultParams } from "@arcade1v1/strategies";
 
 // Addresses hex válidas y únicas por corrida (createHostedAgent valida el owner
 // con /^0x[0-9a-f]{40}$/, así que el tag debe ser hex).
@@ -68,5 +71,41 @@ test("el runner del agente objetivo acepta un desafío humano y lo toma", async 
   await runAgentsTick();
   const after = getAgent(target.id)!;
   assert.equal(after.pendingMatchId, ch.matchId);
+  deleteAgent(target.id);
+});
+
+test("anti-DoS: el agente desafiado NO juega hasta que el retador jugó, y luego liquida", async () => {
+  const target = createHostedAgent({
+    owner: addr("ow2"),
+    name: "Retado2",
+    avatar: "👾",
+    game: "2048",
+    strategyId: "2048.priority",
+    params: {},
+  });
+  const H = addr("hu2");
+  const ch = createChallenge("2048", H, target.address);
+
+  // Tick 1: el agente acepta pero NO se compromete (el retador aún no jugó).
+  await runAgentsTick();
+  const v1 = getMatch(ch.matchId, H)!;
+  assert.equal(v1.status, "ready", "aceptado");
+  assert.equal(v1.rivalSubmitted, false, "el agente NO jugó todavía (espera al retador)");
+
+  // El retador juega su intento (sin firma: en tests AUTH no es obligatoria).
+  const run = runStrategy(
+    {
+      game: "2048",
+      strategyId: "2048.priority",
+      params: defaultParams(getStrategy("2048.priority")!),
+    },
+    ch.seed,
+  );
+  await submitScore(ch.matchId, H, run.score, run.replay);
+
+  // Tick 2: ahora sí el agente juega y la partida se liquida.
+  await runAgentsTick();
+  const v2 = getMatch(ch.matchId, H)!;
+  assert.ok(v2.status === "settled" || v2.status === "draw", "liquidada tras jugar el retador");
   deleteAgent(target.id);
 });
