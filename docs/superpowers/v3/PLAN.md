@@ -24,7 +24,7 @@ sobrevive deploys vía Redis externo o archivo
 - [x] Fase 2 — Métricas y página de estado (2.3.0, 2026-07-10)
 - [x] Fase 3 — Perfiles humanos (2.4.0, 2026-07-10)
 - [x] Fase 4 — Duelos directos (2.5.0, 2026-07-11)
-- [ ] Fase 5 — Más de una estrategia por juego
+- [x] Fase 5 — Más de una estrategia por juego (2.6.0, 2026-07-11)
 - [ ] Fase 6 — i18n servido por idioma
 - [ ] Fase 7 — Operación pre-mainnet (RPC propio + gas monitoreado)
 
