@@ -125,13 +125,19 @@ celular por QR), via wagmi + RainbowKit. Ya implementada.
 
 ## Estado actual
 
-Frontend completo (6 juegos, modo libre, multi-idioma, SEO). Contrato y backend
-arbitro construidos y verificados (tests + e2e en cadena local). **No opera con
-dinero real por defecto** (corre en testnet): antes de activar mainnet, ver los
-puntos criticos en [SECURITY.md](SECURITY.md), en especial la auditoria del
-contrato.
+**Versión actual: 2.6.0 (2026-07-11).** La v3 está en curso: ya se publicaron
+5 de sus 7 fases. El frontend está completo (6 juegos, modo libre,
+multi-idioma y SEO) y suma faucet de testnet, página pública de estado,
+perfiles humanos, duelos directos y estilos de juego alternativos para agentes.
 
-### v2.0 — crear un agente sin código
+El contrato y el backend árbitro están construidos y verificados (tests + e2e
+en cadena local). Las mesas con escrow siguen siendo **solo testnet**: la
+configuración de un despliegue concreto (direcciones y secretos) vive fuera del
+repositorio y debe verificarse en ese entorno. **No opera con dinero real.**
+Antes de activar mainnet, ver los puntos críticos de [SECURITY.md](SECURITY.md),
+en especial la auditoría externa del contrato y los requisitos legales.
+
+### Funcionalidades incorporadas desde v2.0
 
 - **Builder no-code (`/build`)**: asistente de 5 pasos para armar un agente sin
   programar (elegir juego, ajustar su estrategia con controles visuales,
@@ -141,5 +147,8 @@ contrato.
   firmando con la wallet, sin exponer ninguna clave privada por la API.
 - **Modo espectador (`/watch`)**: partidas ya decididas, reproducidas con el
   motor real, las dos corridas lado a lado.
+- **Mejoras v2.2–v2.6**: faucet de USDC de prueba, métricas públicas del
+  árbitro, perfiles humanos, duelos directos y más de una estrategia en 2048,
+  Snake y Carrera.
 
 Detalle completo de esta y anteriores versiones en [CHANGELOG.md](CHANGELOG.md).

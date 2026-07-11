@@ -1,8 +1,13 @@
 # Repaso de seguridad — Arcade1v1 (Fase 6)
 
 Fecha: 2026-06-21 (1ª ronda) · 2026-06-26 (2ª ronda) · 2026-07-02 (3ª ronda —
-preparación mainnet, ver abajo) · Estado: **testnet / demo** (no opera con
-dinero real).
+preparación mainnet, ver abajo) · Estado actualizado: **v2.6.0 en testnet**
+(no opera con dinero real).
+
+> Nota de mantenimiento (2026-07-11): los hallazgos y la verificación de la
+> tercera ronda siguen fechados el 2026-07-02. Este documento ya refleja las
+> entregas posteriores de producto cuando afectan su estado operativo; no
+> afirma direcciones, claves ni un despliegue público porque viven fuera de Git.
 
 ---
 
@@ -81,8 +86,10 @@ modificado) + `next build` de producción. Todo en verde.
   auditoría humana). La **auditoría externa profesional** sigue pendiente.
 - **Llave del árbitro** en KMS/HSM y **owner multisig/hardware** — operacional.
 - **Lo legal** (licencias/KYC/edad/geobloqueo) — decisión del dueño del proyecto.
-- **Mono-instancia** (estado en disco local): para escalar horizontalmente hace
-  falta un store compartido (Redis/DB).
+- **Escala horizontal:** desde v2.1 el árbitro puede persistir en Redis externo
+  (el fallback local sigue siendo válido para una sola instancia). En producción
+  debe configurarse Redis; coordinar colas y rate-limit entre múltiples
+  instancias sigue siendo un trabajo operativo pendiente.
 
 Este documento es el resultado de revisar el **contrato** (`packages/contracts`),
 el **backend árbitro** (`apps/server`) y la **arquitectura** completa. La idea es
@@ -180,9 +187,10 @@ humana ni tests locales de Foundry sería un riesgo mayor que el que resuelven:
    (legítimo aceptado e inventado rechazado en los 6, + **juego desconocido
    rechazado**). _(Los juegos nuevos deben sumar su verificador al registro.)_
 2. **El flujo de dinero on-chain está probado de punta a punta con el backend
-   real; falta desplegarlo a una red pública.** 🟡 Modelo **asincrónico open/join**:
-   el árbitro **ya no crea la partida ni paga gas** — cada jugador deposita por su
-   cuenta (uno **abre**, el otro **se une**) y emparejar es solo orden de llegada.
+   real.** 🟡 Modelo **asincrónico open/join**:
+   el árbitro **ya no crea la partida ni adelanta el stake** — cada jugador deposita
+   por su cuenta (uno **abre**, el otro **se une**) y emparejar es solo orden de
+   llegada. El árbitro sí necesita gas para cancelaciones y reembolsos automáticos.
    El **ciclo completo está verificado en cadena local con el árbitro de verdad**
    (ver `packages/contracts/check-payment-e2e.sh`, + tests 9/9 + selftest +
    `check-integration.sh`):
@@ -198,8 +206,10 @@ humana ni tests locales de Foundry sería un riesgo mayor que el que resuelven:
    con la firma del árbitro). Además, la página **`/recover`** deja reclamar el
    reembolso si no apareció rival o la partida quedó sin resultado a tiempo. Queda
    **dormida** mientras no haya `NEXT_PUBLIC_ESCROW_ADDRESS` (el modo de prueba no
-   cambia). **Falta solo:** **desplegar** a Base Sepolia/mainnet y setear las
-   direcciones (`NEXT_PUBLIC_ESCROW_ADDRESS` / `NEXT_PUBLIC_USDC_ADDRESS`).
+   cambia). Las direcciones y secretos de un despliegue público no se versionan
+   en este repositorio: antes de habilitar stakes hay que verificar esa
+   configuración y completar una prueba pública en Base Sepolia con usuarios
+   reales.
 
 3. **Autenticación en el backend.** ✅ **RESUELTO.** El jugador (y los agentes)
    **firman su envío con la wallet**; el árbitro verifica que la firma recupere
@@ -209,8 +219,6 @@ humana ni tests locales de Foundry sería un riesgo mayor que el que resuelven:
    `REQUIRE_AUTH` (hay que poner `REQUIRE_AUTH=false` para desactivarla a
    propósito); en dev queda opcional para permitir invitados de prueba. Sin esto,
    alguien podría mandar un puntaje a nombre del rival para hacerlo perder.
-   _(Pendiente menor: exigir firma también al emparejar — bajo impacto, cada
-   jugador deposita por su cuenta.)_
 4. **Legal / regulatorio.** Apuestas con dinero real = licencias, **KYC/AML**,
    verificación de **edad** y **restricciones por país**. Sin esto no se puede
    operar legalmente. (Bloqueante no técnico, el más importante.)
@@ -224,14 +232,11 @@ humana ni tests locales de Foundry sería un riesgo mayor que el que resuelven:
    se muestra un error (la simulación queda solo en desarrollo).
 7. **Llave del árbitro = único punto de confianza.** Guardarla en un KMS/HSM,
    con mínimos privilegios; considerar un **árbitro multi-firma**.
-8. **Un solo nodo (estado compartido en disco, no en memoria distribuida).** 🟡
-   **Mitigado para una instancia:** el ranking ELO (`data/ratings.json`) **y las
-   partidas** (`data/matches.json`) se guardan en disco con escritura atómica, así
-   que **sobreviven a un reinicio** (un ganador puede recuperar su firma para
-   cobrar; verificado simulando un reinicio). El rate-limit por IP sigue en
-   memoria. Sigue siendo **mono-instancia**: con **más de una instancia** el
-   emparejamiento, el rate-limit y el archivo de partidas se descoordinan. Para
-   escalar a varias instancias hace falta un **store compartido** (Redis/DB).
+8. **Estado y escala del árbitro.** 🟡 Desde v2.1 el árbitro usa Redis externo
+   cuando se configuran sus credenciales; así ELO, partidas y agentes sobreviven
+   deploys. El fallback de archivos locales conserva el modo de una instancia.
+   Para una operación con varias instancias aún hay que configurar el store
+   compartido y coordinar colas/rate-limit entre nodos.
 9. **Auditoría externa del contrato** por un tercero profesional antes de dinero
    real. 🟡 **Parcial:** se corrió **análisis estático con Slither** (0.11.5,
    filtrando `lib/`+`test/`): **sin hallazgos críticos/altos/medios**. Solo 4 avisos
@@ -280,17 +285,21 @@ humana ni tests locales de Foundry sería un riesgo mayor que el que resuelven:
       `trust proxy`** — _alto/medio_ — hechos (2ª ronda; ver actualización arriba).
 - [x] **Conectar el flujo on-chain real** (depósito USDC `open`/`join` + `settle` +
       reembolso en empate y por vencimiento) — _crítico_ — implementado y verificado
-      e2e en cadena local; falta el deploy a testnet/mainnet.
+      e2e en cadena local. Antes de activar stakes hay que verificar las direcciones
+      y secretos del entorno y completar una prueba pública en testnet.
 - [x] **Autenticación de jugadores** (firmar los envíos con la wallet) — _crítico_
       — hecho y **obligatorio por defecto en producción** (opt-out explícito con
       `REQUIRE_AUTH=false`)
 - [ ] **Asesoría legal + licencias + KYC/AML + edad + geobloqueo** — _crítico (legal)_
-- [ ] Quitar `/bot` y el fallback simulado de producción — _alto_
+- [x] `/bot` y el fallback simulado están bloqueados en producción — _alto_
 - [ ] Proteger la llave del árbitro (KMS/HSM, multisig) — _alto_
-- [ ] Persistencia + recuperación del backend — _alto_
+- [~] Persistencia y recuperación del backend — _alto_ — implementadas con Redis
+  externo; falta confirmar su configuración en cada entorno de producción y
+  resolver la coordinación multi-instancia.
 - [~] **Auditoría externa** del contrato — _alto_ — análisis estático (Slither)
   hecho y limpio (sin críticos/altos/medios); falta la auditoría humana profesional
-- [ ] Rate limiting + HTTPS + monitoreo — _medio_
+- [x] Rate limiting — _medio_ — configurado en el árbitro.
+- [ ] HTTPS y monitoreo operativo (RPC propio + saldo de gas) — _medio_
 - [ ] Pruebas de extremo a extremo en testnet con varios usuarios reales — _medio_
 
 > **Conclusión:** la base está sólida y el contrato es seguro en lo que cubre,

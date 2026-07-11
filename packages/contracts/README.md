@@ -5,8 +5,8 @@ con **Foundry** y piezas de seguridad de **OpenZeppelin**.
 
 ## Que hace
 
-- `createMatch` — el arbitro crea la partida (dos jugadores + mesa + plazos).
-- `deposit` — cada jugador deposita su apuesta en USDC (igual monto los dos).
+- `open` — el primer jugador abre la partida y deposita su apuesta en USDC.
+- `join` — el segundo jugador se une y deposita la misma apuesta.
 - `settle` — con la **firma del arbitro** (verificada por el contrato), paga
   premio al ganador + comision a la wallet de la plataforma.
 - `refundUnfunded` — si no se lleno a tiempo, cada uno recupera su deposito.
@@ -35,5 +35,7 @@ source .env
 forge script script/Deploy.s.sol --rpc-url "$BASE_SEPOLIA_RPC_URL" --broadcast
 ```
 
-> Estado: contrato escrito y probado (8/8 pruebas OK). Despliegue a testnet:
-> pendiente (Parte 2 de la Fase 4).
+> Estado: contrato probado (9/9 pruebas) y flujo completo verificado en Anvil
+> (depósito, pago y reembolso). El script deja listo el despliegue en Base
+> Sepolia; las direcciones de un entorno publicado y sus secretos no se guardan
+> en Git, por lo que deben verificarse en la configuración de ese entorno.

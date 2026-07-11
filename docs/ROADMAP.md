@@ -7,9 +7,11 @@ custom strategies, tournaments) and mainnet readiness, **v5** opens the economy
 intentionally absent: this is a direction, not a promise. Detailed sections
 below are in Spanish — the project's working language.
 
-> Estado actual: **v2.0 en testnet** (Base Sepolia, dinero de juego). Builder de
-> agentes no-code, agentes hosteados, modo espectador y ranking ELO compartido
-> entre humanos y agentes. Historial en [CHANGELOG.md](../CHANGELOG.md).
+> Estado actual: **v2.6.0 en testnet** (Base Sepolia, dinero de juego). La v3
+> está en curso: sus primeras **5 de 7 fases** ya están publicadas — builder
+> no-code, agentes hosteados, espectador, ranking ELO, faucet, estado público,
+> perfiles, duelos y estilos alternativos. Historial en
+> [CHANGELOG.md](../CHANGELOG.md).
 
 Los tres pilares del proyecto ordenan cada versión:
 **agent-first** · **verificado on-chain** · **benchmark de IA en vivo**.
@@ -21,34 +23,37 @@ Los tres pilares del proyecto ordenan cada versión:
 La meta: que nada se pierda, que nadie se trabe al entrar, y que el sitio sea
 rápido en los 4 idiomas.
 
+Las fases ya entregadas se conservan acá como parte del roadmap; quedan i18n
+servido por idioma y la operación pre-mainnet. El detalle operativo está en
+[el plan interno de v3](superpowers/v3/PLAN.md).
+
 ### Conexión del usuario
 
-- **Faucet integrado**: el USDC de prueba ya tiene `mint` abierto — falta el
-  botón. Una página "conseguí fichas" que acuña USDC de testnet en un clic y
-  linkea un faucet de gas, para que probar las mesas pagas no requiera saber
-  qué es un faucet.
-- **Perfiles humanos**: hoy solo los agentes tienen nombre y avatar; los
-  humanos son un `0x1234...abcd`. Nombre + avatar elegibles (misma allowlist
-  default-deny que los agentes) para que el ranking se sienta vivo.
-- **i18n servido por idioma**: hoy las 4 lenguas completas viajan al navegador
+- **✅ Faucet integrado (v2.2)**: el USDC de prueba se acuña en un clic desde
+  `/faucet`, con acceso al faucet de gas para probar las mesas de testnet.
+- **✅ Perfiles humanos (v2.4)**: humanos y agentes pueden mostrar nombre +
+  avatar, sin reemplazar la identidad de su wallet.
+- **Pendiente — i18n servido por idioma**: hoy las 4 lenguas completas viajan al navegador
   en cada página y el primer render es siempre en inglés. Separar el
   diccionario por idioma y renderizar del lado del servidor: menos bundle,
   SEO real en español, hindi y francés.
 
 ### Agentes de IA
 
-- **Más de una estrategia por juego**: el registro ya lo soporta; el builder
-  ganaría un paso de elección real (hoy hay exactamente una por juego).
-- **Duelos directos**: desafiar a un agente específico (o al tuyo contra el de
-  un amigo) en lugar de solo la cola por orden de llegada.
+- **✅ Más de una estrategia por juego (v2.6)**: el builder ya ofrece estilos
+  alternativos en 2048, Snake y Carrera; cada uno conduce el motor real y
+  genera replays verificables.
+- **✅ Duelos directos (v2.5)**: se puede desafiar a un agente específico — con
+  una partida humana o con otro agente — fuera de la cola general.
 
 ### Blockchain / operación
 
 - **Persistencia durable** _(hecho — v2.1)_: el estado del árbitro (agentes,
   ELO, partidas) sobrevive cualquier deploy vía Redis externo.
-- **Métricas y monitoreo del árbitro**: uptime, partidas/día, errores de
-  verificación — visibles también como página pública de estado.
-- **RPC propio y gas del árbitro monitoreado** antes de cualquier paso a
+- **✅ Métricas del árbitro (v2.3)**: uptime, partidas/día y rechazos de
+  verificación ya son visibles en la página pública de estado. Queda sumar la
+  alerta operativa de gas.
+- **Pendiente — RPC propio y gas del árbitro monitoreado** antes de cualquier paso a
   mainnet (el árbitro paga el gas de los reembolsos).
 
 ---

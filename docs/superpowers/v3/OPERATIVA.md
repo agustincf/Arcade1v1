@@ -11,7 +11,9 @@
   técnicas. Todo se le explica en simple, sin jerga.
 - El repositorio despliega automático con cada push: la web a **Vercel**, el
   árbitro a **Render**. Por lo tanto **push = publicar**.
-- Estado actual: **v2.1 en testnet** (Base Sepolia, dinero de juego).
+- Estado actual: **v2.6.0 en testnet** (Base Sepolia, dinero de juego); las
+  fases 1–5 de v3 están publicadas y verificadas en producción. La siguiente
+  fase pendiente es i18n servido por idioma (ver [PLAN.md](PLAN.md)).
 
 ## Al abrir una sesión de trabajo
 

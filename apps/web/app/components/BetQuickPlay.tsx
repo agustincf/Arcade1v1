@@ -37,17 +37,6 @@ export function BetQuickPlay() {
           {t("free.btn")}
         </button>
       </div>
-
-      {/* Una sola salida secundaria: mirar partidas (entender antes de jugar) */}
-      <div className="mt-5 text-sm font-medium">
-        <Link
-          href="/watch"
-          className="text-(--color-accent-2) transition hover:text-(--color-text)"
-        >
-          🎬 {t("watch.cta")} →
-        </Link>
-      </div>
-
       {picking && (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-4"

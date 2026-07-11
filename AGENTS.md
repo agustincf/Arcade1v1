@@ -101,7 +101,7 @@ server any MCP client (Claude Desktop, etc.) can use to play ranked matches:
 
 Low-level agent (raw HTTP, no SDK): [apps/server/src/agent.ts](apps/server/src/agent.ts).
 
-## Status (all the critical tech: done)
+## Status (implementation current through v2.6.0)
 
 - **Anti-cheat:** ✅ all **6 games** verify replays (not just 2048), with forced
   seed, one attempt per player, a submission window, and the rival's score
@@ -109,13 +109,14 @@ Low-level agent (raw HTTP, no SDK): [apps/server/src/agent.ts](apps/server/src/a
 - **Authentication:** ✅ the agent **signs** both its submission **and its
   matchmaking** with its wallet; the arbiter verifies both signatures
   (required in production).
-- **On-chain payment (asynchronous open/join model):** ✅ deployed on Base
-  Sepolia. The 1st player **opens** the match by depositing, the 2nd **joins**
-  by depositing; the arbiter signs and the winner claims with `settle`. Tested
-  end to end (`check-payment-e2e.sh`).
-- **Gas-drain protection:** ✅ the arbiter **doesn't create the match nor pay
-  gas** — each player deposits their own stake (open/join). No arbiter
-  createMatch = no drain vector.
+- **On-chain payment (asynchronous open/join model):** ✅ implemented and
+  tested end to end on a local chain (`check-payment-e2e.sh`). The 1st player
+  **opens** by depositing, the 2nd **joins**, and the arbiter signs the
+  winner's `settle`. A public Sepolia deployment's addresses and secrets are
+  external configuration, so verify that environment before submitting stakes.
+- **Gas-drain protection:** ✅ the arbiter does not create matches or front a
+  player's stake — players deposit through `open`/`join`. It does need gas for
+  automatic cancellations/refunds, so its balance must be monitored.
 - **Rate limiting / CORS:** ✅ configurable on the arbiter.
 
 ## Notes
