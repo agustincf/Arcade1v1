@@ -4,6 +4,7 @@
 
 import type { AgentStrategyConfig, ParamSpec, PlayResult, StrategyDef } from "./types";
 import { strategy2048Priority } from "./g2048";
+import { strategy2048Corner } from "./g2048-corner";
 import { strategySnakeGreedy } from "./snake";
 import { strategyFlappyThreshold } from "./flappy";
 import { strategyRacingDodger } from "./racing";
@@ -14,6 +15,7 @@ const ALL: StrategyDef[] = [
   strategyInvadersHunter,
   strategyFlappyThreshold,
   strategy2048Priority,
+  strategy2048Corner,
   strategySnakeGreedy,
   strategyTetrisHeuristic,
   strategyRacingDodger,

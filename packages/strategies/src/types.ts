@@ -32,6 +32,8 @@ export interface StrategyDef {
   game: string;
   /** Clave i18n del nombre de la estrategia. */
   labelKey: string;
+  /** Clave i18n de una descripción en una línea (para el selector del builder). */
+  descKey?: string;
   params: ParamSpec[];
   /** Juega una partida completa headless con el motor real y devuelve el replay. */
   play(seed: number, params: Record<string, unknown>): PlayResult;

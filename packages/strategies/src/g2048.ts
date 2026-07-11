@@ -29,6 +29,40 @@ function slide(row: number[]): { row: number[]; gained: number; changed: boolean
   return { row: out, gained, changed };
 }
 
+/** Aplica una dirección a una copia PURA del tablero (sin spawn, sin RNG) y
+ *  devuelve el tablero resultante, el puntaje ganado y si algo cambió. Lo usa
+ *  el esquinero para evaluar la calidad del tablero post-movimiento sin tocar
+ *  el motor. */
+export function applyDir(
+  board: number[][],
+  dir: Dir,
+): { board: number[][]; gained: number; changed: boolean } {
+  const out = board.map((r) => r.slice());
+  let gained = 0;
+  let changed = false;
+  if (dir === "left" || dir === "right") {
+    for (let r = 0; r < SIZE; r++) {
+      const input = dir === "right" ? out[r].slice().reverse() : out[r];
+      const res = slide(input);
+      out[r] = dir === "right" ? res.row.slice().reverse() : res.row;
+      gained += res.gained;
+      if (res.changed) changed = true;
+    }
+  } else {
+    for (let c = 0; c < SIZE; c++) {
+      const col: number[] = [];
+      for (let r = 0; r < SIZE; r++) col.push(out[r][c]);
+      const input = dir === "down" ? col.reverse() : col;
+      const res = slide(input);
+      const newCol = dir === "down" ? res.row.slice().reverse() : res.row;
+      for (let r = 0; r < SIZE; r++) out[r][c] = newCol[r];
+      gained += res.gained;
+      if (res.changed) changed = true;
+    }
+  }
+  return { board: out, gained, changed };
+}
+
 /** ¿Cuánto puntaje daría mover en `dir`? (y si cambia algo el tablero). */
 function evalMove(board: number[][], dir: Dir): { gained: number; changed: boolean } {
   let rows: number[][];
