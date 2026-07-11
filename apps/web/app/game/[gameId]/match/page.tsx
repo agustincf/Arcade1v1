@@ -469,12 +469,27 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
             </div>
           ) : needsWallet ? (
             <div className="py-8 text-center">
+              {/* En la ladder gratis no hay depósito: el texto lo dice (la wallet
+                  es solo para firmar y rankear). En mesas de plata, el de siempre. */}
               <p className="text-base font-medium text-(--color-accent-2)">
-                {t("match.connectFirst")}
+                {rankedFree ? t("match.connectFirstFree") : t("match.connectFirst")}
               </p>
               <button onClick={connect} className="btn3d btn3d--magenta mt-5">
                 {t("connect")}
               </button>
+              {/* PUERTA PARA CURIOSOS: probar el juego SIN wallet, en modo práctica
+                  (offline, sin ranking). Recarga limpia con ?free=1: el estado del
+                  emparejamiento no es re-entrante (mismo patrón que la revancha). */}
+              {rankedFree && (
+                <p className="mt-4">
+                  <button
+                    onClick={() => window.location.assign(`/game/${gameId}/match?free=1`)}
+                    className="text-sm font-medium text-(--color-accent-2) hover:underline"
+                  >
+                    {t("match.guestBtn")}
+                  </button>
+                </p>
+              )}
             </div>
           ) : seed === null ? (
             <div className="py-10 text-center">

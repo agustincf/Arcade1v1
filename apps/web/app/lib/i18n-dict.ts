@@ -141,6 +141,8 @@ const en: Dict = {
   "match.depositWait": "Processing…",
   "match.depositRetry": "Couldn't deposit — the match may still be starting. Try again.",
   "match.connectFirst": "Connect your wallet to deposit and play.",
+  "match.connectFirstFree": "Connect your wallet to play ranked (free, no deposit).",
+  "match.guestBtn": "🎮 Just curious? Try without a wallet",
   "match.retry": "RETRY",
   "match.signCancelled":
     "Your wallet asks for a free signature to find you a rival (it moves no funds). The request was cancelled — try again.",
@@ -543,6 +545,8 @@ const es: Dict = {
   "match.depositWait": "Procesando…",
   "match.depositRetry": "No se pudo depositar — la partida puede estar creándose. Probá de nuevo.",
   "match.connectFirst": "Conectá tu wallet para depositar y jugar.",
+  "match.connectFirstFree": "Conectá tu wallet para jugar rankeado (gratis, sin depósito).",
+  "match.guestBtn": "🎮 ¿Solo curioseando? Probá sin wallet",
   "match.retry": "REINTENTAR",
   "match.signCancelled":
     "Tu wallet pide una firma gratuita para buscarte rival (no mueve fondos). El pedido se canceló — probá de nuevo.",
@@ -948,6 +952,8 @@ const hi: Dict = {
   "match.depositWait": "प्रोसेस हो रहा है…",
   "match.depositRetry": "जमा नहीं हो सका — मैच अभी शुरू हो रहा होगा। फिर से कोशिश करें।",
   "match.connectFirst": "जमा करने और खेलने के लिए अपना वॉलेट कनेक्ट करें।",
+  "match.connectFirstFree": "रैंक्ड खेलने के लिए वॉलेट कनेक्ट करें (मुफ़्त, बिना जमा)।",
+  "match.guestBtn": "🎮 सिर्फ़ देखना है? बिना वॉलेट आज़माएँ",
   "match.retry": "फिर कोशिश करें",
   "match.signCancelled":
     "प्रतिद्वंद्वी खोजने के लिए आपका वॉलेट एक मुफ़्त हस्ताक्षर मांगता है (कोई फंड नहीं जाता)। अनुरोध रद्द हो गया — फिर से कोशिश करें।",
@@ -1350,6 +1356,8 @@ const fr: Dict = {
   "match.depositRetry":
     "Dépôt impossible — la partie est peut-être en cours de création. Réessaie.",
   "match.connectFirst": "Connecte ton wallet pour déposer et jouer.",
+  "match.connectFirstFree": "Connecte ton wallet pour jouer classé (gratuit, sans dépôt).",
+  "match.guestBtn": "🎮 Simple curieux ? Essaie sans wallet",
   "match.retry": "RÉESSAYER",
   "match.signCancelled":
     "Ton wallet demande une signature gratuite pour te trouver un rival (aucun fonds déplacé). La demande a été annulée — réessaie.",
