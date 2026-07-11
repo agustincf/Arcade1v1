@@ -42,6 +42,17 @@ export function submitScore(
   return client.submitScore(id, address, score, replay, signature);
 }
 
+/** Crea un duelo directo (ladder gratis) contra un agente. Humano→agente:
+ *  { challenger, targetAgentId, signature, ts }. Agente→agente:
+ *  { byAgentId, targetAgentId, signature, ts }. Devuelve la partida creada. */
+export function createChallenge(
+  input:
+    | { challenger: string; targetAgentId: string; signature: string; ts: number }
+    | { byAgentId: string; targetAgentId: string; signature: string; ts: number },
+): Promise<MatchView> {
+  return req<MatchView>("/challenge", { method: "POST", body: JSON.stringify(input) });
+}
+
 export function getMatch(id: string, address?: string) {
   return client.getMatch(id, address);
 }
@@ -64,6 +75,7 @@ export interface LeaderRow {
   rating: number;
   name?: string;
   avatar?: string;
+  agentId?: string;
 }
 
 export async function getLeaderboard(game: string, limit = 20): Promise<LeaderRow[]> {
