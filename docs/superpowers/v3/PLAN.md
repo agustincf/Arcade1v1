@@ -23,7 +23,7 @@ sobrevive deploys vía Redis externo o archivo
 - [x] Fase 1 — Faucet integrado (2.2.0, 2026-07-10)
 - [x] Fase 2 — Métricas y página de estado (2.3.0, 2026-07-10)
 - [x] Fase 3 — Perfiles humanos (2.4.0, 2026-07-10)
-- [ ] Fase 4 — Duelos directos
+- [x] Fase 4 — Duelos directos (2.5.0, 2026-07-11)
 - [ ] Fase 5 — Más de una estrategia por juego
 - [ ] Fase 6 — i18n servido por idioma
 - [ ] Fase 7 — Operación pre-mainnet (RPC propio + gas monitoreado)
