@@ -315,7 +315,14 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
             message: scoreAuthMessage(matchId, pidRef.current, score),
           });
         } catch {
-          /* el usuario rechazo la firma: se envia sin firma (dev) */
+          // Canceló (o no vio) la firma en su wallet. En producción el árbitro
+          // la exige: avisamos la verdad ("cancelaste la firma") con REINTENTAR,
+          // en vez de enviar sin firma, rebotar y culpar falsamente al servidor.
+          if (!devMode) {
+            setError("sign");
+            return;
+          }
+          /* en dev se envia sin firma */
         }
       }
       const v = await submitScore(matchId, pidRef.current, score, replay, signature);
@@ -342,6 +349,33 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     }
   }
 
+  // RENDICIÓN REAL: al abandonar, se envía un puntaje 0 verificable (replay
+  // vacío con la semilla de la partida). Así el árbitro decide YA y el rival
+  // gana y cobra en minutos — que es lo que el texto de abandono promete. Sin
+  // esto, el árbitro nunca se enteraba y el rival quedaba esperando ~2 horas
+  // hasta el reembolso por expiración. Best-effort: si falla (red caída, firma
+  // cancelada), la partida expira y se reembolsa como antes.
+  async function submitForfeit() {
+    if (!matchId || seed === null) return;
+    const emptyReplay =
+      game!.id === "2048"
+        ? { seed, moves: [] }
+        : game!.id === "flappy"
+          ? { seed, ticks: 0, flaps: [] }
+          : { seed, ticks: 0, inputs: [] };
+    try {
+      let signature: string | undefined;
+      if (address) {
+        signature = await signMessageAsync({
+          message: scoreAuthMessage(matchId, pidRef.current, 0),
+        });
+      }
+      await submitScore(matchId, pidRef.current, 0, emptyReplay, signature);
+    } catch {
+      /* best-effort: sin aviso al árbitro, queda el reembolso por expiración */
+    }
+  }
+
   function handleExit() {
     if (free || !playing || outcome !== null) {
       router.push("/");
@@ -352,6 +386,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     setForfeit(true);
     setRivalScore(youScore ?? 0);
     setOutcome("lose");
+    void submitForfeit();
   }
 
   // REINTENTAR tras un error: si ya jugamos, reenvía el puntaje guardado; si

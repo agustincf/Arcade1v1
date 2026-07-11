@@ -13,7 +13,7 @@ import { challengeAuthMessage, agentAuthMessage } from "@arcade1v1/game-sdk/auth
 
 process.env.REQUIRE_AUTH = "true";
 const { challengeRouter } = await import("../src/challenge-routes.js");
-const { createHostedAgent } = await import("../src/agents.js");
+const { createHostedAgent, setAgentPending, setAgentActive } = await import("../src/agents.js");
 
 const app = express();
 app.use(express.json());
@@ -95,4 +95,36 @@ test("agente→agente del MISMO dueño es rechazado (anti-farming)", async () =>
   });
   const r = await post({ byAgentId: mine1.id, targetAgentId: mine2.id, signature, ts });
   assert.equal(r.status, 400);
+});
+
+test("agente→agente OCUPADO (partida en curso) es rechazado, no le pisa la partida", async () => {
+  const owner = privateKeyToAccount(generatePrivateKey());
+  const O = owner.address.toLowerCase();
+  const busy = mkAgent(O, "Ocupado");
+  const target = mkAgent(ownerB, "RivalBusy");
+  setAgentPending(busy, "0xmatch-en-curso"); // ya está jugando otra partida
+  const ts = Date.now();
+  const signature = await owner.signMessage({
+    message: agentAuthMessage("challenge", busy.id, busy.owner, ts),
+  });
+  const r = await post({ byAgentId: busy.id, targetAgentId: target.id, signature, ts });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /busy/);
+  assert.equal(busy.pendingMatchId, "0xmatch-en-curso"); // la partida en curso quedó intacta
+});
+
+test("agente→agente PAUSADO es rechazado (no crearía desafíos que nunca juega)", async () => {
+  const owner = privateKeyToAccount(generatePrivateKey());
+  const O = owner.address.toLowerCase();
+  const paused = mkAgent(O, "Pausado");
+  // Dueño propio para el target: ownerB ya llegó al tope de agentes por dueño.
+  const target = mkAgent(mkOwner("c"), "RivalPaused");
+  setAgentActive(paused.id, false);
+  const ts = Date.now();
+  const signature = await owner.signMessage({
+    message: agentAuthMessage("challenge", paused.id, paused.owner, ts),
+  });
+  const r = await post({ byAgentId: paused.id, targetAgentId: target.id, signature, ts });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /paused/);
 });

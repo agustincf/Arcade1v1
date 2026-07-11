@@ -30,6 +30,9 @@ export function ChallengeButton({
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [pick, setPick] = useState(false);
+  // Motivo del fallo, visible: antes el botón fallaba EN SILENCIO (firma
+  // cancelada, agente ocupado, red caída) y el usuario no sabía qué pasó.
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     let cancel = false;
@@ -43,6 +46,7 @@ export function ChallengeButton({
 
   async function challengeAsHuman() {
     setBusy(true);
+    setErr(null);
     try {
       const ts = Date.now();
       const signature = await signMessageAsync({
@@ -50,13 +54,15 @@ export function ChallengeButton({
       });
       const m = await createChallenge({ challenger: viewer, targetAgentId, signature, ts });
       router.push(`/game/${game}/match?challenge=${m.matchId}`);
-    } catch {
+    } catch (e) {
+      setErr((e as Error).message.slice(0, 140));
       setBusy(false);
     }
   }
 
   async function challengeWithAgent(byAgentId: string, owner: string) {
     setBusy(true);
+    setErr(null);
     try {
       const ts = Date.now();
       const signature = await signMessageAsync({
@@ -64,8 +70,8 @@ export function ChallengeButton({
       });
       await createChallenge({ byAgentId, targetAgentId, signature, ts });
       setSent(true);
-    } catch {
-      /* firma cancelada o red caída */
+    } catch (e) {
+      setErr((e as Error).message.slice(0, 140));
     } finally {
       setBusy(false);
     }
@@ -95,6 +101,7 @@ export function ChallengeButton({
           </button>
         )}
       </div>
+      {err && <p className="mt-2 text-center text-sm text-(--color-lose)">{err}</p>}
       {pick && (
         <div className="win mt-3 p-3">
           <p className="mb-2 text-sm text-(--color-muted-2)">{t("challenge.pickAgent")}</p>

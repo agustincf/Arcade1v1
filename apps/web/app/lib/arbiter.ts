@@ -59,15 +59,12 @@ export function getMatch(id: string, address?: string) {
 
 /** Pide que un bot juegue por el rival (modo práctica). No forma parte del
  * cliente canónico del SDK (es un atajo solo de la web), así que se llama
- * directo al árbitro. */
-export async function playBot(id: string): Promise<MatchView> {
-  const r = await fetch(`${BASE}/match/${id}/bot`, {
+ * directo al árbitro (con el mismo timeout que el resto: nada queda colgado). */
+export function playBot(id: string): Promise<MatchView> {
+  return req<MatchView>(`/match/${encodeURIComponent(id)}/bot`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
-  if (!r.ok) throw new Error(`arbiter /match/${id}/bot ${r.status}`);
-  return r.json();
 }
 
 export interface LeaderRow {

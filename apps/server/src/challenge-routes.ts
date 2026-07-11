@@ -38,6 +38,13 @@ challengeRouter.post("/challenge", async (req, res) => {
       // AGENTE → AGENTE: firma del dueño del agente desafiante.
       const by = getAgent(String(byAgentId));
       if (!by) return res.status(400).json({ error: "agent not found" });
+      if (!by.active) return res.status(400).json({ error: "your agent is paused" });
+      // OCUPADO: si el desafiante ya tiene una partida en curso, NO se pisa su
+      // pendingMatchId con el desafío nuevo — al pisarlo, su rival de la partida
+      // anterior quedaba esperando ~2h un puntaje que nunca iba a llegar.
+      if (by.pendingMatchId) {
+        return res.status(400).json({ error: "your agent is busy finishing another match" });
+      }
       if (by.game !== target.game) return res.status(400).json({ error: "distinto juego" });
       if (by.owner === target.owner) {
         return res.status(400).json({ error: "no podés desafiar a tu propio agente" });
