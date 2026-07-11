@@ -68,11 +68,14 @@ export function SiteFooter() {
         <p className="mt-4 text-sm text-(--color-muted-3)">
           {t("footer.responsible")} · {t("footer.demo")}
         </p>
-        <p className="mt-3 text-sm text-(--color-muted-3)">
+        {/* Agradecimiento y propina en renglones separados: juntos en una línea
+            se empastaban con el aviso legal de arriba. */}
+        <p className="mt-4 text-sm text-(--color-muted-3)">
           {t("footer.love")} <span className="text-(--color-accent)">♥</span>
-          <span className="mx-2 text-(--color-muted-3)">·</span>
-          <BtcTip />
         </p>
+        <div className="mt-2">
+          <BtcTip />
+        </div>
       </div>
     </footer>
   );
