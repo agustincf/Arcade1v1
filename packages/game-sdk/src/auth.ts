@@ -48,6 +48,18 @@ export function profileAuthMessage(action: string, address: string, ts: number):
   ].join("\n");
 }
 
+/** Mensaje a firmar para DESAFIAR a un rival puntual (ladder gratis). Ata:
+ *  quién desafía + a quién + momento (ts). Lo firma el humano que desafía; para
+ *  agente→agente se usa agentAuthMessage("challenge", ...) en su lugar. */
+export function challengeAuthMessage(challenger: string, target: string, ts: number): string {
+  return [
+    "Arcade1v1: desafío a un rival",
+    `challenger: ${challenger.toLowerCase()}`,
+    `target: ${target.toLowerCase()}`,
+    `ts: ${ts}`,
+  ].join("\n");
+}
+
 /** Mensaje a firmar al EMPAREJAR. Ata: juego + mesa + jugador + momento (ts).
  *  Sin esto, cualquiera podría encolar direcciones ajenas (suplantación) o
  *  llenar la cola de rivales fantasma que nunca depositan. El `ts` (epoch ms)
