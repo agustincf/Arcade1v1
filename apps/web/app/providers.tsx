@@ -10,10 +10,12 @@ import { I18nProvider } from "@/app/lib/i18n";
 
 // Envoltorio que da soporte de billetera real a toda la app.
 export function Providers({
-  initialLang,
+  lang,
+  dict,
   children,
 }: {
-  initialLang?: import("@/app/lib/i18n").Lang;
+  lang: import("@/app/lib/i18n").Lang;
+  dict: import("@/app/lib/i18n-dict").Dict;
   children: React.ReactNode;
 }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -27,7 +29,9 @@ export function Providers({
             borderRadius: "medium",
           })}
         >
-          <I18nProvider initialLang={initialLang}>{children}</I18nProvider>
+          <I18nProvider lang={lang} dict={dict}>
+            {children}
+          </I18nProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

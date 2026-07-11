@@ -7,6 +7,7 @@ import { SiteFooter } from "@/app/components/SiteFooter";
 import { SITE } from "@/app/lib/seo";
 import { GAMES } from "@/app/lib/games";
 import { getLang } from "@/app/lib/serverLang";
+import { getDict } from "@/app/lib/i18n/dicts.server";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -99,6 +100,7 @@ function StructuredData() {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = await getLang();
+  const dict = getDict(lang);
   return (
     <html lang={lang}>
       <head>
@@ -111,7 +113,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <StructuredData />
       </head>
       <body>
-        <Providers initialLang={lang}>
+        <Providers lang={lang} dict={dict}>
           <Header />
           <Marquee />
           <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
