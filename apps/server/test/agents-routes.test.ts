@@ -61,12 +61,12 @@ function signCreate(account: typeof owner, name: string, ts: number) {
   });
 }
 
-test("GET /strategies expone el catálogo completo (6 juegos) y los avatares", async () => {
+test("GET /strategies expone el catálogo completo (9 estrategias en 6 juegos) y los avatares", async () => {
   const r = await fetch(`${BASE}/strategies`);
   assert.equal(r.status, 200);
   const out = (await r.json()) as { strategies: { game: string }[]; avatars: string[] };
-  assert.equal(out.strategies.length, 6);
-  assert.equal(new Set(out.strategies.map((s) => s.game)).size, 6, "una por juego");
+  assert.equal(out.strategies.length, 9);
+  assert.equal(new Set(out.strategies.map((s) => s.game)).size, 6, "6 juegos con estrategia");
   assert.ok(out.avatars.includes("🤖"));
 });
 
