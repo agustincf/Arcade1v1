@@ -23,6 +23,7 @@
 ### Task 1: 2048 — estrategia "Esquinero" (`2048.corner`)
 
 **Files:**
+
 - Modify: `packages/strategies/src/types.ts` — agregar `descKey?` a `StrategyDef`
 - Modify: `packages/strategies/src/g2048.ts` — exportar helper puro `applyDir`
 - Create: `packages/strategies/src/g2048-corner.ts` — `strategy2048Corner`
@@ -30,6 +31,7 @@
 - Test: `packages/strategies/test/strategies.test.ts` (suite parametrizada existente, se corre; no se edita en esta task)
 
 **Interfaces:**
+
 - Consumes: `Game2048`, `SIZE`, `Dir` de `@arcade1v1/game-sdk/g2048`; `num`, `choice` de `./params`; `slide` (privado) de `./g2048`.
 - Produces:
   - `StrategyDef` gana campo opcional `descKey?: string`.
@@ -226,6 +228,7 @@ const ALL: StrategyDef[] = [
 
 Run: `node --import tsx --test packages/strategies/test/strategies.test.ts`
 Expected: PASS. En particular estos (auto-generados para `2048.corner`):
+
 - `2048.corner: el verificador reproduce el puntaje exacto (default y alternativo)`
 - `2048.corner: determinista`
 - `2048.corner: hace puntos con los params por defecto`
@@ -245,12 +248,14 @@ git commit -m "feat(strategies): estrategia Esquinero para 2048 (2048.corner)"
 ### Task 2: Snake — estrategia "Superviviente" (`snake.survivor`)
 
 **Files:**
+
 - Modify: `packages/strategies/src/snake.ts` — exportar helpers puros `ACTS`, `DELTA`, `wrapDist`, `freeSpace`
 - Create: `packages/strategies/src/snake-survivor.ts` — `strategySnakeSurvivor`
 - Modify: `packages/strategies/src/registry.ts` — registrar la nueva
 - Test: `packages/strategies/test/strategies.test.ts` (suite, se corre)
 
 **Interfaces:**
+
 - Consumes: `SnakeEngine`, `GRID`, `SnakeAction` de `@arcade1v1/game-sdk/snake`; `num` de `./params`; `ACTS`, `DELTA`, `wrapDist`, `freeSpace` de `./snake`.
 - Produces:
   - `snake.ts` exporta `ACTS: SnakeAction[]`, `DELTA: Record<SnakeAction,{x:number;y:number}>`, `wrapDist(ax,ay,bx,by): number`, `freeSpace(occupied: Set<number>, x: number, y: number, cap: number): number`.
@@ -395,11 +400,13 @@ git commit -m "feat(strategies): estrategia Superviviente para Snake (snake.surv
 ### Task 3: Carrera — estrategia "Serpenteador" (`racing.weaver`)
 
 **Files:**
+
 - Create: `packages/strategies/src/racing-weaver.ts` — `strategyRacingWeaver`
 - Modify: `packages/strategies/src/registry.ts` — registrar la nueva
 - Test: `packages/strategies/test/strategies.test.ts` (suite, se corre)
 
 **Interfaces:**
+
 - Consumes: `RacingEngine`, `RACING_DT`, `RACING_CONST`, `LANES` de `@arcade1v1/game-sdk/racing`; `num` de `./params`.
 - Produces: `racing-weaver.ts` exporta `strategyRacingWeaver: StrategyDef` con `id: "racing.weaver"`, `game: "racing"`, param `boldness` (slider). Replay `{ seed, ticks, inputs }` (idéntico al esquivador, lo lee `verifyRacing`).
 
@@ -533,9 +540,11 @@ git commit -m "feat(strategies): estrategia Serpenteador para Carrera (racing.we
 ### Task 4: Test de distinción (el criterio de la fase)
 
 **Files:**
+
 - Modify: `packages/strategies/test/strategies.test.ts` — agregar el test de distinción por juego
 
 **Interfaces:**
+
 - Consumes: `STRATEGIES`, `defaultParams`, `SEEDS` (ya en el archivo). Usa los tres pares `2048.priority/2048.corner`, `snake.greedy/snake.survivor`, `racing.dodger/racing.weaver`.
 - Produces: 3 tests nuevos (uno por juego con dos estrategias) que afirman que juegan distinto.
 
@@ -592,10 +601,12 @@ git commit -m "test(strategies): las dos estrategias de cada juego juegan distin
 ### Task 5: Builder — selector de estilo + textos ×4
 
 **Files:**
+
 - Modify: `apps/web/app/build/page.tsx:196-231` — bloque del paso 2 (agregar selector arriba de las perillas)
 - Modify: `apps/web/app/lib/i18n-dict.ts` — claves nuevas en los 4 bloques (en/es/hi/fr)
 
 **Interfaces:**
+
 - Consumes: `strategiesFor`, `getStrategy`, `defaultParams` (ya importados en la página); `def.labelKey`, `def.descKey`. Estrategias `2048.corner`, `snake.survivor`, `racing.weaver` de las Tasks 1-3.
 - Produces: paso 2 con selector condicional; claves i18n `build.style`, nombres/descripciones/perillas nuevas y opciones `strat.opt.down-left|down-right|up-left|up-right`.
 
@@ -769,11 +780,13 @@ git commit -m "feat(web): selector de estilo de juego en el builder (+ textos ×
 ### Task 6: Chequeo completo, verificación real y registro
 
 **Files:**
+
 - Modify: `CHANGELOG.md` — entrada 2.6.0
 - Modify: `package.json` (raíz) y donde se declare la versión — bump a 2.6.0
 - Modify: `docs/superpowers/v3/PLAN.md` — marcar Fase 5 (se hace al cerrar, tras verificar en producción; ver nota)
 
 **Interfaces:**
+
 - Consumes: todo lo anterior integrado.
 - Produces: repo en verde, changelog y versión listos para el gate de publicación.
 
@@ -785,6 +798,7 @@ Expected: PASS — tipos de todos los workspaces + eslint + prettier + tests + s
 - [ ] **Step 2: Verificación real en el builder (no solo tests)**
 
 Levantar la web en local (el comando del repo, p. ej. `npm run -w @arcade1v1/web dev`) y recorrer `/build`:
+
 - Elegir **2048** → aparece el selector con **Fusionador / Esquinero** con su línea de descripción. Cambiar de estilo mueve las perillas (aparece `Esquina objetivo` + `Paciencia`) y el score estimado recomputa.
 - Paso 4 (sandbox): con **Esquinero** las fichas se apilan hacia una esquina; con **Fusionador**, no. Contraste visible.
 - Repetir con **Snake** (Cazador se lanza / Superviviente serpentea) y **Carrera** (Prudente casi no se mueve / Serpenteador zigzaguea).
@@ -801,6 +815,7 @@ En `CHANGELOG.md`, agregar arriba (formato Keep a Changelog, en español):
 ## [2.6.0] - 2026-07-11
 
 ### Añadido
+
 - Segundo estilo de juego en 2048 (Esquinero), Snake (Superviviente) y Carrera
   (Serpenteador): cada juego con dos estrategias que juegan visiblemente
   distinto, ambas verificadas anti-trampa por construcción.
@@ -809,6 +824,7 @@ En `CHANGELOG.md`, agregar arriba (formato Keep a Changelog, en español):
   una sola estrategia se ven igual que antes.
 
 ### Notas
+
 - Los agentes ya desplegados no se ven afectados: solo se suman opciones.
 ```
 
@@ -830,6 +846,7 @@ Mostrar al usuario, en simple, qué se hizo y pedir OK explícito antes de `git 
 ## Self-Review
 
 **Cobertura del spec:**
+
 - 3 estrategias nuevas (2048/snake/racing) → Tasks 1, 2, 3. ✓
 - `descKey?` en `StrategyDef` → Task 1, Step 1. ✓
 - `applyDir` reusable en g2048 → Task 1, Step 2. ✓
