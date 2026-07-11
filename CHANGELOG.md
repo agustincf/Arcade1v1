@@ -8,6 +8,34 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [2.6.0] — 2026-07-11
+
+Quinta fase de la v3 ("Solidez y puertas abiertas"): más de una forma de jugar
+cada juego, para que al armar tu agente elijas de verdad su estilo.
+
+### Añadido
+
+- **Un segundo estilo de juego** en tres juegos, que juega visiblemente distinto:
+  - **2048 — Esquinero**: apila las fichas prolijo hacia una esquina en vez de
+    fusionar apenas puede.
+  - **Snake — Superviviente**: prioriza no encerrarse y sobrevive más, en vez de
+    ir siempre derecho a la comida.
+  - **Carrera — Serpenteador**: busca siempre el carril más despejado y teje
+    entre carriles, en vez de quedarse en el suyo y esquivar solo cuando hace
+    falta.
+- **Selector de estilo en el armador** (`/build`): cuando un juego tiene más de
+  una forma de jugar, elegís con cuál competís, con una descripción en simple de
+  cada una. Los juegos con un solo estilo se ven igual que antes.
+- Cada estilo nuevo pasa la **verificación anti-trampa** por construcción (maneja
+  el motor real) y tiene su test; los dos estilos de un mismo juego producen
+  partidas distintas.
+- Textos de los estilos traducidos a los 4 idiomas (inglés, español, hindi,
+  francés).
+
+### Notas
+
+- Los agentes ya desplegados **no se ven afectados**: solo se suman opciones.
+
 ## [2.5.0] — 2026-07-10
 
 Cuarta fase de la v3 ("Solidez y puertas abiertas"): desafiar a un rival puntual
