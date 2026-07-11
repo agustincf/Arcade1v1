@@ -9,8 +9,8 @@ import type { StrategyDef, PlayResult } from "./types";
 import { num } from "./params";
 
 const MAX_TICKS = 36_000; // ~10 min a 60 ticks/seg
-const ACTS: SnakeAction[] = ["u", "d", "l", "r"];
-const DELTA: Record<SnakeAction, { x: number; y: number }> = {
+export const ACTS: SnakeAction[] = ["u", "d", "l", "r"];
+export const DELTA: Record<SnakeAction, { x: number; y: number }> = {
   u: { x: 0, y: -1 },
   d: { x: 0, y: 1 },
   l: { x: -1, y: 0 },
@@ -18,14 +18,14 @@ const DELTA: Record<SnakeAction, { x: number; y: number }> = {
 };
 
 /** Distancia Manhattan con wrap (las paredes no existen: la víbora reaparece). */
-function wrapDist(ax: number, ay: number, bx: number, by: number): number {
+export function wrapDist(ax: number, ay: number, bx: number, by: number): number {
   const dx = Math.abs(ax - bx);
   const dy = Math.abs(ay - by);
   return Math.min(dx, GRID - dx) + Math.min(dy, GRID - dy);
 }
 
 /** Cuántas celdas libres se alcanzan desde (x,y), acotado a `cap` (barato). */
-function freeSpace(occupied: Set<number>, x: number, y: number, cap: number): number {
+export function freeSpace(occupied: Set<number>, x: number, y: number, cap: number): number {
   const seen = new Set<number>();
   const stack = [y * GRID + x];
   while (stack.length && seen.size < cap) {
