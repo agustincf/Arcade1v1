@@ -41,6 +41,7 @@ test("resolveDisplay: agente gana sobre perfil; perfil sobre nada", () => {
   // La address del agente resuelve a su nombre aunque tenga (hipotéticamente) perfil.
   setProfile({ address: agent.address, name: "Humano", avatar: "👾" });
   assert.equal(resolveDisplay(agent.address).name, "AgenteBot");
+  assert.equal(resolveDisplay(agent.address).agentId, agent.id);
 
   const human = addr("c0");
   setProfile({ address: human, name: "Sol", avatar: "👾" });

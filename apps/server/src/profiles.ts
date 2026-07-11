@@ -59,10 +59,14 @@ export function getProfile(address: string): Profile | undefined {
 
 /** Nombre/avatar visible de una address: agente hosteado -> su identidad;
  *  humano con perfil -> el suyo; si no, {} (la web cae al address corto). */
-export function resolveDisplay(address: string): { name?: string; avatar?: string } {
+export function resolveDisplay(address: string): {
+  name?: string;
+  avatar?: string;
+  agentId?: string;
+} {
   const a = normAddr(address);
   const agent = hostedAgentByAddress(a);
-  if (agent) return { name: agent.name, avatar: agent.avatar };
+  if (agent) return { name: agent.name, avatar: agent.avatar, agentId: agent.id };
   const p = profiles.get(a);
   if (p) return { name: p.name, avatar: p.avatar };
   return {};
