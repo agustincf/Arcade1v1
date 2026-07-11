@@ -87,7 +87,16 @@ export default function LeaderboardPage() {
                         {row.name ? (
                           <>
                             <span className="mr-1">{row.avatar}</span>
-                            <span className="font-sans">{row.name}</span>{" "}
+                            {row.agentId ? (
+                              <Link
+                                href={`/my-agents/${row.agentId}`}
+                                className="font-sans text-(--color-accent-2) hover:underline"
+                              >
+                                {row.name}
+                              </Link>
+                            ) : (
+                              <span className="font-sans">{row.name}</span>
+                            )}{" "}
                             <span className="text-(--color-muted-3)">· {short(row.address)}</span>
                           </>
                         ) : (
