@@ -128,3 +128,31 @@ test("runStrategy: valida juego/estrategia y corre", () => {
   assert.throws(() => runStrategy({ game: "2048", strategyId: "snake.greedy", params: {} }, 7));
   assert.throws(() => runStrategy({ game: "2048", strategyId: "nope", params: {} }, 7));
 });
+
+// Fase 5: los juegos con dos estilos producen partidas VISIBLEMENTE distintas
+// (el criterio "dos estrategias del mismo juego se juegan distinto"). Se compara
+// con los params por defecto de cada una sobre las mismas semillas.
+const DUAL_GAMES: Array<[string, string]> = [
+  ["2048.priority", "2048.corner"],
+  ["snake.greedy", "snake.survivor"],
+  ["racing.dodger", "racing.weaver"],
+];
+
+for (const [idA, idB] of DUAL_GAMES) {
+  test(`${idA} vs ${idB}: juegan distinto (replays y algún puntaje difieren)`, () => {
+    const a = STRATEGIES[idA];
+    const b = STRATEGIES[idB];
+    assert.ok(a && b, `faltan estrategias: ${idA} / ${idB}`);
+    assert.equal(a.game, b.game, "tienen que ser del mismo juego");
+    let replaysDiffer = false;
+    let scoreDiffers = false;
+    for (const seed of SEEDS) {
+      const ra = a.play(seed, defaultParams(a));
+      const rb = b.play(seed, defaultParams(b));
+      if (JSON.stringify(ra.replay) !== JSON.stringify(rb.replay)) replaysDiffer = true;
+      if (ra.score !== rb.score) scoreDiffers = true;
+    }
+    assert.ok(replaysDiffer, `${idA}/${idB}: replays idénticos en todas las semillas`);
+    assert.ok(scoreDiffers, `${idA}/${idB}: mismo puntaje en todas las semillas`);
+  });
+}
