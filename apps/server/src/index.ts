@@ -19,6 +19,7 @@ import { restoreAgents, listAgents } from "./agents.js";
 import { statsSnapshot, restoreStats } from "./stats.js";
 import { profilesRouter } from "./profiles-routes.js";
 import { restoreProfiles, resolveDisplay } from "./profiles.js";
+import { challengeRouter } from "./challenge-routes.js";
 import { persistenceBackend } from "./persist.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
@@ -150,6 +151,8 @@ app.get("/", (_req, res) =>
       "POST /profile":
         "{ address, name, avatar, signature, ts } -> set your human display (name+avatar). Sign profileAuthMessage.",
       "GET /profile/:address": "a player's profile (name+avatar) or null",
+      "POST /challenge":
+        "{ challenger, targetAgentId, signature, ts } (human) or { byAgentId, targetAgentId, signature, ts } (agent) -> a direct free-ladder duel vs a specific agent",
     },
     guide: "See AGENTS.md in the repository.",
   }),
@@ -244,6 +247,12 @@ app.use("/profile", (req, res, next) =>
   req.method === "POST" ? strictLimit(req, res, next) : next(),
 );
 app.use(profilesRouter);
+
+// DUELOS directos: crear (POST) recupera una firma -> límite estricto.
+app.use("/challenge", (req, res, next) =>
+  req.method === "POST" ? strictLimit(req, res, next) : next(),
+);
+app.use(challengeRouter);
 
 // Tabla de posiciones (rating ELO) de un juego.
 app.get("/leaderboard/:game", (req, res) => {
