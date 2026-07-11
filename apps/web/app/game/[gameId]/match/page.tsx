@@ -42,6 +42,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const { address, connect } = useWallet();
   const { signMessageAsync } = useSignMessage();
   const free = search.get("free") === "1";
+  const challengeId = search.get("challenge");
   const bet = Number(search.get("bet") ?? 0);
   // LADDER GRATIS (bet=0, sin ?free=1): partida rankeada de verdad — pasa por
   // el árbitro (rival real + ELO) pero sin depósito. ?free=1 queda como el modo
@@ -116,6 +117,21 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     mmStarted.current = true;
     pidRef.current = playerId(address ?? null);
     (async () => {
+      // MODO DESAFÍO: la partida ya existe (la creó el botón "Desafiar"); no se
+      // empareja, se carga y se juega como una ladder gratis rankeada.
+      if (challengeId) {
+        try {
+          const v = await getMatch(challengeId, pidRef.current);
+          if (!v) throw new Error("challenge not found");
+          setMatchId(v.matchId);
+          setSeed(v.seed);
+          setRole(v.role ?? null);
+        } catch {
+          mmStarted.current = false;
+          setError("server");
+        }
+        return;
+      }
       // Con wallet conectada, el emparejamiento va FIRMADO (en producción el
       // árbitro lo exige: evita que alguien encole direcciones ajenas).
       let auth: { signature: string; ts: number } | undefined;
