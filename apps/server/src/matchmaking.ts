@@ -96,6 +96,7 @@ interface Match {
   seed: number;
   p1: string;
   p2?: string;
+  target?: string; // desafío directo: solo esta address (un agente) puede aceptar
   scores: Record<string, number>;
   replays: Record<string, unknown>; // replay verificado de cada jugador
   createdAt: number; // para descartar "waiters" abandonados de la cola
@@ -208,6 +209,71 @@ function createWaiting(k: string, game: string, stake: number, address: string) 
   recordMatchCreated(); // métrica: una partida nueva (unirse a una existente no crea otra)
   persist();
   return view(m, address);
+}
+
+// DUELOS DIRECTOS (ladder gratis). Un desafío es una partida stake 0 con `target`
+// que NO entra en la cola general: solo el agente objetivo la acepta (su runner),
+// y expira por CHALLENGE_TTL si no la toma. Cumple "desafiar a quien vos quieras"
+// + "que nadie lo robe" + "expira si no se acepta", sin tocar plata.
+export const CHALLENGE_TTL = Number(process.env.CHALLENGE_TTL_MS ?? 30 * 60_000);
+
+/** Crea un desafío apuntado a `target` (address de un agente). Devuelve la vista
+ *  para `challenger`. La autorización (firma) se hace en la capa de rutas. */
+export function createChallenge(game: string, challenger: string, target: string) {
+  challenger = normAddr(challenger);
+  target = normAddr(target);
+  if (!isKnownGame(game)) throw new Error(`unknown game: ${game}`);
+  if (challenger === target) throw new Error("cannot challenge yourself");
+  const m: Match = {
+    id: randomId(),
+    game,
+    stake: 0,
+    seed: randomSeed(),
+    p1: challenger,
+    target,
+    scores: {},
+    replays: {},
+    createdAt: Date.now(),
+    status: "waiting",
+  };
+  matches.set(m.id, m);
+  recordMatchCreated();
+  persist();
+  return view(m, challenger);
+}
+
+/** El agente objetivo acepta un desafío dirigido a él. In-process (lo llama su
+ *  runner): solo el target entra, un tercero o el propio challenger es rechazado. */
+export function acceptChallenge(matchId: string, joiner: string) {
+  joiner = normAddr(joiner);
+  const m = matches.get(matchId);
+  if (!m) throw new Error("match not found");
+  if (!m.target) throw new Error("not a challenge");
+  if (m.status !== "waiting" || m.p2) throw new Error("challenge not open");
+  if (joiner !== m.target) throw new Error("not the challenged rival");
+  if (joiner === m.p1) throw new Error("cannot accept your own challenge");
+  m.p2 = joiner;
+  m.status = "ready";
+  persist();
+  return view(m, joiner);
+}
+
+/** Desafíos en espera dirigidos a `address` (sin rival aún, no vencidos). */
+export function pendingChallengesFor(address: string): { matchId: string; game: string }[] {
+  address = normAddr(address);
+  const now = Date.now();
+  const out: { matchId: string; game: string }[] = [];
+  for (const m of matches.values()) {
+    if (
+      m.target === address &&
+      !m.p2 &&
+      m.status === "waiting" &&
+      now - m.createdAt <= CHALLENGE_TTL
+    ) {
+      out.push({ matchId: m.id, game: m.game });
+    }
+  }
+  return out;
 }
 
 /** Firma opcional del emparejamiento: { signature, ts } (ver matchmakeAuthMessage). */
@@ -616,8 +682,10 @@ export function sweepMatches(now = Date.now()) {
       continue;
     }
     if (!m.p2) {
-      // Esperando rival: vencido, se descarta (igual criterio que la cola).
-      if (now - m.createdAt > WAIT_TTL) {
+      // Esperando rival: vencido, se descarta. Un desafío dirigido usa su propio
+      // TTL (más corto); una espera de cola normal, el WAIT_TTL de siempre.
+      const ttl = m.target ? CHALLENGE_TTL : WAIT_TTL;
+      if (now - m.createdAt > ttl) {
         const k = qkey(m.game, m.stake);
         if (queue.get(k) === m.id) queue.delete(k);
         matches.delete(m.id);

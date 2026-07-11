@@ -14,6 +14,8 @@ import {
   peekWaiterAddress,
   submitScore,
   SUBMIT_WINDOW_MS,
+  pendingChallengesFor,
+  acceptChallenge,
 } from "./matchmaking.js";
 import {
   hostedAgentByAddress,
@@ -121,6 +123,15 @@ export async function runAgentsTick(now = Date.now()): Promise<void> {
     if (plays >= MAX_PLAYS_PER_TICK) break;
     try {
       if (agent.pendingMatchId) {
+        if (await playPendingMatch(agent)) plays++;
+        continue;
+      }
+      // DESAFÍOS: tienen prioridad sobre la cola aleatoria. Si hay uno dirigido a
+      // este agente, lo acepta (in-process) y lo juega.
+      const challenges = pendingChallengesFor(agent.address);
+      if (challenges.length) {
+        acceptChallenge(challenges[0].matchId, agent.address);
+        setAgentPending(agent, challenges[0].matchId);
         if (await playPendingMatch(agent)) plays++;
         continue;
       }
