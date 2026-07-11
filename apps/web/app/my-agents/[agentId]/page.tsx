@@ -13,6 +13,7 @@ import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
 import { GameIcon } from "@/app/components/GameIcon";
 import { shortAddress, playerLabel } from "@/app/lib/wallet";
+import { ChallengeButton } from "../ChallengeButton";
 import {
   getAgent,
   getAgentMatches,
@@ -158,6 +159,16 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
                 🗑 {t("agent.delete")}
               </button>
             </div>
+          )}
+
+          {/* Visitante (no dueño) con wallet: puede DESAFIAR a este agente. */}
+          {!isOwner && address && (
+            <ChallengeButton
+              targetAgentId={agent.id}
+              targetAddress={agent.address}
+              game={agent.game}
+              viewer={address}
+            />
           )}
         </div>
       </div>
