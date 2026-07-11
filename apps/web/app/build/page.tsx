@@ -193,9 +193,38 @@ export default function BuildPage() {
             </div>
           )}
 
-          {/* Paso 2: perillas de la estrategia + score estimado en vivo */}
-          {step === 2 && def && (
+          {/* Paso 2: elegir estilo (si hay >1) + perillas + score estimado en vivo */}
+          {step === 2 && def && game && (
             <>
+              {strategiesFor(game).length > 1 && (
+                <>
+                  <p className="mt-4 text-sm text-(--color-muted-2)">{t("build.style")}</p>
+                  <div className="mt-2 grid grid-cols-2 gap-3">
+                    {strategiesFor(game).map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setStrategyId(s.id);
+                          setParams(defaultParams(s));
+                          setSandbox(null);
+                        }}
+                        className={`win p-3 text-left transition hover:-translate-y-0.5 ${
+                          strategyId === s.id ? "!border-(--color-accent)" : ""
+                        }`}
+                      >
+                        <p className="font-pixel text-px10 text-(--color-accent-2)">
+                          {t(s.labelKey)}
+                        </p>
+                        {s.descKey && (
+                          <p className="mt-1 text-sm leading-snug text-(--color-muted)">
+                            {t(s.descKey)}
+                          </p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
               <div className="win mt-4 p-4">
                 <p className="font-pixel text-px10 text-(--color-accent-2)">{t(def.labelKey)}</p>
                 {def.params.map((p) =>
