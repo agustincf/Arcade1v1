@@ -224,7 +224,7 @@ export const en: Dict = {
   "status.colSettled": "Decided",
   "status.since": "Totals accumulate since {date}.",
   "status.note": "Uptime resets on each deploy; totals survive them.",
-  "status.gas": "Arbiter gas",
+  "status.gas": "ARBITER GAS",
   "status.gasOk": "OK",
   "status.gasLow": "LOW",
   "status.gasBalance": "Balance:",

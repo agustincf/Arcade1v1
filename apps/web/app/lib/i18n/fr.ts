@@ -232,7 +232,7 @@ export const fr: Dict = {
   "status.colSettled": "Décidés",
   "status.since": "Les totaux s'accumulent depuis le {date}.",
   "status.note": "L'uptime se réinitialise à chaque déploiement ; les totaux persistent.",
-  "status.gas": "Gaz de l'arbitre",
+  "status.gas": "GAZ DE L'ARBITRE",
   "status.gasOk": "OK",
   "status.gasLow": "BAS",
   "status.gasBalance": "Solde :",
