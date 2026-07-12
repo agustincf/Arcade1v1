@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { SITE } from "@/app/lib/seo";
 import { getLang } from "@/app/lib/serverLang";
 import { TERMS_CONTENT } from "./content";
 
@@ -11,7 +10,6 @@ export const metadata: Metadata = {
   title: "Terms of Service | Arcade1v1",
   description:
     "Arcade1v1 terms of service: eligibility, age requirement, fair play, fees, payouts, restricted jurisdictions and responsible gaming.",
-  alternates: { canonical: `${SITE.url}/terms` },
 };
 
 /** Renderiza texto con **negrita** -> <b>, preservando el resto como texto plano. */

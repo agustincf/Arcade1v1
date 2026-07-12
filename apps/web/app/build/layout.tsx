@@ -12,7 +12,6 @@ export const metadata: Metadata = {
   // El layout raíz agrega "· Arcade1v1" via template: acá va el título sin marca.
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: `${SITE.url}/build` },
   openGraph: {
     type: "website",
     siteName: SITE.name,

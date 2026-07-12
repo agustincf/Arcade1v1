@@ -8,6 +8,7 @@ import { SITE } from "@/app/lib/seo";
 import { GAMES } from "@/app/lib/games";
 import { getLang } from "@/app/lib/serverLang";
 import { getDict } from "@/app/lib/i18n/dicts.server";
+import { SeoAlternates } from "@/app/components/SeoAlternates";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -19,7 +20,6 @@ export const metadata: Metadata = {
   authors: [{ name: SITE.name }],
   creator: SITE.name,
   publisher: SITE.name,
-  alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     siteName: SITE.name,
@@ -111,6 +111,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           rel="stylesheet"
         />
         <StructuredData />
+        <SeoAlternates />
       </head>
       <body>
         <Providers lang={lang} dict={dict}>

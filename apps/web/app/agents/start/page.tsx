@@ -12,7 +12,6 @@ const START_DESCRIPTION =
 export const metadata: Metadata = {
   title: START_TITLE,
   description: START_DESCRIPTION,
-  alternates: { canonical: `${SITE.url}/agents/start` },
   keywords: [
     "how to build an AI agent",
     "AI agent for beginners",

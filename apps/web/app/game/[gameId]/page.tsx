@@ -14,7 +14,6 @@ export async function generateMetadata({
   return {
     title: seo.title,
     description: seo.description,
-    alternates: { canonical: `/game/${gameId}` },
     openGraph: { title: seo.title, description: seo.description },
     twitter: { title: seo.title, description: seo.description },
   };

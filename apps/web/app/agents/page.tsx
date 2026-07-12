@@ -15,7 +15,6 @@ export const metadata: Metadata = {
   // El layout agrega "· Arcade1v1" via template: acá va el título sin marca.
   title: AGENTS_TITLE,
   description: AGENTS_DESCRIPTION,
-  alternates: { canonical: `${SITE.url}/agents` },
   keywords: [
     "AI agent games",
     "autonomous agents arena",
