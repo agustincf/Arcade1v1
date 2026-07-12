@@ -7,7 +7,7 @@
 // @arcade1v1/strategies), así lo que se ve acá es lo que jugará el agente.
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useRouter } from "next/navigation";
 import { useSignMessage } from "wagmi";
 import { agentAuthMessage } from "@arcade1v1/game-sdk/auth";

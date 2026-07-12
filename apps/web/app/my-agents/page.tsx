@@ -4,7 +4,7 @@
 // historial W/L y pausa/reanudar. Todo lo administrativo va firmado.
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useSignMessage } from "wagmi";
 import { agentAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { useT } from "@/app/lib/i18n";

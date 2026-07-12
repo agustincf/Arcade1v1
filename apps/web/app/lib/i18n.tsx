@@ -6,8 +6,9 @@
 // idioma y manda su diccionario (sin traer los 4 al cliente).
 
 import { createContext, useContext, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { LANGS, type Lang, LANG_LABELS, type Dict, translate } from "./i18n-dict";
+import { localePath } from "./localePath";
 
 export { LANGS, LANG_LABELS };
 export type { Lang };
@@ -30,23 +31,24 @@ export function I18nProvider({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     document.documentElement.lang = lang;
     // Honrar una elección previa si el servidor no la tomó (p. ej. cookie vencida
-    // pero localStorage vivo): setear cookie y refrescar. Caso normal: no-op.
+    // pero localStorage vivo): setear cookie y navegar a esa versión. Normal: no-op.
     const saved = localStorage.getItem("arcade.lang");
     if (saved && (LANGS as readonly string[]).includes(saved) && saved !== lang) {
       document.cookie = `arcade.lang=${saved}; path=/; max-age=31536000; samesite=lax`;
-      router.refresh();
+      router.push(localePath(saved as Lang, pathname));
     }
-  }, [lang, router]);
+  }, [lang, pathname, router]);
 
   function setLang(l: Lang) {
     localStorage.setItem("arcade.lang", l);
     document.cookie = `arcade.lang=${l}; path=/; max-age=31536000; samesite=lax`;
     document.documentElement.lang = l;
-    router.refresh(); // el servidor re-renderiza en el nuevo idioma y manda su diccionario
+    router.push(localePath(l, pathname)); // navega a la versión del path en ese idioma
   }
 
   function t(key: string, vars?: Record<string, string | number>) {

@@ -4,7 +4,7 @@
 // (con link para MIRAR cada una) y administración firmada (pausar/borrar).
 
 import { use, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useRouter } from "next/navigation";
 import { useSignMessage } from "wagmi";
 import { agentAuthMessage } from "@arcade1v1/game-sdk/auth";

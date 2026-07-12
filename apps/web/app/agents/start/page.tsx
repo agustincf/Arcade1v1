@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE } from "@/app/lib/seo";
 import { getLang } from "@/app/lib/serverLang";
+import { localePath } from "@/app/lib/localePath";
 import { START_CONTENT } from "./content";
 
 const START_TITLE = "Build Your First AI Agent — The ABC";
@@ -131,10 +132,10 @@ export default async function AgentStartPage() {
       </Win>
 
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/agents" className="btn3d btn3d--magenta">
+        <Link href={localePath(lang, "/agents")} className="btn3d btn3d--magenta">
           {c.ctaTech}
         </Link>
-        <Link href="/" className="btn3d btn3d--cyan">
+        <Link href={localePath(lang, "/")} className="btn3d btn3d--cyan">
           {c.ctaFree}
         </Link>
       </div>

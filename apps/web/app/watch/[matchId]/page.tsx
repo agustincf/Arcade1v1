@@ -4,7 +4,7 @@
 // motor real (mismo determinismo que el anti-trampa del árbitro).
 
 import { use, useEffect, useState } from "react";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useT } from "@/app/lib/i18n";
 import { GameIcon } from "@/app/components/GameIcon";
 import { shortAddress, playerLabel } from "@/app/lib/wallet";

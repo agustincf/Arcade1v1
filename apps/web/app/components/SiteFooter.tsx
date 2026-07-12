@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useState } from "react";
 import { useT } from "@/app/lib/i18n";
 import { IS_MAINNET } from "@/app/lib/config";

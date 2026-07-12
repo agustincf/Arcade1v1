@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { getGame } from "@/app/lib/games";
 import { getPayout, PLATFORM_FEE, IS_MAINNET } from "@/app/lib/config";
 import { GameIcon } from "@/app/components/GameIcon";

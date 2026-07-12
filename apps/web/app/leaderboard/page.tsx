@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { getLeaderboard, type LeaderRow } from "@/app/lib/arbiter";
 import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";

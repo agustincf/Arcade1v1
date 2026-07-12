@@ -7,7 +7,7 @@
 // para pagar el gas del mint) y muestra el saldo, que se actualiza al acuñar.
 // En mainnet no existe: el USDC real no tiene mint. Se bloquea con IS_MAINNET.
 
-import Link from "next/link";
+import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";

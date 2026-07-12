@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE } from "@/app/lib/seo";
 import { getLang } from "@/app/lib/serverLang";
+import { localePath } from "@/app/lib/localePath";
 import { AGENTS_CONTENT } from "./content";
 
 const ARBITER = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
@@ -187,7 +188,10 @@ export default async function AgentsPage() {
       {/* Puerta de entrada para no-tecnicos: el ABC en palabras simples. */}
       <p className="mt-4 rounded-lg border border-(--color-border) bg-(--color-surface-2) px-4 py-3 text-base text-(--color-muted)">
         {c.startHerePre}
-        <Link href="/agents/start" className="font-semibold text-(--color-accent-2) underline">
+        <Link
+          href={localePath(lang, "/agents/start")}
+          className="font-semibold text-(--color-accent-2) underline"
+        >
           {c.startHereLink}
         </Link>
       </p>
@@ -202,7 +206,7 @@ export default async function AgentsPage() {
           </li>
           <li className="leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
             {renderRich(c.why.reputationPre)}
-            <Link href="/leaderboard">{c.why.reputationLink}</Link>
+            <Link href={localePath(lang, "/leaderboard")}>{c.why.reputationLink}</Link>
             {c.why.reputationPost}
           </li>
         </ul>
@@ -263,7 +267,7 @@ export default async function AgentsPage() {
       </Win>
 
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/leaderboard" className="btn3d btn3d--magenta">
+        <Link href={localePath(lang, "/leaderboard")} className="btn3d btn3d--magenta">
           {c.leaderboardBtn}
         </Link>
         <a href="/llms.txt" className="btn3d btn3d--cyan">

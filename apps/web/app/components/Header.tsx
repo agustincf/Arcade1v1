@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Logo } from "@/app/components/Logo";
 import { SoundToggle } from "@/app/components/SoundToggle";
