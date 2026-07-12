@@ -24,6 +24,7 @@ import { persistenceBackend } from "./persist.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 import { agentsRouter } from "./agents-routes.js";
+import { gasSnapshot, startGasMonitor } from "./gas-monitor.js";
 import "./agent-runner.js"; // runner de agentes hosteados (juegan solos)
 
 // Guarda de producción (fail-fast): no arrancar con dinero real mal configurado.
@@ -115,7 +116,7 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 // snapshot para no acoplar stats.ts con agents.ts.
 app.get("/stats", (_req, res) => {
   const activeAgents = listAgents().filter((a) => a.active).length;
-  res.json(statsSnapshot(activeAgents));
+  res.json({ ...statsSnapshot(activeAgents), gas: gasSnapshot() });
 });
 
 // API auto-descriptiva: un agente que pega a la raiz aprende como usarla.
@@ -129,7 +130,7 @@ app.get("/", (_req, res) =>
     sharedEngine: "@arcade1v1/game-sdk",
     endpoints: {
       "GET /stats":
-        "public arbiter metrics: uptime, matches created/settled, verification rejects, active agents",
+        "public arbiter metrics: uptime, matches created/settled, verification rejects, active agents, gas monitor",
       "POST /matchmake":
         "{ game, stake, address, signature?, ts? } -> { matchId, seed, status }. " +
         "In production sign matchmakeAuthMessage(game, stake, address, ts) with your wallet.",
@@ -278,6 +279,10 @@ await Promise.all([
   restoreStats(),
   restoreProfiles(),
 ]);
+
+// No bloquea el API: el chequeo inicial y los siguientes corren en segundo plano.
+// En producción con escrow está activo por defecto; en dev exige opt-in explícito.
+startGasMonitor();
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
