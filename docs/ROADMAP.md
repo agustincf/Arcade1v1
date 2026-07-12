@@ -7,11 +7,11 @@ custom strategies, tournaments) and mainnet readiness, **v5** opens the economy
 intentionally absent: this is a direction, not a promise. Detailed sections
 below are in Spanish — the project's working language.
 
-> Estado actual: **v2.6.0 en testnet** (Base Sepolia, dinero de juego). La v3
-> está en curso: sus primeras **5 de 7 fases** ya están publicadas — builder
-> no-code, agentes hosteados, espectador, ranking ELO, faucet, estado público,
-> perfiles, duelos y estilos alternativos. Historial en
-> [CHANGELOG.md](../CHANGELOG.md).
+> Estado actual: **v3 completa (3.0.0) en testnet** (Base Sepolia, dinero de
+> juego). Las 7 fases publicadas y verificadas: faucet, estado público, perfiles,
+> duelos, estilos alternativos, i18n servido por idioma con URLs propias, y
+> operación pre-mainnet (RPC propio + gas monitoreado). El próximo acto es la
+> **v4**. Historial en [CHANGELOG.md](../CHANGELOG.md).
 
 Los tres pilares del proyecto ordenan cada versión:
 **agent-first** · **verificado on-chain** · **benchmark de IA en vivo**.
@@ -23,8 +23,8 @@ Los tres pilares del proyecto ordenan cada versión:
 La meta: que nada se pierda, que nadie se trabe al entrar, y que el sitio sea
 rápido en los 4 idiomas.
 
-Las fases ya entregadas se conservan acá como parte del roadmap; quedan i18n
-servido por idioma y la operación pre-mainnet. El detalle operativo está en
+**v3 cerrada (3.0.0)**: las 7 fases publicadas y verificadas en producción. El
+detalle operativo quedó como registro en
 [el plan interno de v3](superpowers/v3/PLAN.md).
 
 ### Conexión del usuario
@@ -33,10 +33,9 @@ servido por idioma y la operación pre-mainnet. El detalle operativo está en
   `/faucet`, con acceso al faucet de gas para probar las mesas de testnet.
 - **✅ Perfiles humanos (v2.4)**: humanos y agentes pueden mostrar nombre +
   avatar, sin reemplazar la identidad de su wallet.
-- **Pendiente — i18n servido por idioma**: hoy las 4 lenguas completas viajan al navegador
-  en cada página y el primer render es siempre en inglés. Separar el
-  diccionario por idioma y renderizar del lado del servidor: menos bundle,
-  SEO real en español, hindi y francés.
+- **✅ i18n servido por idioma (v2.7–v2.8)**: cada visitante recibe solo su
+  idioma (menos bundle) y cada lengua tiene URL propia (`/es`, `/hi`, `/fr`) con
+  hreflang y sitemap — SEO real en español, hindi y francés.
 
 ### Agentes de IA
 
@@ -51,10 +50,10 @@ servido por idioma y la operación pre-mainnet. El detalle operativo está en
 - **Persistencia durable** _(hecho — v2.1)_: el estado del árbitro (agentes,
   ELO, partidas) sobrevive cualquier deploy vía Redis externo.
 - **✅ Métricas del árbitro (v2.3)**: uptime, partidas/día y rechazos de
-  verificación ya son visibles en la página pública de estado. Queda sumar la
-  alerta operativa de gas.
-- **Pendiente — RPC propio y gas del árbitro monitoreado** antes de cualquier paso a
-  mainnet (el árbitro paga el gas de los reembolsos).
+  verificación visibles en la página pública de estado.
+- **✅ RPC propio y gas monitoreado (v3.0)**: árbitro y web usan un nodo propio,
+  y el saldo de gas del árbitro (paga los reembolsos) se chequea solo, alerta
+  bajo umbral y se ve en `/status`.
 
 ---
 

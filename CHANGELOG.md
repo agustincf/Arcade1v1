@@ -8,6 +8,27 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.0.0] — 2026-07-12
+
+**v3 completa** 🏁 — séptima y última fase del milestone "Solidez y puertas
+abiertas": la operación queda lista para pensar en mainnet.
+
+### Añadido
+
+- **Monitor de gas del árbitro**: el árbitro paga los reembolsos automáticos; su
+  saldo de ETH ahora se chequea solo cada 5 minutos, dispara una alerta si baja
+  del umbral (con webhook opcional) y se ve en la página pública `/status`
+  (saldo, umbral y estado OK/BAJO, en los 4 idiomas).
+- **RPC propio en producción**: el árbitro y la web dejaron de depender del nodo
+  público de la red — cada uno usa su nodo dedicado.
+- Runbook de operación en `DEPLOY.md`: cómo configurar el RPC, probar la alerta
+  y recargar el gas, en simple.
+
+### Verificado en producción
+
+- La alerta se disparó con el saldo real bajo el umbral, el tanque se recargó y
+  el estado pasó a OK vía el RPC propio — el ciclo completo, en vivo.
+
 ## [2.8.0] — 2026-07-11
 
 Sexta fase de la v3 ("Solidez y puertas abiertas"), Etapa 2: cada idioma tiene su

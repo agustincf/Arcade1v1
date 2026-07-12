@@ -26,7 +26,7 @@ sobrevive deploys vía Redis externo o archivo
 - [x] Fase 4 — Duelos directos (2.5.0, 2026-07-11)
 - [x] Fase 5 — Más de una estrategia por juego (2.6.0, 2026-07-11)
 - [x] Fase 6 — i18n servido por idioma (Etapa 1: 2.7.0 · Etapa 2: 2.8.0, 2026-07-11)
-- [ ] Fase 7 — Operación pre-mainnet (RPC propio + gas monitoreado)
+- [x] Fase 7 — Operación pre-mainnet (3.0.0, 2026-07-12) — **v3 cerrada**
 
 _Se marca cada fase al publicarla (release + verificación en producción)._
 
