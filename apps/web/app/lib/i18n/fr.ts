@@ -232,6 +232,13 @@ export const fr: Dict = {
   "status.colSettled": "Décidés",
   "status.since": "Les totaux s'accumulent depuis le {date}.",
   "status.note": "L'uptime se réinitialise à chaque déploiement ; les totaux persistent.",
+  "status.gas": "Gaz de l'arbitre",
+  "status.gasOk": "OK",
+  "status.gasLow": "BAS",
+  "status.gasBalance": "Solde :",
+  "status.gasThreshold": "Alerte sous :",
+  "status.gasChecked": "vérifié {time} UTC",
+  "status.gasHint": "L'arbitre paie le gaz des remboursements automatiques — voici son réservoir.",
   "status.error":
     "Impossible de lire l'état — le serveur se réveille peut-être. Réessayez dans un instant.",
   "status.retry": "RÉESSAYER",

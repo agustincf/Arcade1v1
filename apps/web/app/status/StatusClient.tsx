@@ -151,6 +151,48 @@ export function StatusClient() {
             </div>
           )}
 
+          {/* Gas del árbitro (solo cuando el monitor corre; nada sintético) */}
+          {stats.gas?.enabled && (
+            <div className="win mt-4">
+              <div className="win-title">
+                <span>{t("status.gas")}</span>
+                <span
+                  className={`chip ${stats.gas.low ? "!text-(--color-lose)" : "!text-(--color-lime)"}`}
+                >
+                  {stats.gas.low ? `⚠ ${t("status.gasLow")}` : `● ${t("status.gasOk")}`}
+                </span>
+              </div>
+              <div className="p-4">
+                {stats.gas.error ? (
+                  <p className="text-base text-(--color-lose)">{stats.gas.error}</p>
+                ) : (
+                  <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+                    <span className="text-sm text-(--color-muted-2)">
+                      {t("status.gasBalance")}{" "}
+                      <span className="font-pixel text-px10 text-(--color-gold)">
+                        {stats.gas.balanceEth ?? "…"} ETH
+                      </span>
+                    </span>
+                    <span className="text-sm text-(--color-muted-2)">
+                      {t("status.gasThreshold")}{" "}
+                      <span className="font-mono text-(--color-muted-bright)">
+                        {stats.gas.thresholdEth} ETH
+                      </span>
+                    </span>
+                    {stats.gas.checkedAt && (
+                      <span className="text-sm text-(--color-muted-3)">
+                        {t("status.gasChecked", {
+                          time: new Date(stats.gas.checkedAt).toISOString().slice(11, 16),
+                        })}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <p className="mt-2 text-sm text-(--color-muted-3)">{t("status.gasHint")}</p>
+              </div>
+            </div>
+          )}
+
           <p className="mt-4 text-center text-sm text-(--color-muted-3)">
             {t("status.since", { date: fmtDate(stats.since) })}
           </p>

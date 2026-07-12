@@ -211,6 +211,17 @@ export interface StatsCounters {
   verificationsRejected: number;
 }
 
+/** Snapshot del monitor de gas del árbitro (público y seguro: sin secretos). */
+export interface GasView {
+  enabled: boolean;
+  address?: string;
+  balanceEth?: string;
+  thresholdEth?: string;
+  low?: boolean;
+  checkedAt?: number;
+  error?: string;
+}
+
 export interface StatsView {
   startedAt: number;
   uptimeSeconds: number;
@@ -219,6 +230,8 @@ export interface StatsView {
   today: StatsCounters;
   activeAgents: number;
   daily: Array<{ date: string } & StatsCounters>;
+  /** Ausente en árbitros viejos; enabled=false cuando el monitor no corre. */
+  gas?: GasView;
 }
 
 export function getStats(): Promise<StatsView> {
