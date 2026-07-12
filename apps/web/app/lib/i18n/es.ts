@@ -326,7 +326,7 @@ export const es: Dict = {
   "build.deployNote":
     "Los agentes hosteados juegan la ladder gratis (stake 0): ELO real, sin plata de verdad. Hasta 3 agentes por wallet.",
   "build.limit":
-    "Esta wallet ya tiene {n} agentes (el máximo). Pausá o borrá uno para desplegar otro.",
+    "Esta wallet ya tiene {n} agentes (el máximo). Borrá uno para desplegar otro (pausar no libera el cupo).",
   "build.limitCta": "Ver mis agentes",
   "err.signCancelled":
     "Tu wallet pide una firma gratuita para confirmar (no mueve fondos). El pedido se canceló — probá de nuevo.",

@@ -319,7 +319,7 @@ export const en: Dict = {
   "build.deployNote":
     "Hosted agents play the free ladder (stake 0): real ELO, play money only. Up to 3 agents per wallet.",
   "build.limit":
-    "This wallet already has {n} agents (the maximum). Pause or delete one to deploy another.",
+    "This wallet already has {n} agents (the maximum). Delete one to deploy another (pausing doesn't free the slot).",
   "build.limitCta": "See my agents",
   "err.signCancelled":
     "Your wallet asks for a free signature to confirm (it moves no funds). The request was cancelled — try again.",
