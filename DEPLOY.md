@@ -82,6 +82,50 @@ Importá el repo en Vercel, raíz `apps/web`. Variables de entorno:
 
 ---
 
+## ⛽ Operación: RPC propio y gas del árbitro
+
+Dos cuidados permanentes antes (y después) de cualquier paso a mainnet.
+
+### RPC propio (dejar de depender del público)
+
+Los RPC públicos (`sepolia.base.org`) tienen límites y caídas; con plata en
+juego no se depende de ellos.
+
+1. Creá una cuenta **gratis** en [Alchemy](https://www.alchemy.com) o
+   [QuickNode](https://www.quicknode.com) y una app para **Base Sepolia**
+   (o Base mainnet cuando toque). Te da una URL tipo
+   `https://base-sepolia.g.alchemy.com/v2/<tu-clave>`.
+2. Pegá esa URL en **dos** lugares:
+   - Render (árbitro): variable `RPC_URL`.
+   - Vercel (web): variable `NEXT_PUBLIC_RPC_URL`.
+3. Redeploy de ambos. Listo: árbitro y web usan tu nodo.
+
+> La URL contiene tu clave: tratala como secreto (no la pegues en chats/repos).
+
+### Monitor de gas del árbitro
+
+El árbitro paga el gas de los **reembolsos automáticos** (empates y partidas
+vencidas). Si se queda sin ETH, esos pagos quedan pendientes — los fondos del
+escrow siguen seguros, pero nadie cobra hasta recargar.
+
+- **Qué hace**: chequea el saldo cada 5 min; si baja del umbral, loguea una
+  alerta (y la manda a un webhook si configuraste uno). Estado visible en
+  `GET /stats` del árbitro y en la página pública **`/status`** de la web.
+- **Variables (Render)**: se enciende solo en producción con escrow activo.
+  - `GAS_ALERT_ETH=0.005` — umbral de alerta (ETH).
+  - `GAS_ALERT_WEBHOOK_URL=` — opcional: webhook de Slack/Discord/etc. para
+    recibir la alerta.
+  - `GAS_CHECK_INTERVAL_MS` / `GAS_ALERT_COOLDOWN_MS` — opcional: cada cuánto
+    chequea (default 5 min) y cada cuánto repite la alerta (default 6 h).
+- **Probar la alerta** (sin vaciar la wallet): subí `GAS_ALERT_ETH` por encima
+  del saldo actual (p. ej. `99`), redeploy, y mirá `/status` (estado BAJO) y el
+  log/webhook. Después volvé al umbral normal.
+- **Recargar gas**: mandá ETH (de Base Sepolia en testnet; real en mainnet) a la
+  **address del árbitro** — la que muestra `/status` y `GET /stats` (`gas.address`).
+  Con ~0.01 ETH alcanza para muchísimos reembolsos.
+
+---
+
 ## 💵 Pasar a DINERO REAL (Base mainnet)
 
 > ⚠️ Irreversible y público. Hacelo solo después de validar bien en testnet.
