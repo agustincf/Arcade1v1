@@ -8,6 +8,24 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [2.8.0] — 2026-07-11
+
+Sexta fase de la v3 ("Solidez y puertas abiertas"), Etapa 2: cada idioma tiene su
+propia dirección.
+
+### Añadido
+
+- **URLs por idioma**: español en `arcade1v1.com/es/…`, hindi en `/hi/…`, francés
+  en `/fr/…` (inglés se queda en `/…`). Ahora los buscadores pueden indexar cada
+  idioma por separado. Cada página declara sus versiones en otros idiomas
+  (hreflang) y el sitemap las lista todas. La navegación interna respeta el idioma
+  que estás viendo, y el selector te lleva a la versión de la página en ese idioma.
+
+### Arreglado
+
+- El `canonical` de varias páginas (ranking, watch, etc.) apuntaba a la home;
+  ahora cada página —y cada idioma— apunta a sí misma.
+
 ## [2.7.0] — 2026-07-11
 
 Sexta fase de la v3 ("Solidez y puertas abiertas"), Etapa 1: el sitio manda solo
