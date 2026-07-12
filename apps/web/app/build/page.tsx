@@ -25,9 +25,13 @@ import { useWallet } from "@/app/lib/wallet";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
 import { ReplayPlayer } from "@/app/components/replay/ReplayPlayer";
-import { createAgent, warmUpArbiter } from "@/app/lib/arbiter";
+import { createAgent, listAgents, warmUpArbiter } from "@/app/lib/arbiter";
+import { isSignCancelled, classifyArbiterError, type ArbiterRejection } from "@/app/lib/errors";
 
 const TOTAL_STEPS = 5;
+// Tope de agentes por wallet. Debe coincidir con MAX_AGENTS_PER_OWNER del
+// árbitro: acá solo AVISA antes del click; la validación real es del server.
+const MAX_AGENTS_PER_WALLET = 3;
 // Mismos seeds fijos que los tests de estrategias: el estimado es estable
 // entre visitas y comparable con lo que verifica la suite.
 const EST_SEEDS = [42, 987654, 20260709];
@@ -47,13 +51,36 @@ export default function BuildPage() {
   const [estimate, setEstimate] = useState<number | null>(null);
   const [sandbox, setSandbox] = useState<PlayResult | null>(null);
   const [deploying, setDeploying] = useState(false);
-  const [deployError, setDeployError] = useState(false);
+  // Motivo del fallo del deploy, VISIBLE y específico. El bug original: el
+  // server rechazaba (p.ej. tope de agentes) y la UI mentía "no pudimos
+  // conectar con el servidor" — el usuario reintentaba para siempre.
+  const [fail, setFail] = useState<ArbiterRejection | { kind: "sign-cancelled" } | null>(null);
+  const [mineCount, setMineCount] = useState<number | null>(null);
   const [slowHint, setSlowHint] = useState(false);
 
   // El deploy pega al árbitro; despertarlo ya (hosting gratuito que duerme).
   useEffect(() => {
     warmUpArbiter();
   }, []);
+
+  // Aviso PROACTIVO del tope: si la wallet ya está al máximo, el paso 5 lo
+  // dice ANTES del click y lleva al garage. Si la consulta falla no bloquea
+  // nada: el rechazo del server (abajo) cubre igual.
+  useEffect(() => {
+    if (!address) {
+      setMineCount(null);
+      return;
+    }
+    let cancelled = false;
+    listAgents(address)
+      .then((mine) => {
+        if (!cancelled) setMineCount(mine.length);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
 
   // Si "Desplegando…" se estira (el hosting gratuito despierta de a poco),
   // lo decimos: sin este aviso parecía colgado (mismo patrón que la mesa).
@@ -115,7 +142,7 @@ export default function BuildPage() {
   async function deploy() {
     if (!address || !game || !strategyId) return;
     setDeploying(true);
-    setDeployError(false);
+    setFail(null);
     const agentName = name.trim();
     let signature: string;
     const ts = Date.now();
@@ -125,8 +152,14 @@ export default function BuildPage() {
       signature = await signMessageAsync({
         message: agentAuthMessage("create", `${game}:${strategyId}:${agentName}`, address, ts),
       });
-    } catch {
-      // canceló la firma: no es un error, se queda en el paso 5
+    } catch (e) {
+      // Canceló la firma (aviso suave) o la wallet falló (motivo visible):
+      // nunca un click sin respuesta.
+      setFail(
+        isSignCancelled(e)
+          ? { kind: "sign-cancelled" }
+          : { kind: "server", reason: e instanceof Error ? e.message : String(e) },
+      );
       setDeploying(false);
       return;
     }
@@ -142,9 +175,15 @@ export default function BuildPage() {
         ts,
       });
       router.push(`/my-agents/${agent.id}`);
-    } catch {
-      // server caído o límite de 3 agentes por wallet
-      setDeployError(true);
+    } catch (e) {
+      const rejection = classifyArbiterError(e);
+      if (rejection.kind === "agent-limit") {
+        // Al tope: mostramos el aviso del límite con link al garage (el mismo
+        // que sale proactivo), no un error de conexión que no fue.
+        setMineCount((c) => Math.max(c ?? 0, rejection.max));
+      } else {
+        setFail(rejection);
+      }
       setDeploying(false);
     }
   }
@@ -359,6 +398,17 @@ export default function BuildPage() {
                 <button onClick={connect} className="btn3d btn3d--magenta mt-4 w-full">
                   {t("connect")}
                 </button>
+              ) : mineCount !== null && mineCount >= MAX_AGENTS_PER_WALLET ? (
+                // Wallet al tope: en vez de un botón que va a rebotar, la
+                // salida real — pausar/borrar un agente en el garage.
+                <div className="mt-4 text-center">
+                  <p className="text-sm leading-relaxed text-(--color-lose)">
+                    {t("build.limit", { n: mineCount })}
+                  </p>
+                  <Link href="/my-agents" className="btn3d btn3d--cyan mt-3 inline-block">
+                    {t("build.limitCta")}
+                  </Link>
+                </div>
               ) : (
                 <button
                   onClick={deploy}
@@ -373,8 +423,16 @@ export default function BuildPage() {
                   {t("build.waking")}
                 </p>
               )}
-              {deployError && (
-                <p className="mt-3 text-center text-sm text-(--color-lose)">{t("match.error")}</p>
+              {fail && (
+                <p className="mt-3 text-center text-sm text-(--color-lose)">
+                  {fail.kind === "sign-cancelled"
+                    ? t("err.signCancelled")
+                    : fail.kind === "server"
+                      ? t("err.rejected", { reason: fail.reason })
+                      : fail.kind === "agent-limit"
+                        ? t("build.limit", { n: fail.max })
+                        : t("match.error")}
+                </p>
               )}
             </div>
           )}

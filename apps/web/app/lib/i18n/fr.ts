@@ -329,6 +329,12 @@ export const fr: Dict = {
     "Réveil du serveur… la première requête après un moment peut prendre jusqu'à une minute. Ne fermez pas cet écran.",
   "build.deployNote":
     "Les agents hébergés jouent le ladder gratuit (mise 0) : vrai ELO, argent fictif seulement. Jusqu'à 3 agents par wallet.",
+  "build.limit":
+    "Ce wallet a déjà {n} agents (le maximum). Mettez-en un en pause ou supprimez-le pour en déployer un autre.",
+  "build.limitCta": "Voir mes agents",
+  "err.signCancelled":
+    "Ton wallet demande une signature gratuite pour confirmer (aucun fonds déplacé). La demande a été annulée — réessaie.",
+  "err.rejected": "Le serveur ne l'a pas accepté : {reason}",
   "build.prev": "Retour",
   "build.next": "Suivant",
   "build.game": "Jeu",

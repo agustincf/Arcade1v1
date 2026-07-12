@@ -11,6 +11,7 @@ import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
 import { GameIcon } from "@/app/components/GameIcon";
 import { listAgents, agentAction, warmUpArbiter, type AgentView } from "@/app/lib/arbiter";
+import { failureText } from "@/app/lib/errors";
 import { ProfileEditor } from "./ProfileEditor";
 
 export default function MyAgentsPage() {
@@ -19,6 +20,11 @@ export default function MyAgentsPage() {
   const { signMessageAsync } = useSignMessage();
   const [agents, setAgents] = useState<AgentView[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // Motivo del fallo, visible: pausar/reanudar fallaba EN SILENCIO (firma
+  // cancelada o rechazo del server) y el botón parecía roto.
+  const [err, setErr] = useState<{ key: string; vars?: Record<string, string | number> } | null>(
+    null,
+  );
 
   const refresh = useCallback(async () => {
     if (!address) return;
@@ -38,16 +44,24 @@ export default function MyAgentsPage() {
 
   async function toggle(a: AgentView) {
     setBusy(a.id);
+    setErr(null);
+    const action = a.active ? "pause" : "resume";
+    const ts = Date.now();
+    let signature: string;
     try {
-      const action = a.active ? "pause" : "resume";
-      const ts = Date.now();
-      const signature = await signMessageAsync({
+      signature = await signMessageAsync({
         message: agentAuthMessage(action, a.id, a.owner, ts),
       });
+    } catch (e) {
+      setErr(failureText("sign", e));
+      setBusy(null);
+      return;
+    }
+    try {
       await agentAction(a.id, { action, signature, ts });
       await refresh();
-    } catch {
-      /* canceló la firma o falló la red: la lista queda como estaba */
+    } catch (e) {
+      setErr(failureText("server", e));
     } finally {
       setBusy(null);
     }
@@ -94,6 +108,11 @@ export default function MyAgentsPage() {
             </div>
           ) : (
             <>
+              {err && (
+                <p className="mb-3 text-center text-sm text-(--color-lose)">
+                  {t(err.key, err.vars)}
+                </p>
+              )}
               <div className="flex flex-col gap-3">
                 {agents.map((a) => (
                   <div key={a.id} className="win flex items-center gap-3 p-3">

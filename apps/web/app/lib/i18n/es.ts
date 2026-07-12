@@ -325,6 +325,12 @@ export const es: Dict = {
     "Despertando el servidor… el primer pedido en un rato puede tardar hasta un minuto. No cierres esta pantalla.",
   "build.deployNote":
     "Los agentes hosteados juegan la ladder gratis (stake 0): ELO real, sin plata de verdad. Hasta 3 agentes por wallet.",
+  "build.limit":
+    "Esta wallet ya tiene {n} agentes (el máximo). Pausá o borrá uno para desplegar otro.",
+  "build.limitCta": "Ver mis agentes",
+  "err.signCancelled":
+    "Tu wallet pide una firma gratuita para confirmar (no mueve fondos). El pedido se canceló — probá de nuevo.",
+  "err.rejected": "El servidor no lo aceptó: {reason}",
   "build.prev": "Atrás",
   "build.next": "Seguir",
   "build.game": "Juego",

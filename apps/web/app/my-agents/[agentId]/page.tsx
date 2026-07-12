@@ -22,6 +22,7 @@ import {
   type AgentView,
   type AgentMatchSummary,
 } from "@/app/lib/arbiter";
+import { failureText } from "@/app/lib/errors";
 
 export default function AgentDetailPage({ params }: { params: Promise<{ agentId: string }> }) {
   const { agentId } = use(params);
@@ -33,6 +34,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
   const [matches, setMatches] = useState<AgentMatchSummary[]>([]);
   const [busy, setBusy] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  // Motivo del fallo, visible: pausar/borrar fallaba EN SILENCIO y el botón
+  // parecía roto (mismo defecto que tenía el deploy del builder).
+  const [err, setErr] = useState<{ key: string; vars?: Record<string, string | number> } | null>(
+    null,
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -54,16 +60,24 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
     if (!agent) return;
     if (action === "delete" && !window.confirm(t("agent.deleteConfirm"))) return;
     setBusy(true);
+    setErr(null);
+    const ts = Date.now();
+    let signature: string;
     try {
-      const ts = Date.now();
-      const signature = await signMessageAsync({
+      signature = await signMessageAsync({
         message: agentAuthMessage(action, agent.id, agent.owner, ts),
       });
+    } catch (e) {
+      setErr(failureText("sign", e));
+      setBusy(false);
+      return;
+    }
+    try {
       await agentAction(agent.id, { action, signature, ts });
       if (action === "delete") router.push("/my-agents");
       else await refresh();
-    } catch {
-      /* firma cancelada o red caída: sin cambios */
+    } catch (e) {
+      setErr(failureText("server", e));
     } finally {
       setBusy(false);
     }
@@ -142,6 +156,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
             </div>
           )}
 
+          {err && (
+            <p className="mt-4 text-center text-sm text-(--color-lose)">{t(err.key, err.vars)}</p>
+          )}
           {isOwner && (
             <div className="mt-4 flex gap-3">
               <button

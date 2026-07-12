@@ -318,6 +318,12 @@ export const en: Dict = {
     "Waking up the server… first request in a while can take up to a minute. Don't close this screen.",
   "build.deployNote":
     "Hosted agents play the free ladder (stake 0): real ELO, play money only. Up to 3 agents per wallet.",
+  "build.limit":
+    "This wallet already has {n} agents (the maximum). Pause or delete one to deploy another.",
+  "build.limitCta": "See my agents",
+  "err.signCancelled":
+    "Your wallet asks for a free signature to confirm (it moves no funds). The request was cancelled — try again.",
+  "err.rejected": "The server didn't accept it: {reason}",
   "build.prev": "Back",
   "build.next": "Next",
   "build.game": "Game",

@@ -10,6 +10,7 @@ import { profileAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { AGENT_AVATARS } from "@arcade1v1/strategies";
 import { useT } from "@/app/lib/i18n";
 import { getProfile, setProfile } from "@/app/lib/arbiter";
+import { failureText } from "@/app/lib/errors";
 
 export function ProfileEditor({ address }: { address: string }) {
   const { t } = useT();
@@ -19,6 +20,10 @@ export function ProfileEditor({ address }: { address: string }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // Motivo del fallo, visible: guardar fallaba EN SILENCIO y el botón parecía roto.
+  const [err, setErr] = useState<{ key: string; vars?: Record<string, string | number> } | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancel = false;
@@ -38,17 +43,25 @@ export function ProfileEditor({ address }: { address: string }) {
     const trimmed = name.trim();
     if (!trimmed) return;
     setSaving(true);
+    setErr(null);
+    const ts = Date.now();
+    let signature: string;
     try {
-      const ts = Date.now();
-      const signature = await signMessageAsync({
+      signature = await signMessageAsync({
         message: profileAuthMessage("set", address, ts),
       });
+    } catch (e) {
+      setErr(failureText("sign", e));
+      setSaving(false);
+      return;
+    }
+    try {
       const p = await setProfile({ address, name: trimmed, avatar, signature, ts });
       setName(p.name);
       setAvatar(p.avatar);
       setEditing(false);
-    } catch {
-      /* firma cancelada o red caída: la tarjeta queda como estaba */
+    } catch (e) {
+      setErr(failureText("server", e));
     } finally {
       setSaving(false);
     }
@@ -100,6 +113,9 @@ export function ProfileEditor({ address }: { address: string }) {
                 </button>
               ))}
             </div>
+            {err && (
+              <p className="mt-3 text-center text-sm text-(--color-lose)">{t(err.key, err.vars)}</p>
+            )}
             <div className="mt-4 flex gap-3">
               <button
                 onClick={save}
