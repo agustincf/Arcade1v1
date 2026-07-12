@@ -8,6 +8,23 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [2.7.0] — 2026-07-11
+
+Sexta fase de la v3 ("Solidez y puertas abiertas"), Etapa 1: el sitio manda solo
+tu idioma, no los cuatro.
+
+### Cambiado
+
+- El navegador ya **no descarga los 4 idiomas**: el servidor resuelve tu idioma y
+  manda solo ese diccionario. Menos peso por visita, sin cambiar nada de lo que
+  ves. (El primer render ya llegaba traducido; eso se mantiene.)
+
+### Interno
+
+- Diccionario partido en un archivo por idioma; `translate` puro; test que
+  garantiza que los 4 idiomas quedan completos. (La Etapa 2 —URLs por idioma para
+  SEO— viene después.)
+
 ## [2.6.0] — 2026-07-11
 
 Quinta fase de la v3 ("Solidez y puertas abiertas"): más de una forma de jugar
