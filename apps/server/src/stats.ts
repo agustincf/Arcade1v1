@@ -27,6 +27,12 @@ interface Counters {
   matchesCreated: number;
   matchesSettled: number;
   verificationsRejected: number;
+  /** Embudo de tracción (v4.1): agentes creados por TERCEROS (la casa no cuenta). */
+  agentsCreated: number;
+  /** Partidas decididas casa vs casa (mantienen viva la arena, no son tracción). */
+  settledHouse: number;
+  /** Partidas decididas tercero vs casa (señal: alguien de afuera jugó). */
+  settledMixed: number;
 }
 type CounterKey = keyof Counters;
 
@@ -42,6 +48,9 @@ const zeros = (): Counters => ({
   matchesCreated: 0,
   matchesSettled: 0,
   verificationsRejected: 0,
+  agentsCreated: 0,
+  settledHouse: 0,
+  settledMixed: 0,
 });
 
 // Arranque del PROCESO actual: base del uptime honesto (no se persiste).
@@ -80,8 +89,17 @@ export function recordMatchCreated(now = Date.now()) {
   bump("matchesCreated", now);
 }
 
-export function recordMatchSettled(now = Date.now()) {
+/** `houseSide`: cuántos de los dos jugadores son agentes de la casa (0|1|2).
+ *  2 = casa vs casa; 1 = un tercero jugó CONTRA la casa (señal de tracción);
+ *  0/omitido = terceros puros. matchesSettled cuenta siempre. */
+export function recordMatchSettled(houseSide: 0 | 1 | 2 = 0, now = Date.now()) {
   bump("matchesSettled", now);
+  if (houseSide === 2) bump("settledHouse", now);
+  else if (houseSide === 1) bump("settledMixed", now);
+}
+
+export function recordAgentCreated(now = Date.now()) {
+  bump("agentsCreated", now);
 }
 
 export function recordVerificationRejected(now = Date.now()) {
