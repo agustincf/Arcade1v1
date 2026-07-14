@@ -230,6 +230,13 @@ export const fr: Dict = {
   "status.rejectsHint":
     "Envois de score rejetés parce que le replay ne redonnait pas le résultat annoncé. Que cela fonctionne est le but : chaque match est vérifié.",
   "status.todayN": "aujourd'hui : {n}",
+  "status.funnel": "DES TIERS ARRIVENT-ILS ?",
+  "status.agentsCreated": "Agents créés (tiers)",
+  "status.thirdMatches": "Parties entre tiers",
+  "status.vsHouse": "Tiers vs la maison",
+  "status.houseOnly": "Maison vs maison",
+  "status.funnelHint":
+    "L'étiquette MAISON sépare le signal du bruit : la maison garde l'arène vivante, mais la traction, ce sont les tiers. Mesuré depuis le 14/07/2026.",
   "status.byDay": "PAR_JOUR.LOG",
   "status.colDate": "Date (UTC)",
   "status.colCreated": "Créés",

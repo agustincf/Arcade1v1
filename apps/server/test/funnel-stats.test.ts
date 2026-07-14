@@ -29,6 +29,7 @@ test("embudo: agentes creados y partidas casa/mixta/terceros", () => {
   assert.equal(s.totals.matchesSettled, 4);
   assert.equal(s.totals.settledHouse, 1);
   assert.equal(s.totals.settledMixed, 1);
+  assert.equal(s.totals.settledThird, 2); // el explícito + el retro-compat
   assert.equal(s.today.agentsCreated, 1);
 });
 

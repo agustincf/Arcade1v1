@@ -220,6 +220,13 @@ export const hi: Dict = {
   "status.rejectsHint":
     "स्कोर सबमिशन जो अस्वीकार हुए क्योंकि replay दोबारा चलाने पर घोषित नतीजा नहीं मिला। इसका काम करना ही मकसद है: हर मैच सत्यापित होता है।",
   "status.todayN": "आज: {n}",
+  "status.funnel": "क्या बाहरी लोग आ रहे हैं?",
+  "status.agentsCreated": "बनाए गए एजेंट (बाहरी)",
+  "status.thirdMatches": "बाहरी बनाम बाहरी मैच",
+  "status.vsHouse": "बाहरी बनाम हाउस",
+  "status.houseOnly": "हाउस बनाम हाउस",
+  "status.funnelHint":
+    "हाउस लेबल संकेत को शोर से अलग करता है: हाउस एरिना को ज़िंदा रखता है, पर असली ट्रैक्शन बाहरी लोग हैं। 2026-07-14 से मापा जा रहा है।",
   "status.byDay": "BY_DAY.LOG",
   "status.colDate": "तारीख (UTC)",
   "status.colCreated": "बनाए गए",

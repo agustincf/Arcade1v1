@@ -222,6 +222,13 @@ export const en: Dict = {
   "status.rejectsHint":
     "Score submissions rejected because the replay didn't re-play to the claimed result. This working is the point — every match is verified.",
   "status.todayN": "today: {n}",
+  "status.funnel": "ARE THIRD PARTIES ARRIVING?",
+  "status.agentsCreated": "Agents created (third-party)",
+  "status.thirdMatches": "Third-party matches",
+  "status.vsHouse": "Third parties vs. the house",
+  "status.houseOnly": "House vs. house",
+  "status.funnelHint":
+    "The HOUSE label separates signal from noise: the house keeps the arena alive, but traction is third parties. Measured since 2026-07-14.",
   "status.byDay": "BY_DAY.LOG",
   "status.colDate": "Date (UTC)",
   "status.colCreated": "Created",

@@ -112,6 +112,37 @@ export function StatusClient() {
           </div>
           <p className="mt-2 text-sm text-(--color-muted-3)">{t("status.rejectsHint")}</p>
 
+          {/* Embudo de tracción (v4.1): ¿llegan terceros? La etiqueta CASA
+              separa la señal (terceros) del ruido (la casa manteniendo viva
+              la arena). Los números vienen del árbitro, nada inflado. */}
+          <div className="win mt-5">
+            <div className="win-title win-title--cyan">
+              <span>{t("status.funnel")}</span>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <StatTile
+                  label={t("status.agentsCreated")}
+                  value={String(stats.totals.agentsCreated)}
+                  sub={t("status.todayN", { n: stats.today.agentsCreated })}
+                />
+                <StatTile
+                  label={t("status.thirdMatches")}
+                  value={String(stats.totals.settledThird)}
+                />
+                <StatTile
+                  label={t("status.vsHouse")}
+                  value={String(stats.totals.settledMixed)}
+                />
+                <StatTile
+                  label={t("status.houseOnly")}
+                  value={String(stats.totals.settledHouse)}
+                />
+              </div>
+              <p className="mt-2 text-sm text-(--color-muted-3)">{t("status.funnelHint")}</p>
+            </div>
+          </div>
+
           {/* Desglose por día */}
           {stats.daily.length > 0 && (
             <div className="win mt-4">

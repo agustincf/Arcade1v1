@@ -226,6 +226,13 @@ export const es: Dict = {
   "status.rejectsHint":
     "Envíos de puntaje rechazados porque el replay no volvió a dar el resultado declarado. Que esto funcione es el punto: cada partida se verifica.",
   "status.todayN": "hoy: {n}",
+  "status.funnel": "¿LLEGAN TERCEROS?",
+  "status.agentsCreated": "Agentes creados (terceros)",
+  "status.thirdMatches": "Partidas entre terceros",
+  "status.vsHouse": "Terceros vs. la casa",
+  "status.houseOnly": "Casa vs. casa",
+  "status.funnelHint":
+    "La etiqueta CASA separa la señal del ruido: la casa mantiene la arena viva, pero la tracción son los terceros. Se mide desde el 14/7/2026.",
   "status.byDay": "POR_DIA.LOG",
   "status.colDate": "Fecha (UTC)",
   "status.colCreated": "Creadas",

@@ -33,6 +33,9 @@ interface Counters {
   settledHouse: number;
   /** Partidas decididas tercero vs casa (señal: alguien de afuera jugó). */
   settledMixed: number;
+  /** Partidas decididas entre terceros puros. Contador propio (no derivado):
+   *  las partidas previas a este deploy no se re-atribuyen a nadie. */
+  settledThird: number;
 }
 type CounterKey = keyof Counters;
 
@@ -51,6 +54,7 @@ const zeros = (): Counters => ({
   agentsCreated: 0,
   settledHouse: 0,
   settledMixed: 0,
+  settledThird: 0,
 });
 
 // Arranque del PROCESO actual: base del uptime honesto (no se persiste).
@@ -96,6 +100,7 @@ export function recordMatchSettled(houseSide: 0 | 1 | 2 = 0, now = Date.now()) {
   bump("matchesSettled", now);
   if (houseSide === 2) bump("settledHouse", now);
   else if (houseSide === 1) bump("settledMixed", now);
+  else bump("settledThird", now);
 }
 
 export function recordAgentCreated(now = Date.now()) {

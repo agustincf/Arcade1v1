@@ -219,6 +219,11 @@ export interface StatsCounters {
   matchesCreated: number;
   matchesSettled: number;
   verificationsRejected: number;
+  /** Embudo (v4.1): agentes creados por terceros y partidas por origen. */
+  agentsCreated: number;
+  settledHouse: number;
+  settledMixed: number;
+  settledThird: number;
 }
 
 /** Snapshot del monitor de gas del árbitro (público y seguro: sin secretos). */
