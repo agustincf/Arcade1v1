@@ -41,7 +41,10 @@ export function shortAddress(a: string) {
 /** Etiqueta de identidad de un jugador para mostrar. ANTI-SUPLANTACIÓN (regla
  *  de la casa): el nombre NUNCA reemplaza la identidad — si hay perfil se
  *  muestra "avatar nombre · 0x1234…abcd", con el address corto SIEMPRE al lado
- *  (los nombres no son únicos). Sin nombre, solo el address corto. */
-export function playerLabel(address: string, name?: string, avatar?: string): string {
-  return name ? `${avatar ?? ""} ${name} · ${shortAddress(address)}` : shortAddress(address);
+ *  (los nombres no son únicos). Sin nombre, solo el address corto. El `tag`
+ *  opcional (p. ej. "CASA" traducido) se agrega al final en contextos donde
+ *  el label es un string plano y no entra un chip estilado. */
+export function playerLabel(address: string, name?: string, avatar?: string, tag?: string): string {
+  const base = name ? `${avatar ?? ""} ${name} · ${shortAddress(address)}` : shortAddress(address);
+  return tag ? `${base} · ${tag}` : base;
 }

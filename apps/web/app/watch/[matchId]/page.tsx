@@ -68,7 +68,7 @@ export default function WatchMatchPage({ params }: { params: Promise<{ matchId: 
               <ReplayPlayer
                 game={data.game}
                 replay={p.replay}
-                label={`${playerLabel(p.address, p.name, p.avatar)}${
+                label={`${playerLabel(p.address, p.name, p.avatar, p.house ? t("chip.house") : undefined)}${
                   data.winner?.toLowerCase() === p.address.toLowerCase() ? " 🏆" : ""
                 }`}
               />

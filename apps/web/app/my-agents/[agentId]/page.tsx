@@ -12,6 +12,7 @@ import { getStrategy } from "@arcade1v1/strategies";
 import { useT } from "@/app/lib/i18n";
 import { useWallet, useEnsureChain } from "@/app/lib/wallet";
 import { GameIcon } from "@/app/components/GameIcon";
+import { HouseChip } from "@/app/components/HouseChip";
 import { shortAddress, playerLabel } from "@/app/lib/wallet";
 import { ChallengeButton } from "../ChallengeButton";
 import {
@@ -115,8 +116,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
       {/* Cabecera del agente */}
       <div className="win mt-3">
         <div className="win-title">
-          <span>
+          <span className="flex items-center gap-2">
             {agent.avatar} {agent.name.toUpperCase()}
+            {agent.house && <HouseChip />}
           </span>
           <span
             className={`chip ${agent.active ? "!text-(--color-lime)" : "!text-(--color-muted-3)"}`}
@@ -224,7 +226,10 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
                     {m.yourScore ?? "?"} - {m.rivalScore ?? "?"}
                   </span>
                   <span className="text-(--color-muted-2)">
-                    {t("agent.vs")} {m.opponent ? playerLabel(m.opponent, m.name, m.avatar) : "?"}
+                    {t("agent.vs")}{" "}
+                    {m.opponent
+                      ? playerLabel(m.opponent, m.name, m.avatar, m.house ? t("chip.house") : undefined)
+                      : "?"}
                   </span>
                   {typeof m.ratingDelta === "number" && (
                     <span
