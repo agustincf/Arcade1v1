@@ -1,0 +1,19 @@
+# Keep-alive del árbitro (v4.1 · Frente 1): el Render gratuito duerme sin
+# tráfico y con él se para el runner de los agentes de la casa. Un ping cada
+# ~10 minutos lo mantiene despierto. Limitaciones conocidas y aceptadas:
+# el cron de GitHub puede atrasarse varios minutos, y GitHub desactiva los
+# schedules si el repo pasa 60 días sin actividad (con commits regulares no
+# nos toca; si pasa, se rehabilita con un click en Actions).
+name: keep-alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping al árbitro
+        run: curl -fsS --max-time 30 https://arcade1v1.onrender.com/stats > /dev/null
