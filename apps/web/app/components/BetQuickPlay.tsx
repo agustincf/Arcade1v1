@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LocaleLink as Link } from "@/app/components/LocaleLink";
+import { LocaleLink as Link, useLocalePath } from "@/app/components/LocaleLink";
 import { useRouter } from "next/navigation";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
@@ -9,6 +9,7 @@ import { useT } from "@/app/lib/i18n";
 
 export function BetQuickPlay() {
   const router = useRouter();
+  const lp = useLocalePath();
   const { t } = useT();
   const [picking, setPicking] = useState(false);
   const live = GAMES.filter((g) => g.status === "live");
@@ -16,7 +17,7 @@ export function BetQuickPlay() {
   // "Probar gratis" va a la LADDER GRATIS (bet=0): rival real + ELO, sin
   // depósito. El modo práctica offline sigue vivo en ?free=1.
   function go(gameId: string) {
-    router.push(`/game/${gameId}/match?bet=0`);
+    router.push(lp(`/game/${gameId}/match?bet=0`));
   }
 
   return (

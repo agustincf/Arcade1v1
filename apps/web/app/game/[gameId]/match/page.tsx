@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LocaleLink as Link } from "@/app/components/LocaleLink";
+import { LocaleLink as Link, useLocalePath } from "@/app/components/LocaleLink";
 import { getGame } from "@/app/lib/games";
 import { getPayout, PLATFORM_FEE, IS_MAINNET } from "@/app/lib/config";
 import { GameIcon } from "@/app/components/GameIcon";
@@ -37,6 +37,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const { gameId } = use(params);
   const game = getGame(gameId);
   const router = useRouter();
+  const lp = useLocalePath();
   const search = useSearchParams();
   const { t } = useT();
   const { address, connect } = useWallet();
@@ -384,7 +385,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
 
   function handleExit() {
     if (free || !playing || outcome !== null) {
-      router.push("/");
+      router.push(lp("/"));
       return;
     }
     if (!window.confirm(t("match.confirmExit"))) return;
@@ -489,7 +490,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
               {rankedFree && (
                 <p className="mt-4">
                   <button
-                    onClick={() => window.location.assign(`/game/${gameId}/match?free=1`)}
+                    onClick={() => window.location.assign(lp(`/game/${gameId}/match?free=1`))}
                     className="text-sm font-medium text-(--color-accent-2) hover:underline"
                   >
                     {t("match.guestBtn")}
@@ -621,7 +622,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                 {t("match.vsBot")}
               </button>
             )}
-            <button onClick={() => router.push("/")} className="btn3d btn3d--magenta w-full">
+            <button onClick={() => router.push(lp("/"))} className="btn3d btn3d--magenta w-full">
               {t("home")}
             </button>
           </div>
@@ -642,7 +643,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           </p>
           <div className="mt-5 flex flex-col gap-3">
             <button
-              onClick={() => router.push(`/game/${gameId}`)}
+              onClick={() => router.push(lp(`/game/${gameId}`))}
               className="btn3d btn3d--magenta w-full"
             >
               {t("match.playUsdc")}
@@ -651,7 +652,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
               <button onClick={replayFree} className="btn3d btn3d--cyan flex-1">
                 {t("match.playAgain")}
               </button>
-              <button onClick={() => router.push("/")} className="btn3d btn3d--cyan flex-1">
+              <button onClick={() => router.push(lp("/"))} className="btn3d btn3d--cyan flex-1">
                 {t("home")}
               </button>
             </div>
@@ -788,15 +789,15 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                 onClick={() => {
                   // Revancha gratis: recarga limpia de la misma URL (el estado
                   // del emparejamiento no es re-entrante). De plata: a la mesa.
-                  if (rankedFree) window.location.assign(`/game/${gameId}/match?bet=0`);
-                  else router.push(`/game/${gameId}`);
+                  if (rankedFree) window.location.assign(lp(`/game/${gameId}/match?bet=0`));
+                  else router.push(lp(`/game/${gameId}`));
                 }}
                 className="btn3d btn3d--magenta flex-1"
               >
                 {t("match.rematch")}
               </button>
             )}
-            <button onClick={() => router.push("/")} className="btn3d btn3d--cyan flex-1">
+            <button onClick={() => router.push(lp("/"))} className="btn3d btn3d--cyan flex-1">
               {t("home")}
             </button>
           </div>

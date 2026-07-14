@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocalePath } from "@/app/components/LocaleLink";
 import { useSignMessage } from "wagmi";
 import { challengeAuthMessage, agentAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { useT } from "@/app/lib/i18n";
@@ -28,6 +29,7 @@ export function ChallengeButton({
 }) {
   const { t } = useT();
   const router = useRouter();
+  const lp = useLocalePath();
   const { signMessageAsync } = useSignMessage();
   const ensureChain = useEnsureChain();
   const [mine, setMine] = useState<AgentView[]>([]);
@@ -67,7 +69,7 @@ export function ChallengeButton({
         message: challengeAuthMessage(viewer, targetAddress, ts),
       });
       const m = await createChallenge({ challenger: viewer, targetAgentId, signature, ts });
-      router.push(`/game/${game}/match?challenge=${m.matchId}`);
+      router.push(lp(`/game/${game}/match?challenge=${m.matchId}`));
     } catch (e) {
       setErr(failText(e));
       setBusy(false);

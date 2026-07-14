@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LocaleLink as Link } from "@/app/components/LocaleLink";
+import { LocaleLink as Link, useLocalePath } from "@/app/components/LocaleLink";
 import { getGame } from "@/app/lib/games";
 import { warmUpArbiter } from "@/app/lib/arbiter";
 import { GameIcon } from "@/app/components/GameIcon";
@@ -22,6 +22,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
   const { gameId } = use(params);
   const game = getGame(gameId);
   const router = useRouter();
+  const lp = useLocalePath();
   const search = useSearchParams();
   const { t } = useT();
 
@@ -51,7 +52,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
   }
 
   function buscarRival() {
-    router.push(`/game/${gameId}/match?bet=${selected}`);
+    router.push(lp(`/game/${gameId}/match?bet=${selected}`));
   }
 
   return (

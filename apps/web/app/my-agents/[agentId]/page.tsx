@@ -4,7 +4,7 @@
 // (con link para MIRAR cada una) y administración firmada (pausar/borrar).
 
 import { use, useCallback, useEffect, useState } from "react";
-import { LocaleLink as Link } from "@/app/components/LocaleLink";
+import { LocaleLink as Link, useLocalePath } from "@/app/components/LocaleLink";
 import { useRouter } from "next/navigation";
 import { useSignMessage } from "wagmi";
 import { agentAuthMessage } from "@arcade1v1/game-sdk/auth";
@@ -29,6 +29,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
   const { agentId } = use(params);
   const { t } = useT();
   const router = useRouter();
+  const lp = useLocalePath();
   const { address } = useWallet();
   const { signMessageAsync } = useSignMessage();
   const ensureChain = useEnsureChain();
@@ -77,7 +78,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
     }
     try {
       await agentAction(agent.id, { action, signature, ts });
-      if (action === "delete") router.push("/my-agents");
+      if (action === "delete") router.push(lp("/my-agents"));
       else await refresh();
     } catch (e) {
       setErr(failureText("server", e));

@@ -7,7 +7,7 @@
 // @arcade1v1/strategies), así lo que se ve acá es lo que jugará el agente.
 
 import { useEffect, useState } from "react";
-import { LocaleLink as Link } from "@/app/components/LocaleLink";
+import { LocaleLink as Link, useLocalePath } from "@/app/components/LocaleLink";
 import { useRouter } from "next/navigation";
 import { useSignMessage } from "wagmi";
 import { agentAuthMessage } from "@arcade1v1/game-sdk/auth";
@@ -40,6 +40,7 @@ const EST_SEEDS = [42, 987654, 20260709];
 export default function BuildPage() {
   const { t } = useT();
   const router = useRouter();
+  const lp = useLocalePath();
   const { address, connect } = useWallet();
   const { signMessageAsync } = useSignMessage();
   const ensureChain = useEnsureChain();
@@ -177,7 +178,7 @@ export default function BuildPage() {
         signature,
         ts,
       });
-      router.push(`/my-agents/${agent.id}`);
+      router.push(lp(`/my-agents/${agent.id}`));
     } catch (e) {
       const rejection = classifyArbiterError(e);
       if (rejection.kind === "agent-limit") {
