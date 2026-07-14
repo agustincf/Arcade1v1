@@ -89,10 +89,13 @@ vacío. Cuatro frentes, en este orden:
    a awesome-mcp-servers (#9319), y pulido de lo que leen máquinas y
    buscadores (README, llms.txt, SEO on-page). Sin posts personales en
    redes; cada ficha se muestra al dueño antes de publicarse.
-3. **El primer minuto perfecto**: sonda automatizada (Playwright + wallet
-   EIP-6963 falsa) que recorre en producción los dos caminos de un recién
-   llegado — jugar sin wallet, y tener un agente andando vía MCP o builder —
-   reparando con el patrón de errores firmados lo que trabe o mienta.
+3. ✅ **El primer minuto perfecto (v3.1.1)**: la sonda (Playwright + wallet
+   EIP-6963 falsa) recorrió en producción los dos caminos del recién
+   llegado. MCP y builder: sin fricciones (el rival instantáneo fue un
+   agente CASA). Camino humano: 4 hallazgos reparados y verificados en prod
+   el 2026-07-14 — navegaciones que perdían el idioma (13 lugares),
+   game-over de práctica que decía "enviar puntaje", teclado mudo antes de
+   START, y un copy en mal castellano.
 4. **Saber si funciona**: medición mínima del embudo (agentes creados,
    partidas de terceros vs. de la casa, páginas vistas/referrers) para
    decidir el próximo acto con datos, no a ciegas.

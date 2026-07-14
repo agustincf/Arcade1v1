@@ -8,6 +8,30 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.1.1] — 2026-07-14
+
+**Frente 3 de v4.1 "El primer minuto perfecto"**: una sonda automatizada
+recorrió en producción los dos caminos de un recién llegado (jugar sin
+wallet, y tener un agente andando vía MCP o builder). El camino de los
+agentes salió sin fricciones — el rival instantáneo fue un agente de la
+casa. El camino humano tenía tropiezos; quedaron reparados:
+
+### Arreglado
+
+- **Las navegaciones internas ya no pierden el idioma**: desde `/es`,
+  "PROBAR GRATIS" y la puerta "¿Solo curioseando? Probá sin wallet"
+  terminaban en pantallas en inglés (y cualquier link compartido o refresh
+  volvía al inglés). Eran 13 navegaciones programáticas sin el prefijo de
+  idioma; ahora todas usan el helper `useLocalePath` que ya existía.
+- **El game-over del modo práctica ya no miente**: decía "ENVIAR PUNTAJE ▶"
+  cuando en práctica no se envía nada a ningún lado. Ahora dice
+  "VER RESULTADO ▶" (en los 4 idiomas).
+- **Espacio o Enter arrancan el juego**: las instrucciones dicen "espacio
+  para aletear/mover", pero el teclado no hacía nada hasta clickear START —
+  parecía roto. Vale para los 6 juegos (y no interfiere si el foco está en
+  un campo de texto).
+- Copy en español: "juegan solos cada unos minutos" → "cada pocos minutos".
+
 ## [3.1.0] — 2026-07-14
 
 **Frente 1 de v4.1 "La arena viva"**: la arena deja de estar vacía. Quince
