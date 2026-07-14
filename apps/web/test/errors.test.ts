@@ -7,7 +7,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isSignCancelled, classifyArbiterError, failureText } from "../app/lib/errors.js";
+import {
+  isSignCancelled,
+  isChainSwitchError,
+  classifySignError,
+  classifyArbiterError,
+  failureText,
+} from "../app/lib/errors.js";
 
 test("isSignCancelled: código EIP-1193 4001 (rechazo del usuario)", () => {
   assert.equal(isSignCancelled({ code: 4001, message: "whatever" }), true);
@@ -65,11 +71,46 @@ test("classifyArbiterError: cualquier otro rechazo conserva el motivo real", () 
   assert.deepEqual(classifyArbiterError("boom"), { kind: "server", reason: "boom" });
 });
 
+test("isChainSwitchError: el error de wagmi 'wallet en otra red' (por nombre o mensaje)", () => {
+  // Lo que llegaba a la UI con la wallet conectada en Ethereum: SwitchChainError
+  // envolviendo ChainNotConfiguredError ("Chain not configured").
+  const inner = new Error("Chain not configured.");
+  inner.name = "ChainNotConfiguredError";
+  const outer = new Error("An error occurred when attempting to switch chain.", { cause: inner });
+  outer.name = "SwitchChainError";
+  assert.equal(isChainSwitchError(outer), true);
+  assert.equal(isChainSwitchError(new Error("chain mismatch")), true);
+  assert.equal(isChainSwitchError(new Error("Connector not connected.")), false);
+  assert.equal(isChainSwitchError(undefined), false);
+});
+
+test("classifySignError: cancelar > red equivocada > motivo tal cual", () => {
+  assert.deepEqual(classifySignError({ code: 4001 }), { kind: "sign-cancelled" });
+  const sw = new Error("An error occurred when attempting to switch chain.");
+  sw.name = "SwitchChainError";
+  assert.deepEqual(classifySignError(sw), { kind: "wrong-network" });
+  // Rechazar el CAMBIO DE RED también es cancelación (aviso suave, no error).
+  const rejectedSwitch = new Error("wrap", { cause: { code: 4001 } });
+  rejectedSwitch.name = "SwitchChainError";
+  assert.deepEqual(classifySignError(rejectedSwitch), { kind: "sign-cancelled" });
+  assert.deepEqual(classifySignError(new Error("Connector not connected.")), {
+    kind: "sign-failed",
+    reason: "Connector not connected.",
+  });
+});
+
 test("failureText: cada fallo mapea a una clave i18n con sus variables", () => {
   assert.deepEqual(failureText("sign", { code: 4001 }), { key: "err.signCancelled" });
+  // Falló la WALLET (no el server): clave propia, sin culpar al servidor.
   assert.deepEqual(failureText("sign", new Error("Connector not connected.")), {
-    key: "err.rejected",
+    key: "err.signFailed",
     vars: { reason: "Connector not connected." },
+  });
+  const sw = new Error("Chain not configured.");
+  sw.name = "SwitchChainError";
+  assert.deepEqual(failureText("sign", sw), {
+    key: "err.wrongNetwork",
+    vars: { chain: "Base Sepolia" },
   });
   assert.deepEqual(failureText("server", new TypeError("Failed to fetch")), {
     key: "match.error",

@@ -7,7 +7,7 @@ import { getGame } from "@/app/lib/games";
 import { getPayout, PLATFORM_FEE, IS_MAINNET } from "@/app/lib/config";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
-import { useWallet } from "@/app/lib/wallet";
+import { useWallet, useEnsureChain } from "@/app/lib/wallet";
 import { useEscrow } from "@/app/lib/useEscrow";
 import { onchainEnabled } from "@/app/lib/escrow";
 import { rememberMatch } from "@/app/lib/openMatches";
@@ -41,6 +41,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const { t } = useT();
   const { address, connect } = useWallet();
   const { signMessageAsync } = useSignMessage();
+  const ensureChain = useEnsureChain();
   const free = search.get("free") === "1";
   const challengeId = search.get("challenge");
   const bet = Number(search.get("bet") ?? 0);
@@ -138,6 +139,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       if (address) {
         const ts = Date.now();
         try {
+          // La wallet tiene que estar en la red de la app antes de firmar
+          // (conectada en otra red, la firma moría con un error críptico).
+          await ensureChain();
           const signature = await signMessageAsync({
             message: matchmakeAuthMessage(game!.id, bet, pidRef.current, ts),
           });
@@ -311,6 +315,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       let signature: string | undefined;
       if (address) {
         try {
+          await ensureChain();
           signature = await signMessageAsync({
             message: scoreAuthMessage(matchId, pidRef.current, score),
           });
@@ -366,6 +371,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     try {
       let signature: string | undefined;
       if (address) {
+        await ensureChain();
         signature = await signMessageAsync({
           message: scoreAuthMessage(matchId, pidRef.current, 0),
         });

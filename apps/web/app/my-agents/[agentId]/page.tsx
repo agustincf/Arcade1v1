@@ -10,7 +10,7 @@ import { useSignMessage } from "wagmi";
 import { agentAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { getStrategy } from "@arcade1v1/strategies";
 import { useT } from "@/app/lib/i18n";
-import { useWallet } from "@/app/lib/wallet";
+import { useWallet, useEnsureChain } from "@/app/lib/wallet";
 import { GameIcon } from "@/app/components/GameIcon";
 import { shortAddress, playerLabel } from "@/app/lib/wallet";
 import { ChallengeButton } from "../ChallengeButton";
@@ -30,6 +30,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
   const router = useRouter();
   const { address } = useWallet();
   const { signMessageAsync } = useSignMessage();
+  const ensureChain = useEnsureChain();
   const [agent, setAgent] = useState<AgentView | null>(null);
   const [matches, setMatches] = useState<AgentMatchSummary[]>([]);
   const [busy, setBusy] = useState(false);
@@ -64,6 +65,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
     const ts = Date.now();
     let signature: string;
     try {
+      await ensureChain();
       signature = await signMessageAsync({
         message: agentAuthMessage(action, agent.id, agent.owner, ts),
       });

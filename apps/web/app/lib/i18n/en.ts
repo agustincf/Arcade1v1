@@ -324,6 +324,9 @@ export const en: Dict = {
   "err.signCancelled":
     "Your wallet asks for a free signature to confirm (it moves no funds). The request was cancelled — try again.",
   "err.rejected": "The server didn't accept it: {reason}",
+  "err.wrongNetwork":
+    "Your wallet is on a different network. Approve the network switch it suggests (or switch to {chain} manually) and try again.",
+  "err.signFailed": "Your wallet couldn't sign: {reason}",
   "build.prev": "Back",
   "build.next": "Next",
   "build.game": "Game",

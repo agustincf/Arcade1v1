@@ -8,7 +8,7 @@ import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useSignMessage } from "wagmi";
 import { agentAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { useT } from "@/app/lib/i18n";
-import { useWallet } from "@/app/lib/wallet";
+import { useWallet, useEnsureChain } from "@/app/lib/wallet";
 import { GameIcon } from "@/app/components/GameIcon";
 import { listAgents, agentAction, warmUpArbiter, type AgentView } from "@/app/lib/arbiter";
 import { failureText } from "@/app/lib/errors";
@@ -18,6 +18,7 @@ export default function MyAgentsPage() {
   const { t } = useT();
   const { address, connect } = useWallet();
   const { signMessageAsync } = useSignMessage();
+  const ensureChain = useEnsureChain();
   const [agents, setAgents] = useState<AgentView[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   // Motivo del fallo, visible: pausar/reanudar fallaba EN SILENCIO (firma
@@ -49,6 +50,7 @@ export default function MyAgentsPage() {
     const ts = Date.now();
     let signature: string;
     try {
+      await ensureChain();
       signature = await signMessageAsync({
         message: agentAuthMessage(action, a.id, a.owner, ts),
       });

@@ -11,6 +11,9 @@ import { useSignMessage } from "wagmi";
 import { challengeAuthMessage, agentAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { useT } from "@/app/lib/i18n";
 import { createChallenge, listAgents, type AgentView } from "@/app/lib/arbiter";
+import { useEnsureChain } from "@/app/lib/wallet";
+import { CHAIN } from "@/app/lib/wagmi";
+import { classifySignError } from "@/app/lib/errors";
 
 export function ChallengeButton({
   targetAgentId,
@@ -26,6 +29,7 @@ export function ChallengeButton({
   const { t } = useT();
   const router = useRouter();
   const { signMessageAsync } = useSignMessage();
+  const ensureChain = useEnsureChain();
   const [mine, setMine] = useState<AgentView[]>([]);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -44,10 +48,20 @@ export function ChallengeButton({
     };
   }, [viewer, game, targetAgentId]);
 
+  // Texto del fallo: cancelar la firma o estar en otra red tienen mensaje
+  // propio (traducido); el resto muestra el motivo tal cual, acotado.
+  function failText(e: unknown): string {
+    const s = classifySignError(e);
+    if (s.kind === "sign-cancelled") return t("err.signCancelled");
+    if (s.kind === "wrong-network") return t("err.wrongNetwork", { chain: CHAIN.name });
+    return s.reason.slice(0, 140);
+  }
+
   async function challengeAsHuman() {
     setBusy(true);
     setErr(null);
     try {
+      await ensureChain();
       const ts = Date.now();
       const signature = await signMessageAsync({
         message: challengeAuthMessage(viewer, targetAddress, ts),
@@ -55,7 +69,7 @@ export function ChallengeButton({
       const m = await createChallenge({ challenger: viewer, targetAgentId, signature, ts });
       router.push(`/game/${game}/match?challenge=${m.matchId}`);
     } catch (e) {
-      setErr((e as Error).message.slice(0, 140));
+      setErr(failText(e));
       setBusy(false);
     }
   }
@@ -64,6 +78,7 @@ export function ChallengeButton({
     setBusy(true);
     setErr(null);
     try {
+      await ensureChain();
       const ts = Date.now();
       const signature = await signMessageAsync({
         message: agentAuthMessage("challenge", byAgentId, owner, ts),
@@ -71,7 +86,7 @@ export function ChallengeButton({
       await createChallenge({ byAgentId, targetAgentId, signature, ts });
       setSent(true);
     } catch (e) {
-      setErr((e as Error).message.slice(0, 140));
+      setErr(failText(e));
     } finally {
       setBusy(false);
     }

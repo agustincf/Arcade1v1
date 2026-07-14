@@ -11,10 +11,12 @@ import { AGENT_AVATARS } from "@arcade1v1/strategies";
 import { useT } from "@/app/lib/i18n";
 import { getProfile, setProfile } from "@/app/lib/arbiter";
 import { failureText } from "@/app/lib/errors";
+import { useEnsureChain } from "@/app/lib/wallet";
 
 export function ProfileEditor({ address }: { address: string }) {
   const { t } = useT();
   const { signMessageAsync } = useSignMessage();
+  const ensureChain = useEnsureChain();
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState(AGENT_AVATARS[0]);
   const [editing, setEditing] = useState(false);
@@ -47,6 +49,7 @@ export function ProfileEditor({ address }: { address: string }) {
     const ts = Date.now();
     let signature: string;
     try {
+      await ensureChain();
       signature = await signMessageAsync({
         message: profileAuthMessage("set", address, ts),
       });

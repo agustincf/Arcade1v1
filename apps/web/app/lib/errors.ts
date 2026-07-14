@@ -5,6 +5,8 @@
 // conexión cuando el server respondió (eso convierte un límite claro en un
 // botón que "no anda").
 
+import { CHAIN } from "./wagmi";
+
 /** true si el error es el usuario cancelando/rechazando la firma en su wallet.
  *  Cubre el código EIP-1193 (4001) y los textos de las wallets comunes, mirando
  *  también la cadena de `cause` (wagmi/viem envuelven el error original). */
@@ -25,6 +27,38 @@ export function isSignCancelled(e: unknown): boolean {
   return false;
 }
 
+/** true si el error es de CAMBIO DE RED (la wallet está en otra red y no pudo
+ *  o no quiso pasarse a la de la app). Mira nombre y mensaje en toda la cadena
+ *  de `cause` (viem tira SwitchChainError envolviendo el motivo real). */
+export function isChainSwitchError(e: unknown): boolean {
+  let cur: unknown = e;
+  for (let depth = 0; cur && depth < 10; depth++) {
+    const { name, message, cause } = cur as { name?: unknown; message?: unknown; cause?: unknown };
+    if (name === "SwitchChainError" || name === "ChainNotConfiguredError") return true;
+    if (
+      typeof message === "string" &&
+      /switch(ing)? chain|chain not configured|chain mismatch|unsupported chain/i.test(message)
+    ) {
+      return true;
+    }
+    if (cause === cur) break;
+    cur = cause;
+  }
+  return false;
+}
+
+/** Fallo de la etapa de FIRMA (wallet), ya interpretado para la UI. */
+export type SignFailure =
+  | { kind: "sign-cancelled" } // canceló en la wallet: aviso suave
+  | { kind: "wrong-network" } // wallet en otra red y no se pudo cambiar
+  | { kind: "sign-failed"; reason: string }; // la wallet falló por otro motivo
+
+export function classifySignError(e: unknown): SignFailure {
+  if (isSignCancelled(e)) return { kind: "sign-cancelled" };
+  if (isChainSwitchError(e)) return { kind: "wrong-network" };
+  return { kind: "sign-failed", reason: e instanceof Error ? e.message : String(e) };
+}
+
 export type ArbiterRejection =
   | { kind: "agent-limit"; max: number } // tope de agentes por wallet (lo dice el server)
   | { kind: "network" } // no hubo respuesta: acá SÍ vale el genérico de conexión
@@ -38,8 +72,12 @@ export function failureText(
   e: unknown,
 ): { key: string; vars?: Record<string, string | number> } {
   if (stage === "sign") {
-    if (isSignCancelled(e)) return { key: "err.signCancelled" };
-    return { key: "err.rejected", vars: { reason: e instanceof Error ? e.message : String(e) } };
+    const failure = classifySignError(e);
+    if (failure.kind === "sign-cancelled") return { key: "err.signCancelled" };
+    if (failure.kind === "wrong-network") return { key: "err.wrongNetwork", vars: { chain: CHAIN.name } };
+    // Falló la WALLET, no el server: decirlo tal cual (antes se mostraba como
+    // "el servidor no lo aceptó", que mandaba a mirar al lado equivocado).
+    return { key: "err.signFailed", vars: { reason: failure.reason } };
   }
   const rejection = classifyArbiterError(e);
   if (rejection.kind === "network") return { key: "match.error" };

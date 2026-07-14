@@ -3,8 +3,9 @@
 // Billetera REAL (wagmi + WalletConnect). Reemplaza la version simulada.
 // Expone un hook simple para el resto de la app.
 
-import { useAccount } from "wagmi";
+import { useAccount, useSwitchChain } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { CHAIN } from "@/app/lib/wagmi";
 
 export function useWallet() {
   const { address, isConnected } = useAccount();
@@ -13,6 +14,22 @@ export function useWallet() {
     address: address ?? null,
     connected: isConnected,
     connect: () => openConnectModal?.(),
+  };
+}
+
+/** Garantiza que la wallet esté en la red de la app ANTES de firmar. Sin esto,
+ *  una wallet conectada en otra red (típico: celular por WalletConnect parado
+ *  en Ethereum) rompía TODA acción firmada: wagmi pedía el provider "en esa
+ *  red", intentaba cambiarse a ella y moría con "Chain not configured" porque
+ *  la app solo configura una. Se llama DENTRO del try de la firma: si el
+ *  usuario rechaza el cambio, cae en el mismo camino que cancelar la firma. */
+export function useEnsureChain(): () => Promise<void> {
+  const { chainId } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
+  return async () => {
+    if (chainId !== undefined && chainId !== CHAIN.id) {
+      await switchChainAsync({ chainId: CHAIN.id });
+    }
   };
 }
 

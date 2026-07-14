@@ -21,12 +21,13 @@ import {
   type PlayResult,
 } from "@arcade1v1/strategies";
 import { useT } from "@/app/lib/i18n";
-import { useWallet } from "@/app/lib/wallet";
+import { useWallet, useEnsureChain } from "@/app/lib/wallet";
+import { CHAIN } from "@/app/lib/wagmi";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
 import { ReplayPlayer } from "@/app/components/replay/ReplayPlayer";
 import { createAgent, listAgents, warmUpArbiter } from "@/app/lib/arbiter";
-import { isSignCancelled, classifyArbiterError, type ArbiterRejection } from "@/app/lib/errors";
+import { classifySignError, classifyArbiterError, type ArbiterRejection, type SignFailure } from "@/app/lib/errors";
 
 const TOTAL_STEPS = 5;
 // Tope de agentes por wallet. Debe coincidir con MAX_AGENTS_PER_OWNER del
@@ -41,6 +42,7 @@ export default function BuildPage() {
   const router = useRouter();
   const { address, connect } = useWallet();
   const { signMessageAsync } = useSignMessage();
+  const ensureChain = useEnsureChain();
 
   const [step, setStep] = useState(1);
   const [game, setGame] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export default function BuildPage() {
   // Motivo del fallo del deploy, VISIBLE y específico. El bug original: el
   // server rechazaba (p.ej. tope de agentes) y la UI mentía "no pudimos
   // conectar con el servidor" — el usuario reintentaba para siempre.
-  const [fail, setFail] = useState<ArbiterRejection | { kind: "sign-cancelled" } | null>(null);
+  const [fail, setFail] = useState<ArbiterRejection | SignFailure | null>(null);
   const [mineCount, setMineCount] = useState<number | null>(null);
   const [slowHint, setSlowHint] = useState(false);
 
@@ -147,19 +149,20 @@ export default function BuildPage() {
     let signature: string;
     const ts = Date.now();
     try {
+      // Primero, la wallet en la red de la app: conectada en otra red (típico
+      // celular por WalletConnect en Ethereum) TODA firma moría con un error
+      // críptico de "switch chain". Si el usuario rechaza el cambio, cae al
+      // mismo catch que cancelar la firma.
+      await ensureChain();
       // El ref firmado tiene que ser BYTE a byte igual al que arma el server:
       // "juego:estrategia:nombre" con el mismo nombre que va en el body.
       signature = await signMessageAsync({
         message: agentAuthMessage("create", `${game}:${strategyId}:${agentName}`, address, ts),
       });
     } catch (e) {
-      // Canceló la firma (aviso suave) o la wallet falló (motivo visible):
-      // nunca un click sin respuesta.
-      setFail(
-        isSignCancelled(e)
-          ? { kind: "sign-cancelled" }
-          : { kind: "server", reason: e instanceof Error ? e.message : String(e) },
-      );
+      // Canceló la firma (aviso suave), quedó en otra red, o la wallet falló
+      // (motivo visible): nunca un click sin respuesta.
+      setFail(classifySignError(e));
       setDeploying(false);
       return;
     }
@@ -427,11 +430,15 @@ export default function BuildPage() {
                 <p className="mt-3 text-center text-sm text-(--color-lose)">
                   {fail.kind === "sign-cancelled"
                     ? t("err.signCancelled")
-                    : fail.kind === "server"
-                      ? t("err.rejected", { reason: fail.reason })
-                      : fail.kind === "agent-limit"
-                        ? t("build.limit", { n: fail.max })
-                        : t("match.error")}
+                    : fail.kind === "wrong-network"
+                      ? t("err.wrongNetwork", { chain: CHAIN.name })
+                      : fail.kind === "sign-failed"
+                        ? t("err.signFailed", { reason: fail.reason })
+                        : fail.kind === "server"
+                          ? t("err.rejected", { reason: fail.reason })
+                          : fail.kind === "agent-limit"
+                            ? t("build.limit", { n: fail.max })
+                            : t("match.error")}
                 </p>
               )}
             </div>
