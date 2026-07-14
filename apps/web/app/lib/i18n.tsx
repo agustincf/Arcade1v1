@@ -40,7 +40,10 @@ export function I18nProvider({
     const saved = localStorage.getItem("arcade.lang");
     if (saved && (LANGS as readonly string[]).includes(saved) && saved !== lang) {
       document.cookie = `arcade.lang=${saved}; path=/; max-age=31536000; samesite=lax`;
-      router.push(localePath(saved as Lang, pathname));
+      // Preservar el query (p. ej. ?free=1): usePathname() lo omite, y sin él la
+      // re-navegación por idioma sacaba al visitante del modo libre a la pantalla
+      // de wallet. Vale para cualquier página con parámetros (bet, challenge…).
+      router.push(localePath(saved as Lang, pathname) + window.location.search);
     }
   }, [lang, pathname, router]);
 
@@ -48,7 +51,8 @@ export function I18nProvider({
     localStorage.setItem("arcade.lang", l);
     document.cookie = `arcade.lang=${l}; path=/; max-age=31536000; samesite=lax`;
     document.documentElement.lang = l;
-    router.push(localePath(l, pathname)); // navega a la versión del path en ese idioma
+    // Preservar el query al cambiar de idioma (mismo motivo que el efecto de arriba).
+    router.push(localePath(l, pathname) + window.location.search);
   }
 
   function t(key: string, vars?: Record<string, string | number>) {
