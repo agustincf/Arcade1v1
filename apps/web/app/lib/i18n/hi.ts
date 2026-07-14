@@ -158,6 +158,7 @@ export const hi: Dict = {
   "result.exe": "रिज़ल्ट.EXE",
   "g.start": "शुरू ▶",
   "g.confirm": "स्कोर भेजें ▶",
+  "g.confirmFree": "नतीजा देखें ▶",
   "g.yourScore": "तुम्हारा स्कोर",
   "g.pause": "रुको",
   "g.resume": "जारी ▶",

@@ -163,6 +163,7 @@ export const fr: Dict = {
   "result.exe": "RÉSULTAT.EXE",
   "g.start": "DÉMARRER ▶",
   "g.confirm": "ENVOYER LE SCORE ▶",
+  "g.confirmFree": "VOIR LE RÉSULTAT ▶",
   "g.yourScore": "Ton score",
   "g.pause": "PAUSE",
   "g.resume": "REPRENDRE ▶",

@@ -157,6 +157,7 @@ export const en: Dict = {
   "result.exe": "RESULT.EXE",
   "g.start": "START ▶",
   "g.confirm": "SUBMIT SCORE ▶",
+  "g.confirmFree": "SEE RESULT ▶",
   "g.yourScore": "Your score",
   "g.pause": "PAUSE",
   "g.resume": "RESUME ▶",
