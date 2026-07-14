@@ -9,7 +9,7 @@
 // nada del server importa profiles.
 
 import { jsonStore } from "./persist.js";
-import { hostedAgentByAddress, sanitizeName, AGENT_AVATARS } from "./agents.js";
+import { hostedAgentByAddress, sanitizeName, AGENT_AVATARS, isHouseWallet } from "./agents.js";
 
 export interface Profile {
   name: string;
@@ -63,10 +63,18 @@ export function resolveDisplay(address: string): {
   name?: string;
   avatar?: string;
   agentId?: string;
+  house?: boolean;
 } {
   const a = normAddr(address);
   const agent = hostedAgentByAddress(a);
-  if (agent) return { name: agent.name, avatar: agent.avatar, agentId: agent.id };
+  if (agent) {
+    return {
+      name: agent.name,
+      avatar: agent.avatar,
+      agentId: agent.id,
+      ...(isHouseWallet(agent.owner) ? { house: true } : {}),
+    };
+  }
   const p = profiles.get(a);
   if (p) return { name: p.name, avatar: p.avatar };
   return {};

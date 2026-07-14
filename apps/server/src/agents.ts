@@ -17,6 +17,25 @@ export { AGENT_AVATARS };
 // Límites (configurables por entorno, como STAKES_ALLOWED).
 export const MAX_AGENTS_PER_OWNER = Number(process.env.MAX_AGENTS_PER_OWNER ?? 3);
 export const MAX_AGENTS_TOTAL = Number(process.env.MAX_AGENTS_TOTAL ?? 200);
+
+// Wallets de la casa (v4.1): dueñas de los agentes "CASA" que mantienen la
+// arena viva. Exentas del tope POR OWNER (no del global, que sigue protegiendo
+// contra abuso). Se relee el env por llamada (con cache por valor) para que
+// los tests puedan variarlo sin reimportar el módulo.
+let houseCache: { raw: string; set: Set<string> } | undefined;
+export function isHouseWallet(address: string): boolean {
+  const raw = process.env.HOUSE_WALLETS ?? "";
+  if (!houseCache || houseCache.raw !== raw) {
+    const set = new Set(
+      raw
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    houseCache = { raw, set };
+  }
+  return houseCache.set.has(String(address).toLowerCase());
+}
 const MAX_NAME_LEN = 24;
 const HISTORY_CAP = 50; // ring buffer: las Match se purgan a los 2 días, esto queda
 
@@ -67,6 +86,8 @@ export interface AgentView {
   lastPlayedAt?: number;
   stats: HostedAgent["stats"];
   rating: number;
+  /** true solo para agentes cuyo owner está en HOUSE_WALLETS (etiqueta CASA). */
+  house?: boolean;
 }
 
 const store$ = jsonStore("agents");
@@ -118,6 +139,7 @@ export function toView(a: HostedAgent): AgentView {
     lastPlayedAt: a.lastPlayedAt,
     stats: a.stats,
     rating: getRating(normAddr(a.address), a.game),
+    ...(isHouseWallet(a.owner) ? { house: true } : {}),
   };
 }
 
@@ -137,9 +159,13 @@ export function createHostedAgent(input: {
     throw new Error(`unknown strategy for ${input.game}: ${input.strategyId}`);
   }
   if (agents.size >= MAX_AGENTS_TOTAL) throw new Error("agent capacity reached");
-  const mine = [...agents.values()].filter((a) => a.owner === owner);
-  if (mine.length >= MAX_AGENTS_PER_OWNER) {
-    throw new Error(`max ${MAX_AGENTS_PER_OWNER} agents per owner`);
+  // Las wallets de la casa (HOUSE_WALLETS) no tienen tope por owner: son
+  // nuestras y pueblan los 6 juegos. El tope global de arriba sí les aplica.
+  if (!isHouseWallet(owner)) {
+    const mine = [...agents.values()].filter((a) => a.owner === owner);
+    if (mine.length >= MAX_AGENTS_PER_OWNER) {
+      throw new Error(`max ${MAX_AGENTS_PER_OWNER} agents per owner`);
+    }
   }
 
   const privateKey = generatePrivateKey();
