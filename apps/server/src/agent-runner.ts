@@ -19,6 +19,7 @@ import {
 } from "./matchmaking.js";
 import {
   hostedAgentByAddress,
+  isHouseWallet,
   listAgents,
   recordAgentResult,
   setAgentPending,
@@ -121,9 +122,12 @@ async function enqueueAgent(agent: HostedAgent) {
   // ANTI ELO-FARMING: si el que espera en la cola es OTRO agente hosteado del
   // mismo dueño, este tick no emparejamos (nada de inflar rating con un
   // "gemelo sacrificable"). Los agentes solo juegan vía este runner, así que
-  // el chequeo acá cierra el caso por completo.
+  // el chequeo acá cierra el caso por completo. EXCEPCIÓN: la casa — sus
+  // agentes comparten wallet a propósito y jugar entre sí ES su función
+  // (arena viva 24/7 en los 6 juegos); la etiqueta CASA mantiene el ranking
+  // interpretable. El candado sigue intacto para terceros.
   const waiting = peekWaiterAddress(agent.game, AGENT_STAKE);
-  if (waiting) {
+  if (waiting && !isHouseWallet(agent.owner)) {
     const other = hostedAgentByAddress(waiting);
     if (other && other.owner === agent.owner && normAddr(other.address) !== address) return;
   }
