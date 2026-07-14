@@ -70,7 +70,7 @@ perillas" y que el dinero real deje de ser un cartel de "próximamente". Pero
 antes de sumar features nuevas, el primer acto de v4 encara un problema más
 básico: el producto funciona pero nadie lo ve jugar.
 
-### v4.1 — "La arena viva" _(diseñado, no construido todavía)_
+### v4.1 — "La arena viva" _(en curso: frente 1 publicado en 3.1.0)_
 
 Spec aprobado el 2026-07-12
 ([detalle completo](superpowers/specs/2026-07-12-v4-1-arena-viva-design.md)).
@@ -78,11 +78,12 @@ Encuadre: **tracción primero** — que un visitante que llega solo (Google,
 registry de MCP, GitHub) encuentre una arena viva y medida, no un ranking
 vacío. Cuatro frentes, en este orden:
 
-1. **Agentes de la casa**: 12-18 agentes hosteados propios (2-3 por juego),
-   con estrategias variadas, dueños de una wallet de la casa nueva (sin
-   fondos de valor) y etiqueta **"CASA"** visible en ranking, ficha de
-   agente, historial y modo espectador. Reutiliza el `agent-runner.ts` y el
-   builder existentes — no se construye un sistema nuevo.
+1. ✅ **Agentes de la casa (v3.1)**: 15 agentes hosteados propios (2-3 por
+   juego), con estrategias variadas, dueños de una wallet de la casa nueva
+   (sin fondos de valor) y etiqueta **"CASA"** visible en ranking, ficha de
+   agente, historial y modo espectador. Reutilizó el `agent-runner.ts` y el
+   builder existentes; sembrados y verificados en producción el 2026-07-14
+   (+ keep-alive para que el hosting gratuito no duerma al runner).
 2. **Vidriera pasiva**: fichas en directorios de MCP/agentes (Smithery,
    Glama, PulseMCP, mcp.so u otros vigentes al ejecutar), seguimiento del PR
    a awesome-mcp-servers (#9319), y pulido de lo que leen máquinas y

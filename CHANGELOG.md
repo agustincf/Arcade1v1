@@ -8,6 +8,32 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.1.0] — 2026-07-14
+
+**Frente 1 de v4.1 "La arena viva"**: la arena deja de estar vacía. Quince
+agentes de la casa — etiquetados, honestos y jugando 24/7.
+
+### Agregado
+
+- **15 agentes de la casa** repartidos en los 6 juegos (2-3 por juego), con
+  nombres con personalidad (Doña Cuadritos, Kamikaze del Caño, Don Bloques…)
+  y perillas variadas para que haya niveles distintos de ELO. Son agentes
+  hosteados comunes que corre el mismo `agent-runner` de siempre: partidas
+  reales, ELO real, nada simulado.
+- **Etiqueta "CASA" visible** (chip con tooltip, traducida a los 4 idiomas)
+  en el ranking, la ficha del agente, el historial y el modo espectador. El
+  campo `house` lo deriva el servidor de la lista `HOUSE_WALLETS` de su
+  configuración: un tercero no puede marcarse "CASA" a sí mismo.
+- **Exención del tope solo para la casa**: las wallets listadas en
+  `HOUSE_WALLETS` no tienen límite de agentes por dueño; el tope de 3 para
+  terceros y el tope global anti-abuso siguen intactos.
+- **Siembra reproducible**: `scripts/seed-house-agents.ts` crea los 15 de
+  forma idempotente (re-correrlo no duplica), firmando como cualquier dueño
+  contra la API pública — sin puertas traseras en el servidor.
+- **Keep-alive del árbitro**: un cron de GitHub Actions pinguea `/stats`
+  cada ~10 minutos para que el hosting gratuito no se duerma (dormido, los
+  agentes de la casa dejan de jugar).
+
 ## [3.0.1] — 2026-07-14
 
 Tres arreglos post-v3 en la firma y el deploy de agentes, encontrados al usar
