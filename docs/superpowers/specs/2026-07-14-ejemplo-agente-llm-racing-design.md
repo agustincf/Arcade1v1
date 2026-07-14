@@ -25,6 +25,7 @@ ejecutable, no un agente CASA hosteado que queme tokens 24/7.
 ## Alcance
 
 **Dentro:**
+
 - Un ejemplo ejecutable de referencia: un LLM elige los movimientos de una
   partida de **Racing** en vivo; el replay resultante pasa `verifyRacing()`.
 - Funciones puras testeables (describir estado, parsear respuesta, detectar
@@ -32,6 +33,7 @@ ejecutable, no un agente CASA hosteado que queme tokens 24/7.
 - Docs: script npm, sección corta en `AGENTS.md`, mención en el README del SDK.
 
 **Fuera (queda para v4.2+ más grande):**
+
 - Hostear el agente LLM como agente CASA jugando en producción (quema tokens
   reales; necesita presupuesto y límites de gasto).
 - Extender el contrato `Strategy` del SDK a asíncrono.
@@ -45,8 +47,8 @@ Racing sobre Flappy, por el motor real (`packages/game-sdk/src/racing.ts`):
   hasta que uno decide cambiarlo; solo hay que decidir cuando un obstáculo se
   acerca al carril actual. Un LLM interviene decenas de veces por partida, no
   ~1800.
-- **Estado trivial de serializar a texto.** Carril actual (0/1/2) + obstáculos
-  próximos (carril + distancia) + velocidad. Una o dos líneas.
+- **Estado trivial de serializar a texto.** Carril actual (0/1/2) + para cada
+  carril la distancia al obstáculo por delante (o "despejado"). Una o dos líneas.
 - **Acción discreta simple.** `moveLeft` / `moveRight` / quedarse → `L`/`R`/`S`.
 
 Flappy queda descartado: física continua (gravedad) que exige timing fino de
@@ -70,7 +72,7 @@ paso; (c) es exactamente lo que un dev externo copiaría para su propio agente.
 
 1. `randomWallet()` → wallet efímera (solo firma; sin fondos, Fase 1).
 2. `signMatchmake()` + `client.matchmake(game, stake, address, auth)` → `matchId`
-   + `seed`. Stake 0 (ladder gratis / ranked, sin on-chain).
+   - `seed`. Stake 0 (ladder gratis / ranked, sin on-chain).
 3. Loop de juego con `RacingEngine(seed)` corriendo tick a tick; en cada
    **punto de decisión** consulta al cerebro; construye `ReplayRacing`
    (`{ seed, ticks, inputs: [{t, a}] }`).
@@ -83,13 +85,14 @@ paso; (c) es exactamente lo que un dev externo copiaría para su propio agente.
 Un LLM no puede opinar en cada tick. El loop solo consulta en **puntos de
 decisión**:
 
-- **Cuándo:** el obstáculo relevante más cercano (en el carril actual o en un
-  carril adyacente candidato) entra dentro de una distancia de peligro `D`, y
-  no consultamos en los últimos `T` ticks (throttle anti-spam). Umbrales como
-  constantes nombradas en el ejemplo.
+- **Cuándo:** un obstáculo entra dentro de una distancia de peligro `D` en el
+  carril actual, y no consultamos en los últimos `T` ticks (throttle anti-spam).
+  Umbrales como constantes nombradas en el ejemplo. La zona de peligro es
+  simétrica (incluye un obstáculo a la altura o recién pasando), igual que la
+  ventana de colisión del motor.
 - **Qué se le manda:** el estado serializado a texto (carril actual; para cada
-  carril, distancia al próximo obstáculo o "libre"; velocidad). System prompt
-  corto con las reglas y el formato de respuesta exigido (`L`/`R`/`S`).
+  carril, distancia al obstáculo por delante o "despejado"). System prompt corto
+  con las reglas y el formato de respuesta exigido (`L`/`R`/`S`).
 - **Qué se hace con la respuesta:** parseo estricto → acción; si la respuesta
   no es válida, default = quedarse (`S`). Se aplica al motor
   (`moveLeft`/`moveRight`) y, si hubo movimiento, se registra `{t, a}` en el
@@ -102,7 +105,7 @@ instancia con Claude; el test la instancia con un doble determinista.
 ### Por qué pasa el anti-trampa
 
 El árbitro re-simula el replay (semilla + inputs) con `verifyRacing()`; **no
-vuelve a llamar al LLM**. El cerebro solo influye en *qué* inputs se eligen;
+vuelve a llamar al LLM**. El cerebro solo influye en _qué_ inputs se eligen;
 una vez elegidos, el replay es determinístico y verificable como el de
 cualquier jugador. Mismo principio que con un humano: el cerebro es libre, el
 resultado se verifica.
@@ -116,10 +119,16 @@ resultado se verifica.
 - **`@anthropic-ai/sdk`** como **devDependency** de `agent-sdk`. `examples/` no
   se publica (el publish solo compila los `ENTRIES` de `scripts/publish-sdk.mjs`),
   así que no infla el paquete npm.
-- **Modelo por defecto: Claude Haiku 4.5** — barato y rápido para elegir carril
-  (una partida hace decenas de llamadas). Configurable por env
-  (`ARCADE_LLM_MODEL`). El ID exacto del modelo se confirma consultando la skill
-  `claude-api` al implementar.
+- **Modelo por defecto: `claude-opus-4-8`** (el modelo más capaz), configurable
+  por env `ARCADE_LLM_MODEL`. La guía oficial de la API de Claude manda usar
+  Opus 4.8 por defecto y deja el bajar de modelo como decisión de quien corre el
+  ejemplo — no algo que el ejemplo decida por costo. Se documenta el trade-off en
+  el propio archivo: como una partida hace decenas de llamadas secuenciales,
+  quien quiera correrlo más barato/rápido puede setear
+  `ARCADE_LLM_MODEL=claude-haiku-4-5` (suficiente para elegir carril). Las
+  llamadas de decisión corren **sin extended thinking** (en Opus 4.8 omitir
+  `thinking` corre sin pensar) con `max_tokens` chico: la respuesta es una sola
+  letra (`L`/`R`/`S`), rápida y barata.
 - **`ANTHROPIC_API_KEY`** requerida por `main()`; si falta, error claro que
   aclara que el ejemplo corre con la key de quien lo lanza.
 - **`ARBITER_URL`** — igual que el ejemplo de 2048 (default arbiter público o

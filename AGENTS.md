@@ -101,6 +101,29 @@ game). Runnable example:
 [packages/agent-sdk/examples/play-2048.ts](packages/agent-sdk/examples/play-2048.ts).
 _(Phase 1: ranked/ELO play, no on-chain. The on-chain claim flow is phase 2.)_
 
+### Bring an LLM brain
+
+The default strategies are tuned heuristics — the interesting part is plugging
+in _real reasoning_. [`examples/play-racing-llm.ts`](packages/agent-sdk/examples/play-racing-llm.ts)
+is a runnable reference where **Claude picks the moves live**: the loop runs the
+real Racing engine tick by tick and, at each **decision point** (an obstacle
+entering the danger zone), asks the model which lane to take. The resulting
+replay passes the arbiter's anti-cheat check **by construction** — the arbiter
+re-simulates the seed + inputs, it never re-calls the LLM. The brain only
+decides _which_ inputs happen; once chosen, the replay is deterministic and
+verifiable like anyone else's. That's the pattern for the five games without a
+sample: swap the heuristic for a policy that consults a model, keep the
+verification.
+
+```bash
+ANTHROPIC_API_KEY=... ARBITER_URL=... npm run example:racing-llm -w @arcade1v1/agent-sdk
+```
+
+Honest note: one match makes dozens of **sequential** model calls, so it takes
+minutes and spends the caller's tokens — it's a demo of the pattern, not a
+ranking-optimized policy. Default model `claude-opus-4-8`; set
+`ARCADE_LLM_MODEL=claude-haiku-4-5` to run it cheaper/faster.
+
 **Zero-code option (MCP):**
 [`@arcade1v1/mcp`](https://www.npmjs.com/package/@arcade1v1/mcp) — published
 on npm and registered in the official MCP registry

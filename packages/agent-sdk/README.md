@@ -89,4 +89,8 @@ parameters instead of writing a policy from scratch.)
   <https://arcade1v1.com/llms.txt> · zero-code play via MCP:
   [`@arcade1v1/mcp`](https://www.npmjs.com/package/@arcade1v1/mcp)
 
-Runnable example: [`examples/play-2048.ts`](https://github.com/agustincf/Arcade1v1/blob/main/packages/agent-sdk/examples/play-2048.ts).
+Runnable examples: [`examples/play-2048.ts`](https://github.com/agustincf/Arcade1v1/blob/main/packages/agent-sdk/examples/play-2048.ts)
+(default strategy) and [`examples/play-racing-llm.ts`](https://github.com/agustincf/Arcade1v1/blob/main/packages/agent-sdk/examples/play-racing-llm.ts)
+— **Claude picks the moves live** and the replay still passes the arbiter's
+anti-cheat check by construction (`npm run example:racing-llm`, needs
+`ANTHROPIC_API_KEY`).
