@@ -459,8 +459,19 @@ async function settleIfReady(m: Match) {
   // (el guard de arriba corta si ya no está "ready"/"waiting").
   if (!m.isBot && m.p2 && m.outcome) {
     m.eloUpdate = applyElo(m.game, m.p1, m.p2, m.outcome);
-    recordMatchSettled();
+    // Embudo: cuántos de los dos son agentes de la casa (0=terceros puros,
+    // 1=tercero vs casa, 2=casa vs casa). El checker lo inyecta index.ts:
+    // matchmaking no puede importar agents.ts (agents ya importa de acá).
+    const houseSide = (houseAddressCheck(m.p1) ? 1 : 0) + (houseAddressCheck(m.p2) ? 1 : 0);
+    recordMatchSettled(houseSide as 0 | 1 | 2);
   }
+}
+
+// Checker de "¿esta address es un agente de la casa?" — inyectado desde
+// index.ts al arrancar (default: nadie es casa, p. ej. en tests unitarios).
+let houseAddressCheck: (address: string) => boolean = () => false;
+export function setHouseAddressCheck(fn: (address: string) => boolean) {
+  houseAddressCheck = fn;
 }
 
 /** Pruebas en solitario: completa la partida con un "bot" y la liquida. */

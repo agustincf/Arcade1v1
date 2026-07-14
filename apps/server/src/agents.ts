@@ -10,6 +10,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { getStrategy, validateParams, AGENT_AVATARS } from "@arcade1v1/strategies";
 import { isKnownGame, dropWaitingMatch } from "./matchmaking.js";
 import { getRating } from "./ratings.js";
+import { recordAgentCreated } from "./stats.js";
 import { jsonStore } from "./persist.js";
 
 export { AGENT_AVATARS };
@@ -187,6 +188,9 @@ export function createHostedAgent(input: {
   };
   agents.set(agent.id, agent);
   save();
+  // Embudo (v4.1): solo cuentan los agentes de TERCEROS — los de la casa son
+  // nuestros y contarlos inflaría la señal de tracción.
+  if (!isHouseWallet(owner)) recordAgentCreated();
   return agent;
 }
 

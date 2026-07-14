@@ -24,7 +24,7 @@ test("incrementa totales y el día correspondiente", () => {
   __resetStatsForTest(d("2026-07-10"));
   recordMatchCreated(d("2026-07-10"));
   recordMatchCreated(d("2026-07-10"));
-  recordMatchSettled(d("2026-07-10"));
+  recordMatchSettled(0, d("2026-07-10")); // houseSide primero desde v4.1 (embudo)
   recordVerificationRejected(d("2026-07-10"));
 
   const s = statsSnapshot(0, d("2026-07-10"));

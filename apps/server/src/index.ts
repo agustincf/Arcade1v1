@@ -13,9 +13,10 @@ import {
   recentMatches,
   publicReplay,
   restoreMatches,
+  setHouseAddressCheck,
 } from "./matchmaking.js";
 import { leaderboard, ratingsOf, restoreRatings } from "./ratings.js";
-import { restoreAgents, listAgents } from "./agents.js";
+import { restoreAgents, listAgents, hostedAgentByAddress, isHouseWallet } from "./agents.js";
 import { statsSnapshot, restoreStats } from "./stats.js";
 import { profilesRouter } from "./profiles-routes.js";
 import { restoreProfiles, resolveDisplay } from "./profiles.js";
@@ -279,6 +280,13 @@ await Promise.all([
   restoreStats(),
   restoreProfiles(),
 ]);
+
+// Embudo (v4.1): el settle clasifica cada partida por origen (casa/mixta/
+// terceros). El checker vive acá para no crear el ciclo matchmaking→agents.
+setHouseAddressCheck((a) => {
+  const agent = hostedAgentByAddress(a);
+  return !!agent && isHouseWallet(agent.owner);
+});
 
 // No bloquea el API: el chequeo inicial y los siguientes corren en segundo plano.
 // En producción con escrow está activo por defecto; en dev exige opt-in explícito.
