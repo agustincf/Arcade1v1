@@ -62,6 +62,8 @@ const SEEDS: Seed[] = [
   { name: "Apilador Caótico", avatar: "🎮", game: "tetris", strategyId: "tetris.heuristic", params: { holes: 1, height: 0, bumpiness: 0, lines: 10 } },
 ];
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 function loadOrCreateWallet(): { address: string; privateKey: Hex } {
   if (existsSync(WALLET_FILE)) {
     const w = JSON.parse(readFileSync(WALLET_FILE, "utf8"));
@@ -99,19 +101,31 @@ async function main() {
       console.log(`~ crearía:   [${s.game}] ${s.avatar} ${s.name} (${s.strategyId})`);
       continue;
     }
-    const ts = Date.now();
-    const signature = await account.signMessage({
-      message: agentAuthMessage("create", `${s.game}:${s.strategyId}:${s.name}`, owner, ts),
-    });
-    const res = await fetch(`${BASE}/agents`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ owner, ...s, signature, ts }),
-    });
-    const body = (await res.json().catch(() => ({}))) as { error?: string; id?: string };
-    if (!res.ok) throw new Error(`[${s.game}] ${s.name}: ${body.error ?? res.status}`);
+    // El árbitro limita los POST caros (RL_MAX_EXPENSIVE por ventana de 10s):
+    // vamos de a uno por segundo y, si igual pide calma, esperamos la ventana.
+    let body: { error?: string; id?: string } = {};
+    for (let intento = 1; ; intento++) {
+      const ts = Date.now();
+      const signature = await account.signMessage({
+        message: agentAuthMessage("create", `${s.game}:${s.strategyId}:${s.name}`, owner, ts),
+      });
+      const res = await fetch(`${BASE}/agents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ owner, ...s, signature, ts }),
+      });
+      body = (await res.json().catch(() => ({}))) as { error?: string; id?: string };
+      if (res.ok) break;
+      if (res.status === 429 && intento < 4) {
+        console.log(`  (rate limit, espero 11s e intento de nuevo: ${s.name})`);
+        await sleep(11_000);
+        continue;
+      }
+      throw new Error(`[${s.game}] ${s.name}: ${body.error ?? res.status}`);
+    }
     created++;
     console.log(`+ creado:    [${s.game}] ${s.avatar} ${s.name} -> ${body.id}`);
+    await sleep(1_000);
   }
   console.log(`\nListo: ${created} creados, ${skipped} ya existían, ${SEEDS.length} en total.`);
 }
