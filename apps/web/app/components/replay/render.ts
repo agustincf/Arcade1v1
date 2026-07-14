@@ -77,23 +77,64 @@ export function drawFlappy(ctx: CanvasRenderingContext2D, eng: FlappyEngine) {
   ctx.fillRect(0, GROUND_Y, WIDTH, GROUND_H);
   ctx.fillStyle = "#b6ff3d";
   ctx.fillRect(0, GROUND_Y, WIDTH, 3);
-  // pájaro
+  // pájaro (a los 20 puntos, el easter egg: se convierte en autito celeste)
   ctx.save();
   ctx.translate(BIRD_X, eng.birdY);
   ctx.rotate(Math.max(-0.5, Math.min(1.1, eng.birdVy / 600)));
-  ctx.fillStyle = "#ffd23d";
-  ctx.beginPath();
-  ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#a8780b";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = "#ff7a00";
-  ctx.beginPath();
-  ctx.moveTo(BIRD_R - 2, -1);
-  ctx.lineTo(BIRD_R + 7, 1);
-  ctx.lineTo(BIRD_R - 2, 4);
-  ctx.fill();
+  if (eng.score >= 20) {
+    ctx.fillStyle = "#161018";
+    for (const wx of [-9, 8]) {
+      ctx.beginPath();
+      ctx.arc(wx, 10, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = "#4fc6f7";
+    ctx.strokeStyle = "#0b4a6b";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 3, 15, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(-1, -5, 10, 7.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#eaffff";
+    ctx.beginPath();
+    ctx.ellipse(1, -5, 7, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(-2, -6, 2.6, 0, Math.PI * 2);
+    ctx.arc(4, -6, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#0a0518";
+    ctx.beginPath();
+    ctx.arc(-1.3, -6, 1.3, 0, Math.PI * 2);
+    ctx.arc(4.7, -6, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff6c9";
+    ctx.strokeStyle = "#0b4a6b";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(13, 2, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = "#ffd23d";
+    ctx.beginPath();
+    ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#a8780b";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "#ff7a00";
+    ctx.beginPath();
+    ctx.moveTo(BIRD_R - 2, -1);
+    ctx.lineTo(BIRD_R + 7, 1);
+    ctx.lineTo(BIRD_R - 2, 4);
+    ctx.fill();
+  }
   ctx.restore();
 }
 

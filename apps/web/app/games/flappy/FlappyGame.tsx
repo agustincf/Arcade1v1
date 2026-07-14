@@ -16,6 +16,14 @@ const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
 const GROUND_Y = HEIGHT - GROUND_H;
 const STEP = FLAPPY_DT * 1000; // ms por tick
 
+// Easter egg: a los 20 puntos el pajaro se transforma en un autito.
+const CAR_SCORE = 20;
+const CAR_MORPH_MS = 550;
+
+function easeInOutCubic(x: number) {
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
+
 export interface FlappyResult {
   score: number;
   replay: ReplayFlappy;
@@ -66,6 +74,8 @@ export function FlappyGame({
     ];
     let flapAnim = 0;
     let lastScore = -1;
+    let frameNow = performance.now();
+    let carMorphStart: number | null = null;
 
     function drawPipe(x: number, gapY: number) {
       const topH = gapY - GAP / 2;
@@ -89,9 +99,10 @@ export function FlappyGame({
       ctx.strokeRect(x - 4, botY, PIPE_W + 8, 16);
     }
 
-    function drawBird(y: number, vy: number) {
+    function drawBird(y: number, vy: number, scale = 1) {
       ctx.save();
       ctx.translate(BIRD_X, y);
+      ctx.scale(scale, scale);
       const tilt = Math.max(-0.5, Math.min(1.1, vy / 600));
       ctx.rotate(tilt);
       // cuerpo
@@ -124,6 +135,75 @@ export function FlappyGame({
       ctx.lineTo(BIRD_R + 7, 1);
       ctx.lineTo(BIRD_R - 2, 4);
       ctx.fill();
+      ctx.restore();
+    }
+
+    // Easter egg (20 puntos): autito celeste bien redondito, estilo Fiat Seicento,
+    // con ojitos en el parabrisas (guiño a Cars).
+    function drawCar(y: number, vy: number, scale = 1) {
+      ctx.save();
+      ctx.translate(BIRD_X, y);
+      ctx.scale(scale, scale);
+      const tilt = Math.max(-0.5, Math.min(1.1, vy / 600));
+      ctx.rotate(tilt);
+
+      // ruedas (con un rayo que gira, sensacion de movimiento)
+      const spin = flapAnim * 2.2;
+      for (const wx of [-9, 8]) {
+        ctx.fillStyle = "#161018";
+        ctx.beginPath();
+        ctx.arc(wx, 10, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#8a97a6";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(wx - Math.cos(spin) * 3, 10 - Math.sin(spin) * 3);
+        ctx.lineTo(wx + Math.cos(spin) * 3, 10 + Math.sin(spin) * 3);
+        ctx.stroke();
+      }
+
+      // carroceria (ovalada, bien "huevito")
+      ctx.fillStyle = "#4fc6f7";
+      ctx.strokeStyle = "#0b4a6b";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 3, 15, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // techo/habitaculo (burbuja, misma paleta -> look "huevo")
+      ctx.beginPath();
+      ctx.ellipse(-1, -5, 10, 7.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // parabrisas
+      ctx.fillStyle = "#eaffff";
+      ctx.beginPath();
+      ctx.ellipse(1, -5, 7, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ojitos (estilo Cars) mirando para adelante
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(-2, -6, 2.6, 0, Math.PI * 2);
+      ctx.arc(4, -6, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#0a0518";
+      ctx.beginPath();
+      ctx.arc(-1.3, -6, 1.3, 0, Math.PI * 2);
+      ctx.arc(4.7, -6, 1.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // faro
+      ctx.fillStyle = "#fff6c9";
+      ctx.strokeStyle = "#0b4a6b";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(13, 2, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
       ctx.restore();
     }
 
@@ -193,8 +273,23 @@ export function FlappyGame({
       ctx.fillStyle = "#b6ff3d";
       ctx.fillRect(0, GROUND_Y, WIDTH, 3);
 
-      // Pajaro
-      drawBird(eng.birdY, eng.birdVy);
+      // Pajaro (a los 20 puntos, se transforma en auto con un fundido suave)
+      if (eng.score >= CAR_SCORE && carMorphStart === null) carMorphStart = frameNow;
+      const morphT =
+        carMorphStart === null ? 0 : Math.min(1, (frameNow - carMorphStart) / CAR_MORPH_MS);
+      if (morphT <= 0) {
+        drawBird(eng.birdY, eng.birdVy);
+      } else if (morphT >= 1) {
+        drawCar(eng.birdY, eng.birdVy);
+      } else {
+        const e = easeInOutCubic(morphT);
+        const pop = 1 + 0.15 * Math.sin(Math.PI * morphT);
+        ctx.globalAlpha = 1 - e;
+        drawBird(eng.birdY, eng.birdVy, pop);
+        ctx.globalAlpha = e;
+        drawCar(eng.birdY, eng.birdVy, pop);
+        ctx.globalAlpha = 1;
+      }
 
       // Puntaje
       ctx.fillStyle = "#ffffff";
@@ -213,6 +308,7 @@ export function FlappyGame({
     };
 
     const loop = (t: number) => {
+      frameNow = t;
       const dt = Math.min(t - last, 100);
       last = t;
       const eng = engineRef.current!;
