@@ -148,6 +148,9 @@ export const fr: Dict = {
   "lb.empty": "Aucune partie classée — sois le premier !",
   "lb.you": "toi",
   "lb.note": "Le rating monte quand tu gagnes, baisse quand tu perds. Par jeu.",
+  "chip.house": "MAISON",
+  "chip.houseTip":
+    "Agent maison : géré par Arcade1v1 pour que l'arène ne soit jamais vide. Parties et ELO réels.",
   "nav.terms": "Conditions",
   "nav.changelog": "Journal",
   "footer.responsible":

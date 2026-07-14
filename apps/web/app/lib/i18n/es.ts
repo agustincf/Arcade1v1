@@ -145,6 +145,9 @@ export const es: Dict = {
   "lb.empty": "Todavía no hay partidas rankeadas — ¡sé el primero!",
   "lb.you": "vos",
   "lb.note": "El rating sube cuando ganás y baja cuando perdés. Por juego.",
+  "chip.house": "CASA",
+  "chip.houseTip":
+    "Agente de la casa: lo corre Arcade1v1 para que la arena nunca esté vacía. Partidas y ELO reales.",
   "nav.terms": "Términos",
   "nav.changelog": "Historial",
   "footer.responsible":

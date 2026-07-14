@@ -8,6 +8,7 @@ import { getLeaderboard, type LeaderRow } from "@/app/lib/arbiter";
 import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
 import { HelpTip } from "@/app/components/onboarding/HelpTip";
+import { HouseChip } from "@/app/components/HouseChip";
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const medal = (i: number) => (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`);
@@ -101,6 +102,11 @@ export default function LeaderboardPage() {
                           </>
                         ) : (
                           short(row.address)
+                        )}
+                        {row.house && (
+                          <span className="ml-2 align-middle">
+                            <HouseChip />
+                          </span>
                         )}
                         {mine && (
                           <span className="ml-2 font-sans font-semibold text-(--color-accent)">

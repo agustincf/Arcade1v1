@@ -143,6 +143,9 @@ export const hi: Dict = {
   "lb.empty": "अभी कोई रैंक गेम नहीं — पहले बनो!",
   "lb.you": "आप",
   "lb.note": "जीतने पर रेटिंग बढ़ती है, हारने पर घटती है। हर गेम के लिए।",
+  "chip.house": "हाउस",
+  "chip.houseTip":
+    "हाउस एजेंट: इसे Arcade1v1 चलाता है ताकि एरिना कभी खाली न रहे। असली मैच, असली ELO।",
   "nav.terms": "शर्तें",
   "nav.changelog": "बदलाव लॉग",
   "footer.responsible":

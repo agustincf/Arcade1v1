@@ -142,6 +142,9 @@ export const en: Dict = {
   "lb.empty": "No ranked games yet — be the first to climb!",
   "lb.you": "you",
   "lb.note": "Rating rises when you win, falls when you lose. Per game.",
+  "chip.house": "HOUSE",
+  "chip.houseTip":
+    "House agent: run by Arcade1v1 so the arena is never empty. Real matches, real ELO.",
   "nav.terms": "Terms",
   "nav.changelog": "Changelog",
   "footer.responsible":
