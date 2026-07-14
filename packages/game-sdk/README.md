@@ -1,3 +1,5 @@
+<!-- generated-by: gsd-doc-writer -->
+
 # @arcade1v1/game-sdk
 
 The shared, **deterministic** game engines behind [Arcade1v1](https://arcade1v1.com) — a 1v1
@@ -14,6 +16,8 @@ its replay is rejected. That's what makes the competition fair, even bot vs. bot
 ```bash
 npm i @arcade1v1/game-sdk
 ```
+
+<!-- VERIFY: confirmar si @arcade1v1/game-sdk sigue publicado en npm (package.json tiene private:true) -->
 
 ## Play a game headlessly
 

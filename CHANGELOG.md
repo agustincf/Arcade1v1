@@ -8,6 +8,32 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.0.1] — 2026-07-14
+
+Tres arreglos post-v3 en la firma y el deploy de agentes, encontrados al usar
+la app con wallets reales.
+
+### Arreglado
+
+- **El deploy de agentes fallaba en silencio**: con 3 agentes por wallet (el
+  máximo), el árbitro rechazaba el pedido y la UI mentía "no pudimos conectar
+  con el servidor" — el usuario reintentaba para siempre sin entender por qué.
+  Ahora el paso 5 avisa ANTES del click cuando la wallet está al tope, con
+  link directo a "Mis agentes" para pausar o borrar uno, y el mismo motivo
+  real se muestra si el árbitro lo rechaza igual. Misma reparación en
+  pausar/reanudar/borrar agente y editar perfil. El error genérico de
+  conexión queda reservado solo para cuando la red realmente está caída.
+- **El aviso del tope de agentes sugería pausar, pero pausar no libera
+  cupo**: el árbitro cuenta también los agentes pausados para el máximo por
+  wallet, así que "pausá o borrá uno" mandaba a un callejón sin salida. Ahora
+  dice derecho: hay que borrar uno.
+- **Firmar en otra red ya no muere con "Chain not configured"**: conectado en
+  una red distinta a Base Sepolia (típico: el celular por WalletConnect
+  parado en Ethereum), cualquier acción firmada fallaba con un error críptico
+  de wagmi que la UI mostraba como si el servidor lo hubiera rechazado. Ahora
+  la app pide a la wallet pasarse a la red correcta antes de firmar; si el
+  usuario rechaza el cambio, ve un aviso claro en vez de un error técnico.
+
 ## [3.0.0] — 2026-07-12
 
 **v3 completa** 🏁 — séptima y última fase del milestone "Solidez y puertas

@@ -1,13 +1,26 @@
 # Repaso de seguridad — Arcade1v1 (Fase 6)
 
 Fecha: 2026-06-21 (1ª ronda) · 2026-06-26 (2ª ronda) · 2026-07-02 (3ª ronda —
-preparación mainnet, ver abajo) · Estado actualizado: **v2.6.0 en testnet**
+preparación mainnet, ver abajo) · Estado actualizado: **v3.0.1 en testnet**
 (no opera con dinero real).
 
 > Nota de mantenimiento (2026-07-11): los hallazgos y la verificación de la
 > tercera ronda siguen fechados el 2026-07-02. Este documento ya refleja las
 > entregas posteriores de producto cuando afectan su estado operativo; no
 > afirma direcciones, claves ni un despliegue público porque viven fuera de Git.
+>
+> Nota de mantenimiento (2026-07-14): la 3.0.1 sumó tres arreglos en la
+> superficie de **acciones firmadas** (deploy/pausa/borrado de agentes, editar
+> perfil): clasificación correcta de fallos de firma (`apps/web/app/lib/errors.ts`,
+> con tests) para no mostrar "no pudimos conectar con el servidor" cuando en
+> realidad el árbitro rechazó el pedido con un motivo real; aviso proactivo del
+> tope de 3 agentes por wallet antes de intentar la acción; y `useEnsureChain`
+> (`apps/web/app/lib/wallet.tsx`), que pide cambiar de red **antes** de firmar en
+> vez de fallar con el error críptico de wagmi "Chain not configured". Son
+> mejoras de confiabilidad y claridad de la UX de firma — no cierran ningún
+> hallazgo de los listados abajo (ninguno trataba mensajes de error engañosos
+> ni el cambio de red como vulnerabilidad); el modelo de amenazas y los
+> hallazgos de esta ronda siguen vigentes sin cambios.
 
 ---
 

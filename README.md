@@ -21,7 +21,10 @@ Six games: 2048 · Tetris · Snake · Flappy · Racing · Space Invaders.
   [`@arcade1v1/game-sdk`](https://www.npmjs.com/package/@arcade1v1/game-sdk) (engines)
 
 > ⚠️ **Testnet only** (Base Sepolia, play money) while it's built and audited.
-> Detailed docs below are in Spanish — the project's working language.
+> **Current state: v3 shipped (3.0.0)**, plus the 3.0.1 patch (three
+> post-v3 signing/deploy fixes). **v4.1 "The living arena" is in the design
+> stage** — spec written, not built yet. Detailed docs below are in Spanish —
+> the project's working language.
 
 ---
 
@@ -40,6 +43,9 @@ la blockchain **Base**. Tres pilares:
 
 > ⚠️ **Estado: SOLO TESTNET (Base Sepolia, dinero de prueba).**
 > No se usa dinero real hasta completar la revision legal y de seguridad (Fase 6).
+> **v3 esta cerrada (3.0.0)** + el parche **3.0.1** (tres arreglos post-v3 en
+> firma y deploy de agentes). **v4.1 "La arena viva" esta en diseno** (spec
+> escrito, todavia no construida) — ver `docs/superpowers/specs/2026-07-12-v4-1-arena-viva-design.md`.
 
 ---
 
@@ -125,10 +131,20 @@ celular por QR), via wagmi + RainbowKit. Ya implementada.
 
 ## Estado actual
 
-**Versión actual: 2.6.0 (2026-07-11).** La v3 está en curso: ya se publicaron
-5 de sus 7 fases. El frontend está completo (6 juegos, modo libre,
-multi-idioma y SEO) y suma faucet de testnet, página pública de estado,
-perfiles humanos, duelos directos y estilos de juego alternativos para agentes.
+**v3 cerrada en la versión 3.0.0 (2026-07-12)**, más el parche **3.0.1**
+(2026-07-14) con tres arreglos post-v3 en la firma y el deploy de agentes
+(aviso previo al tope de 3 agentes por wallet, el mensaje correcto de que hay
+que borrar uno en vez de pausar, y el cambio de red pedido antes de firmar en
+vez de morir con "Chain not configured"). Las 7 fases de v3 quedaron
+publicadas y verificadas: faucet de testnet, página pública de estado,
+perfiles humanos, duelos directos, estilos de juego alternativos para
+agentes, i18n servido por idioma (URL propia por idioma) y operación
+pre-mainnet (RPC propio + monitor de gas visible en `/status`).
+
+**v4.1 "La arena viva" está en fase de diseño**: el spec está escrito
+(`docs/superpowers/specs/2026-07-12-v4-1-arena-viva-design.md`) pero todavía
+no se construyó ninguna de sus piezas (agentes CASA, directorios, sonda,
+medición). No la des por disponible.
 
 El contrato y el backend árbitro están construidos y verificados (tests + e2e
 en cadena local). Las mesas con escrow siguen siendo **solo testnet**: la
@@ -137,7 +153,7 @@ repositorio y debe verificarse en ese entorno. **No opera con dinero real.**
 Antes de activar mainnet, ver los puntos críticos de [SECURITY.md](SECURITY.md),
 en especial la auditoría externa del contrato y los requisitos legales.
 
-### Funcionalidades incorporadas desde v2.0
+### Funcionalidades principales
 
 - **Builder no-code (`/build`)**: asistente de 5 pasos para armar un agente sin
   programar (elegir juego, ajustar su estrategia con controles visuales,
@@ -147,8 +163,13 @@ en especial la auditoría externa del contrato y los requisitos legales.
   firmando con la wallet, sin exponer ninguna clave privada por la API.
 - **Modo espectador (`/watch`)**: partidas ya decididas, reproducidas con el
   motor real, las dos corridas lado a lado.
-- **Mejoras v2.2–v2.6**: faucet de USDC de prueba, métricas públicas del
-  árbitro, perfiles humanos, duelos directos y más de una estrategia en 2048,
-  Snake y Carrera.
+- **Capa de agentes por SDK/MCP**: `@arcade1v1/mcp` (servidor MCP publicado en
+  npm y en el registry oficial de MCP), `@arcade1v1/agent-sdk` (cliente del
+  árbitro en pocas líneas) y `@arcade1v1/game-sdk` (motores deterministicos de
+  cada juego) — los tres publicados en npm.
+- **i18n y estado público**: URLs por idioma (es/hi/fr, inglés en la raíz),
+  faucet de USDC de prueba, métricas públicas del árbitro (`/status`), perfiles
+  humanos, duelos directos y más de una estrategia en 2048, Snake y Carrera.
 
 Detalle completo de esta y anteriores versiones en [CHANGELOG.md](CHANGELOG.md).
+Hacia dónde va el proyecto (v4, v5) en [docs/ROADMAP.md](docs/ROADMAP.md).

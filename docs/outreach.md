@@ -1,3 +1,5 @@
+<!-- generated-by: gsd-doc-writer -->
+
 # Material de difusión — Arcade1v1
 
 Copiá y pegá lo que necesites. Todo asume **testnet (dinero de prueba)**, que es la
@@ -61,6 +63,8 @@ En inglés (para audiencia global de IA/cripto):
 >   both players → pure skill); every score is re-simulated from the replay
 >   server-side before it settles, so fake scores are rejected
 > - **A live benchmark:** public per-game ELO shared by humans and agents
+> - Already listed in the **official MCP registry** (`io.github.agustincf/arcade1v1`)
+>   — `npx -y @arcade1v1/mcp` and you're in
 > - Open source (MIT): https://github.com/agustincf/Arcade1v1
 >
 > It's on testnet right now (play money), so it's free to try and the board is wide
@@ -120,13 +124,16 @@ Ejemplo completo en `/agents`.
 Acá es donde los usuarios de Claude Desktop/Code y los constructores de agentes
 descubren servers MCP. Registrar `@arcade1v1/mcp` es difusión gratis y dirigida:
 
-- **Registry oficial de MCP** — https://github.com/modelcontextprotocol/registry
-  (publicar con la CLI `mcp-publisher`; el server ya cumple: npm + stdio).
+- **Registry oficial de MCP — ✅ ya publicado** (2026-07-05) como
+  `io.github.agustincf/arcade1v1`, server activo apuntando a `@arcade1v1/mcp@0.1.2`
+  en npm. Se puede citar directamente en cualquier post: "ya está en el registry
+  oficial de MCP" (<https://registry.modelcontextprotocol.io>).
 - **Lista awesome-mcp-servers** — https://github.com/punkpeye/awesome-mcp-servers
-  (PR agregando el server en la categoría Games/Entertainment).
-- **Smithery** — https://smithery.ai (indexa servers; se puede reclamar/subir el propio).
-- **mcp.so** — https://mcp.so (directorio comunitario, submit por formulario/GitHub).
-- **PulseMCP** — https://www.pulsemcp.com (submit de servers nuevos).
+  (PR #9319 agregando el server en la categoría Games/Entertainment — abierto,
+  esperando merge; no citar como "ya listado" hasta que se apruebe).
+- **Smithery** — https://smithery.ai (indexa servers; falta reclamar/subir el propio).
+- **mcp.so** — https://mcp.so (directorio comunitario, falta el submit).
+- **PulseMCP** — https://www.pulsemcp.com (falta el submit de servers nuevos).
 
 Texto corto para los submits (en inglés):
 
@@ -142,8 +149,8 @@ Texto corto para los submits (en inglés):
 | X/Twitter                       | Post corto (§2)                                                                                             | Tag: #AIagents #MCP. Mejor con un GIF de un match                               |
 | Hacker News                     | "Show HN: A 1v1 arena + live benchmark where AI agents and humans compete at arcade games" + link a /agents | El repo abierto, el replay-verify y el ángulo de benchmark son lo que HN valora |
 | Reddit r/ClaudeAI, r/LocalLLaMA | Versión media (§2) + config MCP (§3.A)                                                                      | Enfocar en "tu asistente puede jugar hoy"                                       |
-| Discord de MCP / de agentes     | Versión media + link al registry                                                                            | Después de registrar en los directorios                                         |
-| Directorios MCP (§5)            | Submit del server                                                                                           | Primero esto: da legitimidad a los posts                                        |
+| Discord de MCP / de agentes     | Versión media + link al registry oficial                                                                    | El registry oficial ya está; sirve de prueba social para el resto de los posts  |
+| Directorios MCP (§5)            | Submit del server en Smithery / mcp.so / PulseMCP + seguir el PR a awesome-mcp-servers                      | El registry oficial ya está publicado; falta el resto                           |
 
 ## 7. Notas de honestidad (no borrar)
 

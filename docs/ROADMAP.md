@@ -1,17 +1,21 @@
 # Roadmap
 
 **EN** — Where Arcade1v1 is going, in three acts: **v3** hardens the foundation
-and removes onboarding friction, **v4** brings real AI depth (LLM agents,
-custom strategies, tournaments) and mainnet readiness, **v5** opens the economy
-(strategy marketplace, agent backing, on-chain reputation). Dates are
-intentionally absent: this is a direction, not a promise. Detailed sections
-below are in Spanish — the project's working language.
+and removes onboarding friction, **v4** brings traction first (v4.1) and then
+real AI depth (LLM agents, custom strategies, tournaments) and mainnet
+readiness, **v5** opens the economy (strategy marketplace, agent backing,
+on-chain reputation). Dates are intentionally absent: this is a direction, not
+a promise. Detailed sections below are in Spanish — the project's working
+language.
 
 > Estado actual: **v3 completa (3.0.0) en testnet** (Base Sepolia, dinero de
-> juego). Las 7 fases publicadas y verificadas: faucet, estado público, perfiles,
-> duelos, estilos alternativos, i18n servido por idioma con URLs propias, y
-> operación pre-mainnet (RPC propio + gas monitoreado). El próximo acto es la
-> **v4**. Historial en [CHANGELOG.md](../CHANGELOG.md).
+> juego), con el parche **3.0.1** ya aplicado (tres arreglos de firma y deploy
+> de agentes encontrados con wallets reales). Las 7 fases de v3 publicadas y
+> verificadas: faucet, estado público, perfiles, duelos, estilos alternativos,
+> i18n servido por idioma con URLs propias, y operación pre-mainnet (RPC
+> propio + gas monitoreado). El próximo acto, **v4.1 "La arena viva"**, está
+> **diseñado pero todavía no construido** (spec aprobado el 2026-07-12).
+> Historial en [CHANGELOG.md](../CHANGELOG.md).
 
 Los tres pilares del proyecto ordenan cada versión:
 **agent-first** · **verificado on-chain** · **benchmark de IA en vivo**.
@@ -25,7 +29,9 @@ rápido en los 4 idiomas.
 
 **v3 cerrada (3.0.0)**: las 7 fases publicadas y verificadas en producción. El
 detalle operativo quedó como registro en
-[el plan interno de v3](superpowers/v3/PLAN.md).
+[el plan interno de v3](superpowers/v3/PLAN.md). El parche **3.0.1** (post-v3)
+arregló tres problemas de firma y deploy de agentes encontrados al usar la app
+con wallets reales — detalle en [CHANGELOG.md](../CHANGELOG.md).
 
 ### Conexión del usuario
 
@@ -57,12 +63,43 @@ detalle operativo quedó como registro en
 
 ---
 
-## v4 — Agentes de verdad + listo para mainnet
+## v4 — Tracción primero, después agentes de verdad + listo para mainnet
 
-La meta: que "agente" deje de significar "heurística con perillas" y que el
-dinero real deje de ser un cartel de "próximamente".
+La meta del acto completo: que "agente" deje de significar "heurística con
+perillas" y que el dinero real deje de ser un cartel de "próximamente". Pero
+antes de sumar features nuevas, el primer acto de v4 encara un problema más
+básico: el producto funciona pero nadie lo ve jugar.
 
-### Agentes de IA
+### v4.1 — "La arena viva" _(diseñado, no construido todavía)_
+
+Spec aprobado el 2026-07-12
+([detalle completo](superpowers/specs/2026-07-12-v4-1-arena-viva-design.md)).
+Encuadre: **tracción primero** — que un visitante que llega solo (Google,
+registry de MCP, GitHub) encuentre una arena viva y medida, no un ranking
+vacío. Cuatro frentes, en este orden:
+
+1. **Agentes de la casa**: 12-18 agentes hosteados propios (2-3 por juego),
+   con estrategias variadas, dueños de una wallet de la casa nueva (sin
+   fondos de valor) y etiqueta **"CASA"** visible en ranking, ficha de
+   agente, historial y modo espectador. Reutiliza el `agent-runner.ts` y el
+   builder existentes — no se construye un sistema nuevo.
+2. **Vidriera pasiva**: fichas en directorios de MCP/agentes (Smithery,
+   Glama, PulseMCP, mcp.so u otros vigentes al ejecutar), seguimiento del PR
+   a awesome-mcp-servers (#9319), y pulido de lo que leen máquinas y
+   buscadores (README, llms.txt, SEO on-page). Sin posts personales en
+   redes; cada ficha se muestra al dueño antes de publicarse.
+3. **El primer minuto perfecto**: sonda automatizada (Playwright + wallet
+   EIP-6963 falsa) que recorre en producción los dos caminos de un recién
+   llegado — jugar sin wallet, y tener un agente andando vía MCP o builder —
+   reparando con el patrón de errores firmados lo que trabe o mienta.
+4. **Saber si funciona**: medición mínima del embudo (agentes creados,
+   partidas de terceros vs. de la casa, páginas vistas/referrers) para
+   decidir el próximo acto con datos, no a ciegas.
+
+Queda fuera de v4.1 (pasa a v4.2+): torneos, agentes con cerebro LLM,
+BYO-agent por webhook, y todo lo de mainnet.
+
+### v4.2+ — Agentes de IA
 
 - **Agentes con cerebro LLM**: el servidor MCP ya deja jugar a Claude y
   compañía; el paso siguiente es hostearlos — un agente cuyo `play()` consulta

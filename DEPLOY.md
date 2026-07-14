@@ -1,3 +1,4 @@
+<!-- generated-by: gsd-doc-writer -->
 # Guía para publicar Arcade1v1
 
 Hay **3 piezas** que se publican por separado:
@@ -13,7 +14,18 @@ Hay **3 piezas** que se publican por separado:
 
 ## Paso 1 — Desplegar el contrato (Base Sepolia) — **llave en mano**
 
-Un solo script hace todo. Corrés **dos veces**:
+Antes de la 2da corrida hace falta completar 3 variables en
+`packages/contracts/.env` (el script **no** las autogenera; si faltan, el
+deploy falla):
+
+- `ARBITER_ADDRESS` — la dirección del árbitro. Si todavía no la tenés, generá
+  esa wallet ahora con `cast wallet new` (Foundry) y guardá **la clave privada**
+  aparte — es la que va a `ARBITER_PRIVATE_KEY` en el Paso 2.
+- `PLATFORM_WALLET` — tu wallet, la que cobra la comisión.
+- `FEE_BPS=1500` — comisión en basis points (1500 = 15%, el valor que ya
+  muestra la web; tope duro del contrato: 2000 = 20%).
+
+Con eso listo, corrés el script **dos veces**:
 
 ```bash
 bash packages/contracts/deploy-base-sepolia.sh
@@ -29,7 +41,8 @@ bash packages/contracts/deploy-base-sepolia.sh
   `NEXT_PUBLIC_USDC_ADDRESS`, `ESCROW_ADDRESS`, `CHAIN_ID`).
 
 > Probado de punta a punta en cadena local (anvil): despliegue + mint + mesas +
-> pago + reembolso. Ver `packages/contracts/check-payment-e2e.sh`.
+> pago + reembolso. Ver `packages/contracts/check-payment-e2e.sh` y, solo para el
+> script de deploy en sí, `packages/contracts/check-deploy.sh`.
 
 ## Paso 2 — Publicar el árbitro (backend)
 
@@ -43,7 +56,9 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
   - `RPC_URL=https://sepolia.base.org` — **obligatoria en producción con escrow**:
     el árbitro reembolsa on-chain los empates y las partidas vencidas
     (`cancelMatch`). Esa cuenta necesita un poco de **ETH para gas**.
-  - `ALLOWED_ORIGIN=https://tudominio.com` — restringe el CORS a tu web.
+  - `ALLOWED_ORIGIN=https://tudominio.com` — restringe el CORS a tu web (admite
+    varios dominios separados por coma, útil mientras convivís con el dominio
+    de Vercel y el propio).
   - `REQUIRE_AUTH` — la firma de los envíos **y del emparejamiento** es
     **obligatoria por defecto** cuando `NODE_ENV=production`. No hace falta
     setearla; solo poné `REQUIRE_AUTH=false` si querés desactivarla a propósito

@@ -60,6 +60,13 @@ dejar esperando, perdiendo plata o leyendo un mensaje que miente, está mal.
   `PascalCase.tsx`; rutas Next en `app/` según convención del App Router.
 - **Errores HTTP del árbitro**: `res.status(4xx).json({ error: "mensaje claro" })`,
   envueltos en try/catch por ruta. El mensaje debe servirle al que lo lee.
+- **Errores de acciones firmadas por la wallet**: toda acción que pide firma
+  (deploy/pausar/borrar agente, perfil, desafíos, emparejar) clasifica el fallo
+  con `app/lib/errors.ts` (`classifySignError`/`failureText`), distinguiendo
+  firma cancelada, red equivocada, fallo real de la wallet y rechazo del server
+  — cada uno con su texto i18n propio. El genérico de "no pudimos conectar"
+  queda reservado solo para cuando la red está caída de verdad. Patrón
+  obligatorio para cualquier botón nuevo que firme con la wallet.
 - **Estado en React**: hooks locales + refs para guardas de concurrencia (ej.
   `mmStarted`); nada de Redux/Zustand. Datos del árbitro se piden con los
   helpers de `app/lib/arbiter.ts` (ÚNICO punto de fetch, con timeout compartido).
