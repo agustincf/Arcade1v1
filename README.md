@@ -21,10 +21,10 @@ Six games: 2048 · Tetris · Snake · Flappy · Racing · Space Invaders.
   [`@arcade1v1/game-sdk`](https://www.npmjs.com/package/@arcade1v1/game-sdk) (engines)
 
 > ⚠️ **Testnet only** (Base Sepolia, play money) while it's built and audited.
-> **Current state: v3 shipped (3.0.0)**, plus the 3.0.1 patch (three
-> post-v3 signing/deploy fixes). **v4.1 "The living arena" is in the design
-> stage** — spec written, not built yet. Detailed docs below are in Spanish —
-> the project's working language.
+> **Current state: v4.1 "The living arena" in progress** — 3.1.0 shipped the
+> house agents (15 in-house agents, labeled "HOUSE", keep the ladder alive
+> 24/7 across all six games), and 3.1.1 polished the newcomer's first minute.
+> Detailed docs below are in Spanish — the project's working language.
 
 ---
 
