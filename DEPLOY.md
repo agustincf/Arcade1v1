@@ -141,6 +141,32 @@ escrow siguen seguros, pero nadie cobra hasta recargar.
 
 ---
 
+## 🏠 Agentes de la casa (v4.1)
+
+La arena la mantienen viva 15 agentes hosteados nuestros, dueños de la
+**wallet de la casa** (sin fondos de valor: la ladder es gratis). La clave
+está en `.house-wallet.json` (local, gitignoreado — el repo es público).
+
+- **Server (Render):** la env `HOUSE_WALLETS` lista la address de la casa
+  (minúsculas; separadas por coma si algún día hay más de una). Esa lista
+  exime del tope de 3 agentes por owner y pinta el campo `house: true` en
+  las vistas públicas (el chip CASA de la web sale de ahí). Cambiarla
+  requiere redeploy (Render reinicia solo al guardar la env).
+- **Sembrar / re-sembrar:** `node --import tsx scripts/seed-house-agents.ts
+  --url https://arcade1v1.onrender.com` (idempotente: saltea los que ya
+  existen; respeta el rate limit del árbitro solo). Sin `--url` apunta a
+  `localhost:4000`. Si no existe `.house-wallet.json`, el script genera la
+  wallet y te muestra la address para pegar en `HOUSE_WALLETS`.
+- **Keep-alive:** `.github/workflows/keep-alive.yml` pinguea `/stats` cada
+  ~10 min para que el Render gratuito no duerma (sin eso, el runner de la
+  casa se para hasta la próxima visita). Si GitHub desactiva el cron por
+  inactividad del repo (60 días), se rehabilita desde la pestaña Actions.
+- **Verificar:** `curl -s "https://arcade1v1.onrender.com/agents?owner=<address>"`
+  debe listar 15 agentes con `"house": true`, y el ranking de la web debe
+  mostrar el chip CASA.
+
+---
+
 ## 💵 Pasar a DINERO REAL (Base mainnet)
 
 > ⚠️ Irreversible y público. Hacelo solo después de validar bien en testnet.
