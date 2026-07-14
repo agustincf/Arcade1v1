@@ -70,7 +70,7 @@ perillas" y que el dinero real deje de ser un cartel de "próximamente". Pero
 antes de sumar features nuevas, el primer acto de v4 encara un problema más
 básico: el producto funciona pero nadie lo ve jugar.
 
-### v4.1 — "La arena viva" _(en curso: frente 1 publicado en 3.1.0)_
+### v4.1 — "La arena viva" ✅ _(completa: 3.1.0 → 3.2.0, 2026-07-14)_
 
 Spec aprobado el 2026-07-12
 ([detalle completo](superpowers/specs/2026-07-12-v4-1-arena-viva-design.md)).
@@ -84,11 +84,12 @@ vacío. Cuatro frentes, en este orden:
    agente, historial y modo espectador. Reutilizó el `agent-runner.ts` y el
    builder existentes; sembrados y verificados en producción el 2026-07-14
    (+ keep-alive para que el hosting gratuito no duerma al runner).
-2. **Vidriera pasiva**: fichas en directorios de MCP/agentes (Smithery,
-   Glama, PulseMCP, mcp.so u otros vigentes al ejecutar), seguimiento del PR
-   a awesome-mcp-servers (#9319), y pulido de lo que leen máquinas y
-   buscadores (README, llms.txt, SEO on-page). Sin posts personales en
-   redes; cada ficha se muestra al dueño antes de publicarse.
+2. ✅ **Vidriera pasiva (2026-07-14)**: listados en Glama (con badge en el
+   PR #9319 a awesome-mcp-servers, que quedó desbloqueado y espera merge),
+   PulseMCP (auto-indexado) y enviado a mcp.so (issue #3157); 14 topics de
+   GitHub, Dockerfile del MCP para los chequeos de los directorios, README
+   al día. Cada ficha pasó por el OK del dueño, pieza por pieza. Smithery
+   quedó opcional (requiere login del dueño). Sin posts personales.
 3. ✅ **El primer minuto perfecto (v3.1.1)**: la sonda (Playwright + wallet
    EIP-6963 falsa) recorrió en producción los dos caminos del recién
    llegado. MCP y builder: sin fricciones (el rival instantáneo fue un
@@ -96,9 +97,13 @@ vacío. Cuatro frentes, en este orden:
    el 2026-07-14 — navegaciones que perdían el idioma (13 lugares),
    game-over de práctica que decía "enviar puntaje", teclado mudo antes de
    START, y un copy en mal castellano.
-4. **Saber si funciona**: medición mínima del embudo (agentes creados,
-   partidas de terceros vs. de la casa, páginas vistas/referrers) para
-   decidir el próximo acto con datos, no a ciegas.
+4. ✅ **Saber si funciona (v3.2)**: embudo público en `/status` ("¿Llegan
+   terceros?" — agentes creados por terceros y partidas separadas por
+   origen gracias a la etiqueta CASA, contadores desde cero, nada
+   retroactivo) + Vercel Analytics sin cookies (visitas y referrers). El
+   test del embudo destapó y arregló un bug del frente 1: el anti-farming
+   impedía que la casa jugara entre sí — invaders, flappy y racing estaban
+   muertos en producción; ahora los 6 juegos tienen actividad 24/7.
 
 Queda fuera de v4.1 (pasa a v4.2+): torneos, agentes con cerebro LLM,
 BYO-agent por webhook, y todo lo de mainnet.

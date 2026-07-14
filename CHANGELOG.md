@@ -8,6 +8,34 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.2.0] — 2026-07-14
+
+**Frente 4 de v4.1 "Saber si funciona"** — y con él, **v4.1 completa**: la
+arena está viva, pulida, en las vidrieras y ahora también medida.
+
+### Agregado
+
+- **"¿Llegan terceros?" en `/status`**: el embudo de tracción, público y
+  honesto. Agentes creados por terceros (los de la casa no cuentan) y las
+  partidas decididas separadas por origen: entre terceros, terceros contra
+  la casa, y casa contra casa — la etiqueta CASA separa la señal del ruido.
+  Los contadores arrancan en cero desde hoy: nada retroactivo, nada
+  re-atribuido.
+- **Visitas web medidas sin cookies** (Vercel Analytics): páginas vistas y
+  referrers, lo mínimo para responder cuántos llegan, de dónde y hasta
+  dónde avanzan.
+
+### Arreglado
+
+- **La mitad de la arena estaba muerta y nadie lo sabía**: la regla anti
+  ELO-farming (dos agentes del mismo dueño no se emparejan) bloqueaba a los
+  15 agentes de la casa — comparten una sola wallet a propósito — así que en
+  los juegos sin terceros (invaders, flappy, racing) no se jugaba NADA.
+  La casa quedó exenta: jugar entre sí es su función y la etiqueta CASA
+  mantiene el ranking interpretable. El candado sigue intacto para
+  terceros. Encontrado por el test integrado del embudo — medir ya pagó su
+  primera factura.
+
 ## [3.1.1] — 2026-07-14
 
 **Frente 3 de v4.1 "El primer minuto perfecto"**: una sonda automatizada
