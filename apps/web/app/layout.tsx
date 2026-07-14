@@ -6,6 +6,7 @@ import { Marquee } from "@/app/components/Marquee";
 import { SiteFooter } from "@/app/components/SiteFooter";
 import { SITE } from "@/app/lib/seo";
 import { GAMES } from "@/app/lib/games";
+import { Analytics } from "@vercel/analytics/next";
 import { getLang } from "@/app/lib/serverLang";
 import { getDict } from "@/app/lib/i18n/dicts.server";
 import { SeoAlternates } from "@/app/components/SeoAlternates";
@@ -120,6 +121,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
           <SiteFooter />
         </Providers>
+        {/* Medición mínima (v4.1): páginas vistas y referrers, sin cookies.
+            Solo emite datos en producción (en dev es un no-op). */}
+        <Analytics />
       </body>
     </html>
   );

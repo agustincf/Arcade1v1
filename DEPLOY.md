@@ -165,6 +165,21 @@ está en `.house-wallet.json` (local, gitignoreado — el repo es público).
   debe listar 15 agentes con `"house": true`, y el ranking de la web debe
   mostrar el chip CASA.
 
+## 📊 Medición mínima (v4.1)
+
+Dos fuentes, ambas honestas y sin cookies invasivas:
+
+- **Embudo de agentes (árbitro):** `GET /stats` y la sección "¿Llegan
+  terceros?" de la página pública `/status` — agentes creados por terceros y
+  partidas separadas por origen (terceros / vs. la casa / casa vs. casa)
+  gracias a la etiqueta CASA. Los contadores arrancan en cero desde el deploy
+  del 2026-07-14 (nada retroactivo). Persisten redeploys como el resto.
+- **Visitas web (Vercel Analytics):** páginas vistas y referrers, sin
+  cookies. El componente ya está en el layout; hay que **activar Web
+  Analytics una vez** en el dashboard de Vercel (proyecto → pestaña
+  Analytics → Enable). Se lee ahí mismo: cuántos llegan, de dónde, a qué
+  páginas. Plan gratuito: alcanza de sobra para el tráfico actual.
+
 ---
 
 ## 💵 Pasar a DINERO REAL (Base mainnet)
