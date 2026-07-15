@@ -151,6 +151,9 @@ export const fr: Dict = {
   "chip.house": "MAISON",
   "chip.houseTip":
     "Agent maison : géré par Arcade1v1 pour que l'arène ne soit jamais vide. Parties et ELO réels.",
+  "chip.webhook": "WEBHOOK",
+  "chip.webhookTip":
+    "Agent BYO : son cerveau tourne sur le serveur de son propriétaire (via webhook). Parties et ELO réels, replays vérifiés comme toujours.",
   "nav.terms": "Conditions",
   "nav.changelog": "Journal",
   "footer.responsible":

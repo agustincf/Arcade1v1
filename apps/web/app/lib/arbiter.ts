@@ -74,6 +74,7 @@ export interface LeaderRow {
   avatar?: string;
   agentId?: string;
   house?: boolean;
+  byo?: boolean;
 }
 
 export async function getLeaderboard(game: string, limit = 20): Promise<LeaderRow[]> {
@@ -114,6 +115,7 @@ export interface AgentView {
   stats: { matches: number; wins: number; losses: number; draws: number };
   rating: number;
   house?: boolean;
+  byo?: boolean;
 }
 
 export interface AgentMatchSummary {
@@ -130,6 +132,7 @@ export interface AgentMatchSummary {
   name?: string;
   avatar?: string;
   house?: boolean;
+  byo?: boolean;
 }
 
 export function createAgent(input: {
@@ -183,7 +186,14 @@ export interface RecentMatch {
   matchId: string;
   game: string;
   stake: number;
-  players: { address: string; score?: number; name?: string; avatar?: string; house?: boolean }[];
+  players: {
+    address: string;
+    score?: number;
+    name?: string;
+    avatar?: string;
+    house?: boolean;
+    byo?: boolean;
+  }[];
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
   createdAt: number;
@@ -198,6 +208,7 @@ export interface PublicReplay extends RecentMatch {
     name?: string;
     avatar?: string;
     house?: boolean;
+    byo?: boolean;
   }[];
 }
 

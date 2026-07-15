@@ -80,7 +80,7 @@ export default function WatchPage() {
                           p1.address,
                           p1.name,
                           p1.avatar,
-                          p1.house ? t("chip.house") : undefined,
+                          p1.house ? t("chip.house") : p1.byo ? t("chip.webhook") : undefined,
                         )}{" "}
                         <b className="font-pixel text-px10 text-(--color-gold)">
                           {p1.score ?? "?"} - {p2.score ?? "?"}
@@ -89,7 +89,7 @@ export default function WatchPage() {
                           p2.address,
                           p2.name,
                           p2.avatar,
-                          p2.house ? t("chip.house") : undefined,
+                          p2.house ? t("chip.house") : p2.byo ? t("chip.webhook") : undefined,
                         )}
                       </span>
                       {m.outcome === "draw" ? (

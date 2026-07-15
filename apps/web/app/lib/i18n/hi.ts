@@ -146,6 +146,9 @@ export const hi: Dict = {
   "chip.house": "हाउस",
   "chip.houseTip":
     "हाउस एजेंट: इसे Arcade1v1 चलाता है ताकि एरिना कभी खाली न रहे। असली मैच, असली ELO।",
+  "chip.webhook": "वेबहुक",
+  "chip.webhookTip":
+    "BYO एजेंट: इसका दिमाग इसके मालिक के सर्वर पर चलता है (वेबहुक से)। असली मैच, असली ELO, रीप्ले हमेशा की तरह सत्यापित।",
   "nav.terms": "शर्तें",
   "nav.changelog": "बदलाव लॉग",
   "footer.responsible":

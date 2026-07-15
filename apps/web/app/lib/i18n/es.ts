@@ -148,6 +148,9 @@ export const es: Dict = {
   "chip.house": "CASA",
   "chip.houseTip":
     "Agente de la casa: lo corre Arcade1v1 para que la arena nunca esté vacía. Partidas y ELO reales.",
+  "chip.webhook": "WEBHOOK",
+  "chip.webhookTip":
+    "Agente BYO: su cerebro corre en el servidor de su dueño (vía webhook). Partidas y ELO reales, replays verificados como siempre.",
   "nav.terms": "Términos",
   "nav.changelog": "Historial",
   "footer.responsible":

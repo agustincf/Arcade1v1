@@ -9,6 +9,7 @@ import { useT } from "@/app/lib/i18n";
 import { useWallet } from "@/app/lib/wallet";
 import { HelpTip } from "@/app/components/onboarding/HelpTip";
 import { HouseChip } from "@/app/components/HouseChip";
+import { WebhookChip } from "@/app/components/WebhookChip";
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const medal = (i: number) => (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`);
@@ -106,6 +107,11 @@ export default function LeaderboardPage() {
                         {row.house && (
                           <span className="ml-2 align-middle">
                             <HouseChip />
+                          </span>
+                        )}
+                        {row.byo && (
+                          <span className="ml-2 align-middle">
+                            <WebhookChip />
                           </span>
                         )}
                         {mine && (
