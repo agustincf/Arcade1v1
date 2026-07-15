@@ -12,12 +12,19 @@ import { isKnownGame, dropWaitingMatch } from "./matchmaking.js";
 import { getRating } from "./ratings.js";
 import { recordAgentCreated } from "./stats.js";
 import { jsonStore } from "./persist.js";
+import { validateWebhookUrl, webhookAgentsEnabled } from "./webhook-fetch.js";
 
 export { AGENT_AVATARS };
 
 // Límites (configurables por entorno, como STAKES_ALLOWED).
 export const MAX_AGENTS_PER_OWNER = Number(process.env.MAX_AGENTS_PER_OWNER ?? 3);
 export const MAX_AGENTS_TOTAL = Number(process.env.MAX_AGENTS_TOTAL ?? 200);
+
+// Agentes BYO por webhook (v4.2): el cerebro vive afuera, la identidad acá.
+export const WEBHOOK_STRATEGY_ID = "webhook";
+/** Fallas consecutivas del webhook (notificación fallida o forfeit) antes de
+ *  auto-pausar al agente para no seguir encolando un muerto. */
+export const WEBHOOK_MAX_FAILURES = Number(process.env.WEBHOOK_MAX_FAILURES ?? 3);
 
 // Wallets de la casa (v4.1): dueñas de los agentes "CASA" que mantienen la
 // arena viva. Exentas del tope POR OWNER (no del global, que sigue protegiendo
@@ -63,6 +70,11 @@ export interface HostedAgent {
   address: Hex;
   /** Generada server-side. NUNCA se incluye en una respuesta de la API. */
   privateKey: Hex;
+  /** Agente BYO: el cerebro corre en el servidor del dueño, vía webhook.
+   *  `secret` = mismo trust level que privateKey (NUNCA en toView; se entrega
+   *  UNA vez al crear). `notifiedAt` ancla el deadline del forfeit y refiere
+   *  SIEMPRE a pendingMatchId (se limpia junto con él). */
+  webhook?: { url: string; secret: string; failures: number; notifiedAt?: number };
   active: boolean;
   createdAt: number;
   lastPlayedAt?: number;
@@ -89,6 +101,8 @@ export interface AgentView {
   rating: number;
   /** true solo para agentes cuyo owner está en HOUSE_WALLETS (etiqueta CASA). */
   house?: boolean;
+  /** true para agentes BYO por webhook (nunca se expone la URL ni el secreto). */
+  byo?: boolean;
 }
 
 const store$ = jsonStore("agents");
@@ -141,6 +155,7 @@ export function toView(a: HostedAgent): AgentView {
     stats: a.stats,
     rating: getRating(normAddr(a.address), a.game),
     ...(isHouseWallet(a.owner) ? { house: true } : {}),
+    ...(a.webhook ? { byo: true } : {}),
   };
 }
 
@@ -151,12 +166,24 @@ export function createHostedAgent(input: {
   game: string;
   strategyId: string;
   params: unknown;
+  webhookUrl?: unknown;
 }): HostedAgent {
   const owner = normAddr(input.owner);
   if (!/^0x[0-9a-f]{40}$/.test(owner)) throw new Error("bad owner address");
   if (!isKnownGame(input.game)) throw new Error(`unknown game: ${input.game}`);
-  const def = getStrategy(input.strategyId);
-  if (!def || def.game !== input.game) {
+  // BYO por webhook: sin estrategia del registro — el cerebro es la URL del
+  // dev. Validación sintáctica acá (sync); el guard con DNS corre al notificar.
+  let webhook: HostedAgent["webhook"];
+  if (input.strategyId === WEBHOOK_STRATEGY_ID) {
+    if (!webhookAgentsEnabled()) throw new Error("webhook agents disabled");
+    webhook = {
+      url: validateWebhookUrl(input.webhookUrl),
+      secret: randomBytes(32).toString("hex"),
+      failures: 0,
+    };
+  }
+  const def = webhook ? undefined : getStrategy(input.strategyId);
+  if (!webhook && (!def || def.game !== input.game)) {
     throw new Error(`unknown strategy for ${input.game}: ${input.strategyId}`);
   }
   if (agents.size >= MAX_AGENTS_TOTAL) throw new Error("agent capacity reached");
@@ -176,9 +203,11 @@ export function createHostedAgent(input: {
     name: sanitizeName(input.name),
     avatar: AGENT_AVATARS.includes(String(input.avatar)) ? String(input.avatar) : AGENT_AVATARS[0],
     game: input.game,
-    strategyId: def.id,
+    strategyId: webhook ? WEBHOOK_STRATEGY_ID : def!.id,
     // Default-deny server-side: lo que no valida, cae al default del registro.
-    params: validateParams(def, input.params as Record<string, unknown>),
+    // Los BYO no tienen params (su config es la URL).
+    params: webhook ? {} : validateParams(def!, input.params as Record<string, unknown>),
+    ...(webhook ? { webhook } : {}),
     privateKey,
     address: privateKeyToAccount(privateKey).address,
     active: true,
@@ -213,7 +242,7 @@ export function hostedAgentByAddress(address: string): HostedAgent | undefined {
 
 export function updateAgent(
   id: string,
-  patch: { name?: unknown; avatar?: unknown; params?: unknown },
+  patch: { name?: unknown; avatar?: unknown; params?: unknown; webhookUrl?: unknown },
 ): HostedAgent {
   const a = agents.get(id);
   if (!a) throw new Error("agent not found");
@@ -221,9 +250,15 @@ export function updateAgent(
   if (patch.avatar !== undefined && AGENT_AVATARS.includes(String(patch.avatar))) {
     a.avatar = String(patch.avatar);
   }
-  if (patch.params !== undefined) {
+  // Los BYO no tienen estrategia del registro: params se ignora (antes,
+  // getStrategy(...)!  explotaba con un strategyId fuera del registro).
+  if (patch.params !== undefined && !a.webhook) {
     const def = getStrategy(a.strategyId)!;
     a.params = validateParams(def, patch.params as Record<string, unknown>);
+  }
+  // Cambiar la URL del webhook (re-validada). El secreto NO rota en v1.
+  if (patch.webhookUrl !== undefined && a.webhook) {
+    a.webhook.url = validateWebhookUrl(patch.webhookUrl);
   }
   save();
   return a;
@@ -266,6 +301,7 @@ export function recordAgentResult(a: HostedAgent, entry: AgentMatchSummary) {
   a.lastPlayedAt = entry.ts;
   a.pendingMatchId = undefined;
   a.pendingSince = undefined;
+  if (a.webhook) a.webhook.notifiedAt = undefined; // el ancla muere con el pending
   save();
 }
 
@@ -273,5 +309,36 @@ export function recordAgentResult(a: HostedAgent, entry: AgentMatchSummary) {
 export function setAgentPending(a: HostedAgent, matchId: string | undefined) {
   a.pendingMatchId = matchId;
   a.pendingSince = matchId ? Date.now() : undefined;
+  if (a.webhook) a.webhook.notifiedAt = undefined; // el ancla muere con el pending
+  save();
+}
+
+/** El runner marcó que se notificó al webhook: arranca el reloj del forfeit. */
+export function markWebhookNotified(a: HostedAgent) {
+  if (!a.webhook) return;
+  a.webhook.notifiedAt = Date.now();
+  save();
+}
+
+/** Falla del webhook (notificación fallida o forfeit). A las
+ *  WEBHOOK_MAX_FAILURES consecutivas se auto-pausa (y suelta la cola) para no
+ *  seguir encolando un muerto. Devuelve true si pausó (para loguear). */
+export function recordWebhookFailure(a: HostedAgent): boolean {
+  if (!a.webhook) return false;
+  a.webhook.failures += 1;
+  const paused = a.webhook.failures >= WEBHOOK_MAX_FAILURES;
+  if (paused) {
+    a.active = false;
+    a.webhook.failures = 0;
+    releaseQueue(a);
+  }
+  save();
+  return paused;
+}
+
+/** Un /play exitoso limpia la racha de fallas (el endpoint del dev vive). */
+export function resetWebhookFailures(a: HostedAgent) {
+  if (!a.webhook || a.webhook.failures === 0) return;
+  a.webhook.failures = 0;
   save();
 }
