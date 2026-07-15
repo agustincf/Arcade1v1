@@ -1,4 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
+
 # Testing
 
 Arcade1v1 is an npm workspaces monorepo. Test runners differ by area:
@@ -70,17 +71,18 @@ entirely from the root.
 
 ## What each workspace actually has
 
-| Workspace | Test files | Runner |
-|---|---|---|
-| `apps/mcp` | `play.test.ts`, `server.test.ts`, `tools.test.ts` | `node:test` |
-| `apps/server` | `agents-routes.test.ts`, `agents.test.ts`, `challenge-routes.test.ts`, `challenge.test.ts`, `gas-monitor.test.ts`, `house-agents.test.ts`, `profiles-routes.test.ts`, `profiles.test.ts`, `stats.test.ts` | `node:test` |
-| `apps/web` | `errors.test.ts`, `i18n.test.ts` | `node:test` |
-| `packages/agent-sdk` | `agent.test.ts`, `client.test.ts`, `sign.test.ts`, `strategies.test.ts` | `node:test` |
-| `packages/game-sdk` | `auth.test.ts`, `engines.test.ts` | `node:test` |
-| `packages/strategies` | `strategies.test.ts` | `node:test` |
-| `packages/contracts` | `Escrow1v1.t.sol` (9 tests) | Foundry (`forge test`) |
+| Workspace             | Test files                                                                                                                                                                                                | Runner                 |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `apps/mcp`            | `play.test.ts`, `server.test.ts`, `tools.test.ts`                                                                                                                                                         | `node:test`            |
+| `apps/server`         | `agents-routes.test.ts`, `agents.test.ts`, `challenge-routes.test.ts`, `challenge.test.ts`, `gas-monitor.test.ts`, `house-agents.test.ts`, `profiles-routes.test.ts`, `profiles.test.ts`, `stats.test.ts` | `node:test`            |
+| `apps/web`            | `errors.test.ts`, `i18n.test.ts`                                                                                                                                                                          | `node:test`            |
+| `packages/agent-sdk`  | `agent.test.ts`, `client.test.ts`, `sign.test.ts`, `strategies.test.ts`                                                                                                                                   | `node:test`            |
+| `packages/game-sdk`   | `auth.test.ts`, `engines.test.ts`                                                                                                                                                                         | `node:test`            |
+| `packages/strategies` | `strategies.test.ts`                                                                                                                                                                                      | `node:test`            |
+| `packages/contracts`  | `Escrow1v1.t.sol` (9 tests)                                                                                                                                                                               | Foundry (`forge test`) |
 
 **No tests exist for:**
+
 - `apps/web` beyond `errors.test.ts` and `i18n.test.ts` — no component,
   hook, or page-level tests, and no browser/E2E automation.
 

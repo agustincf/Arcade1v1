@@ -1,4 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
+
 # Architecture
 
 This document describes how Arcade1v1 is put together internally: the monorepo
@@ -18,7 +19,7 @@ Space Invaders) against each other for equal USDC stakes. Play is
 **asynchronous**: each side plays its own attempt whenever it wants, within a
 time window, against a seed handed out by the backend. There is no
 server-authoritative real-time simulation — instead, both players run the
-*same deterministic game engine* client-side and submit a **replay** (seed +
+_same deterministic game engine_ client-side and submit a **replay** (seed +
 input log). A trusted backend service, the **arbiter**, re-simulates both
 replays, decides the winner by score, and produces a cryptographic signature
 that a Solidity **escrow** contract accepts as proof of who to pay. This
@@ -147,15 +148,15 @@ in `apps/server/src/index.ts`.
    score: equal scores → `draw` (triggers an on-chain `cancelMatch` refund if
    escrow is active); unequal scores → `settled`, winner recorded, and the
    arbiter **signs the result** (`signResult`, §5) — `status` is flipped to
-   `settled` *before* the `await` so a concurrent duplicate submission can't
+   `settled` _before_ the `await` so a concurrent duplicate submission can't
    race the signature and settle twice. ELO is then updated
    (`applyElo` in `ratings.ts`) unless the opponent was the test bot.
 5. **Read back** — `GET /match/:id?address=...` returns a `MatchView`. Before
-   the match is decided, a caller only ever sees *their own* score plus a
+   the match is decided, a caller only ever sees _their own_ score plus a
    boolean `rivalSubmitted` (never the rival's number) — this is the
    anti-spying guard in `view()`. Once decided, it also returns
    `{ winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay,
-   rating, ratingDelta }` — the rich feedback loop agents use to improve.
+rating, ratingDelta }` — the rich feedback loop agents use to improve.
 6. **Claim on-chain** — the winner (or anyone, permissionlessly) submits the
    arbiter's signature to the contract's `settle(id, winner, signature)`,
    which pays out. See §5.
@@ -184,9 +185,9 @@ neither can drift:
 - **Off-chain** (`apps/server/src/sign.ts`): `signResult(matchId, winner)`
   signs the typed struct `Result { bytes32 matchId, address winner }` under
   domain `{ name: "Arcade1v1Escrow", version: "1", chainId, verifyingContract:
-  ESCROW_ADDRESS }`, using the arbiter's private key (`ARBITER_PRIVATE_KEY`).
+ESCROW_ADDRESS }`, using the arbiter's private key (`ARBITER_PRIVATE_KEY`).
 - **On-chain** (`packages/contracts/src/Escrow1v1.sol`): `settle(id, winner,
-  signature)` recomputes the same typed hash via `_hashTypedDataV4` and
+signature)` recomputes the same typed hash via `_hashTypedDataV4` and
   `ECDSA.recover`s the signer; it requires `signer == arbiter` (a contract
   storage variable set at deploy time, changeable only by the contract
   `owner` via `setArbiter`). If it matches, it pays `prize = pot - fee` to
@@ -223,7 +224,7 @@ On the web side, `apps/web/app/lib/useEscrow.tsx` wraps `wagmi`'s
 **directly from the chain** to sanity-check stake and deadlines before
 depositing — defends against a malicious opener setting an absurd
 `playDeadline`), and `claim` (calls `settle` with the arbiter's signature).
-The one place the arbiter *does* spend its own gas is calling `cancelMatch`
+The one place the arbiter _does_ spend its own gas is calling `cancelMatch`
 for draws/expirations (`apps/server/src/onchain.ts`), which is why its ETH
 balance is actively monitored (`gas-monitor.ts`, surfaced on `GET /stats` and
 the public `/status` page) — see DEPLOY.md for the operational side of this.
@@ -233,7 +234,7 @@ the public `/status` page) — see DEPLOY.md for the operational side of this.
 STANDARDS.md's rule #3 ("un solo code path") is structurally enforced, not
 just documented:
 
-- `apps/server`'s `/matchmake` and `/match/:id/score` routes are the *only*
+- `apps/server`'s `/matchmake` and `/match/:id/score` routes are the _only_
   way any match state changes — humans via the web UI, self-hosted external
   agents via raw HTTP, and hosted agents via the in-process runner
   (`agent-runner.ts`) all end up calling the exact same `matchmake()` /
@@ -261,11 +262,11 @@ just documented:
   one case that runs fully server-side: each hosted agent is a
   server-generated wallet (private key never leaves the API — views are
   sanitized via a separate `toView`) whose strategy comes from
-  `packages/strategies` (parameterized functions that drive the *real*
+  `packages/strategies` (parameterized functions that drive the _real_
   `game-sdk` engine tick-by-tick, so their replays pass verification by
   construction, same as anyone else's). The runner ticks every
   `AGENT_RUNNER_TICK_MS` (default 30s), and for each due agent calls the
-  *same* `matchmake()`/`submitScore()` functions, signing with the agent's
+  _same_ `matchmake()`/`submitScore()` functions, signing with the agent's
   own key — indistinguishable, from the arbiter's perspective, from an
   external caller.
 
@@ -306,17 +307,17 @@ renamed in Next 16) with two responsibilities, evaluated in order:
 
 ## 8. Key abstractions and where they live
 
-| Abstraction | File(s) | What it does |
-|---|---|---|
-| `GameServerModule` / `GameClientModule` / `GameRun` | `packages/game-sdk/src/index.ts` | The "cartridge contract" every game implements: server-side `verifyRun`/`decide`, client-side rendering that produces a `GameRun` (score + replay). |
-| `VERIFIERS` registry | `apps/server/src/matchmaking.ts` | The arbiter's single source of truth for which games exist and how to re-verify them (default-deny). |
-| `mulberry32` seeded PRNG | `packages/game-sdk/src/replay.ts` | Deterministic RNG used by every game engine so identical seed ⇒ identical run, both client and server side. |
-| `ArbiterClient` | `packages/agent-sdk/src/client.ts` | The one HTTP client implementation for the arbiter API, reused by the web, MCP, and any external agent. |
-| `createAgent()` | `packages/agent-sdk/src/agent.ts` | One-call agent: wallet + matchmake + play + sign + submit. |
-| EIP-712 result signing | `apps/server/src/sign.ts` + `Escrow1v1.sol`'s `resultDigest` | The shared typed-data scheme that lets an off-chain signature be verified on-chain. |
-| Auth message builders | `packages/game-sdk/src/auth.ts` | Canonical strings signed by wallets for matchmaking, score submission, agent admin, profile edits, and challenges — identical on client and server, so there's no drift. |
-| Hosted-agent runner | `apps/server/src/agent-runner.ts` | Drives hosted agents through the *same* matchmake/submit functions as any external caller, on a timer with jitter and anti-farming guards. |
-| `proxy.ts` locale/geoblock gate | `apps/web/proxy.ts` | Single entry point for locale rewriting and (future) geoblocking. |
+| Abstraction                                         | File(s)                                                      | What it does                                                                                                                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GameServerModule` / `GameClientModule` / `GameRun` | `packages/game-sdk/src/index.ts`                             | The "cartridge contract" every game implements: server-side `verifyRun`/`decide`, client-side rendering that produces a `GameRun` (score + replay).                      |
+| `VERIFIERS` registry                                | `apps/server/src/matchmaking.ts`                             | The arbiter's single source of truth for which games exist and how to re-verify them (default-deny).                                                                     |
+| `mulberry32` seeded PRNG                            | `packages/game-sdk/src/replay.ts`                            | Deterministic RNG used by every game engine so identical seed ⇒ identical run, both client and server side.                                                              |
+| `ArbiterClient`                                     | `packages/agent-sdk/src/client.ts`                           | The one HTTP client implementation for the arbiter API, reused by the web, MCP, and any external agent.                                                                  |
+| `createAgent()`                                     | `packages/agent-sdk/src/agent.ts`                            | One-call agent: wallet + matchmake + play + sign + submit.                                                                                                               |
+| EIP-712 result signing                              | `apps/server/src/sign.ts` + `Escrow1v1.sol`'s `resultDigest` | The shared typed-data scheme that lets an off-chain signature be verified on-chain.                                                                                      |
+| Auth message builders                               | `packages/game-sdk/src/auth.ts`                              | Canonical strings signed by wallets for matchmaking, score submission, agent admin, profile edits, and challenges — identical on client and server, so there's no drift. |
+| Hosted-agent runner                                 | `apps/server/src/agent-runner.ts`                            | Drives hosted agents through the _same_ matchmake/submit functions as any external caller, on a timer with jitter and anti-farming guards.                               |
+| `proxy.ts` locale/geoblock gate                     | `apps/web/proxy.ts`                                          | Single entry point for locale rewriting and (future) geoblocking.                                                                                                        |
 
 ## 9. Directory structure rationale
 
@@ -347,7 +348,7 @@ renamed in Next 16) with two responsibilities, evaluated in order:
   agent process alike — this is what lets `apps/web`, `apps/mcp`, and
   external third-party agents all share one client implementation.
 - **`packages/strategies`** — separated from `game-sdk` because strategies
-  are *policies* (parameterized decision logic), not game rules; keeping
+  are _policies_ (parameterized decision logic), not game rules; keeping
   them apart lets the no-code builder and hosted agents reuse the same
   strategy catalog without coupling it to the verification engine itself.
 

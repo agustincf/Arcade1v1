@@ -130,14 +130,8 @@ export function StatusClient() {
                   label={t("status.thirdMatches")}
                   value={String(stats.totals.settledThird)}
                 />
-                <StatTile
-                  label={t("status.vsHouse")}
-                  value={String(stats.totals.settledMixed)}
-                />
-                <StatTile
-                  label={t("status.houseOnly")}
-                  value={String(stats.totals.settledHouse)}
-                />
+                <StatTile label={t("status.vsHouse")} value={String(stats.totals.settledMixed)} />
+                <StatTile label={t("status.houseOnly")} value={String(stats.totals.settledHouse)} />
               </div>
               <p className="mt-2 text-sm text-(--color-muted-3)">{t("status.funnelHint")}</p>
             </div>

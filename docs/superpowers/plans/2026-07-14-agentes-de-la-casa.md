@@ -24,11 +24,13 @@
 ### Task 1: Server — `HOUSE_WALLETS`: exención del tope + campo `house` en las vistas públicas
 
 **Files:**
+
 - Modify: `apps/server/src/agents.ts` (tope en `createHostedAgent:139-143`, `AgentView:56-70`, `toView:106-122`)
 - Modify: `apps/server/src/profiles.ts` (`resolveDisplay:62-73`)
 - Test: `apps/server/test/house-agents.test.ts` (nuevo)
 
 **Interfaces:**
+
 - Consumes: `createHostedAgent`, `toView`, `deleteAgent` (existentes en `agents.ts`); `resolveDisplay` (existente en `profiles.ts`).
 - Produces: `isHouseWallet(address: string): boolean` (export de `agents.ts`); `AgentView.house?: boolean`; `resolveDisplay` devuelve `{ name?, avatar?, agentId?, house?: boolean }`. Las Tasks 2-3 dependen de que el JSON de la API incluya `house: true` solo para agentes de la casa.
 
@@ -168,23 +170,23 @@ En `toView` (línea ~120, después de `rating`), agregar:
 En `createHostedAgent`, reemplazar el bloque del tope (líneas 140-143):
 
 ```ts
-  const mine = [...agents.values()].filter((a) => a.owner === owner);
-  if (mine.length >= MAX_AGENTS_PER_OWNER) {
-    throw new Error(`max ${MAX_AGENTS_PER_OWNER} agents per owner`);
-  }
+const mine = [...agents.values()].filter((a) => a.owner === owner);
+if (mine.length >= MAX_AGENTS_PER_OWNER) {
+  throw new Error(`max ${MAX_AGENTS_PER_OWNER} agents per owner`);
+}
 ```
 
 por:
 
 ```ts
-  // Las wallets de la casa (HOUSE_WALLETS) no tienen tope por owner: son
-  // nuestras y pueblan los 6 juegos. El tope global de arriba sí les aplica.
-  if (!isHouseWallet(owner)) {
-    const mine = [...agents.values()].filter((a) => a.owner === owner);
-    if (mine.length >= MAX_AGENTS_PER_OWNER) {
-      throw new Error(`max ${MAX_AGENTS_PER_OWNER} agents per owner`);
-    }
+// Las wallets de la casa (HOUSE_WALLETS) no tienen tope por owner: son
+// nuestras y pueblan los 6 juegos. El tope global de arriba sí les aplica.
+if (!isHouseWallet(owner)) {
+  const mine = [...agents.values()].filter((a) => a.owner === owner);
+  if (mine.length >= MAX_AGENTS_PER_OWNER) {
+    throw new Error(`max ${MAX_AGENTS_PER_OWNER} agents per owner`);
   }
+}
 ```
 
 - [ ] **Step 4: Implementar en `profiles.ts`**
@@ -240,12 +242,14 @@ git commit -m "feat(server): wallets de la casa — exención del tope por owner
 ### Task 2: Web — chip CASA: tipos, componente, dicts (4 idiomas) y ranking
 
 **Files:**
+
 - Modify: `apps/web/app/lib/arbiter.ts` (interfaces `LeaderRow:70`, `AgentView:101`, `AgentMatchSummary:117`, `RecentMatch:179`, `PublicReplay:189`)
 - Create: `apps/web/app/components/HouseChip.tsx`
 - Modify: `apps/web/app/lib/i18n/es.ts`, `en.ts`, `fr.ts`, `hi.ts` (2 claves nuevas cada uno)
 - Modify: `apps/web/app/leaderboard/page.tsx` (fila del ranking, líneas 86-110)
 
 **Interfaces:**
+
 - Consumes: `house?: boolean` que el server ya devuelve en leaderboard/agents/matches (Task 1); clase CSS `.chip` existente en `globals.css`; `useT()` de `@/app/lib/i18n`.
 - Produces: componente `HouseChip()` (sin props, usa `t("chip.house")` y tooltip `t("chip.houseTip")`); claves de dict `chip.house` y `chip.houseTip`; campos `house?: boolean` en los tipos del cliente que la Task 3 también usa.
 
@@ -391,12 +395,14 @@ git commit -m "feat(web): chip CASA en el ranking — tipos, componente y textos
 ### Task 3: Web — etiqueta CASA en espectador, página del agente e historial
 
 **Files:**
+
 - Modify: `apps/web/app/lib/wallet.tsx` (`playerLabel:45-47`)
 - Modify: `apps/web/app/watch/page.tsx` (líneas 79-83)
 - Modify: `apps/web/app/watch/[matchId]/page.tsx` (líneas 71-73)
 - Modify: `apps/web/app/my-agents/[agentId]/page.tsx` (cabecera línea ~118-125 e historial línea ~227)
 
 **Interfaces:**
+
 - Consumes: `HouseChip` (Task 2), claves `chip.house`/`chip.houseTip` (Task 2), campos `house?: boolean` de los tipos (Task 2).
 - Produces: `playerLabel(address: string, name?: string, avatar?: string, tag?: string): string` — 4to parámetro opcional; si viene, se agrega ` · ${tag}` al final. Compatible con todos los llamadores existentes (parámetro opcional).
 
@@ -454,16 +460,23 @@ import { HouseChip } from "@/app/components/HouseChip";
 Cabecera (líneas ~117-125), dentro del primer `<span>` del `win-title`:
 
 ```tsx
-          <span className="flex items-center gap-2">
-            {agent.avatar} {agent.name.toUpperCase()}
-            {agent.house && <HouseChip />}
-          </span>
+<span className="flex items-center gap-2">
+  {agent.avatar} {agent.name.toUpperCase()}
+  {agent.house && <HouseChip />}
+</span>
 ```
 
 Historial (línea ~227), el rival con tag:
 
 ```tsx
-                    {t("agent.vs")} {m.opponent ? playerLabel(m.opponent, m.name, m.avatar, m.house ? t("chip.house") : undefined) : "?"}
+{
+  t("agent.vs");
+}
+{
+  m.opponent
+    ? playerLabel(m.opponent, m.name, m.avatar, m.house ? t("chip.house") : undefined)
+    : "?";
+}
 ```
 
 - [ ] **Step 5: Verificar typecheck y tests**
@@ -483,10 +496,12 @@ git commit -m "feat(web): etiqueta CASA en espectador, página del agente e hist
 ### Task 4: Script de siembra — 15 agentes de la casa, idempotente
 
 **Files:**
+
 - Create: `scripts/seed-house-agents.ts`
 - Modify: `.gitignore` (agregar `.house-wallet.json`)
 
 **Interfaces:**
+
 - Consumes: API pública del árbitro (`GET /agents?owner=`, `POST /agents`), `agentAuthMessage` de `@arcade1v1/game-sdk/auth`, `generatePrivateKey`/`privateKeyToAccount` de `viem/accounts`.
 - Produces: archivo local `.house-wallet.json` (`{ "address": "0x…", "privateKey": "0x…" }`, NUNCA commiteado); 15 agentes creados vía API. Uso: `node --import tsx scripts/seed-house-agents.ts [--url URL] [--dry-run]`.
 
@@ -547,26 +562,116 @@ interface Seed {
 }
 const SEEDS: Seed[] = [
   // 2048
-  { name: "Doña Cuadritos", avatar: "🧠", game: "2048", strategyId: "2048.priority", params: { priority: ["down", "left", "right", "up"], greed: 0.85 } },
-  { name: "Rincón Zen", avatar: "🌵", game: "2048", strategyId: "2048.corner", params: { corner: "down-left", patience: 0.9 } },
-  { name: "Turbina", avatar: "⚡", game: "2048", strategyId: "2048.priority", params: { priority: ["left", "down", "right", "up"], greed: 0.1 } },
+  {
+    name: "Doña Cuadritos",
+    avatar: "🧠",
+    game: "2048",
+    strategyId: "2048.priority",
+    params: { priority: ["down", "left", "right", "up"], greed: 0.85 },
+  },
+  {
+    name: "Rincón Zen",
+    avatar: "🌵",
+    game: "2048",
+    strategyId: "2048.corner",
+    params: { corner: "down-left", patience: 0.9 },
+  },
+  {
+    name: "Turbina",
+    avatar: "⚡",
+    game: "2048",
+    strategyId: "2048.priority",
+    params: { priority: ["left", "down", "right", "up"], greed: 0.1 },
+  },
   // snake
-  { name: "Culebra Golosa", avatar: "🐍", game: "snake", strategyId: "snake.greedy", params: { caution: 0.15 } },
-  { name: "La Paciente", avatar: "🦖", game: "snake", strategyId: "snake.survivor", params: { foodPull: 0.25 } },
+  {
+    name: "Culebra Golosa",
+    avatar: "🐍",
+    game: "snake",
+    strategyId: "snake.greedy",
+    params: { caution: 0.15 },
+  },
+  {
+    name: "La Paciente",
+    avatar: "🦖",
+    game: "snake",
+    strategyId: "snake.survivor",
+    params: { foodPull: 0.25 },
+  },
   // flappy
-  { name: "Aleteo Fino", avatar: "🚀", game: "flappy", strategyId: "flappy.threshold", params: { riskOffset: 10, reaction: 1 } },
-  { name: "Kamikaze del Caño", avatar: "🔥", game: "flappy", strategyId: "flappy.threshold", params: { riskOffset: -35, reaction: 4 } },
-  { name: "Capitán Planeo", avatar: "🛸", game: "flappy", strategyId: "flappy.threshold", params: { riskOffset: 25, reaction: 2 } },
+  {
+    name: "Aleteo Fino",
+    avatar: "🚀",
+    game: "flappy",
+    strategyId: "flappy.threshold",
+    params: { riskOffset: 10, reaction: 1 },
+  },
+  {
+    name: "Kamikaze del Caño",
+    avatar: "🔥",
+    game: "flappy",
+    strategyId: "flappy.threshold",
+    params: { riskOffset: -35, reaction: 4 },
+  },
+  {
+    name: "Capitán Planeo",
+    avatar: "🛸",
+    game: "flappy",
+    strategyId: "flappy.threshold",
+    params: { riskOffset: 25, reaction: 2 },
+  },
   // racing
-  { name: "El Esquivador", avatar: "🎯", game: "racing", strategyId: "racing.dodger", params: { lookahead: 220, preferredLane: "center" } },
-  { name: "Zigzag Salvaje", avatar: "🎲", game: "racing", strategyId: "racing.weaver", params: { boldness: 0.85 } },
-  { name: "Abuelo Prudente", avatar: "🐙", game: "racing", strategyId: "racing.dodger", params: { lookahead: 100, preferredLane: "right" } },
+  {
+    name: "El Esquivador",
+    avatar: "🎯",
+    game: "racing",
+    strategyId: "racing.dodger",
+    params: { lookahead: 220, preferredLane: "center" },
+  },
+  {
+    name: "Zigzag Salvaje",
+    avatar: "🎲",
+    game: "racing",
+    strategyId: "racing.weaver",
+    params: { boldness: 0.85 },
+  },
+  {
+    name: "Abuelo Prudente",
+    avatar: "🐙",
+    game: "racing",
+    strategyId: "racing.dodger",
+    params: { lookahead: 100, preferredLane: "right" },
+  },
   // invaders
-  { name: "Cazadora Alfa", avatar: "👾", game: "invaders", strategyId: "invaders.hunter", params: { aggression: 1, dodge: 0.4 } },
-  { name: "Muro Tímido", avatar: "🍄", game: "invaders", strategyId: "invaders.hunter", params: { aggression: 0.2, dodge: 1 } },
+  {
+    name: "Cazadora Alfa",
+    avatar: "👾",
+    game: "invaders",
+    strategyId: "invaders.hunter",
+    params: { aggression: 1, dodge: 0.4 },
+  },
+  {
+    name: "Muro Tímido",
+    avatar: "🍄",
+    game: "invaders",
+    strategyId: "invaders.hunter",
+    params: { aggression: 0.2, dodge: 1 },
+  },
   // tetris
-  { name: "Don Bloques", avatar: "🕹️", game: "tetris", strategyId: "tetris.heuristic", params: { holes: 9, height: 5, bumpiness: 2, lines: 9 } },
-  { name: "Apilador Caótico", avatar: "🎮", game: "tetris", strategyId: "tetris.heuristic", params: { holes: 1, height: 0, bumpiness: 0, lines: 10 } },
+  {
+    name: "Don Bloques",
+    avatar: "🕹️",
+    game: "tetris",
+    strategyId: "tetris.heuristic",
+    params: { holes: 9, height: 5, bumpiness: 2, lines: 9 },
+  },
+  {
+    name: "Apilador Caótico",
+    avatar: "🎮",
+    game: "tetris",
+    strategyId: "tetris.heuristic",
+    params: { holes: 1, height: 0, bumpiness: 0, lines: 10 },
+  },
 ];
 
 function loadOrCreateWallet(): { address: string; privateKey: Hex } {
@@ -654,9 +759,11 @@ git commit -m "feat(scripts): siembra idempotente de los 15 agentes de la casa (
 ### Task 5: Keep-alive — cron de GitHub Actions que pinguea al árbitro
 
 **Files:**
+
 - Create: `.github/workflows/keep-alive.yml`
 
 **Interfaces:**
+
 - Consumes: endpoint público `GET /stats` del árbitro en `https://arcade1v1.onrender.com`.
 - Produces: ping cada ~10 minutos para que el Render gratuito no duerma (riesgo señalado en el spec: sin tráfico, el runner de la casa se para).
 
@@ -703,10 +810,12 @@ git commit -m "feat(ci): keep-alive del árbitro — ping cada 10 min para que R
 ### Task 6: Verificación local de punta a punta + runbook
 
 **Files:**
+
 - Modify: `DEPLOY.md` (nueva sección "Agentes de la casa")
 - (Sin código nuevo: esta task es verificación real + documentación)
 
 **Interfaces:**
+
 - Consumes: todo lo anterior.
 - Produces: evidencia de que el flujo completo funciona en local, y el runbook para repetirlo en producción.
 
@@ -762,7 +871,7 @@ está en `.house-wallet.json` (local, gitignoreado — el repo es público).
   las vistas públicas (el chip CASA de la web sale de ahí). Cambiarla
   requiere redeploy (Render reinicia solo al guardar la env).
 - **Sembrar / re-sembrar:** `node --import tsx scripts/seed-house-agents.ts
-  --url https://arcade1v1.onrender.com` (idempotente: saltea los que ya
+--url https://arcade1v1.onrender.com` (idempotente: saltea los que ya
   existen). Sin `--url` apunta a localhost:4000.
 - **Keep-alive:** `.github/workflows/keep-alive.yml` pinguea `/stats` cada
   ~10 min para que el Render gratuito no duerma (sin eso, el runner de la

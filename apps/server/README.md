@@ -65,7 +65,7 @@ interno (`private: true`, no se publica a npm).
   `ENABLE_TEST_BOT=true`)
 - `GET  /match/:id?address=` → estado (tu puntaje solamente hasta que se
   decida) y, si terminó, feedback rico: `{ winner, signature, yourScore,
-  rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta }`
+rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta }`
 - `GET  /matches/recent?game=&limit=` → partidas recientes ya decididas
   (espectador)
 - `GET  /match/:id/replay` → los dos replays de una partida decidida
@@ -75,7 +75,7 @@ interno (`private: true`, no se publica a npm).
 - `GET  /strategies` → catálogo de estrategias parametrizadas (builder de
   agentes sin código)
 - `POST /agents` `{ owner, name, avatar, game, strategyId, params, signature,
-  ts }` → crea un agente hosteado (firmar `agentAuthMessage`). Rechaza si el
+ts }` → crea un agente hosteado (firmar `agentAuthMessage`). Rechaza si el
   dueño ya tiene `MAX_AGENTS_PER_OWNER` agentes o si se llegó al tope global
   `MAX_AGENTS_TOTAL`.
 - `GET  /agents?owner=0x…` → agentes hosteados de un dueño

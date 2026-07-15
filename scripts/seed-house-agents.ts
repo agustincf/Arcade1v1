@@ -40,26 +40,116 @@ interface Seed {
 }
 const SEEDS: Seed[] = [
   // 2048
-  { name: "Doña Cuadritos", avatar: "🧠", game: "2048", strategyId: "2048.priority", params: { priority: ["down", "left", "right", "up"], greed: 0.85 } },
-  { name: "Rincón Zen", avatar: "🌵", game: "2048", strategyId: "2048.corner", params: { corner: "down-left", patience: 0.9 } },
-  { name: "Turbina", avatar: "⚡", game: "2048", strategyId: "2048.priority", params: { priority: ["left", "down", "right", "up"], greed: 0.1 } },
+  {
+    name: "Doña Cuadritos",
+    avatar: "🧠",
+    game: "2048",
+    strategyId: "2048.priority",
+    params: { priority: ["down", "left", "right", "up"], greed: 0.85 },
+  },
+  {
+    name: "Rincón Zen",
+    avatar: "🌵",
+    game: "2048",
+    strategyId: "2048.corner",
+    params: { corner: "down-left", patience: 0.9 },
+  },
+  {
+    name: "Turbina",
+    avatar: "⚡",
+    game: "2048",
+    strategyId: "2048.priority",
+    params: { priority: ["left", "down", "right", "up"], greed: 0.1 },
+  },
   // snake
-  { name: "Culebra Golosa", avatar: "🐍", game: "snake", strategyId: "snake.greedy", params: { caution: 0.15 } },
-  { name: "La Paciente", avatar: "🦖", game: "snake", strategyId: "snake.survivor", params: { foodPull: 0.25 } },
+  {
+    name: "Culebra Golosa",
+    avatar: "🐍",
+    game: "snake",
+    strategyId: "snake.greedy",
+    params: { caution: 0.15 },
+  },
+  {
+    name: "La Paciente",
+    avatar: "🦖",
+    game: "snake",
+    strategyId: "snake.survivor",
+    params: { foodPull: 0.25 },
+  },
   // flappy
-  { name: "Aleteo Fino", avatar: "🚀", game: "flappy", strategyId: "flappy.threshold", params: { riskOffset: 10, reaction: 1 } },
-  { name: "Kamikaze del Caño", avatar: "🔥", game: "flappy", strategyId: "flappy.threshold", params: { riskOffset: -35, reaction: 4 } },
-  { name: "Capitán Planeo", avatar: "🛸", game: "flappy", strategyId: "flappy.threshold", params: { riskOffset: 25, reaction: 2 } },
+  {
+    name: "Aleteo Fino",
+    avatar: "🚀",
+    game: "flappy",
+    strategyId: "flappy.threshold",
+    params: { riskOffset: 10, reaction: 1 },
+  },
+  {
+    name: "Kamikaze del Caño",
+    avatar: "🔥",
+    game: "flappy",
+    strategyId: "flappy.threshold",
+    params: { riskOffset: -35, reaction: 4 },
+  },
+  {
+    name: "Capitán Planeo",
+    avatar: "🛸",
+    game: "flappy",
+    strategyId: "flappy.threshold",
+    params: { riskOffset: 25, reaction: 2 },
+  },
   // racing
-  { name: "El Esquivador", avatar: "🎯", game: "racing", strategyId: "racing.dodger", params: { lookahead: 220, preferredLane: "center" } },
-  { name: "Zigzag Salvaje", avatar: "🎲", game: "racing", strategyId: "racing.weaver", params: { boldness: 0.85 } },
-  { name: "Abuelo Prudente", avatar: "🐙", game: "racing", strategyId: "racing.dodger", params: { lookahead: 100, preferredLane: "right" } },
+  {
+    name: "El Esquivador",
+    avatar: "🎯",
+    game: "racing",
+    strategyId: "racing.dodger",
+    params: { lookahead: 220, preferredLane: "center" },
+  },
+  {
+    name: "Zigzag Salvaje",
+    avatar: "🎲",
+    game: "racing",
+    strategyId: "racing.weaver",
+    params: { boldness: 0.85 },
+  },
+  {
+    name: "Abuelo Prudente",
+    avatar: "🐙",
+    game: "racing",
+    strategyId: "racing.dodger",
+    params: { lookahead: 100, preferredLane: "right" },
+  },
   // invaders
-  { name: "Cazadora Alfa", avatar: "👾", game: "invaders", strategyId: "invaders.hunter", params: { aggression: 1, dodge: 0.4 } },
-  { name: "Muro Tímido", avatar: "🍄", game: "invaders", strategyId: "invaders.hunter", params: { aggression: 0.2, dodge: 1 } },
+  {
+    name: "Cazadora Alfa",
+    avatar: "👾",
+    game: "invaders",
+    strategyId: "invaders.hunter",
+    params: { aggression: 1, dodge: 0.4 },
+  },
+  {
+    name: "Muro Tímido",
+    avatar: "🍄",
+    game: "invaders",
+    strategyId: "invaders.hunter",
+    params: { aggression: 0.2, dodge: 1 },
+  },
   // tetris
-  { name: "Don Bloques", avatar: "🕹️", game: "tetris", strategyId: "tetris.heuristic", params: { holes: 9, height: 5, bumpiness: 2, lines: 9 } },
-  { name: "Apilador Caótico", avatar: "🎮", game: "tetris", strategyId: "tetris.heuristic", params: { holes: 1, height: 0, bumpiness: 0, lines: 10 } },
+  {
+    name: "Don Bloques",
+    avatar: "🕹️",
+    game: "tetris",
+    strategyId: "tetris.heuristic",
+    params: { holes: 9, height: 5, bumpiness: 2, lines: 9 },
+  },
+  {
+    name: "Apilador Caótico",
+    avatar: "🎮",
+    game: "tetris",
+    strategyId: "tetris.heuristic",
+    params: { holes: 1, height: 0, bumpiness: 0, lines: 10 },
+  },
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -103,7 +193,7 @@ async function main() {
     }
     // El árbitro limita los POST caros (RL_MAX_EXPENSIVE por ventana de 10s):
     // vamos de a uno por segundo y, si igual pide calma, esperamos la ventana.
-    let body: { error?: string; id?: string } = {};
+    let body: { error?: string; id?: string };
     for (let intento = 1; ; intento++) {
       const ts = Date.now();
       const signature = await account.signMessage({

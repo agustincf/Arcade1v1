@@ -1,4 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
+
 # Getting Started
 
 This guide gets a local copy of Arcade1v1 running — the web app, the arbiter
@@ -68,15 +69,15 @@ cp apps/web/.env.local.example apps/web/.env.local
 Variables read by the web app (all `NEXT_PUBLIC_*` ones are baked into the
 client bundle at build time):
 
-| Variable | Needed for | Notes |
-| --- | --- | --- |
-| `NEXT_PUBLIC_ARBITER_URL` | Talking to the arbiter | Point this at `http://localhost:4000` for a local arbiter, or `https://arcade1v1.onrender.com` to use the public testnet arbiter without running one yourself. |
-| `NEXT_PUBLIC_SITE_URL` | SEO / sitemap / Open Graph | Not required for local dev. |
-| `NEXT_PUBLIC_WC_PROJECT_ID` | WalletConnect/Reown wallet connection | Optional locally — the code falls back to a shared dev project ID if unset; get your own at [cloud.reown.com](https://cloud.reown.com) before deploying. |
+| Variable                                                  | Needed for                                 | Notes                                                                                                                                                                                                                                                    |
+| --------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_ARBITER_URL`                                 | Talking to the arbiter                     | Point this at `http://localhost:4000` for a local arbiter, or `https://arcade1v1.onrender.com` to use the public testnet arbiter without running one yourself.                                                                                           |
+| `NEXT_PUBLIC_SITE_URL`                                    | SEO / sitemap / Open Graph                 | Not required for local dev.                                                                                                                                                                                                                              |
+| `NEXT_PUBLIC_WC_PROJECT_ID`                               | WalletConnect/Reown wallet connection      | Optional locally — the code falls back to a shared dev project ID if unset; get your own at [cloud.reown.com](https://cloud.reown.com) before deploying.                                                                                                 |
 | `NEXT_PUBLIC_ESCROW_ADDRESS` / `NEXT_PUBLIC_USDC_ADDRESS` | On-chain deposits, the faucet, paid tables | Both must be set together (`onchainEnabled` in `apps/web/app/lib/escrow.ts` checks for both) or on-chain features stay disabled and only the free ladder works. <!-- VERIFY: current Base Sepolia escrow/USDC contract addresses for this deployment --> |
-| `NEXT_PUBLIC_RPC_URL` | Reading on-chain state | Optional; without it the app falls back to Base Sepolia's public RPC. |
-| `NEXT_PUBLIC_CHAIN_ID` | Selecting the network | Unset defaults to testnet (Base Sepolia). |
-| `BLOCKED_COUNTRIES` | Geoblocking | Optional; leave unset to disable. |
+| `NEXT_PUBLIC_RPC_URL`                                     | Reading on-chain state                     | Optional; without it the app falls back to Base Sepolia's public RPC.                                                                                                                                                                                    |
+| `NEXT_PUBLIC_CHAIN_ID`                                    | Selecting the network                      | Unset defaults to testnet (Base Sepolia).                                                                                                                                                                                                                |
+| `BLOCKED_COUNTRIES`                                       | Geoblocking                                | Optional; leave unset to disable.                                                                                                                                                                                                                        |
 
 If you only want to try the free ladder (no wallet, no stakes), you can leave
 the on-chain variables unset and just set `NEXT_PUBLIC_ARBITER_URL`.

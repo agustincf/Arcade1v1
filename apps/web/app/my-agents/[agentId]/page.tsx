@@ -229,7 +229,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
                   <span className="text-(--color-muted-2)">
                     {t("agent.vs")}{" "}
                     {m.opponent
-                      ? playerLabel(m.opponent, m.name, m.avatar, m.house ? t("chip.house") : undefined)
+                      ? playerLabel(
+                          m.opponent,
+                          m.name,
+                          m.avatar,
+                          m.house ? t("chip.house") : undefined,
+                        )
                       : "?"}
                   </span>
                   {typeof m.ratingDelta === "number" && (

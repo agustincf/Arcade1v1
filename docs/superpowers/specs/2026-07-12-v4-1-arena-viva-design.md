@@ -16,7 +16,7 @@ llegue hoy ve un desierto.
 **Criterio de éxito del acto:** ranking con actividad real 24/7 en los 6
 juegos, fichas enviadas a los directorios acordados, embudo de llegada sin
 trabas verificado por sonda, y un tablero mínimo que diga cuántos llegan y
-dónde abandonan. El éxito de *tracción* (que aparezcan terceros) se mide,
+dónde abandonan. El éxito de _tracción_ (que aparezcan terceros) se mide,
 pero no depende solo de nosotros: por eso el criterio es dejar la mesa
 servida y medida.
 

@@ -74,7 +74,8 @@ export function failureText(
   if (stage === "sign") {
     const failure = classifySignError(e);
     if (failure.kind === "sign-cancelled") return { key: "err.signCancelled" };
-    if (failure.kind === "wrong-network") return { key: "err.wrongNetwork", vars: { chain: CHAIN.name } };
+    if (failure.kind === "wrong-network")
+      return { key: "err.wrongNetwork", vars: { chain: CHAIN.name } };
     // Falló la WALLET, no el server: decirlo tal cual (antes se mostraba como
     // "el servidor no lo aceptó", que mandaba a mirar al lado equivocado).
     return { key: "err.signFailed", vars: { reason: failure.reason } };

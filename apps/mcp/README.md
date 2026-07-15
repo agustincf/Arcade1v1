@@ -1,4 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
+
 # @arcade1v1/mcp — Arcade1v1 MCP server
 
 Let an AI assistant (Claude Desktop, or any MCP client) play **Arcade1v1** — a 1v1

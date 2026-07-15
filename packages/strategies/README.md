@@ -1,9 +1,10 @@
 <!-- generated-by: gsd-doc-writer -->
+
 # @arcade1v1/strategies
 
 Estrategias parametrizables y **deterministas** para los seis juegos de Arcade1v1. Cada
 estrategia maneja el motor real de [`@arcade1v1/game-sdk`](../game-sdk) tick a tick (nunca
-simula por fuera del motor salvo para *evaluar* jugadas), así que el replay que produce
+simula por fuera del motor salvo para _evaluar_ jugadas), así que el replay que produce
 siempre pasa la reverificación del árbitro. Es el motor detrás del **builder no-code** de
 la web: elegís juego + estrategia + parámetros, y el agente resultante juega solo.
 
@@ -19,17 +20,17 @@ Paquete interno del monorepo (`private: true`), no se publica a npm.
   correr agentes hosteados) y el `agent-sdk` (estrategias por defecto).
 - **Nueve estrategias**, dos juegos con dos estilos alternativos:
 
-| Id | Juego | Idea | Parámetros |
-| --- | --- | --- | --- |
-| `2048.priority` | 2048 | Prioridad de direcciones + "codicia" por el puntaje inmediato de fusión | `priority` (orden), `greed` (0–1) |
-| `2048.corner` | 2048 | "Esquinero": ordena el tablero hacia una esquina, fusiona solo por paciencia | `corner` (esquina), `patience` (0–1) |
-| `snake.greedy` | Snake | Persigue la comida (distancia con wrap), con cautela opcional por espacio libre | `caution` (0–1) |
-| `snake.survivor` | Snake | El espacio libre alcanzable manda; solo va por la comida cuando es seguro | `foodPull` (0–1) |
-| `flappy.threshold` | Flappy | Aletea por umbral: cuando cae por debajo del centro del próximo hueco | `riskOffset` (-40–40), `reaction` (1–8) |
-| `racing.dodger` | Racing | Sigue en un carril preferido, esquiva cuando un obstáculo entra en su distancia de mirada | `lookahead` (80–240), `preferredLane` (carril) |
-| `racing.weaver` | Racing | Encara siempre el carril con más pista despejada por delante, de a un paso | `boldness` (0–1) |
-| `invaders.hunter` | Invaders | Persigue la columna de aliens más cercana (o el OVNI), dispara alineado y esquiva bombas | `aggression` (0–1), `dodge` (0–1) |
-| `tetris.heuristic` | Tetris | Para cada pieza evalúa (rotación, columna) con la heurística clásica de 4 pesos | `holes`, `height`, `bumpiness`, `lines` (0–10) |
+| Id                 | Juego    | Idea                                                                                      | Parámetros                                     |
+| ------------------ | -------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `2048.priority`    | 2048     | Prioridad de direcciones + "codicia" por el puntaje inmediato de fusión                   | `priority` (orden), `greed` (0–1)              |
+| `2048.corner`      | 2048     | "Esquinero": ordena el tablero hacia una esquina, fusiona solo por paciencia              | `corner` (esquina), `patience` (0–1)           |
+| `snake.greedy`     | Snake    | Persigue la comida (distancia con wrap), con cautela opcional por espacio libre           | `caution` (0–1)                                |
+| `snake.survivor`   | Snake    | El espacio libre alcanzable manda; solo va por la comida cuando es seguro                 | `foodPull` (0–1)                               |
+| `flappy.threshold` | Flappy   | Aletea por umbral: cuando cae por debajo del centro del próximo hueco                     | `riskOffset` (-40–40), `reaction` (1–8)        |
+| `racing.dodger`    | Racing   | Sigue en un carril preferido, esquiva cuando un obstáculo entra en su distancia de mirada | `lookahead` (80–240), `preferredLane` (carril) |
+| `racing.weaver`    | Racing   | Encara siempre el carril con más pista despejada por delante, de a un paso                | `boldness` (0–1)                               |
+| `invaders.hunter`  | Invaders | Persigue la columna de aliens más cercana (o el OVNI), dispara alineado y esquiva bombas  | `aggression` (0–1), `dodge` (0–1)              |
+| `tetris.heuristic` | Tetris   | Para cada pieza evalúa (rotación, columna) con la heurística clásica de 4 pesos           | `holes`, `height`, `bumpiness`, `lines` (0–10) |
 
 Los tests (`test/strategies.test.ts`) exigen que, para cada par de estrategias del mismo
 juego (`2048.priority`/`2048.corner`, `snake.greedy`/`snake.survivor`,
@@ -84,7 +85,7 @@ import { STRATEGIES, strategiesFor, defaultParams, validateParams } from "@arcad
 strategiesFor("racing"); // -> [racing.dodger, racing.weaver]
 defaultParams(STRATEGIES["racing.weaver"]); // -> { boldness: 0.3 }
 validateParams(STRATEGIES["racing.weaver"], rawFromClient); // default-deny: clave desconocida
-                                                             // afuera, número clampeado
+// afuera, número clampeado
 ```
 
 Esto es exactamente lo que hace `apps/server` en `agents.ts` (al dar de alta o editar un

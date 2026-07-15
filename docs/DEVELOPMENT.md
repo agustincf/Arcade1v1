@@ -1,4 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
+
 # DEVELOPMENT.md — Working in this repo
 
 This is the day-to-day guide for anyone (human or AI agent) writing code in
@@ -16,15 +17,15 @@ npm workspaces, declared in the root `package.json`:
 "workspaces": ["apps/*", "packages/*"]
 ```
 
-| Path | Package name | Purpose |
-|---|---|---|
-| `apps/web` | `@arcade1v1/web` | Next.js (App Router) frontend — the site players use. Private, not published. |
-| `apps/server` | `@arcade1v1/server` | The "arbiter" backend (Express 5 + viem): matchmaking, replay verification, EIP-712 result signing. Private, not published. |
-| `apps/mcp` | `@arcade1v1/mcp` | MCP server so AI assistants can play ranked matches. Published to npm and the MCP registry. |
-| `packages/game-sdk` | `@arcade1v1/game-sdk` | Deterministic game engines (one module per game) + the replay contract every game implements. |
-| `packages/agent-sdk` | `@arcade1v1/agent-sdk` | Client for AI agents to matchmake, play headlessly, sign and submit a score. |
-| `packages/strategies` | `@arcade1v1/strategies` | Parameterized strategies that drive the real game-sdk engines — powers the no-code agent builder and hosted agents. |
-| `packages/contracts` | — | Solidity escrow contract (Foundry). Its own toolchain; excluded from the root ESLint/Prettier/TS setup. |
+| Path                  | Package name            | Purpose                                                                                                                     |
+| --------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`            | `@arcade1v1/web`        | Next.js (App Router) frontend — the site players use. Private, not published.                                               |
+| `apps/server`         | `@arcade1v1/server`     | The "arbiter" backend (Express 5 + viem): matchmaking, replay verification, EIP-712 result signing. Private, not published. |
+| `apps/mcp`            | `@arcade1v1/mcp`        | MCP server so AI assistants can play ranked matches. Published to npm and the MCP registry.                                 |
+| `packages/game-sdk`   | `@arcade1v1/game-sdk`   | Deterministic game engines (one module per game) + the replay contract every game implements.                               |
+| `packages/agent-sdk`  | `@arcade1v1/agent-sdk`  | Client for AI agents to matchmake, play headlessly, sign and submit a score.                                                |
+| `packages/strategies` | `@arcade1v1/strategies` | Parameterized strategies that drive the real game-sdk engines — powers the no-code agent builder and hosted agents.         |
+| `packages/contracts`  | —                       | Solidity escrow contract (Foundry). Its own toolchain; excluded from the root ESLint/Prettier/TS setup.                     |
 
 Internally, workspaces reference each other by package name with `"*"` as
 the version (e.g. `apps/server` depends on `"@arcade1v1/game-sdk": "*"`) and
@@ -65,18 +66,18 @@ does not need to change.
 All commands run from the repo root unless noted. Verified against the root
 `package.json` `scripts`:
 
-| Command | What it does |
-|---|---|
-| `npm run web` | Runs `apps/web` in dev mode (`next dev`). |
-| `npm run server` | Runs `apps/server` in dev mode (`tsx watch src/index.ts`). |
-| `npm test` | Runs all `node:test` suites: `{packages,apps}/*/test/*.test.ts`, via `tsx`. |
-| `npm run typecheck:web` / `:server` / `:mcp` / `:packages` | Per-workspace `tsc --noEmit` against each `tsconfig.json`. |
-| `npm run typecheck` | Runs all of the above in sequence. |
-| `npm run lint` | `eslint .` — flat config at the repo root. |
-| `npm run format` | `prettier --write .` — reformats in place. |
-| `npm run format:check` | `prettier --check .` — fails if anything is unformatted (used in CI). |
-| `npm run selftest` | `apps/server`'s network-free self-test (signed matchmaking, tie handling, etc.), run as `npm run --workspace apps/server selftest`. |
-| `npm run check` | The full gate: `typecheck && lint && format:check && test && selftest`. **This must pass before anything is considered done.** |
+| Command                                                    | What it does                                                                                                                        |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run web`                                              | Runs `apps/web` in dev mode (`next dev`).                                                                                           |
+| `npm run server`                                           | Runs `apps/server` in dev mode (`tsx watch src/index.ts`).                                                                          |
+| `npm test`                                                 | Runs all `node:test` suites: `{packages,apps}/*/test/*.test.ts`, via `tsx`.                                                         |
+| `npm run typecheck:web` / `:server` / `:mcp` / `:packages` | Per-workspace `tsc --noEmit` against each `tsconfig.json`.                                                                          |
+| `npm run typecheck`                                        | Runs all of the above in sequence.                                                                                                  |
+| `npm run lint`                                             | `eslint .` — flat config at the repo root.                                                                                          |
+| `npm run format`                                           | `prettier --write .` — reformats in place.                                                                                          |
+| `npm run format:check`                                     | `prettier --check .` — fails if anything is unformatted (used in CI).                                                               |
+| `npm run selftest`                                         | `apps/server`'s network-free self-test (signed matchmaking, tie handling, etc.), run as `npm run --workspace apps/server selftest`. |
+| `npm run check`                                            | The full gate: `typecheck && lint && format:check && test && selftest`. **This must pass before anything is considered done.**      |
 
 Per-app commands (run inside `apps/server` or with `--workspace apps/server`,
 etc.) — from each workspace's own `package.json`:
@@ -146,7 +147,7 @@ own README/docs.
   `fix(web): …`, `feat(server): …`, `docs: …`. This is documented in
   STANDARDS.md and is consistently followed in the project history (recent
   examples: `fix(web): firmar con la wallet en otra red ya no muere con
-  "Chain not configured"`, `feat(server): monitor del gas del árbitro`).
+"Chain not configured"`, `feat(server): monitor del gas del árbitro`).
 - **Branch naming**: no formal convention is documented in STANDARDS.md.
   Feature branches seen in the remote follow a loose `claude/<slug>` pattern
   for AI-assisted work; there is no enforced human branch-naming rule beyond

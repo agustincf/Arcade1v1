@@ -13,7 +13,12 @@ import {
   recordMatchSettled,
   statsSnapshot,
 } from "../src/stats.js";
-import { createHostedAgent, deleteAgent, isHouseWallet, hostedAgentByAddress } from "../src/agents.js";
+import {
+  createHostedAgent,
+  deleteAgent,
+  isHouseWallet,
+  hostedAgentByAddress,
+} from "../src/agents.js";
 import { setHouseAddressCheck } from "../src/matchmaking.js";
 import { runAgentsTick } from "../src/agent-runner.js";
 

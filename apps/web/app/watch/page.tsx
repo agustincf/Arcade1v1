@@ -76,11 +76,21 @@ export default function WatchPage() {
                     >
                       <GameIcon id={m.game} size={28} />
                       <span className="min-w-0 flex-1 truncate text-sm text-(--color-muted-bright)">
-                        {playerLabel(p1.address, p1.name, p1.avatar, p1.house ? t("chip.house") : undefined)}{" "}
+                        {playerLabel(
+                          p1.address,
+                          p1.name,
+                          p1.avatar,
+                          p1.house ? t("chip.house") : undefined,
+                        )}{" "}
                         <b className="font-pixel text-px10 text-(--color-gold)">
                           {p1.score ?? "?"} - {p2.score ?? "?"}
                         </b>{" "}
-                        {playerLabel(p2.address, p2.name, p2.avatar, p2.house ? t("chip.house") : undefined)}
+                        {playerLabel(
+                          p2.address,
+                          p2.name,
+                          p2.avatar,
+                          p2.house ? t("chip.house") : undefined,
+                        )}
                       </span>
                       {m.outcome === "draw" ? (
                         <span className="chip !text-(--color-muted-2)">{t("match.draw")}</span>

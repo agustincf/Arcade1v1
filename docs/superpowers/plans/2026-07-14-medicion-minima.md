@@ -21,10 +21,12 @@
 ### Task 1: Server — contadores del embudo en stats.ts (TDD)
 
 **Files:**
-- Modify: `apps/server/src/stats.ts` (Counters, zeros, record*)
+
+- Modify: `apps/server/src/stats.ts` (Counters, zeros, record\*)
 - Test: `apps/server/test/funnel-stats.test.ts` (nuevo)
 
 **Interfaces:**
+
 - Produces: `Counters` suma `agentsCreated`, `settledHouse`, `settledMixed`; `recordAgentCreated(now?)`; `recordMatchSettled(houseSide?: 0 | 1 | 2, now?)` (retro-compatible: sin args cuenta como tercero puro).
 
 - [ ] Test que falla → implementar → `node --import tsx --test apps/server/test/funnel-stats.test.ts` PASS → `npm test` PASS → commit `feat(server): contadores del embudo — agentes creados y partidas casa/mixta/terceros`.
@@ -76,22 +78,24 @@ export function recordMatchSettled(houseSide: 0 | 1 | 2 = 0, now = Date.now()) {
 ### Task 2: Server — clasificar el settle (checker inyectado) + agentes creados
 
 **Files:**
+
 - Modify: `apps/server/src/matchmaking.ts` (settle, línea ~462)
 - Modify: `apps/server/src/agents.ts` (`createHostedAgent`)
 - Modify: `apps/server/src/index.ts` (wiring)
 - Test: ampliar `apps/server/test/funnel-stats.test.ts`
 
 **Interfaces:**
+
 - Produces: `setHouseAddressCheck(fn: (address: string) => boolean)` en matchmaking.
 
 - [ ] En matchmaking: `let houseAddressCheck: (a: string) => boolean = () => false;` + export del setter; en el settle:
 
 ```ts
-  if (!m.isBot && m.p2 && m.outcome) {
-    m.eloUpdate = applyElo(m.game, m.p1, m.p2, m.outcome);
-    const houseSide = (houseAddressCheck(m.p1) ? 1 : 0) + (houseAddressCheck(m.p2) ? 1 : 0);
-    recordMatchSettled(houseSide as 0 | 1 | 2);
-  }
+if (!m.isBot && m.p2 && m.outcome) {
+  m.eloUpdate = applyElo(m.game, m.p1, m.p2, m.outcome);
+  const houseSide = (houseAddressCheck(m.p1) ? 1 : 0) + (houseAddressCheck(m.p2) ? 1 : 0);
+  recordMatchSettled(houseSide as 0 | 1 | 2);
+}
 ```
 
 - [ ] En agents.ts, `createHostedAgent` (tras `agents.set(...)`): `if (!isHouseWallet(owner)) recordAgentCreated();` (los 15 de la casa no son tracción). stats.ts solo importa persist → sin ciclo.
@@ -102,6 +106,7 @@ export function recordMatchSettled(houseSide: 0 | 1 | 2 = 0, now = Date.now()) {
 ### Task 3: Web — sección embudo en /status + i18n ×4
 
 **Files:**
+
 - Modify: `apps/web/app/lib/arbiter.ts` (`StatsCounters`)
 - Modify: `apps/web/app/status/StatusClient.tsx`
 - Modify: `apps/web/app/lib/i18n/{es,en,fr,hi}.ts`
@@ -127,6 +132,7 @@ export function recordMatchSettled(houseSide: 0 | 1 | 2 = 0, now = Date.now()) {
 ### Task 4: Web — Vercel Analytics (páginas vistas + referrers, sin cookies)
 
 **Files:**
+
 - Modify: `apps/web/package.json` (dep `@vercel/analytics`)
 - Modify: `apps/web/app/layout.tsx` (`<Analytics />`)
 - Modify: `DEPLOY.md` (runbook: activar Web Analytics en el dashboard de Vercel)

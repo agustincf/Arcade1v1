@@ -27,7 +27,12 @@ import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
 import { ReplayPlayer } from "@/app/components/replay/ReplayPlayer";
 import { createAgent, listAgents, warmUpArbiter } from "@/app/lib/arbiter";
-import { classifySignError, classifyArbiterError, type ArbiterRejection, type SignFailure } from "@/app/lib/errors";
+import {
+  classifySignError,
+  classifyArbiterError,
+  type ArbiterRejection,
+  type SignFailure,
+} from "@/app/lib/errors";
 
 const TOTAL_STEPS = 5;
 // Tope de agentes por wallet. Debe coincidir con MAX_AGENTS_PER_OWNER del

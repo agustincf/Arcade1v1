@@ -1,4 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
+
 # Contributing to Arcade1v1
 
 Thanks for your interest in improving Arcade1v1. This project handles real

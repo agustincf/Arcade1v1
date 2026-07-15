@@ -1,4 +1,5 @@
 <!-- generated-by: gsd-doc-writer -->
+
 # Guía para publicar Arcade1v1
 
 Hay **3 piezas** que se publican por separado:
@@ -153,7 +154,7 @@ está en `.house-wallet.json` (local, gitignoreado — el repo es público).
   las vistas públicas (el chip CASA de la web sale de ahí). Cambiarla
   requiere redeploy (Render reinicia solo al guardar la env).
 - **Sembrar / re-sembrar:** `node --import tsx scripts/seed-house-agents.ts
-  --url https://arcade1v1.onrender.com` (idempotente: saltea los que ya
+--url https://arcade1v1.onrender.com` (idempotente: saltea los que ya
   existen; respeta el rate limit del árbitro solo). Sin `--url` apunta a
   `localhost:4000`. Si no existe `.house-wallet.json`, el script genera la
   wallet y te muestra la address para pegar en `HOUSE_WALLETS`.
