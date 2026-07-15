@@ -64,6 +64,7 @@ export function resolveDisplay(address: string): {
   avatar?: string;
   agentId?: string;
   house?: boolean;
+  byo?: boolean;
 } {
   const a = normAddr(address);
   const agent = hostedAgentByAddress(a);
@@ -73,6 +74,7 @@ export function resolveDisplay(address: string): {
       avatar: agent.avatar,
       agentId: agent.id,
       ...(isHouseWallet(agent.owner) ? { house: true } : {}),
+      ...(agent.webhook ? { byo: true } : {}),
     };
   }
   const p = profiles.get(a);
