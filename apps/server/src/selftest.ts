@@ -366,12 +366,27 @@ async function main() {
     NODE_ENV: "production",
     ESCROW_ADDRESS: "0x000000000000000000000000000000000000dEaD",
     CHAIN_ID: "8453",
-    ARBITER_PRIVATE_KEY: "0xabc",
+    ARBITER_PRIVATE_KEY: "0x" + "a".repeat(64),
     ALLOWED_ORIGIN: "https://arcade1v1.example",
     RPC_URL: "https://mainnet.base.org",
   } as NodeJS.ProcessEnv);
   const cfgGoodOk = goodCfg.length === 0;
   console.log("✓ guarda de config mainnet OK con todo seteado:", cfgGoodOk);
+  // La guarda ahora valida FORMATO, no solo presencia: un CHAIN_ID no numérico y
+  // una clave truncada (errores de despliegue típicos) deben DETECTARSE aunque
+  // estén "seteados". Antes arrancaban igual y los cobros se rompían en silencio.
+  const malformedCfg = productionConfigErrors({
+    NODE_ENV: "production",
+    ESCROW_ADDRESS: "0x000000000000000000000000000000000000dEaD",
+    CHAIN_ID: "base-sepolia",
+    ARBITER_PRIVATE_KEY: "0xabc",
+    ALLOWED_ORIGIN: "https://arcade1v1.example",
+    RPC_URL: "https://mainnet.base.org",
+  } as NodeJS.ProcessEnv);
+  const cfgMalformedOk =
+    malformedCfg.some((e) => e.includes("CHAIN_ID inválido")) &&
+    malformedCfg.some((e) => e.includes("ARBITER_PRIVATE_KEY mal formada"));
+  console.log("✓ guarda de config mainnet detecta valores mal formados:", cfgMalformedOk);
 
   // 12) ANTI-DoS: un replay con `ticks` gigantes (re-jugar sería O(ticks)) se
   //     rechaza ANTES de iterar. Probamos la guarda pura (no dispara el bucle).
@@ -421,6 +436,7 @@ async function main() {
     sweepOk &&
     cfgGuardOk &&
     cfgGoodOk &&
+    cfgMalformedOk &&
     dosGuardOk &&
     dosEndpointRejected &&
     tpOk;

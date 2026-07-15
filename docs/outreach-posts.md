@@ -170,11 +170,11 @@ que hice / busco feedback".
 
 ## Checklist de directorios MCP (estado al 2026-07-15)
 
-| Directorio | Estado | Acción |
-|---|---|---|
-| Registry oficial de MCP | ✅ publicado (`io.github.agustincf/arcade1v1`) | — |
-| PulseMCP | ✅ auto-indexado | — |
-| mcp.so | ⏳ enviado (issue #3157), esperando publicación | ninguna (no re-enviar) |
-| Glama | ⏳ score "not tested" | **tu login:** reclamar el server + configurar Dockerfile build spec + publicar un "release" en glama.ai |
-| awesome-mcp-servers (PR #9319) | ⏳ trabado por el score de Glama | se destraba solo cuando Glama evalúe |
-| Smithery | ⏳ opcional | **tu login:** "add server" en smithery.ai |
+| Directorio                     | Estado                                          | Acción                                                                                                  |
+| ------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Registry oficial de MCP        | ✅ publicado (`io.github.agustincf/arcade1v1`)  | —                                                                                                       |
+| PulseMCP                       | ✅ auto-indexado                                | —                                                                                                       |
+| mcp.so                         | ⏳ enviado (issue #3157), esperando publicación | ninguna (no re-enviar)                                                                                  |
+| Glama                          | ⏳ score "not tested"                           | **tu login:** reclamar el server + configurar Dockerfile build spec + publicar un "release" en glama.ai |
+| awesome-mcp-servers (PR #9319) | ⏳ trabado por el score de Glama                | se destraba solo cuando Glama evalúe                                                                    |
+| Smithery                       | ⏳ opcional                                     | **tu login:** "add server" en smithery.ai                                                               |

@@ -7,21 +7,51 @@
 // (recibe el env) para poder testearla sin tocar process.env real.
 
 const ZERO = "0x0000000000000000000000000000000000000000";
+const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+const PRIVKEY_RE = /^0x[0-9a-fA-F]{64}$/;
 
 export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): string[] {
   if (env.NODE_ENV !== "production") return [];
 
-  const escrow = (env.ESCROW_ADDRESS || "").toLowerCase();
+  const escrowRaw = (env.ESCROW_ADDRESS || "").trim();
+  const escrow = escrowRaw.toLowerCase();
   const onchain = !!escrow && escrow !== ZERO;
   if (!onchain) return []; // sin escrow no hay dinero real on-chain (p. ej. demo)
 
   const errors: string[] = [];
-  if (!env.CHAIN_ID) {
+
+  // No basta con que las variables EXISTAN: si están mal FORMADAS (un CHAIN_ID no
+  // numérico, una clave truncada por un salto de línea, una dirección con un typo)
+  // el servidor arrancaba "OK" pero las firmas no valían y NADIE podía cobrar —
+  // desastre silencioso de despliegue. Validamos formato, no solo presencia.
+
+  if (!ADDRESS_RE.test(escrowRaw)) {
+    errors.push(
+      `ESCROW_ADDRESS mal formada ("${escrowRaw}"): debe ser una dirección 0x + 40 hex. ` +
+        "Con la dirección equivocada, las firmas EIP-712 no valen y los pagos se rompen.",
+    );
+  }
+
+  const chainId = (env.CHAIN_ID || "").trim();
+  if (!chainId) {
     errors.push("Falta CHAIN_ID (caería en testnet 84532 y las firmas no servirían en mainnet).");
+  } else if (!/^[0-9]+$/.test(chainId) || Number(chainId) <= 0) {
+    errors.push(
+      `CHAIN_ID inválido ("${chainId}"): debe ser un entero positivo (ej. 8453 mainnet, 84532 testnet). ` +
+        "Un valor no numérico deja el dominio EIP-712 en el default y las firmas no sirven para cobrar.",
+    );
   }
-  if (!env.ARBITER_PRIVATE_KEY) {
+
+  const pk = (env.ARBITER_PRIVATE_KEY || "").trim();
+  if (!pk) {
     errors.push("Falta ARBITER_PRIVATE_KEY (el árbitro no puede firmar resultados).");
+  } else if (!PRIVKEY_RE.test(pk)) {
+    errors.push(
+      "ARBITER_PRIVATE_KEY mal formada: debe ser 0x + 64 hex (32 bytes). " +
+        "Una clave truncada o con espacios/saltos de línea no firma resultados válidos.",
+    );
   }
+
   if (!env.ALLOWED_ORIGIN) {
     errors.push("Falta ALLOWED_ORIGIN (CORS quedaría abierto a '*').");
   }

@@ -421,7 +421,9 @@ export async function submitScore(
   m.replays[address] = replay; // guardamos el replay (feedback para el rival/agente)
   await settleIfReady(m);
   persist();
-  return view(m, address);
+  // El que envía probó ser dueño de `address` (firma verificada arriba en prod):
+  // su propia respuesta puede confirmarle su puntaje aunque no se haya decidido.
+  return view(m, address, { revealOwnScore: true });
 }
 
 /** Si ya estan los dos puntajes, decide el ganador y firma (o marca empate). */
@@ -567,15 +569,22 @@ export interface MatchView {
   ratingDelta?: number; // cuanto subio/bajo
 }
 
-function view(m: Match, address?: string): MatchView {
-  // ANTI-ESPIONAJE: hasta que la partida se decide, cada jugador ve SOLO su
-  // propio puntaje. Sin este filtro, el rival consultaba GET /match/:id y veía
-  // tu puntaje ANTES de jugar su intento: sabía exactamente cuánto superar (o
-  // directamente no jugaba si no le convenía). Con plata en juego, es letal.
+function view(m: Match, address?: string, opts?: { revealOwnScore?: boolean }): MatchView {
+  // ANTI-ESPIONAJE: hasta que la partida se decide, NADIE ve un puntaje por esta
+  // vista. Antes filtrábamos "mostrar solo el puntaje de `address`", pero el GET
+  // /match/:id toma esa address de un query SIN AUTENTICAR: bastaba pedir la
+  // partida con la address del rival (que la propia respuesta revela en
+  // `opponent`) para leer su puntaje ANTES de jugar tu intento — sabías cuánto
+  // superar, o no jugabas si no te convenía. Con plata en juego, es letal.
+  //   - GET /match/:id  -> revealOwnScore=false (default): jamás filtra puntajes.
+  //   - submitScore     -> revealOwnScore=true: el que ENVÍA probó ser él (firma
+  //     obligatoria en prod), así que su propia respuesta sí puede confirmarle su
+  //     puntaje. El cliente igual lo tiene local; es solo confirmación.
+  // La señal `rivalSubmitted` (booleana, sin el número) alcanza para la UX de espera.
   const decided = m.status === "settled" || m.status === "draw";
   const scores: Record<string, number> = decided
     ? m.scores
-    : address !== undefined && m.scores[address] !== undefined
+    : opts?.revealOwnScore && address !== undefined && m.scores[address] !== undefined
       ? { [address]: m.scores[address] }
       : {};
   const rival = address === m.p1 ? m.p2 : address === m.p2 ? m.p1 : undefined;

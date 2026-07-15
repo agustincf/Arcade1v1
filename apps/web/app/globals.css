@@ -27,7 +27,11 @@
   --color-muted-bright: #ded8cb;
   --color-muted: #bfb8a9;
   --color-muted-2: #9d9686;
-  --color-muted-3: #7c7568;
+  /* Tono más tenue. Subido de #7c7568 (≈4.08:1 sobre --color-bg, por debajo de
+     AA) a #8a8375 (≈4.95:1): justo este gris se usa en los avisos legales
+     ("juego responsable", "demo/testnet") y en notas al pie, el texto prudente
+     que más importa que se lea, sobre todo en celular a plena luz. */
+  --color-muted-3: #8a8375;
 
   /* Bloques "paper" (lectura clara, contraste de secciones) */
   --color-paper: #f0eee6;

@@ -245,27 +245,47 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   async function doFund() {
     if (!matchId || !address) return;
     setDepositErr(false);
+    const mid = matchId as `0x${string}`;
     try {
+      // Recordamos la partida ANTES de pagar. El depósito puede MINARSE y aun así
+      // fallar la espera del recibo (RPC lento en testnet): si recordáramos
+      // después, la partida quedaría pagada on-chain pero invisible para /recover
+      // y el USDC atrapado. Es idempotente y solo local; la verdad vive on-chain
+      // (si el usuario cancela la firma, /recover la muestra como "unknown", inocua).
+      rememberMatch(address, {
+        matchId: mid,
+        game: game!.id,
+        bet,
+        role: role === "p2" ? "p2" : "p1",
+        ts: Date.now(),
+      });
+
+      // ¿Mi lado YA está pagado? Pasa en un reintento tras un fallo de red DESPUÉS
+      // de minar el depósito: sin este chequeo, open()/join() revertirían
+      // ("match exists" / "not open") y el botón quedaría fallando para siempre.
+      // Si ya pagué, no re-cobro: sigo directo a jugar.
+      try {
+        const onchain = await escrow.readMatch(mid);
+        const alreadyPaid = role === "p2" ? onchain.p2Paid : onchain.p1Paid;
+        if (alreadyPaid) {
+          setDeposited(true);
+          return;
+        }
+      } catch {
+        /* si no se puede leer el estado, seguimos con el depósito normal */
+      }
+
       // 1) Allowance (gratis salvo la primera vez de la wallet).
       setFunding("approving");
       await escrow.approveStake(address as `0x${string}`, bet);
       // 2) Depósito: el 1ro ABRE la partida, el 2do se UNE a la que abrió el rival.
       setFunding("depositing");
       if (role === "p2") {
-        await escrow.join(matchId as `0x${string}`, bet);
+        await escrow.join(mid, bet);
       } else {
-        await escrow.open(matchId as `0x${string}`, bet);
+        await escrow.open(mid, bet);
       }
       setDeposited(true);
-      // Recordamos la partida por wallet: si nunca aparece rival (o no hay
-      // resultado a tiempo), el usuario puede volver a /recover y reembolsar.
-      rememberMatch(address, {
-        matchId: matchId as `0x${string}`,
-        game: game!.id,
-        bet,
-        role: role === "p2" ? "p2" : "p1",
-        ts: Date.now(),
-      });
     } catch {
       setDepositErr(true);
     } finally {
@@ -416,6 +436,13 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   }
 
   const gameProps = { onStarted: () => setPlaying(true) };
+
+  // ¿Hay un premio ganado que TODAVÍA no se cobró? Mientras lo haya, "Cobrar" es
+  // la única acción destacada del modal: "Revancha"/"Inicio" bajan a enlaces
+  // secundarios. Sin esto competían dos botones magenta y un toque en "Revancha"
+  // cerraba el modal y perdía la firma del árbitro (una sola vive en memoria).
+  const prizePending =
+    outcome === "win" && !rankedFree && onchainEnabled && !!winnerSig && claimState !== "done";
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -783,24 +810,49 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
             </>
           )}
 
-          <div className="mt-5 flex gap-3">
-            {!forfeit && (
+          {prizePending ? (
+            // Premio sin cobrar: no ofrecemos botones que compitan con "Cobrar".
+            // Revancha/Inicio quedan como enlaces discretos (siguen disponibles,
+            // pero no invitan a irse y perder la ganancia).
+            <div className="mt-4 flex justify-center gap-5">
+              {!forfeit && (
+                <button
+                  onClick={() => {
+                    if (rankedFree) window.location.assign(lp(`/game/${gameId}/match?bet=0`));
+                    else router.push(lp(`/game/${gameId}`));
+                  }}
+                  className="text-sm font-medium text-(--color-muted-2) hover:text-(--color-muted-bright) hover:underline"
+                >
+                  {t("match.rematch")}
+                </button>
+              )}
               <button
-                onClick={() => {
-                  // Revancha gratis: recarga limpia de la misma URL (el estado
-                  // del emparejamiento no es re-entrante). De plata: a la mesa.
-                  if (rankedFree) window.location.assign(lp(`/game/${gameId}/match?bet=0`));
-                  else router.push(lp(`/game/${gameId}`));
-                }}
-                className="btn3d btn3d--magenta flex-1"
+                onClick={() => router.push(lp("/"))}
+                className="text-sm font-medium text-(--color-muted-2) hover:text-(--color-muted-bright) hover:underline"
               >
-                {t("match.rematch")}
+                {t("home")}
               </button>
-            )}
-            <button onClick={() => router.push(lp("/"))} className="btn3d btn3d--cyan flex-1">
-              {t("home")}
-            </button>
-          </div>
+            </div>
+          ) : (
+            <div className="mt-5 flex gap-3">
+              {!forfeit && (
+                <button
+                  onClick={() => {
+                    // Revancha gratis: recarga limpia de la misma URL (el estado
+                    // del emparejamiento no es re-entrante). De plata: a la mesa.
+                    if (rankedFree) window.location.assign(lp(`/game/${gameId}/match?bet=0`));
+                    else router.push(lp(`/game/${gameId}`));
+                  }}
+                  className="btn3d btn3d--magenta flex-1"
+                >
+                  {t("match.rematch")}
+                </button>
+              )}
+              <button onClick={() => router.push(lp("/"))} className="btn3d btn3d--cyan flex-1">
+                {t("home")}
+              </button>
+            </div>
+          )}
         </Modal>
       )}
 

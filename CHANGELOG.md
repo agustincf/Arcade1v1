@@ -8,6 +8,47 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.3.1] — 2026-07-15
+
+**Auditoría de despedida**: barrido multi-agente (bugs, seguridad, flujo de
+plata, UX, SEO, comunicación) con verificación adversarial de cada hallazgo.
+Esta versión cierra los arreglos **seguros de auto-deploy**; los que tocan el
+**contrato** (atar el rival on-chain, período de gracia del reembolso) quedan
+para una versión aparte que requiere redesplegar el escrow.
+
+### Seguridad
+
+- **Fuga del puntaje del rival cerrada (crítico)**: `GET /match/:id` tomaba la
+  address del jugador de un query **sin autenticar** y el filtro anti-espionaje
+  confiaba en ella — bastaba pedir la partida con la address del rival (que la
+  propia respuesta revelaba en `opponent`) para leer su puntaje **antes** de
+  jugar tu intento, con plata en juego. Ahora la vista **no revela ningún
+  puntaje hasta que la partida se decide**, sin importar qué address se pase;
+  solo `submitScore` (que probó ser el dueño con su firma) confirma tu propio
+  puntaje. La señal `rivalSubmitted` (booleana, sin el número) se mantiene para
+  la espera. Con test de regresión.
+- **La guarda de config de producción valida FORMATO, no solo presencia**: un
+  `CHAIN_ID` no numérico, una `ARBITER_PRIVATE_KEY` truncada o una
+  `ESCROW_ADDRESS` con un typo arrancaban el servidor "OK" pero rompían las
+  firmas EIP-712 en silencio (nadie podía cobrar). Ahora se rechazan al
+  arrancar, con mensaje claro. Con test.
+
+### Arreglado
+
+- **Depósito trabado por un fallo de red**: si la espera del recibo se caía
+  **después** de minar el depósito (RPC lento en testnet), la app creía que no
+  se había pagado, el botón quedaba fallando para siempre y la partida ni se
+  guardaba (recuperación vacía). Ahora la partida se **recuerda antes de pagar**
+  y, en el reintento, se **lee el estado on-chain**: si tu lado ya está pagado,
+  no se re-cobra y se pasa a jugar.
+- **El ganador podía perder el premio con "Revancha"**: en el modal de victoria
+  con plata competían dos botones magenta ("Cobrar" y "Revancha") y un toque en
+  Revancha cerraba el modal perdiendo la firma del árbitro (una sola vive en
+  memoria). Mientras haya premio sin cobrar, **"Cobrar" es la única acción
+  destacada**; Revancha e Inicio bajan a enlaces discretos.
+- **Contraste accesible**: el gris más tenue (avisos legales, "demo/testnet",
+  notas al pie) subió de ≈4.08:1 a ≈4.95:1 sobre el fondo — ahora cumple WCAG AA.
+
 ## [3.3.0] — 2026-07-14
 
 **Primer acto de v4.2 "Agentes de verdad"**: cualquier dev puede competir con
