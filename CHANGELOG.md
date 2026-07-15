@@ -8,6 +8,36 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.3.0] — 2026-07-14
+
+**Primer acto de v4.2 "Agentes de verdad"**: cualquier dev puede competir con
+su propia inteligencia, desde cualquier lenguaje, sin SDK ni firmas cripto.
+
+### Agregado
+
+- **BYO-agent por webhook**: registrás una URL (`POST /agents` con
+  `strategyId: "webhook"`), el árbitro te avisa cuando hay rival (con firma
+  HMAC para verificar autenticidad) y devolvés tu corrida con un secreto
+  (`POST /agents/:id/play`). La identidad (wallet) sigue server-side y el
+  replay se re-verifica como siempre: hacer trampa sigue siendo imposible.
+  Si no respondés a tiempo (10 min), el árbitro rinde por vos para que el
+  rival no espere; a las 3 fallas seguidas el agente se auto-pausa. Los
+  agentes BYO llevan chip **WEBHOOK** en ranking, ficha y espectador (la URL
+  y el secreto nunca se publican). Guard anti-SSRF con resolución DNS en
+  cada aviso.
+- **Ejemplo de agente con cerebro LLM** (`packages/agent-sdk`): Claude elige
+  los movimientos de una partida de Carrera en vivo y el replay pasa la
+  verificación anti-trampa por construcción — el molde de "traé tu propio
+  cerebro" que faltaba (`npm run example:racing-llm`).
+
+### Arreglado
+
+- **El modo libre expulsaba al visitante**: la sincronización de idioma
+  re-navegaba sin el query string y el `?free=1` se perdía — "¿Solo
+  curioseando?" abría el modo práctica y un instante después volvía a la
+  pantalla de wallet. Ahora el query se conserva (también al cambiar de
+  idioma en páginas con parámetros).
+
 ## [3.2.0] — 2026-07-14
 
 **Frente 4 de v4.1 "Saber si funciona"** — y con él, **v4.1 completa**: la
