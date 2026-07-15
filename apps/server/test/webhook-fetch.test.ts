@@ -24,9 +24,13 @@ test("isPrivateAddress: matriz de rangos privados/reservados", () => {
     "::",
     "::1", // IPv6 loopback
     "fe80::1", // link-local
+    "fec0::1", // site-local (deprecado pero enruta en LANs)
     "fc00::1",
     "fd12::1", // ULA
-    "::ffff:10.0.0.1", // IPv4 privada mapeada
+    "::ffff:10.0.0.1", // IPv4 privada mapeada (forma con puntos)
+    "::ffff:7f00:1", // = ::ffff:127.0.0.1 (forma hexadecimal comprimida)
+    "2002:7f00:1::", // 6to4 embebiendo 127.0.0.1
+    "64:ff9b::a00:1", // NAT64 embebiendo 10.0.0.1
     "no-es-una-ip", // basura: rechazar por las dudas
   ];
   for (const ip of privadas) assert.equal(isPrivateAddress(ip), true, `${ip} debe ser privada`);

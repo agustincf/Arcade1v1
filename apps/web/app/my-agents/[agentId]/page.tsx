@@ -14,7 +14,7 @@ import { useWallet, useEnsureChain } from "@/app/lib/wallet";
 import { GameIcon } from "@/app/components/GameIcon";
 import { HouseChip } from "@/app/components/HouseChip";
 import { WebhookChip } from "@/app/components/WebhookChip";
-import { shortAddress, playerLabel } from "@/app/lib/wallet";
+import { shortAddress, playerLabel, agentTag } from "@/app/lib/wallet";
 import { ChallengeButton } from "../ChallengeButton";
 import {
   getAgent,
@@ -230,14 +230,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
                   </span>
                   <span className="text-(--color-muted-2)">
                     {t("agent.vs")}{" "}
-                    {m.opponent
-                      ? playerLabel(
-                          m.opponent,
-                          m.name,
-                          m.avatar,
-                          m.house ? t("chip.house") : m.byo ? t("chip.webhook") : undefined,
-                        )
-                      : "?"}
+                    {m.opponent ? playerLabel(m.opponent, m.name, m.avatar, agentTag(m, t)) : "?"}
                   </span>
                   {typeof m.ratingDelta === "number" && (
                     <span

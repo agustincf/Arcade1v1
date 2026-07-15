@@ -46,19 +46,25 @@ export function isPrivateAddress(ip: string): boolean {
   }
   if (kind === 6) {
     const low = ip.toLowerCase();
-    // IPv4-mapeada (::ffff:10.0.0.1): decide la IPv4 embebida.
-    const mapped = low.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    if (mapped) return isPrivateAddress(mapped[1]);
-    if (low === "::" || low === "::1") return true; // no especificada / loopback
-    if (
-      low.startsWith("fe8") ||
-      low.startsWith("fe9") ||
-      low.startsWith("fea") ||
-      low.startsWith("feb")
-    ) {
-      return true; // fe80::/10 link-local
+    // IPv4 embebida en IPv6: decide la IPv4. Cubre la forma con puntos
+    // (::ffff:10.0.0.1) y la hexadecimal (::ffff:a00:1 = ::ffff:10.0.0.1).
+    const mapped = low.match(/^::ffff:(.+)$/);
+    if (mapped) {
+      const tail = mapped[1];
+      if (tail.includes(".")) return isPrivateAddress(tail);
+      const groups = tail.split(":");
+      if (groups.length === 2 && groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) {
+        const hex = groups.map((g) => g.padStart(4, "0")).join("");
+        const oct = [0, 2, 4, 6].map((i) => parseInt(hex.slice(i, i + 2), 16));
+        return isPrivateAddress(oct.join("."));
+      }
     }
+    if (low === "::" || low === "::1") return true; // no especificada / loopback
+    // fe80::/10 link-local + fec0::/10 site-local (deprecado pero enruta en LANs).
+    if (/^fe[89a-f]/.test(low)) return true;
     if (low.startsWith("fc") || low.startsWith("fd")) return true; // fc00::/7 ULA
+    if (low.startsWith("2002:")) return true; // 6to4: embebe una IPv4 arbitraria
+    if (low.startsWith("64:ff9b:")) return true; // NAT64 well-known (embebe IPv4)
     return false;
   }
   return true; // no es una IP válida: rechazar por las dudas
@@ -99,6 +105,20 @@ export function webhookSignature(secret: string, body: string): string {
   return createHmac("sha256", secret).update(body).digest("hex");
 }
 
+/** Acota una promesa a un presupuesto de tiempo (dns.lookup no acepta signal:
+ *  un nameserver que no responde colgaría el tick del runner sin cota). */
+async function withTimeout<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
+  let t: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, rej) => {
+    t = setTimeout(() => rej(new Error(msg)), ms);
+  });
+  try {
+    return await Promise.race([p, timeout]);
+  } finally {
+    clearTimeout(t!);
+  }
+}
+
 /** Notifica al webhook del dev. Guard AUTORITATIVO: re-valida la URL,
  *  resuelve DNS y rechaza si CUALQUIER address es privada, POST con timeout
  *  corto y sin seguir redirects. Tira si algo falla (el runner cuenta la
@@ -112,7 +132,11 @@ export async function notifyWebhook(
     const host = url.hostname.replace(/^\[|\]$/g, "");
     // Host con IP literal ya validado arriba; los nombres se resuelven acá.
     if (!isIP(host)) {
-      const addrs = await lookup(host, { all: true });
+      const addrs = await withTimeout(
+        lookup(host, { all: true }),
+        NOTIFY_TIMEOUT_MS,
+        "webhook dns lookup timeout",
+      );
       if (addrs.length === 0) throw new Error("webhook host did not resolve");
       for (const { address } of addrs) {
         if (isPrivateAddress(address)) throw new Error("webhook host resolves to private address");

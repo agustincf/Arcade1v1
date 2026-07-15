@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import type { Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { getStrategy, validateParams, AGENT_AVATARS } from "@arcade1v1/strategies";
-import { isKnownGame, dropWaitingMatch } from "./matchmaking.js";
+import { isKnownGame, dropWaitingMatch, type MatchView } from "./matchmaking.js";
 import { getRating } from "./ratings.js";
 import { recordAgentCreated } from "./stats.js";
 import { jsonStore } from "./persist.js";
@@ -288,6 +288,24 @@ export function deleteAgent(id: string) {
   releaseQueue(a);
   agents.delete(id);
   save();
+}
+
+/** Si la partida quedó decidida, registra el resultado en el historial del
+ *  agente. Un solo lugar para todos los caminos que cierran una partida
+ *  (runner: normal, forfeit; ruta /play de los BYO) — antes el mapeo
+ *  MatchView→AgentMatchSummary estaba copiado en 4 puntos de 2 archivos. */
+export function recordSettledResult(a: HostedAgent, m: MatchView, address: string): void {
+  if (m.status !== "settled" && m.status !== "draw") return;
+  recordAgentResult(a, {
+    matchId: m.matchId,
+    game: m.game,
+    opponent: m.opponent,
+    yourScore: m.yourScore,
+    rivalScore: m.rivalScore,
+    outcome: m.status === "draw" ? "draw" : m.winner === address ? "win" : "loss",
+    ratingDelta: m.ratingDelta,
+    ts: Date.now(),
+  });
 }
 
 /** El runner registra el resultado de una partida terminada del agente. */

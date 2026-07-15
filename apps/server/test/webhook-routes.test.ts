@@ -143,6 +143,15 @@ test("/play: secreto malo 401; id inexistente 404; sin partida pendiente 409", a
     { Authorization: `Bearer ${secret}` },
   );
   assert.equal(noPending.status, 409);
+
+  // El esquema es case-insensitive (RFC 7235): "bearer" en minúscula con el
+  // secreto correcto NO debe rebotar por auth (llega hasta el 409 de pending).
+  const lower = await post(
+    `/agents/${id}/play`,
+    { matchId: "m_x", score: 1, replay: {} },
+    { Authorization: `bearer ${secret}` },
+  );
+  assert.equal(lower.status, 409, "bearer minúscula pasa la auth (no 401)");
 });
 
 test("/play feliz: replay real → 200 settled, historial registrado, segundo /play 409", async () => {

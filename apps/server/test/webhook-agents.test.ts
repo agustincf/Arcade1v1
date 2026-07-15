@@ -109,7 +109,7 @@ test("emparejar → notificar con HMAC verificable → forfeit al vencer el plaz
   assert.equal(byo.webhook!.failures, 1, "el forfeit cuenta como falla");
 });
 
-test("endpoint roto (500): la falla cuenta y el reloj arranca igual", async () => {
+test("endpoint roto (500): el reloj arranca igual; la falla la cuenta el forfeit, no la notificación", async () => {
   pauseAll();
   received.length = 0;
   respondWith = 500;
@@ -118,8 +118,14 @@ test("endpoint roto (500): la falla cuenta y el reloj arranca igual", async () =
     newHostedRival("Rival Flappy", "flappy");
     for (let i = 0; i < 4 && received.length === 0; i++) await runAgentsTick();
     assert.equal(received.length, 1, "se intentó notificar");
-    assert.equal(byo.webhook!.failures, 1, "500 → falla contada");
+    // La notificación fallida NO cuenta falla por sí sola: arranca el reloj y el
+    // forfeit al vencer la cuenta (una sola por partida). Así el rival nunca
+    // queda colgado y "3 fallas" son 3 partidas sin responder, no partida y media.
+    assert.equal(byo.webhook!.failures, 0, "la notificación fallida no cuenta sola");
     assert.ok(byo.webhook!.notifiedAt, "el reloj corre aunque la notificación falle");
+    await sleep(200); // > deadline
+    await runAgentsTick(); // forfeit
+    assert.equal(byo.webhook!.failures, 1, "el forfeit cuenta la única falla de la partida");
   } finally {
     respondWith = 200;
   }
@@ -142,6 +148,31 @@ test("fallas consecutivas → auto-pausa", async () => {
   } finally {
     respondWith = 200;
   }
+});
+
+test("kill switch a mitad de partida: el runner rinde igual, el rival no queda colgado", async () => {
+  pauseAll();
+  received.length = 0;
+  respondWith = 200;
+  const byo = newWebhookAgent("EnVuelo", "snake");
+  newHostedRival("Rival EnVuelo", "snake");
+  // Emparejar y notificar (partida en vuelo, esperando el /play del dev).
+  for (let i = 0; i < 4 && received.length === 0; i++) await runAgentsTick();
+  assert.equal(received.length, 1, "notificada");
+  const matchId = String(received[0].body.matchId);
+
+  // Apagar el kill switch con la partida ya emparejada. El agente igual debe
+  // cerrarla (rendir) — antes, el runner lo salteaba y el rival esperaba ~2h.
+  process.env.WEBHOOK_AGENTS_ENABLED = "false";
+  try {
+    await runAgentsTick();
+  } finally {
+    delete process.env.WEBHOOK_AGENTS_ENABLED;
+  }
+  const m = getMatch(matchId, byo.address.toLowerCase());
+  assert.ok(m, "la partida sigue viva");
+  assert.equal(m!.scores[byo.address.toLowerCase()], 0, "rendida pese al kill switch");
+  assert.equal(byo.webhook!.failures, 0, "el forfeit por kill switch no cuenta como falla del dev");
 });
 
 test("desafío al BYO: NO se notifica hasta que el retador juegue", async () => {

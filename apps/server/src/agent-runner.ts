@@ -22,7 +22,7 @@ import {
   isHouseWallet,
   listAgents,
   markWebhookNotified,
-  recordAgentResult,
+  recordSettledResult,
   recordWebhookFailure,
   setAgentPending,
   type HostedAgent,
@@ -64,16 +64,7 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
 
   // Terminó: registrar el resultado en el historial del agente.
   if (m.status === "settled" || m.status === "draw") {
-    recordAgentResult(agent, {
-      matchId: m.matchId,
-      game: m.game,
-      opponent: m.opponent,
-      yourScore: m.yourScore,
-      rivalScore: m.rivalScore,
-      outcome: m.status === "draw" ? "draw" : m.winner === address ? "win" : "loss",
-      ratingDelta: m.ratingDelta,
-      ts: Date.now(),
-    });
+    recordSettledResult(agent, m, address);
     return false;
   }
 
@@ -105,14 +96,28 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
   if (m.status === "ready" && m.scores[address] === undefined) {
     if (m.challengeTarget && !m.rivalSubmitted) return false;
 
-    // AGENTE BYO: el cerebro está afuera. (1) Notificar al webhook del dev y
-    // arrancar el reloj; (2) si el plazo venció sin /play, rendir por él
-    // (score 0 verificable) para que el rival cobre en minutos; (3) mientras
-    // corre el plazo, esperar (el /play del dev es quien juega de verdad).
+    // AGENTE BYO: el cerebro está afuera. El invariante clave es que una
+    // partida ya emparejada SIEMPRE se cierra (juega o se rinde), pase lo que
+    // pase con la notificación, la auto-pausa o el kill switch — si no, el
+    // rival queda colgado ~2h. Por eso la rendición está al final y la pausa
+    // solo ocurre DESPUÉS de cerrar la partida.
     if (agent.webhook) {
+      const killed = !webhookAgentsEnabled();
       const notifiedAt = agent.webhook.notifiedAt;
-      if (!notifiedAt) {
+
+      // Dentro del plazo (y con el webhook habilitado): esperar el /play del dev.
+      if (!killed && notifiedAt && Date.now() - notifiedAt < WEBHOOK_PLAY_DEADLINE_MS) {
+        return false;
+      }
+      // Primer contacto: avisar al dev y ARRANCAR EL RELOJ. Se marca ANTES del
+      // await: aunque la notificación falle o el tick se solape, no se
+      // re-notifica la misma partida ni queda sin deadline. La notificación
+      // fallida NO cuenta falla acá (el forfeit de abajo la cuenta, una sola
+      // por partida) — así "3 fallas" = 3 partidas sin responder, como dicen
+      // las docs, en vez de pausar a la partida y media.
+      if (!killed && !notifiedAt) {
         const deadline = Date.now() + WEBHOOK_PLAY_DEADLINE_MS;
+        markWebhookNotified(agent);
         try {
           await notifyWebhook(agent.webhook, {
             agentId: agent.id,
@@ -122,48 +127,40 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
             deadline,
           });
         } catch (e) {
-          // Sin canal con el dev: cuenta la falla PERO el reloj arranca igual
-          // (abajo) — al vencer, el forfeit libera al rival en vez de colgarlo.
-          if (recordWebhookFailure(agent)) {
-            console.log(
-              `webhook agent ${agent.id} auto-pausado (notificación):`,
-              (e as Error).message,
-            );
-            return false; // pausado: soltó la cola, no hay reloj que correr
-          }
+          console.log(`webhook notify ${agent.id}:`, (e as Error).message);
         }
-        markWebhookNotified(agent);
         return false; // notificar es barato: no cuenta para el throttle
       }
-      if (Date.now() - notifiedAt < WEBHOOK_PLAY_DEADLINE_MS) return false; // esperando /play
-      // Plazo vencido: RENDICIÓN REAL en su nombre (replay vacío verificable).
-      const account = privateKeyToAccount(agent.privateKey);
-      const signature = await account.signMessage({
-        message: scoreAuthMessage(m.matchId, address, 0),
-      });
-      const after = await submitScore(
-        m.matchId,
-        address,
-        0,
-        emptyReplay(m.game, m.seed),
-        signature,
-      );
-      if (recordWebhookFailure(agent)) {
-        console.log(`webhook agent ${agent.id} auto-pausado (forfeit por plazo vencido)`);
-      }
-      if (after.status === "settled" || after.status === "draw") {
-        recordAgentResult(agent, {
-          matchId: after.matchId,
-          game: after.game,
-          opponent: after.opponent,
-          yourScore: after.yourScore,
-          rivalScore: after.rivalScore,
-          outcome: after.status === "draw" ? "draw" : after.winner === address ? "win" : "loss",
-          ratingDelta: after.ratingDelta,
-          ts: Date.now(),
+
+      // Plazo vencido (o kill switch apagado): RENDICIÓN REAL (replay vacío
+      // verificable) para que el rival cobre en minutos. Cerrar la partida es
+      // lo importante; la auto-pausa viene después.
+      try {
+        const account = privateKeyToAccount(agent.privateKey);
+        const signature = await account.signMessage({
+          message: scoreAuthMessage(m.matchId, address, 0),
         });
+        const after = await submitScore(
+          m.matchId,
+          address,
+          0,
+          emptyReplay(m.game, m.seed),
+          signature,
+        );
+        // El dev no cumplió ESTA partida → una falla (el forfeit por kill
+        // switch no cuenta: no es su culpa). Ocurre tras cerrar la partida.
+        if (!killed && recordWebhookFailure(agent)) {
+          console.log(`webhook agent ${agent.id} auto-pausado (partidas sin responder)`);
+        }
+        recordSettledResult(agent, after, address);
+        return true; // el forfeit re-simuló un replay: cuenta para el throttle
+      } catch (e) {
+        // El match pudo expirar/purgarse entre medio: soltar el pending para no
+        // reintentar el forfeit en loop tick tras tick.
+        console.error(`webhook forfeit ${agent.id}:`, (e as Error).message);
+        setAgentPending(agent, undefined);
+        return false;
       }
-      return true; // el forfeit re-simuló un replay: cuenta para el throttle
     }
 
     const { score, replay } = runStrategy(
@@ -175,18 +172,7 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
       message: scoreAuthMessage(m.matchId, address, score),
     });
     const after = await submitScore(m.matchId, address, score, replay, signature);
-    if (after.status === "settled" || after.status === "draw") {
-      recordAgentResult(agent, {
-        matchId: after.matchId,
-        game: after.game,
-        opponent: after.opponent,
-        yourScore: after.yourScore,
-        rivalScore: after.rivalScore,
-        outcome: after.status === "draw" ? "draw" : after.winner === address ? "win" : "loss",
-        ratingDelta: after.ratingDelta,
-        ts: Date.now(),
-      });
-    }
+    recordSettledResult(agent, after, address);
     return true; // jugó (cuenta para el throttle global)
   }
 
@@ -220,15 +206,20 @@ async function enqueueAgent(agent: HostedAgent) {
 export async function runAgentsTick(now = Date.now()): Promise<void> {
   let plays = 0;
   for (const agent of listAgents()) {
-    if (!agent.active) continue;
-    // Kill switch de BYO: apagado, los agentes webhook no se encolan ni juegan.
-    if (agent.webhook && !webhookAgentsEnabled()) continue;
     if (plays >= MAX_PLAYS_PER_TICK) break;
     try {
+      // Una partida EN VUELO se cierra siempre —aunque el agente esté pausado o
+      // el kill switch de webhooks esté off— porque su rival ya está emparejado
+      // y esperando: dejarla abierta lo cuelga ~2h hasta el reembolso en vez de
+      // darle el resultado en minutos.
       if (agent.pendingMatchId) {
         if (await playPendingMatch(agent)) plays++;
         continue;
       }
+      // Sin partida en vuelo: un agente pausado o con el kill switch off NO
+      // encola partidas nuevas.
+      if (!agent.active) continue;
+      if (agent.webhook && !webhookAgentsEnabled()) continue;
       // DESAFÍOS: tienen prioridad sobre la cola aleatoria. Si hay uno dirigido a
       // este agente, lo acepta (in-process) y lo juega.
       const challenges = pendingChallengesFor(agent.address);

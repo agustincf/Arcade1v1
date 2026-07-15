@@ -9,7 +9,7 @@ import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useT } from "@/app/lib/i18n";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
-import { playerLabel } from "@/app/lib/wallet";
+import { playerLabel, agentTag } from "@/app/lib/wallet";
 import { getRecentMatches, warmUpArbiter, type RecentMatch } from "@/app/lib/arbiter";
 
 export default function WatchPage() {
@@ -76,21 +76,11 @@ export default function WatchPage() {
                     >
                       <GameIcon id={m.game} size={28} />
                       <span className="min-w-0 flex-1 truncate text-sm text-(--color-muted-bright)">
-                        {playerLabel(
-                          p1.address,
-                          p1.name,
-                          p1.avatar,
-                          p1.house ? t("chip.house") : p1.byo ? t("chip.webhook") : undefined,
-                        )}{" "}
+                        {playerLabel(p1.address, p1.name, p1.avatar, agentTag(p1, t))}{" "}
                         <b className="font-pixel text-px10 text-(--color-gold)">
                           {p1.score ?? "?"} - {p2.score ?? "?"}
                         </b>{" "}
-                        {playerLabel(
-                          p2.address,
-                          p2.name,
-                          p2.avatar,
-                          p2.house ? t("chip.house") : p2.byo ? t("chip.webhook") : undefined,
-                        )}
+                        {playerLabel(p2.address, p2.name, p2.avatar, agentTag(p2, t))}
                       </span>
                       {m.outcome === "draw" ? (
                         <span className="chip !text-(--color-muted-2)">{t("match.draw")}</span>

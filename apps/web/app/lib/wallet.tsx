@@ -48,3 +48,13 @@ export function playerLabel(address: string, name?: string, avatar?: string, tag
   const base = name ? `${avatar ?? ""} ${name} · ${shortAddress(address)}` : shortAddress(address);
   return tag ? `${base} · ${tag}` : base;
 }
+
+/** Etiqueta de un agente para el `tag` de playerLabel: CASA gana sobre WEBHOOK.
+ *  Una sola definición de la precedencia, en vez de repetir el ternario en cada
+ *  vista (ranking, espectador, historial). */
+export function agentTag(
+  x: { house?: boolean; byo?: boolean },
+  t: (key: string) => string,
+): string | undefined {
+  return x.house ? t("chip.house") : x.byo ? t("chip.webhook") : undefined;
+}

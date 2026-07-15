@@ -15,7 +15,7 @@ import {
   deleteAgent,
   getAgent,
   listAgents,
-  recordAgentResult,
+  recordSettledResult,
   resetWebhookFailures,
   setAgentActive,
   setAgentPending,
@@ -165,7 +165,9 @@ agentsRouter.post("/agents/:id/play", async (req, res) => {
   if (!webhookAgentsEnabled()) return res.status(403).json({ error: "webhook agents disabled" });
 
   const auth = String(req.headers.authorization ?? "");
-  const given = auth.startsWith("Bearer ")
+  // El esquema Authorization es case-insensitive (RFC 7235): aceptamos
+  // "Bearer" y "bearer" para no rebotar a un cliente con el secreto correcto.
+  const given = /^bearer /i.test(auth)
     ? auth.slice(7)
     : String(req.headers["x-agent-secret"] ?? "");
   if (!given || !secretMatches(given, a.webhook.secret)) {
@@ -202,18 +204,7 @@ agentsRouter.post("/agents/:id/play", async (req, res) => {
     });
     const after = await submitScore(String(matchId), address, n, replay, signature);
     resetWebhookFailures(a); // el endpoint del dev vive y juega
-    if (after.status === "settled" || after.status === "draw") {
-      recordAgentResult(a, {
-        matchId: after.matchId,
-        game: after.game,
-        opponent: after.opponent,
-        yourScore: after.yourScore,
-        rivalScore: after.rivalScore,
-        outcome: after.status === "draw" ? "draw" : after.winner === address ? "win" : "loss",
-        ratingDelta: after.ratingDelta,
-        ts: Date.now(),
-      });
-    }
+    recordSettledResult(a, after, address); // no-op si la partida no se decidió
     // El MatchView estándar: el mismo feedback rico que cualquier jugador.
     res.json(after);
   } catch (e) {
