@@ -10,7 +10,7 @@
 import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "@/app/lib/i18n";
-import { useWallet } from "@/app/lib/wallet";
+import { useWallet, useEnsureChain } from "@/app/lib/wallet";
 import { useEscrow } from "@/app/lib/useEscrow";
 import { onchainEnabled } from "@/app/lib/escrow";
 import { IS_MAINNET } from "@/app/lib/config";
@@ -34,6 +34,7 @@ function fmtUsdc(units: bigint): string {
 export function FaucetClient() {
   const { t } = useT();
   const { address, connected, connect } = useWallet();
+  const ensureChain = useEnsureChain();
   const escrow = useEscrow();
 
   const [balance, setBalance] = useState<bigint | null>(null);
@@ -62,6 +63,10 @@ export function FaucetClient() {
     setDone(false);
     setMinting(true);
     try {
+      // La wallet tiene que estar en la red de la app antes de firmar el mint.
+      // Sin esto, una wallet parada en Ethereum (típico) hacía fallar el faucet
+      // con un error críptico y parecía "roto".
+      await ensureChain();
       await escrow.mintTestUsdc(address as `0x${string}`, MINT_AMOUNT);
       setDone(true);
       await refreshBalance();

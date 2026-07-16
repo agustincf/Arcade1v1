@@ -20,5 +20,13 @@ export const wagmiConfig = getDefaultConfig({
     // el publico de la red (alcanza para test, corto de rate-limit para prod).
     [CHAIN.id]: http(process.env.NEXT_PUBLIC_RPC_URL || undefined),
   },
-  ssr: true,
+  // ssr: false a propósito. Con `ssr: true`, wagmi difiere el estado esperando
+  // que lo hidraten desde la cookie (cookieToInitialState) en el server — pero
+  // ese config lo crea getDefaultConfig de RainbowKit, que es SOLO-cliente y no
+  // se puede importar en un server component. Sin esa hidratación, el store
+  // arrancaba desincronizado y CONECTAR la wallet no se reflejaba hasta recargar.
+  // Toda la UI de wallet acá es client-side (el header ya usa `mounted`), así que
+  // el modo cliente puro (localStorage) es el correcto: la conexión reacciona al
+  // instante y la reconexión al recargar sigue andando.
+  ssr: false,
 });
