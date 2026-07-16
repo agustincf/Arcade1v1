@@ -83,6 +83,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // Estado on-chain. El depósito es UNA sola acción: aprueba el USDC (solo la
   // primera vez) y enseguida abre/se une a la partida.
   const [role, setRole] = useState<"p1" | "p2" | null>(null);
+  // Asiento firmado por el árbitro (autoriza a esta wallet a depositar en esta
+  // partida). Llega en la respuesta de matchmake y el contrato lo exige en
+  // open/join para atar al rival on-chain (anti-secuestro del slot).
+  const [seatSig, setSeatSig] = useState<string | null>(null);
   const [deposited, setDeposited] = useState(false);
   const [funding, setFunding] = useState<"" | "approving" | "depositing">("");
   const [depositErr, setDepositErr] = useState(false);
@@ -163,6 +167,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
         setMatchId(v.matchId);
         setSeed(v.seed);
         setRole(v.role ?? null);
+        setSeatSig(v.seatSig ?? null); // asiento para depositar (mesas de plata)
       } catch {
         mmStarted.current = false;
         if (devMode) {
@@ -246,6 +251,13 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     if (!matchId || !address) return;
     setDepositErr(false);
     const mid = matchId as `0x${string}`;
+    // Sin el asiento del árbitro no se puede depositar (el contrato lo exige).
+    // No debería faltar en una mesa de plata; si falta, avisamos y no seguimos.
+    if (!seatSig) {
+      setDepositErr(true);
+      return;
+    }
+    const seat = seatSig as `0x${string}`;
     try {
       // Recordamos la partida ANTES de pagar. El depósito puede MINARSE y aun así
       // fallar la espera del recibo (RPC lento en testnet): si recordáramos
@@ -279,11 +291,13 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       setFunding("approving");
       await escrow.approveStake(address as `0x${string}`, bet);
       // 2) Depósito: el 1ro ABRE la partida, el 2do se UNE a la que abrió el rival.
+      //    Cada uno presenta su asiento (firma del árbitro) para que el contrato
+      //    lo acepte: sin él, open/join revierten "bad seat".
       setFunding("depositing");
       if (role === "p2") {
-        await escrow.join(mid, bet);
+        await escrow.join(mid, bet, seat);
       } else {
-        await escrow.open(mid, bet);
+        await escrow.open(mid, bet, seat);
       }
       setDeposited(true);
     } catch {

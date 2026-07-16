@@ -8,6 +8,31 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.4.0] — sin publicar · REQUIERE REDESPLEGAR EL CONTRATO
+
+**Arreglos de la auditoría que tocan el escrow.** Cambian la firma de `open`/`join`
+del contrato, así que **no se pueden auto-desplegar**: hay que desplegar el nuevo
+escrow y apuntar web + servidor a su dirección en un paso coordinado (ver
+`docs/REDEPLOY-v3.4.0.md`). Verificado con 14 tests de Foundry + el E2E on-chain
+en anvil (backend + contrato) — ciclo de pago y reembolso en empate.
+
+### Seguridad
+
+- **Se ata al rival on-chain (fin del secuestro de slot)**: antes, como el
+  contrato no sabía quién era el rival previsto, un observador podía front-runnear
+  el depósito del rival legítimo, ocupar su lugar y dejar la partida imposible de
+  liquidar (fondos trabados hasta el reembolso). Ahora el árbitro firma un
+  **"asiento" EIP-712** `Seat(matchId, player)` para cada jugador que empareja, y
+  `open`/`join` exigen esa firma: un tercero no puede fabricarla, así que no puede
+  ocupar ningún slot. El asiento viaja en la respuesta de `matchmake` (mesas de
+  plata) y no le cuesta gas al árbitro.
+- **Período de gracia en el reembolso por vencimiento**: pasado el plazo de juego,
+  `settle` (pagar al ganador) y `refundExpired` (reembolsar) eran válidos a la vez;
+  un perdedor podía front-runnear un `settle` tardío con `refundExpired` para
+  escapar de la derrota. Ahora `refundExpired` recién vale tras `playDeadline +
+30 min`: le da al árbitro una ventana firme para liquidar, sin perder el
+  reembolso permissionless como red de seguridad.
+
 ## [3.3.1] — 2026-07-15
 
 **Auditoría de despedida**: barrido multi-agente (bugs, seguridad, flujo de

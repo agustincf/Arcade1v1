@@ -38,14 +38,23 @@ export const escrowAbi = [
   {
     type: "function",
     name: "open",
-    inputs: [{ type: "bytes32" }, { type: "uint256" }, { type: "uint64" }, { type: "uint64" }],
+    inputs: [
+      { type: "bytes32" },
+      { type: "uint256" },
+      { type: "uint64" },
+      { type: "uint64" },
+      { type: "bytes" }, // seatSig: firma del árbitro que autoriza a p1
+    ],
     outputs: [],
     stateMutability: "nonpayable",
   },
   {
     type: "function",
     name: "join",
-    inputs: [{ type: "bytes32" }],
+    inputs: [
+      { type: "bytes32" },
+      { type: "bytes" }, // seatSig: firma del árbitro que autoriza a p2
+    ],
     outputs: [],
     stateMutability: "nonpayable",
   },
