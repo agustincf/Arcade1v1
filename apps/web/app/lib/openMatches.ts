@@ -14,6 +14,12 @@ export interface OpenMatch {
   role: "p1" | "p2";
   /** epoch (ms) en que se registró, para ordenar de más nuevo a más viejo. */
   ts: number;
+  /** Si GANASTE esta partida: la firma del árbitro para cobrar y el ganador
+   *  firmado. Se guarda al terminar la partida para que, si te fuiste antes de
+   *  cobrar, puedas reclamar el premio desde /recover (no solo reembolsos). La
+   *  verdad vive on-chain/servidor; esto es un atajo local. */
+  winSig?: `0x${string}`;
+  winner?: `0x${string}`;
 }
 
 const KEY = "arcade.openMatches";
@@ -51,6 +57,30 @@ export function rememberMatch(address: string, m: OpenMatch) {
     s[k] = list.slice(0, 50); // tope sano: no acumular para siempre
     writeStore(s);
   }
+}
+
+/** Guarda la firma para cobrar cuando GANÁS. Actualiza el registro existente
+ *  (creado al depositar); si no existe todavía, lo crea con lo que sabemos.
+ *  Así el premio se puede reclamar desde /recover aunque cierres la pestaña. */
+export function rememberWin(
+  address: string,
+  m: { matchId: `0x${string}`; game: string; bet: number; role: "p1" | "p2" },
+  winSig: `0x${string}`,
+  winner: `0x${string}`,
+) {
+  if (!address) return;
+  const s = readStore();
+  const k = norm(address);
+  const list = s[k] ?? [];
+  const existing = list.find((x) => x.matchId.toLowerCase() === m.matchId.toLowerCase());
+  if (existing) {
+    existing.winSig = winSig;
+    existing.winner = winner;
+  } else {
+    list.unshift({ ...m, ts: Date.now(), winSig, winner });
+  }
+  s[k] = list.slice(0, 50);
+  writeStore(s);
 }
 
 /** Partidas registradas por esta wallet, de más nueva a más vieja. */

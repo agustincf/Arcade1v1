@@ -10,7 +10,7 @@ import { useT } from "@/app/lib/i18n";
 import { useWallet, useEnsureChain } from "@/app/lib/wallet";
 import { useEscrow } from "@/app/lib/useEscrow";
 import { onchainEnabled } from "@/app/lib/escrow";
-import { rememberMatch } from "@/app/lib/openMatches";
+import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
 import { useSignMessage } from "wagmi";
 import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
 import {
@@ -230,6 +230,16 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       if (v.signature && v.winner) {
         setWinnerSig(v.signature);
         setWinnerAddr(v.winner);
+        // Y la PERSISTIMOS: si el ganador se va antes de cobrar, puede reclamar
+        // el premio desde /recover (antes solo vivía en memoria y se perdía).
+        if (address && onchainEnabled && bet > 0 && role) {
+          rememberWin(
+            address,
+            { matchId: v.matchId as `0x${string}`, game: game!.id, bet, role },
+            v.signature as `0x${string}`,
+            v.winner as `0x${string}`,
+          );
+        }
       }
     } else setOutcome("lose");
     if (typeof v.rating === "number") {

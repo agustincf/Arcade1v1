@@ -255,7 +255,7 @@ export const es: Dict = {
   "status.loading": "Leyendo el estado…",
   "recover.title": "RECUPERAR FONDOS",
   "recover.intro":
-    "Si abriste una partida de plata y no apareció rival a tiempo —o la partida se llenó pero terminó sin resultado— acá podés recuperar tu depósito. Los fondos siempre están seguros en el contrato.",
+    "Si abriste una partida de plata y no apareció rival a tiempo —o la partida se llenó pero terminó sin resultado— acá podés recuperar tu depósito. ¿Ganaste pero te fuiste antes de cobrar? También reclamás tu premio acá. Los fondos siempre están seguros en el contrato.",
   "recover.notConfigured":
     "Los pagos on-chain no están configurados en este entorno, así que no hay nada para recuperar.",
   "recover.connectPrompt": "Conectá tu wallet para ver tus partidas abiertas.",
@@ -270,6 +270,9 @@ export const es: Dict = {
   "recover.st.fundedWaiting": "Llena · esperando el resultado",
   "recover.st.fundedRefund": "Sin resultado a tiempo — recuperá tu depósito",
   "recover.st.settled": "Ya saldada (pagada)",
+  "recover.st.claimable": "Ganaste — cobrá tu premio",
+  "recover.claimBtn": "Cobrar {prize} USDC",
+  "recover.claimDone": "Premio cobrado ✓",
   "recover.st.refunded": "Ya reembolsada",
   "recover.st.unknown": "No encontrada on-chain (¿red equivocada?)",
   "recover.availAfter": "Reembolso disponible a partir del {date}",

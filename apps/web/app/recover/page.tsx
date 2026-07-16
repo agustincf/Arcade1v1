@@ -2,11 +2,14 @@
 
 // Página "Recuperar fondos": lista las partidas de plata que esta wallet abrió o
 // a las que se unió on-chain, lee el estado REAL del contrato y, si corresponde,
-// permite reclamar el reembolso:
-//   - Partida ABIERTA (Open) sin rival al vencer el plazo de depósito -> refundUnfunded
-//   - Partida LLENA (Funded) sin resultado al vencer el plazo de juego -> refundExpired
-// Cumple la promesa "sin rival en 1 hora, te devolvemos todo" incluso si el
-// usuario cerró la pestaña tras depositar (modelo asincrónico "depositá y andate").
+// permite:
+//   - COBRAR el premio: partida LLENA (Funded) que GANASTE -> settle con la firma
+//     del árbitro (guardada localmente o pedida al servidor). Sin esto, el ganador
+//     que se iba antes de reclamar perdía la ganancia.
+//   - Reembolso, partida ABIERTA (Open) sin rival al vencer el plazo -> refundUnfunded
+//   - Reembolso, partida LLENA sin resultado al vencer el plazo -> refundExpired
+// Cumple "depositá y andate": aunque cierres la pestaña, volvés y cobrás o te
+// reembolsan. La verdad vive on-chain; el índice local es solo un atajo.
 
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "@/app/lib/i18n";
@@ -14,9 +17,12 @@ import { useWallet, shortAddress } from "@/app/lib/wallet";
 import { useEscrow } from "@/app/lib/useEscrow";
 import { onchainEnabled, MatchStatus } from "@/app/lib/escrow";
 import { listMatches, forgetMatch, type OpenMatch } from "@/app/lib/openMatches";
+import { getMatch } from "@/app/lib/arbiter";
+import { getPayout } from "@/app/lib/config";
 import { getGame } from "@/app/lib/games";
 
 type Kind =
+  | "claimable" // llena, GANASTE y todavía no cobraste -> cobrar el premio
   | "openWaiting" // abierta, todavía dentro del plazo de depósito
   | "openRefund" // abierta y vencida -> reembolsable
   | "fundedWaiting" // llena, todavía dentro del plazo de juego
@@ -29,6 +35,30 @@ interface Row extends OpenMatch {
   kind: Kind;
   /** plazo relevante (epoch s) para mostrar "disponible a partir de". */
   deadline: number;
+  /** Presentes solo cuando kind === "claimable": para enviar el settle. */
+  claimSig?: `0x${string}`;
+  claimWinner?: `0x${string}`;
+}
+
+/** Si esta partida (Funded on-chain) la GANASTE, devuelve la firma para cobrar.
+ *  Primero la firma guardada localmente; si no está (otro dispositivo), se la
+ *  pedimos al árbitro, que la recuerda mientras la partida es reciente. */
+async function resolveWin(
+  m: OpenMatch,
+  addr: string,
+): Promise<{ sig: `0x${string}`; winner: `0x${string}` } | null> {
+  if (m.winSig && m.winner && m.winner.toLowerCase() === addr.toLowerCase()) {
+    return { sig: m.winSig, winner: m.winner };
+  }
+  try {
+    const v = await getMatch(m.matchId, addr);
+    if (v?.winner && v.signature && v.winner.toLowerCase() === addr.toLowerCase()) {
+      return { sig: v.signature as `0x${string}`, winner: v.winner as `0x${string}` };
+    }
+  } catch {
+    /* árbitro inalcanzable: sin cobro automático, quedan los reembolsos */
+  }
+  return null;
 }
 
 function classify(
@@ -70,6 +100,22 @@ export default function RecoverPage() {
       for (const m of stored) {
         try {
           const s = await escrow.readMatch(m.matchId);
+          // Partida LLENA: si la ganaste, lo que corresponde es COBRAR (no esperar
+          // ni reembolsar). Antes /recover solo ofrecía reembolsos y el premio
+          // quedaba sin reclamar si te ibas del modal de victoria.
+          if (s.status === MatchStatus.Funded) {
+            const win = await resolveWin(m, address);
+            if (win) {
+              out.push({
+                ...m,
+                kind: "claimable",
+                deadline: s.playDeadline,
+                claimSig: win.sig,
+                claimWinner: win.winner,
+              });
+              continue;
+            }
+          }
           const { kind, deadline } = classify(s.status, s.fundDeadline, s.playDeadline, nowSec);
           out.push({ ...m, kind, deadline });
         } catch {
@@ -166,10 +212,12 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
   const [state, setState] = useState<"idle" | "working" | "done" | "error">("idle");
 
   const game = getGame(row.game);
+  const claimable = row.kind === "claimable";
   const refundable = row.kind === "openRefund" || row.kind === "fundedRefund";
   const resolved = row.kind === "settled" || row.kind === "refunded" || row.kind === "unknown";
 
   const statusText: Record<Kind, string> = {
+    claimable: t("recover.st.claimable"),
     openWaiting: t("recover.st.openWaiting"),
     openRefund: t("recover.st.openRefund"),
     fundedWaiting: t("recover.st.fundedWaiting"),
@@ -194,6 +242,19 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
     }
   }
 
+  // Cobrar el premio ganado: envía la firma del árbitro al contrato (settle).
+  async function doClaim() {
+    if (!row.claimSig || !row.claimWinner) return;
+    setState("working");
+    try {
+      await escrow.claim(row.matchId, row.claimWinner, row.claimSig);
+      setState("done");
+      if (address) forgetMatch(address, row.matchId);
+    } catch {
+      setState("error");
+    }
+  }
+
   return (
     <div className="win">
       <div className="win-title">
@@ -201,14 +262,14 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
           {game ? t(`game.${game.id}.name`).toUpperCase() : row.game.toUpperCase()} · {row.bet} USDC
         </span>
         <span
-          className={`chip ${refundable ? "!text-(--color-gold)" : resolved ? "!text-(--color-muted-2)" : "!text-(--color-accent-2)"}`}
+          className={`chip ${claimable ? "!text-(--color-win)" : refundable ? "!text-(--color-gold)" : resolved ? "!text-(--color-muted-2)" : "!text-(--color-accent-2)"}`}
         >
           {row.role === "p1" ? t("recover.role.p1") : t("recover.role.p2")}
         </span>
       </div>
       <div className="p-4">
         <p
-          className={`text-base font-medium ${refundable ? "text-(--color-gold)" : resolved ? "text-(--color-muted-2)" : "text-(--color-muted)"}`}
+          className={`text-base font-medium ${claimable ? "text-(--color-win)" : refundable ? "text-(--color-gold)" : resolved ? "text-(--color-muted-2)" : "text-(--color-muted)"}`}
         >
           {statusText[row.kind]}
         </p>
@@ -220,6 +281,28 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
             })}
           </p>
         )}
+
+        {claimable &&
+          (state === "done" ? (
+            <p className="mt-3 text-base font-medium text-(--color-win)">
+              {t("recover.claimDone")}
+            </p>
+          ) : (
+            <>
+              <button
+                onClick={doClaim}
+                disabled={state === "working"}
+                className="btn3d btn3d--magenta mt-4 w-full disabled:opacity-60"
+              >
+                {state === "working"
+                  ? t("recover.processing")
+                  : t("recover.claimBtn", { prize: getPayout(row.bet).prize })}
+              </button>
+              {state === "error" && (
+                <p className="mt-2 text-sm text-(--color-lose)">{t("recover.error")}</p>
+              )}
+            </>
+          ))}
 
         {refundable &&
           (state === "done" ? (

@@ -250,7 +250,7 @@ export const en: Dict = {
   "status.loading": "Reading status…",
   "recover.title": "RECOVER FUNDS",
   "recover.intro":
-    "If you opened a paid match and no rival showed up in time — or the match was full but ended without a result — you can get your deposit back here. Funds are always safe in the contract.",
+    "If you opened a paid match and no rival showed up in time — or the match was full but ended without a result — you can get your deposit back here. Won a match but left before claiming? Collect your prize here too. Funds are always safe in the contract.",
   "recover.notConfigured":
     "On-chain payments aren't configured in this environment, so there's nothing to recover.",
   "recover.connectPrompt": "Connect your wallet to see your open matches.",
@@ -265,6 +265,9 @@ export const en: Dict = {
   "recover.st.fundedWaiting": "Funded · waiting for the result",
   "recover.st.fundedRefund": "No result on time — recover your deposit",
   "recover.st.settled": "Already settled (paid out)",
+  "recover.st.claimable": "You won — claim your prize",
+  "recover.claimBtn": "Claim {prize} USDC",
+  "recover.claimDone": "Prize claimed ✓",
   "recover.st.refunded": "Already refunded",
   "recover.st.unknown": "Not found on-chain (wrong network?)",
   "recover.availAfter": "Refund available after {date}",

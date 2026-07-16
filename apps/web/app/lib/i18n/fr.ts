@@ -259,7 +259,7 @@ export const fr: Dict = {
   "status.loading": "Lecture de l'état…",
   "recover.title": "RÉCUPÉRER LES FONDS",
   "recover.intro":
-    "Si vous avez ouvert une partie en argent et qu'aucun rival n'est venu à temps — ou que la partie était pleine mais s'est terminée sans résultat — vous pouvez récupérer votre dépôt ici. Les fonds sont toujours en sécurité dans le contrat.",
+    "Si vous avez ouvert une partie en argent et qu'aucun rival n'est venu à temps — ou que la partie était pleine mais s'est terminée sans résultat — vous pouvez récupérer votre dépôt ici. Vous avez gagné mais êtes parti avant de réclamer ? Récupérez aussi votre prix ici. Les fonds sont toujours en sécurité dans le contrat.",
   "recover.notConfigured":
     "Les paiements on-chain ne sont pas configurés dans cet environnement, il n'y a donc rien à récupérer.",
   "recover.connectPrompt": "Connecte ton wallet pour voir tes parties ouvertes.",
@@ -274,6 +274,9 @@ export const fr: Dict = {
   "recover.st.fundedWaiting": "Pleine · en attente du résultat",
   "recover.st.fundedRefund": "Pas de résultat à temps — récupérez votre dépôt",
   "recover.st.settled": "Déjà réglée (payée)",
+  "recover.st.claimable": "Vous avez gagné — réclamez votre prix",
+  "recover.claimBtn": "Réclamer {prize} USDC",
+  "recover.claimDone": "Prix réclamé ✓",
   "recover.st.refunded": "Déjà remboursée",
   "recover.st.unknown": "Introuvable on-chain (mauvais réseau ?)",
   "recover.availAfter": "Remboursement disponible après le {date}",
