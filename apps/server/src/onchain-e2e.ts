@@ -91,9 +91,20 @@ async function main() {
   console.log("✓ emparejados:", m1.matchId === m2.matchId);
 
   // 2) P1 ABRE (deposita), P2 se UNE (deposita). El arbitro no toca nada.
+  //    Cada uno presenta su ASIENTO (firma del árbitro que lo autoriza a ESA
+  //    partida): sin él, open/join revierten "bad seat". El backend lo emite en
+  //    la respuesta de matchmake para mesas de plata.
   const [fund, play] = deadlines();
-  await send(p1, ESCROW, escrowAbi, "open", [m1.matchId as Hex, stake, fund, play]);
-  await send(p2, ESCROW, escrowAbi, "join", [m2.matchId as Hex]);
+  if (!m1.seatSig || !m2.seatSig)
+    throw new Error("matchmake no emitió el asiento (¿escrow activo?)");
+  await send(p1, ESCROW, escrowAbi, "open", [
+    m1.matchId as Hex,
+    stake,
+    fund,
+    play,
+    m1.seatSig as Hex,
+  ]);
+  await send(p2, ESCROW, escrowAbi, "join", [m2.matchId as Hex, m2.seatSig as Hex]);
   console.log("✓ P1 abrió + P2 se unió · escrow:", usd(await bal(ESCROW)), "USDC");
 
   // 3) Juegan y el arbitro decide + firma (P1 gana).
@@ -149,8 +160,16 @@ async function drawScenario() {
   const m1 = await matchmake("2048", 10, P1);
   const m2 = await matchmake("2048", 10, P2);
   const [fund, play] = deadlines();
-  await send(p1, ESCROW, escrowAbi, "open", [m1.matchId as Hex, stake, fund, play]);
-  await send(p2, ESCROW, escrowAbi, "join", [m2.matchId as Hex]);
+  if (!m1.seatSig || !m2.seatSig)
+    throw new Error("matchmake no emitió el asiento (¿escrow activo?)");
+  await send(p1, ESCROW, escrowAbi, "open", [
+    m1.matchId as Hex,
+    stake,
+    fund,
+    play,
+    m1.seatSig as Hex,
+  ]);
+  await send(p2, ESCROW, escrowAbi, "join", [m2.matchId as Hex, m2.seatSig as Hex]);
 
   const a = play2048(m1.seed, 80);
   await submitScore(m1.matchId, P1, a.score, a.replay);

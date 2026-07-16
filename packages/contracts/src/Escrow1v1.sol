@@ -43,6 +43,14 @@ contract Escrow1v1 is Ownable, ReentrancyGuard, EIP712 {
     /// @notice Tope duro de comision para que nadie pueda abusar (20%).
     uint16 public constant MAX_FEE_BPS = 2000;
 
+    /// @notice Margen tras el plazo de juego antes de habilitar el reembolso
+    ///         permissionless (refundExpired). Le da al arbitro una ventana firme
+    ///         para liquidar: sin esto, pasado playDeadline el PERDEDOR podia
+    ///         front-runnear un settle tardio con refundExpired y convertir su
+    ///         derrota en reembolso. El arbitro liquida al instante al tener los
+    ///         dos puntajes; este margen solo cubre una demora operativa.
+    uint64 public constant REFUND_GRACE = 30 minutes;
+
     enum Status {
         None, // no existe
         Open, // creada, esperando depositos
@@ -70,6 +78,14 @@ contract Escrow1v1 is Ownable, ReentrancyGuard, EIP712 {
 
     bytes32 private constant RESULT_TYPEHASH =
         keccak256("Result(bytes32 matchId,address winner)");
+
+    /// @dev Asiento: el arbitro autoriza que UNA address entre a ESTA partida.
+    ///      Ata al rival on-chain sin que el arbitro pague gas: cada jugador
+    ///      presenta la firma del arbitro al depositar (open/join). Como la firma
+    ///      incluye matchId + player, no sirve en otra partida ni para otro. Asi
+    ///      un observador no puede secuestrar el slot del rival (griefing/DoS).
+    bytes32 private constant SEAT_TYPEHASH =
+        keccak256("Seat(bytes32 matchId,address player)");
 
     event ArbiterUpdated(address indexed arbiter);
     event PlatformWalletUpdated(address indexed wallet);
@@ -139,7 +155,8 @@ contract Escrow1v1 is Ownable, ReentrancyGuard, EIP712 {
         bytes32 id,
         uint256 stake,
         uint64 fundDeadline,
-        uint64 playDeadline
+        uint64 playDeadline,
+        bytes calldata seatSig
     ) external nonReentrant {
         Match storage m = matches[id];
         require(m.status == Status.None, "match exists");
@@ -148,6 +165,10 @@ contract Escrow1v1 is Ownable, ReentrancyGuard, EIP712 {
             fundDeadline > block.timestamp && playDeadline > fundDeadline,
             "bad deadlines"
         );
+        // El arbitro debe haber autorizado a msg.sender para ESTA partida: sin
+        // esto, un observador front-runnea el open con el mismo id y secuestra el
+        // slot de p1 (la partida real del rival queda inutilizable).
+        _requireSeat(id, msg.sender, seatSig);
 
         m.p1 = msg.sender;
         m.stake = stake;
@@ -162,11 +183,16 @@ contract Escrow1v1 is Ownable, ReentrancyGuard, EIP712 {
     }
 
     /// @notice Otro jugador se UNE depositando su apuesta -> partida lista (Funded).
-    function join(bytes32 id) external nonReentrant {
+    function join(bytes32 id, bytes calldata seatSig) external nonReentrant {
         Match storage m = matches[id];
         require(m.status == Status.Open, "not open");
         require(block.timestamp <= m.fundDeadline, "fund expired");
         require(msg.sender != m.p1, "same player");
+        // El arbitro debe haber autorizado a msg.sender como rival de ESTA
+        // partida: sin esto, un tercero front-runnea el join del rival legitimo,
+        // ocupa el slot de p2 y bloquea la liquidacion (los fondos quedan
+        // trabados hasta el reembolso por vencimiento).
+        _requireSeat(id, msg.sender, seatSig);
 
         m.p2 = msg.sender;
         m.p2Paid = true;
@@ -224,7 +250,13 @@ contract Escrow1v1 is Ownable, ReentrancyGuard, EIP712 {
     function refundExpired(bytes32 id) external nonReentrant {
         Match storage m = matches[id];
         require(m.status == Status.Funded, "not funded");
-        require(block.timestamp > m.playDeadline, "not expired");
+        // Recien tras playDeadline + gracia: le da al arbitro una ventana firme
+        // para liquidar un resultado real y evita que el perdedor front-runnee un
+        // settle tardio para escapar de la derrota (ver REFUND_GRACE).
+        require(
+            block.timestamp > uint256(m.playDeadline) + REFUND_GRACE,
+            "not expired"
+        );
 
         m.status = Status.Refunded;
         usdc.safeTransfer(m.p1, m.stake);
@@ -256,5 +288,29 @@ contract Escrow1v1 is Ownable, ReentrancyGuard, EIP712 {
             _hashTypedDataV4(
                 keccak256(abi.encode(RESULT_TYPEHASH, id, winner))
             );
+    }
+
+    /// @notice Hash EIP-712 del asiento que el arbitro firma para autorizar a
+    ///         `player` a depositar en la partida `id` (util para backend/tests).
+    function seatDigest(
+        bytes32 id,
+        address player
+    ) external view returns (bytes32) {
+        return
+            _hashTypedDataV4(
+                keccak256(abi.encode(SEAT_TYPEHASH, id, player))
+            );
+    }
+
+    /// @dev Verifica que el arbitro haya firmado Seat(id, player). Revierte si no.
+    function _requireSeat(
+        bytes32 id,
+        address player,
+        bytes calldata seatSig
+    ) internal view {
+        bytes32 digest = _hashTypedDataV4(
+            keccak256(abi.encode(SEAT_TYPEHASH, id, player))
+        );
+        require(ECDSA.recover(digest, seatSig) == arbiter, "bad seat");
     }
 }

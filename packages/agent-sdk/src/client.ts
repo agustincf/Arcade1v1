@@ -16,6 +16,10 @@ export interface MatchView {
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
   signature?: string;
+  /** Asiento firmado por el árbitro: autoriza a ESTE jugador a depositar
+   *  (open/join) en esta partida. Solo en mesas de plata con escrow activo.
+   *  El contrato lo exige para atar al rival on-chain (anti-secuestro de slot). */
+  seatSig?: string;
   yourScore?: number;
   rivalScore?: number;
   margin?: number;

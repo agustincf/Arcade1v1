@@ -12,6 +12,13 @@ export const RESULT_TYPES = {
   ],
 } as const;
 
+export const SEAT_TYPES = {
+  Seat: [
+    { name: "matchId", type: "bytes32" },
+    { name: "player", type: "address" },
+  ],
+} as const;
+
 export function arbiterAccount() {
   const pk = process.env.ARBITER_PRIVATE_KEY as Hex;
   if (!pk || !pk.startsWith("0x")) {
@@ -44,5 +51,20 @@ export async function signResult(matchId: Hex, winner: Hex): Promise<Hex> {
     types: RESULT_TYPES,
     primaryType: "Result",
     message: { matchId, winner: winner.toLowerCase() as Hex },
+  });
+}
+
+/** Firma el "asiento" (matchId, player): autoriza a `player` a depositar en esa
+ *  partida (open/join). Ata al rival on-chain SIN que el árbitro pague gas —
+ *  cada jugador presenta su asiento al depositar, así un tercero no puede
+ *  secuestrar el slot. Mismo dominio EIP-712 que el resultado; el contrato la
+ *  verifica con _requireSeat. */
+export async function signSeat(matchId: Hex, player: Hex): Promise<Hex> {
+  const account = arbiterAccount();
+  return account.signTypedData({
+    domain: resultDomain(),
+    types: SEAT_TYPES,
+    primaryType: "Seat",
+    message: { matchId, player: player.toLowerCase() as Hex },
   });
 }

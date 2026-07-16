@@ -4,7 +4,7 @@
 
 import { randomBytes, randomInt } from "node:crypto";
 import { recoverMessageAddress, type Hex } from "viem";
-import { signResult } from "./sign.js";
+import { signResult, signSeat } from "./sign.js";
 import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
 import { verifyTetris, type ReplayTetris } from "@arcade1v1/game-sdk/tetris";
 import { verifyFlappy, type ReplayFlappy } from "@arcade1v1/game-sdk/flappy";
@@ -285,6 +285,18 @@ export interface MatchmakeAuth {
   ts: number;
 }
 
+/** Adjunta el asiento firmado a la vista si es una mesa de plata con escrow
+ *  activo y `address` es uno de los jugadores. Firma con la llave del árbitro
+ *  (mismo dominio EIP-712 que el resultado); el contrato la exige en open/join.
+ *  En dev/tests sin escrow (onchainEnabled=false) es un no-op: la vista no
+ *  cambia y no se toca la llave. */
+async function attachSeat(v: MatchView, address: string): Promise<MatchView> {
+  if (v.stake > 0 && onchainEnabled() && (v.role === "p1" || v.role === "p2")) {
+    v.seatSig = await signSeat(v.matchId, address as Hex);
+  }
+  return v;
+}
+
 export async function matchmake(
   game: string,
   stake: number,
@@ -331,7 +343,7 @@ export async function matchmake(
   }
 
   // El mismo jugador re-consulta su espera: devolvemos su partida (idempotente).
-  if (waiter && waiter.p1 === address) return view(waiter, address);
+  if (waiter && waiter.p1 === address) return attachSeat(view(waiter, address), address);
 
   // Hay un rival esperando: emparejamos (orden de llegada). Cada jugador abre/se
   // une on-chain por su cuenta -> el arbitro no crea la partida ni paga gas.
@@ -340,11 +352,11 @@ export async function matchmake(
     waiter.status = "ready";
     queue.delete(k);
     persist();
-    return view(waiter, address);
+    return attachSeat(view(waiter, address), address);
   }
 
   // Nadie esperando: creamos la partida y quedamos a la espera.
-  return createWaiting(k, game, stake, address);
+  return attachSeat(createWaiting(k, game, stake, address), address);
 }
 
 export async function submitScore(
@@ -558,6 +570,10 @@ export interface MatchView {
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
   signature?: Hex; // el ganador la presenta al contrato
+  /** Asiento firmado por el árbitro: autoriza a ESTE jugador a depositar
+   *  (open/join) en esta partida. Solo presente en mesas de plata con escrow
+   *  activo. Ata al rival on-chain: sin él, un tercero secuestra el slot. */
+  seatSig?: Hex;
   isBot?: boolean;
   // Feedback rico (presente solo cuando la partida ya termino):
   yourScore?: number;

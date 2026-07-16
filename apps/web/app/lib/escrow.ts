@@ -21,6 +21,9 @@ export const escrowAbi = [
       { name: "stake", type: "uint256" },
       { name: "fundDeadline", type: "uint64" },
       { name: "playDeadline", type: "uint64" },
+      // Asiento firmado por el árbitro que autoriza a este jugador (p1) a esta
+      // partida. Sin él, un tercero podría secuestrar el slot.
+      { name: "seatSig", type: "bytes" },
     ],
     outputs: [],
     stateMutability: "nonpayable",
@@ -28,7 +31,11 @@ export const escrowAbi = [
   {
     type: "function",
     name: "join",
-    inputs: [{ name: "id", type: "bytes32" }],
+    inputs: [
+      { name: "id", type: "bytes32" },
+      // Asiento firmado por el árbitro que autoriza a este jugador (p2).
+      { name: "seatSig", type: "bytes" },
+    ],
     outputs: [],
     stateMutability: "nonpayable",
   },

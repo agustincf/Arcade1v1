@@ -76,8 +76,11 @@ export function useEscrow() {
   }
 
   /** P1 ABRE la partida depositando su apuesta (modelo asincronico: el 1ro abre,
-   *  el 2do se une; nadie espera colgado). El approve ya se hizo antes. */
-  async function open(matchId: `0x${string}`, betUsdc: number) {
+   *  el 2do se une; nadie espera colgado). El approve ya se hizo antes.
+   *  `seatSig` es la firma del árbitro que autoriza a esta wallet en esta
+   *  partida (viene en la respuesta de matchmake): el contrato la exige para
+   *  atar al rival on-chain y evitar el secuestro del slot. */
+  async function open(matchId: `0x${string}`, betUsdc: number, seatSig: `0x${string}`) {
     if (!ESCROW_ADDRESS || !publicClient) {
       throw new Error("on-chain no configurado");
     }
@@ -86,7 +89,7 @@ export function useEscrow() {
       address: ESCROW_ADDRESS,
       abi: escrowAbi,
       functionName: "open",
-      args: [matchId, toUsdcUnits(betUsdc), now + 3600n, now + 7200n],
+      args: [matchId, toUsdcUnits(betUsdc), now + 3600n, now + 7200n, seatSig],
     });
     await publicClient.waitForTransactionReceipt({ hash });
   }
@@ -96,7 +99,7 @@ export function useEscrow() {
    *  que el monto sea el esperado y que los plazos sean los normales. Sin este
    *  chequeo, un rival malicioso podía abrirla por su cuenta con un plazo de
    *  juego lejano (años) y dejar el depósito de P2 atrapado hasta entonces. */
-  async function join(matchId: `0x${string}`, betUsdc: number) {
+  async function join(matchId: `0x${string}`, betUsdc: number, seatSig: `0x${string}`) {
     if (!ESCROW_ADDRESS || !publicClient) {
       throw new Error("on-chain no configurado");
     }
@@ -113,7 +116,7 @@ export function useEscrow() {
       address: ESCROW_ADDRESS,
       abi: escrowAbi,
       functionName: "join",
-      args: [matchId],
+      args: [matchId, seatSig],
     });
     await publicClient.waitForTransactionReceipt({ hash });
   }

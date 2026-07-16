@@ -9,7 +9,7 @@ import { createPublicClient, createWalletClient, http, maxUint256, type Hex, typ
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 import { randomBytes } from "node:crypto";
-import { signResult } from "./sign.js";
+import { signResult, signSeat } from "./sign.js";
 import { escrowAbi, erc20Abi } from "./abi.js";
 
 const RPC = process.env.RPC_URL || "https://sepolia.base.org";
@@ -77,18 +77,23 @@ async function main() {
   await send(p2, USDC, erc20Abi, "approve", [ESCROW, maxUint256]);
 
   // 4) P1 ABRE la partida depositando (modelo asincronico: no la crea el arbitro).
+  //    El árbitro firma el ASIENTO de cada jugador (lo autoriza a esta partida);
+  //    open/join lo exigen. Acá el matchId es local, así que firmamos directo.
   const matchId = ("0x" + randomBytes(32).toString("hex")) as Hex;
   const now = BigInt(Math.floor(Date.now() / 1000));
+  const seat1 = await signSeat(matchId, P1);
+  const seat2 = await signSeat(matchId, P2);
   const dep1 = await send(p1, ESCROW, escrowAbi, "open", [
     matchId,
     STAKE,
     now + 3600n,
     now + 7200n,
+    seat1,
   ]);
   console.log("✓ P1 abrió la partida (depositó)");
 
   // 5) P2 se UNE depositando -> partida lista.
-  const dep2 = await send(p2, ESCROW, escrowAbi, "join", [matchId]);
+  const dep2 = await send(p2, ESCROW, escrowAbi, "join", [matchId, seat2]);
   console.log("✓ P2 se unió (depositó) · escrow:", usd(await bal(ESCROW)), "USDC");
 
   // 6) Gana P1: el arbitro firma y se liquida.
