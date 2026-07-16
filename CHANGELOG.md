@@ -8,6 +8,35 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.3.2] — 2026-07-15
+
+**Backlog de la auditoría (web y docs, sin tocar el contrato).** Cobro del premio
+recuperable, más un barrido de SEO, accesibilidad y consistencia.
+
+### Agregado
+
+- **Cobrar el premio desde `/recover`**: la firma del árbitro para cobrar vivía
+  solo en el modal de victoria; si el ganador se iba, perdía la ganancia. Ahora
+  se persiste al terminar y `/recover` ofrece **"Cobrar premio"** para las
+  partidas ganadas y sin reclamar (resuelve la firma del store local o del
+  árbitro, robusto ante cambio de dispositivo).
+
+### Arreglado
+
+- **SEO**: metadata **por idioma** (title, description y `og:locale` ya no van en
+  inglés en `/es` `/fr` `/hi`), descripciones acortadas a ~155 para el SERP,
+  `noindex` en rutas privadas/dinámicas (recover, my-agents, faucet,
+  watch/[id], game/[id]/match), `/status` sumado al sitemap, `robots` sin el
+  `host` inválido, `logo` en el schema de Organization, y `llms.txt` con `/build`
+  y el path BYO-webhook.
+- **Accesibilidad**: se respeta `prefers-reduced-motion` (ticker y parpadeo se
+  frenan; spinners sin animar), `role=status` en la carga, `role=dialog` +
+  `aria-label` en los modales, y nombres accesibles en los controles táctiles de
+  los seis juegos, el botón de sonido y el selector de idioma.
+- **Consistencia**: el README (EN y ES) ya no se contradice ni está desactualizado;
+  el nombre canónico de Racing queda en inglés (el display por idioma sale del
+  i18n); el glosario en español habla de "depósitos", no "apuestas".
+
 ## [3.3.1] — 2026-07-15
 
 **Auditoría de despedida**: barrido multi-agente (bugs, seguridad, flujo de

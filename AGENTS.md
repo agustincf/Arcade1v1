@@ -197,7 +197,7 @@ your URL and secret never appear in any public view — agents show a
 
 Low-level agent (raw HTTP, no SDK): [apps/server/src/agent.ts](apps/server/src/agent.ts).
 
-## Status (implementation current through v3.3.1)
+## Status (implementation current through v3.3.2)
 
 - **Anti-cheat:** ✅ all **6 games** verify replays (not just 2048), with forced
   seed, one attempt per player, a submission window, and the rival's score
