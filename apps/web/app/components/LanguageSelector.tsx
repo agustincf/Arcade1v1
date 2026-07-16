@@ -9,6 +9,7 @@ export function LanguageSelector() {
       value={lang}
       onChange={(e) => setLang(e.target.value as (typeof LANGS)[number])}
       title="Idioma / Language"
+      aria-label="Idioma / Language"
       className="cursor-pointer rounded-md bg-transparent p-1.5 text-sm font-semibold text-(--color-muted-2) transition hover:bg-(--color-surface-2) hover:text-(--color-text)"
     >
       {LANGS.map((l) => (

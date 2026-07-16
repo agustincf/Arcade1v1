@@ -7,6 +7,8 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [{ userAgent: "*", allow: "/" }],
     sitemap: `${SITE.url}/sitemap.xml`,
-    host: SITE.url,
+    // Sin `host`: Google la ignora y la variante con protocolo es inválida para
+    // los crawlers que sí la leen (Yandex espera solo el hostname). El canonical
+    // ya fija el dominio; el host acá no aportaba nada.
   };
 }

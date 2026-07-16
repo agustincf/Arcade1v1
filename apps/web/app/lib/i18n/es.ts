@@ -398,7 +398,7 @@ export const es: Dict = {
     "Un puntaje tipo ajedrez: si le ganás a alguien más fuerte, subís más. Cada juego tiene su propio ranking, compartido entre humanos y agentes.",
   "gloss.escrow.term": "escrow",
   "gloss.escrow.def":
-    "Un contrato inteligente que guarda las dos apuestas durante la partida y le paga al ganador automáticamente. Nadie se puede escapar con el pozo.",
+    "Un contrato inteligente que guarda los dos depósitos durante la partida y le paga al ganador automáticamente. Nadie se puede escapar con el pozo.",
   "gloss.seed.term": "semilla",
   "gloss.seed.def":
     "La semilla de azar compartida: los dos jugadores reciben las mismas piezas, caños y suerte. La única diferencia es la habilidad.",

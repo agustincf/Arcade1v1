@@ -635,7 +635,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       {waiting && outcome === null && (
         <Modal title={t("match.playing")}>
           <div className="relative mx-auto h-14 w-14">
-            <span className="absolute inset-0 animate-spin rounded-full border-4 border-(--color-border) border-t-(--color-accent)" />
+            <span className="absolute inset-0 animate-spin rounded-full border-4 border-(--color-border) border-t-(--color-accent) motion-reduce:animate-none" />
           </div>
           <p className="mt-4 text-base text-(--color-muted-bright)">{t("match.waitingRival")}</p>
           <p className="mt-2 text-base text-(--color-muted-2)">
@@ -872,10 +872,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
 function Modal({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-4">
-      <div className="win w-full max-w-sm">
+      <div role="dialog" aria-modal="true" aria-label={title} className="win w-full max-w-sm">
         <div className="win-title">
           <span>{title}</span>
-          <span className="win-dots">
+          <span className="win-dots" aria-hidden="true">
             <span className="win-dot" />
           </span>
         </div>

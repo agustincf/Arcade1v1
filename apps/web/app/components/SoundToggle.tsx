@@ -34,9 +34,11 @@ export function SoundToggle() {
     <button
       onClick={toggle}
       title={on ? "Silenciar efectos" : "Activar efectos"}
+      aria-label={on ? "Silenciar efectos de sonido" : "Activar efectos de sonido"}
+      aria-pressed={on}
       className="rounded-md p-1.5 text-base opacity-60 transition hover:bg-(--color-surface-2) hover:opacity-100"
     >
-      {on ? "🔊" : "🔇"}
+      <span aria-hidden="true">{on ? "🔊" : "🔇"}</span>
     </button>
   );
 }

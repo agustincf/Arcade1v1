@@ -331,11 +331,19 @@ export function RacingGame({
       {/* Controles tactiles */}
       {started && !over && (
         <div className="grid w-full max-w-[320px] grid-cols-2 gap-3">
-          <button onClick={() => enqueue("l")} className="btn3d btn3d--cyan !text-2xl">
-            ◀
+          <button
+            onClick={() => enqueue("l")}
+            aria-label="Mover a la izquierda"
+            className="btn3d btn3d--cyan !text-2xl"
+          >
+            <span aria-hidden="true">◀</span>
           </button>
-          <button onClick={() => enqueue("r")} className="btn3d btn3d--cyan !text-2xl">
-            ▶
+          <button
+            onClick={() => enqueue("r")}
+            aria-label="Mover a la derecha"
+            className="btn3d btn3d--cyan !text-2xl"
+          >
+            <span aria-hidden="true">▶</span>
           </button>
         </div>
       )}

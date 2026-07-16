@@ -273,6 +273,19 @@ body {
     }
   }
 
+  /* Respetar "reducir movimiento" del sistema: el ticker infinito y el parpadeo
+     se frenan (el ticker se reubica visible, sin quedar empujado fuera de
+     pantalla). Los spinners usan la variante motion-reduce en su markup. */
+  @media (prefers-reduced-motion: reduce) {
+    .marquee > span {
+      animation: none;
+      padding-left: 0;
+    }
+    .blink {
+      animation: none;
+    }
+  }
+
   /* --- Panel "paper": bloque claro de lectura (contraste de secciones) --- */
   .paper {
     background: var(--color-paper);

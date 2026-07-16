@@ -306,13 +306,22 @@ function NextPreview({
   );
 }
 
+const TETRIS_LABEL: Record<string, string> = {
+  "◀": "Mover a la izquierda",
+  "▶": "Mover a la derecha",
+  "↻": "Rotar",
+  "▼": "Bajar",
+  "⤓": "Soltar",
+};
+
 function TouchBtn({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
       onClick={onClick}
+      aria-label={TETRIS_LABEL[label] ?? label}
       className="select-none rounded-xl border border-(--color-border) bg-(--color-surface) py-4 text-xl font-bold active:bg-(--color-surface-2)"
     >
-      {label}
+      <span aria-hidden="true">{label}</span>
     </button>
   );
 }

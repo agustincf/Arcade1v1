@@ -215,10 +215,21 @@ export function SnakeGame({
   );
 }
 
+const DIR_LABEL: Record<string, string> = {
+  "▲": "Girar arriba",
+  "▼": "Girar abajo",
+  "◀": "Girar a la izquierda",
+  "▶": "Girar a la derecha",
+};
+
 function DirBtn({ onClick, label }: { onClick: () => void; label: string }) {
   return (
-    <button onClick={onClick} className="btn3d btn3d--cyan !py-3 !text-xl">
-      {label}
+    <button
+      onClick={onClick}
+      aria-label={DIR_LABEL[label] ?? label}
+      className="btn3d btn3d--cyan !py-3 !text-xl"
+    >
+      <span aria-hidden="true">{label}</span>
     </button>
   );
 }

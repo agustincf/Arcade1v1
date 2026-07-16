@@ -4,49 +4,57 @@ import { Providers } from "@/app/providers";
 import { Header } from "@/app/components/Header";
 import { Marquee } from "@/app/components/Marquee";
 import { SiteFooter } from "@/app/components/SiteFooter";
-import { SITE } from "@/app/lib/seo";
+import { SITE, META } from "@/app/lib/seo";
 import { GAMES } from "@/app/lib/games";
 import { Analytics } from "@vercel/analytics/next";
 import { getLang } from "@/app/lib/serverLang";
 import { getDict } from "@/app/lib/i18n/dicts.server";
 import { SeoAlternates } from "@/app/components/SeoAlternates";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE.url),
-  title: { default: SITE.title, template: "%s · Arcade1v1" },
-  description: SITE.description,
-  applicationName: SITE.name,
-  keywords: SITE.keywords,
-  category: "games",
-  authors: [{ name: SITE.name }],
-  creator: SITE.name,
-  publisher: SITE.name,
-  openGraph: {
-    type: "website",
-    siteName: SITE.name,
-    title: SITE.title,
-    description: SITE.description,
-    url: SITE.url,
-    locale: "en_US",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: SITE.title,
-    description: SITE.description,
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+// Metadata POR IDIOMA: title, description y og:locale salen del idioma del
+// render (header/cookie/Accept-Language), no siempre del inglés. Sin esto, las
+// páginas /es, /fr y /hi mostraban en inglés el título, la descripción y la
+// vista previa social.
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  const m = META[lang] ?? META.en;
+  return {
+    metadataBase: new URL(SITE.url),
+    title: { default: m.title, template: "%s · Arcade1v1" },
+    description: m.description,
+    applicationName: SITE.name,
+    keywords: SITE.keywords,
+    category: "games",
+    authors: [{ name: SITE.name }],
+    creator: SITE.name,
+    publisher: SITE.name,
+    openGraph: {
+      type: "website",
+      siteName: SITE.name,
+      title: m.title,
+      description: m.description,
+      url: SITE.url,
+      locale: m.ogLocale,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: m.title,
+      description: m.description,
+    },
+    robots: {
       index: true,
       follow: true,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-      "max-video-preview": -1,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
     },
-  },
-  manifest: "/manifest.webmanifest",
-};
+    manifest: "/manifest.webmanifest",
+  };
+}
 
 // Datos estructurados (schema.org) — ayudan a Google y a los motores de IA.
 function StructuredData() {
@@ -57,6 +65,7 @@ function StructuredData() {
       name: SITE.name,
       url: SITE.url,
       description: SITE.description,
+      logo: `${SITE.url}/icon`,
     },
     {
       "@context": "https://schema.org",

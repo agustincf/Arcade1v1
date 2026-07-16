@@ -194,10 +194,21 @@ function Tile({ value }: { value: number }) {
   );
 }
 
+const DIR_LABEL: Record<string, string> = {
+  "▲": "Mover arriba",
+  "▼": "Mover abajo",
+  "◀": "Mover a la izquierda",
+  "▶": "Mover a la derecha",
+};
+
 function DirBtn({ onClick, label }: { onClick: () => void; label: string }) {
   return (
-    <button onClick={onClick} className="btn3d btn3d--cyan !py-3 !text-xl">
-      {label}
+    <button
+      onClick={onClick}
+      aria-label={DIR_LABEL[label] ?? label}
+      className="btn3d btn3d--cyan !py-3 !text-xl"
+    >
+      <span aria-hidden="true">{label}</span>
     </button>
   );
 }

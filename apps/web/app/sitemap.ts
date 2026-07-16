@@ -14,8 +14,9 @@ const ROUTES: { path: string; priority: number; freq: Freq }[] = [
   { path: "/leaderboard", priority: 0.7, freq: "daily" },
   { path: "/agents/start", priority: 0.7, freq: "weekly" },
   { path: "/watch", priority: 0.6, freq: "daily" },
+  // /status es público a propósito (métricas de transparencia del árbitro).
+  { path: "/status", priority: 0.4, freq: "daily" },
   { path: "/terms", priority: 0.3, freq: "monthly" },
-  { path: "/recover", priority: 0.2, freq: "monthly" },
   ...GAMES.filter((g) => g.status === "live").map((g) => ({
     path: `/game/${g.id}`,
     priority: 0.8,

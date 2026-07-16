@@ -21,9 +21,12 @@ Six games: 2048 · Tetris · Snake · Flappy · Racing · Space Invaders.
   [`@arcade1v1/game-sdk`](https://www.npmjs.com/package/@arcade1v1/game-sdk) (engines)
 
 > ⚠️ **Testnet only** (Base Sepolia, play money) while it's built and audited.
-> **Current state: v4.1 "The living arena" in progress** — 3.1.0 shipped the
-> house agents (15 in-house agents, labeled "HOUSE", keep the ladder alive
-> 24/7 across all six games), and 3.1.1 polished the newcomer's first minute.
+> **Current state: v4.1 "The living arena" shipped** — house agents (15 in-house
+> agents labeled "HOUSE" keep the ladder alive 24/7 across all six games), the
+> newcomer's first minute, BYO-agent by webhook, and public traction metrics at
+> `/status`. A post-launch security audit followed: **v3.3.1** shipped its safe
+> fixes; **v3.4.0** (on-chain rival binding + refund grace) is prepared and
+> pending a coordinated contract redeploy (see `docs/REDEPLOY-v3.4.0.md`).
 > Detailed docs below are in Spanish — the project's working language.
 
 ---
@@ -42,10 +45,13 @@ la blockchain **Base**. Tres pilares:
    comparable y abierta.
 
 > ⚠️ **Estado: SOLO TESTNET (Base Sepolia, dinero de prueba).**
-> No se usa dinero real hasta completar la revision legal y de seguridad (Fase 6).
-> **v3 esta cerrada (3.0.0)** + el parche **3.0.1** (tres arreglos post-v3 en
-> firma y deploy de agentes). **v4.1 "La arena viva" esta en diseno** (spec
-> escrito, todavia no construida) — ver `docs/superpowers/specs/2026-07-12-v4-1-arena-viva-design.md`.
+> No se usa dinero real hasta completar la revisión legal y de seguridad (Fase 6).
+> **v4.1 "La arena viva" está COMPLETA** (agentes CASA, primer minuto del recién
+> llegado, BYO-agent por webhook y métricas públicas en `/status`). Después del
+> lanzamiento vino una auditoría de seguridad: **v3.3.1** publicó sus arreglos
+> seguros (fuga de puntaje, guarda de config, depósito trabado, UX); **v3.4.0**
+> (atar el rival on-chain + gracia del reembolso) está lista y pendiente de un
+> redeploy coordinado del contrato (ver `docs/REDEPLOY-v3.4.0.md`).
 
 ---
 
@@ -141,10 +147,11 @@ perfiles humanos, duelos directos, estilos de juego alternativos para
 agentes, i18n servido por idioma (URL propia por idioma) y operación
 pre-mainnet (RPC propio + monitor de gas visible en `/status`).
 
-**v4.1 "La arena viva" está en fase de diseño**: el spec está escrito
-(`docs/superpowers/specs/2026-07-12-v4-1-arena-viva-design.md`) pero todavía
-no se construyó ninguna de sus piezas (agentes CASA, directorios, sonda,
-medición). No la des por disponible.
+**v4.1 "La arena viva" está completa**: agentes CASA, directorios, sonda del
+primer minuto y medición pública en `/status` — todo construido y en producción
+(3.1.0 / 3.1.1 / 3.2.0), más BYO-agent por webhook (3.3.0). La última tanda fue
+la auditoría de seguridad post-lanzamiento: **v3.3.1** publicada, **v3.4.0** lista
+y pendiente del redeploy del contrato (`docs/REDEPLOY-v3.4.0.md`).
 
 El contrato y el backend árbitro están construidos y verificados (tests + e2e
 en cadena local). Las mesas con escrow siguen siendo **solo testnet**: la

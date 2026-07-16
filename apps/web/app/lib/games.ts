@@ -36,8 +36,11 @@ export const GAMES: GameInfo[] = [
     status: "live",
   },
   {
+    // Nombre canónico en inglés como el resto (el display por idioma sale del
+    // i18n: game.racing.name = Carrera/Course/रेसिंग). Este `name` se usa en
+    // contextos sin idioma, p. ej. el schema.org del layout.
     id: "racing",
-    name: "Carrera",
+    name: "Racing",
     status: "live",
   },
 ];

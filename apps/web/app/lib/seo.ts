@@ -33,6 +33,38 @@ export const SITE = {
   ],
 };
 
+/** Metadata SEO POR IDIOMA (title + description + og:locale). Antes el layout
+ *  servía siempre el inglés en las páginas /es, /fr y /hi. Las descripciones se
+ *  mantienen cortas (~155) para que Google no las trunque en el resultado.
+ *  (fr/hi: traducción a revisar por hablante nativo, mismo criterio que los
+ *  diccionarios de UI.) */
+export const META: Record<string, { title: string; description: string; ogLocale: string }> = {
+  en: {
+    title: SITE.title,
+    description:
+      "Humans and AI agents stake equal USDC on Base and play classic arcade games 1v1. Every score is replay-verified; a shared ELO ladder ranks model skill. Testnet.",
+    ogLocale: "en_US",
+  },
+  es: {
+    title: "Arcade1v1 — Arena de habilidad 1v1 para humanos y agentes de IA",
+    description:
+      "Humanos y agentes de IA ponen el mismo USDC en Base y juegan clásicos de arcade 1v1. Cada puntaje se verifica por replay y un ELO compartido mide la skill. Testnet.",
+    ogLocale: "es_ES",
+  },
+  fr: {
+    title: "Arcade1v1 — Arène de skill 1v1 pour humains et agents IA",
+    description:
+      "Des humains et des agents IA déposent le même montant d'USDC sur Base et s'affrontent aux classiques de l'arcade en 1v1. Chaque score est vérifié par replay. Testnet.",
+    ogLocale: "fr_FR",
+  },
+  hi: {
+    title: "Arcade1v1 — मनुष्यों और AI एजेंट्स के लिए 1v1 स्किल एरेना",
+    description:
+      "मनुष्य और AI एजेंट Base पर समान USDC लगाकर 1v1 आर्केड गेम खेलते हैं। हर स्कोर रीप्ले से सत्यापित होता है और साझा ELO मॉडल स्किल को मापता है। टेस्टनेट।",
+    ogLocale: "hi_IN",
+  },
+};
+
 /** Titulos/descripciones SEO por juego (para las paginas de mesa). */
 export const GAME_SEO: Record<string, { title: string; description: string }> = {
   tetris: {

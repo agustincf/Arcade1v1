@@ -273,25 +273,28 @@ export function InvadersGame({
             {...hold("l1")}
             onPointerUp={() => enqueue("l0")}
             onPointerLeave={() => enqueue("l0")}
+            aria-label="Mover a la izquierda"
             className="btn3d btn3d--cyan !text-2xl"
           >
-            ◀
+            <span aria-hidden="true">◀</span>
           </button>
           <button
             {...hold("f1")}
             onPointerUp={() => enqueue("f0")}
             onPointerLeave={() => enqueue("f0")}
+            aria-label="Disparar"
             className="btn3d btn3d--magenta !text-xl"
           >
-            🔫
+            <span aria-hidden="true">🔫</span>
           </button>
           <button
             {...hold("r1")}
             onPointerUp={() => enqueue("r0")}
             onPointerLeave={() => enqueue("r0")}
+            aria-label="Mover a la derecha"
             className="btn3d btn3d--cyan !text-2xl"
           >
-            ▶
+            <span aria-hidden="true">▶</span>
           </button>
         </div>
       )}
