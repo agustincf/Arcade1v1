@@ -4,6 +4,7 @@ import type { Hex } from "viem";
 import { ArbiterClient, type MatchView } from "./client";
 import { randomWallet, signScore, signMatchmake } from "./sign";
 import { DEFAULT_STRATEGIES, type Strategy } from "./strategies";
+import { RULES_V } from "@arcade1v1/game-sdk/rules";
 
 export function createAgent(opts: {
   arbiterUrl?: string;
@@ -37,6 +38,14 @@ export function createAgent(opts: {
     strategy?: Strategy;
   }): Promise<MatchView> {
     const m = await matchmake(args.game, args.stake);
+    // Guard de versión: si el árbitro corre otras reglas, avisar YA (antes de
+    // jugar), con el remedio. El árbitro repite este control en el submit.
+    const localV = RULES_V[args.game];
+    if (m.rulesV !== undefined && localV !== undefined && m.rulesV !== localV) {
+      throw new Error(
+        `rules version mismatch for ${args.game}: arbiter v${m.rulesV}, SDK v${localV} — update @arcade1v1 packages`,
+      );
+    }
     const strat = args.strategy ?? DEFAULT_STRATEGIES[args.game];
     if (!strat) throw new Error(`no hay estrategia por defecto para el juego: ${args.game}`);
     const { score, replay } = strat(m.seed);

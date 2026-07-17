@@ -6,6 +6,8 @@ export interface MatchView {
   game: string;
   stake: number;
   seed: number;
+  /** Versión de reglas del juego en esta partida (el SDK nuevo la valida). */
+  rulesV?: number;
   status: "waiting" | "ready" | "settled" | "draw";
   role?: "p1" | "p2";
   opponent?: string;
