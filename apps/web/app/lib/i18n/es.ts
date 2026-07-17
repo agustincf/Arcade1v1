@@ -156,7 +156,7 @@ export const es: Dict = {
   "footer.responsible":
     "Competencia por habilidad: el resultado depende del juego, no del azar. Jugar con valor puede estar restringido en tu región.",
   "footer.love": "Hecho con amor",
-  "footer.tip": "¿Te gusta? Invitame un BTC",
+  "footer.tip": "¿Me regalás un cafecito?",
   "footer.copied": "¡Copiado!",
   "nav.ranking": "Ranking",
   "nav.agents": "Agentes",

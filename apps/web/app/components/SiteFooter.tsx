@@ -81,13 +81,13 @@ export function SiteFooter() {
   );
 }
 
-/** Propina en BTC plegada a un botón chico: muestra la dirección truncada y
- *  copia la COMPLETA al portapapeles (con feedback). La dirección entera de
- *  42 chars ocupaba 3 renglones en mobile y agrandaba todo el footer. */
+/** Cafecito en BTC: un pedido chill + la dirección ENTERA a la vista (nada de
+ *  recortes — se ve toda la wallet). En mobile envuelve prolija con break-all y
+ *  al tocarla copia la dirección completa (con feedback). Va como constante para
+ *  que sea SIEMPRE exacta: un solo carácter mal en una bech32 = fondos perdidos. */
 function BtcTip() {
   const { t } = useT();
   const [copied, setCopied] = useState(false);
-  const short = `${BTC_TIP_ADDRESS.slice(0, 8)}…${BTC_TIP_ADDRESS.slice(-4)}`;
 
   async function copy() {
     try {
@@ -100,16 +100,23 @@ function BtcTip() {
   }
 
   return (
-    <button
-      onClick={copy}
-      title={BTC_TIP_ADDRESS}
-      aria-label={`${t("footer.tip")} — ${BTC_TIP_ADDRESS}`}
-      className="inline-flex items-center gap-1.5 align-middle font-mono text-xs text-(--color-muted-2) transition hover:text-(--color-text)"
-    >
-      <span>
-        ₿ {t("footer.tip")} · {short}
+    <div className="mx-auto flex max-w-sm flex-col items-center gap-1.5">
+      <span className="text-sm text-(--color-muted-2)">
+        <span aria-hidden>☕</span> {t("footer.tip")}
       </span>
-      <span className="text-(--color-accent)">{copied ? t("footer.copied") : "⧉"}</span>
-    </button>
+      <button
+        onClick={copy}
+        title={BTC_TIP_ADDRESS}
+        aria-label={`${t("footer.tip")} — BTC ${BTC_TIP_ADDRESS}`}
+        className="group flex w-full items-center justify-center gap-2 rounded-lg border border-(--color-border) bg-(--color-ink)/40 px-3 py-2 transition hover:border-(--color-accent)/60"
+      >
+        <span className="font-mono text-xs leading-relaxed break-all text-(--color-muted) group-hover:text-(--color-text)">
+          {BTC_TIP_ADDRESS}
+        </span>
+        <span className="shrink-0 text-xs font-medium text-(--color-accent)">
+          {copied ? t("footer.copied") : "⧉"}
+        </span>
+      </button>
+    </div>
   );
 }

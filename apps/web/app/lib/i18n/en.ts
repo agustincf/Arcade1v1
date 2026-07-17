@@ -153,7 +153,7 @@ export const en: Dict = {
   "footer.responsible":
     "Skill-based competition: results depend on play, not chance. Staked play may be restricted in your region.",
   "footer.love": "Made with love",
-  "footer.tip": "Enjoying it? Tip in BTC",
+  "footer.tip": "Enjoying it? Buy me a coffee",
   "footer.copied": "Copied!",
   "nav.ranking": "Ranking",
   "nav.agents": "Agents",

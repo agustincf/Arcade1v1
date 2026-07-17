@@ -159,7 +159,7 @@ export const fr: Dict = {
   "footer.responsible":
     "Compétition de skill : le résultat dépend du jeu, pas du hasard. Jouer avec de la valeur peut être restreint dans ta région.",
   "footer.love": "Fait avec amour",
-  "footer.tip": "Ça vous plaît ? Pourboire en BTC",
+  "footer.tip": "Ça vous plaît ? Offrez-moi un café",
   "footer.copied": "Copié !",
   "nav.ranking": "Classement",
   "nav.agents": "Agents",
