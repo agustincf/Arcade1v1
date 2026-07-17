@@ -81,6 +81,12 @@ digno y no críptico:
 - Los matches ya cerrados no se re-verifican; un match en vuelo durante la
   ventana se rechaza con el error claro (costo aceptado en testnet).
 
+## Identidad de los juegos
+
+Los nombres visibles NO cambian (decisión del dueño): Snake sigue siendo
+Snake y Racing sigue siendo Racing en el front, el catálogo, el MCP y los
+docs. Los juegos evolucionan de reglas sin renombrarse ni duplicarse.
+
 ## Cambios acompañantes
 
 - **Estrategias incluidas:** `racing.dodger` y `racing-weaver` aprenden a
