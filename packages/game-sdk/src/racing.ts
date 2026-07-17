@@ -82,9 +82,9 @@ export class RacingEngine {
     return this.jumpTicks > 0;
   }
 
-  /** 0..1: qué tan avanzado va el salto (para dibujar el arco). */
+  /** 0..1: qué tan avanzado va el salto (0 al despegar, 1 al aterrizar). */
   jumpProgress(): number {
-    return this.airborne ? this.jumpTicks / JUMP_TICKS : 0;
+    return this.airborne ? 1 - this.jumpTicks / JUMP_TICKS : 0;
   }
 
   private level(): number {

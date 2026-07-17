@@ -302,25 +302,30 @@ test("racing v2: exporta la versión de reglas 2 y acepta la acción j", () => {
   const g = new RacingEngine(SEED);
   g.jump();
   assert.ok(g.airborne, "tras jump() el auto está en el aire");
-  assert.ok(g.jumpProgress() > 0 && g.jumpProgress() <= 1);
+  g.update(RACING_DT);
+  assert.ok(g.jumpProgress() > 0 && g.jumpProgress() < 1);
 });
 
 test("racing v2: en el aire no se cambia de carril (saltar compromete)", () => {
   const g = new RacingEngine(SEED);
   g.jump();
-  const before = g.carLane;
   g.moveLeft();
-  g.moveRight();
-  assert.equal(g.carLane, before, "los cambios de carril se ignoran en el aire");
+  assert.equal(g.carLane, 1, "moveLeft() bloqueado mientras está en el aire");
+  // Simular JUMP_TICKS updates para aterrizar
+  for (let i = 0; i < JUMP_TICKS; i++) {
+    g.update(RACING_DT);
+  }
+  g.moveLeft();
+  assert.equal(g.carLane, 0, "al aterrizar el control vuelve");
 });
 
 test("racing v2: saltar una valla salva; sin saltar, mata", () => {
   // Buscamos una semilla donde, jugando quieto, la muerte llega por una VALLA
   // (jumpable) en el carril del auto. Después re-jugamos igual pero saltando
-  // justo antes: el motor tiene que dejarlo vivo más tiempo.
+  // EXACTAMENTE en el muerte tick para pasar la valla: el motor debe dejarlo vivo.
   const CAR_Y_TEST = 480 - 80;
   let found = false;
-  for (let seed = 1; seed <= 150 && !found; seed++) {
+  for (let seed = 1; seed <= 60 && !found; seed++) {
     const a = new RacingEngine(seed);
     let deathTick = -1;
     for (let t = 0; t < 3600 && !a.over; t++) {
@@ -332,20 +337,15 @@ test("racing v2: saltar una valla salva; sin saltar, mata", () => {
       (o) => o.lane === a.carLane && Math.abs(o.y - CAR_Y_TEST) < 60,
     );
     if (!killer || !killer.jumpable) continue;
-
+    found = true;
     const b = new RacingEngine(seed);
     for (let t = 0; t < 3600 && !b.over; t++) {
-      if (t === deathTick - Math.floor(JUMP_TICKS / 2)) b.jump();
+      if (t === deathTick) b.jump();
       b.update(RACING_DT);
     }
-
-    // Solo marcamos "found" si el salto realmente ayuda
-    if (b.over === false || b.score > a.score) {
-      found = true;
-      assert.ok(true, `seed ${seed}: saltando la valla sobrevive más (a=${a.score}, b=${b.score})`);
-    }
+    assert.ok(b.score > a.score, `seed ${seed}: saltando la valla debe pasarla y puntuar más (a=${a.score}, b=${b.score})`);
   }
-  assert.ok(found, "en 150 semillas tiene que existir una muerte por valla jugando quieto donde el salto ayuda");
+  assert.ok(found, "en 60 semillas tiene que existir una muerte por valla jugando quieto");
 });
 
 test("racing v2: monedas suman puntaje pero NO velocidad (speed usa passedCount)", () => {
