@@ -274,40 +274,19 @@ test("snake v2: verify reproduce un replay que declara v", () => {
 });
 
 test("snake v2: la fruta nunca reaparece sobre la moneda viva", () => {
-  // Escenario: moneda viva en una celda, forzamos que la fruta sea comida varias
-  // veces y verificamos que NUNCA reaparece en la moneda.
-  for (let seed = 1; seed <= 10; seed++) {
+  // Llamamos spawnFood() directo (privado en TS, accesible en runtime) con la
+  // moneda clavada en una celda: así el guard se ejercita SIEMPRE, no cuando
+  // el azar quiere — sin el fix, este test cae en pocos cientos de tiradas.
+  for (let seed = 1; seed <= 5; seed++) {
     const g = new SnakeEngine(seed);
-    // Colocamos una moneda en (5, 5)
     g.coin = { x: 5, y: 5 };
-    g.coinSteps = 20;
-
-    // Movemos el cuerpo para que la cabeza pueda perseguir la fruta
-    // y hacerla reaparece múltiples veces sin que toque la moneda
-    let respawnsChecked = 0;
-    for (let t = 0; t < 3000 && !g.over && respawnsChecked < 5; t++) {
-      // Dirigir la cabeza hacia la fruta simulando decisión
-      const head = g.body[0];
-      const toFood = {
-        x: g.food.x - head.x,
-        y: g.food.y - head.y,
-      };
-      if (Math.abs(toFood.x) > Math.abs(toFood.y)) {
-        g.apply(toFood.x > 0 ? "r" : "l");
-      } else if (toFood.y !== 0) {
-        g.apply(toFood.y > 0 ? "d" : "u");
-      }
-
-      const foodBefore = { ...g.food };
-      g.tick();
-      const foodAfter = g.food;
-
-      // Si la fruta cambió, verificamos que NO está en la moneda
-      if (foodBefore.x !== foodAfter.x || foodBefore.y !== foodAfter.y) {
-        respawnsChecked++;
-        assert.notDeepEqual(foodAfter, g.coin, `seed ${seed}: fruta reaparece sobre la moneda en respawn ${respawnsChecked}`);
-      }
+    const spawnFood = (g as unknown as { spawnFood(): void }).spawnFood.bind(g);
+    for (let i = 0; i < 500; i++) {
+      spawnFood();
+      assert.ok(
+        !(g.food.x === 5 && g.food.y === 5),
+        `seed ${seed}, tirada ${i}: la fruta cayó sobre la moneda`,
+      );
     }
-    assert.ok(respawnsChecked > 0, `seed ${seed}: no hubo suficientes reapariciones para validar`);
   }
 });
