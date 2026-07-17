@@ -59,7 +59,9 @@ export class SnakeEngine {
     const empties: Pt[] = [];
     for (let y = 0; y < GRID; y++)
       for (let x = 0; x < GRID; x++) {
-        if (!this.body.some((s) => s.x === x && s.y === y)) empties.push({ x, y });
+        if (this.body.some((s) => s.x === x && s.y === y)) continue;
+        if (this.coin && this.coin.x === x && this.coin.y === y) continue;
+        empties.push({ x, y });
       }
     if (empties.length === 0) {
       this.over = true;

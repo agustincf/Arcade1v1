@@ -272,3 +272,42 @@ test("snake v2: verify reproduce un replay que declara v", () => {
   const withV = { ...(replay as object), v: SNAKE_RULES_V } as ReplaySnake;
   assert.equal(verifySnake(withV), score, "verify ignora el campo v y re-simula igual");
 });
+
+test("snake v2: la fruta nunca reaparece sobre la moneda viva", () => {
+  // Escenario: moneda viva en una celda, forzamos que la fruta sea comida varias
+  // veces y verificamos que NUNCA reaparece en la moneda.
+  for (let seed = 1; seed <= 10; seed++) {
+    const g = new SnakeEngine(seed);
+    // Colocamos una moneda en (5, 5)
+    g.coin = { x: 5, y: 5 };
+    g.coinSteps = 20;
+
+    // Movemos el cuerpo para que la cabeza pueda perseguir la fruta
+    // y hacerla reaparece múltiples veces sin que toque la moneda
+    let respawnsChecked = 0;
+    for (let t = 0; t < 3000 && !g.over && respawnsChecked < 5; t++) {
+      // Dirigir la cabeza hacia la fruta simulando decisión
+      const head = g.body[0];
+      const toFood = {
+        x: g.food.x - head.x,
+        y: g.food.y - head.y,
+      };
+      if (Math.abs(toFood.x) > Math.abs(toFood.y)) {
+        g.apply(toFood.x > 0 ? "r" : "l");
+      } else if (toFood.y !== 0) {
+        g.apply(toFood.y > 0 ? "d" : "u");
+      }
+
+      const foodBefore = { ...g.food };
+      g.tick();
+      const foodAfter = g.food;
+
+      // Si la fruta cambió, verificamos que NO está en la moneda
+      if (foodBefore.x !== foodAfter.x || foodBefore.y !== foodAfter.y) {
+        respawnsChecked++;
+        assert.notDeepEqual(foodAfter, g.coin, `seed ${seed}: fruta reaparece sobre la moneda en respawn ${respawnsChecked}`);
+      }
+    }
+    assert.ok(respawnsChecked > 0, `seed ${seed}: no hubo suficientes reapariciones para validar`);
+  }
+});
