@@ -38,9 +38,12 @@ la planificadora debe agrandarse claramente respecto de las reglas actuales.
 
 ## Racing v2: salto, obstáculos saltables y monedas
 
-- **Salto (acción nueva `j`):** dura ~0,6 s (36 ticks). En el aire **no se
-  puede cambiar de carril** (saltar es comprometerse); los inputs de carril se
-  ignoran mientras está en el aire. Al aterrizar, cooldown ~12 ticks.
+- **Salto (acción nueva `j`):** dura ~0,5 s (30 ticks; ajustado en el plan:
+  el intervalo mínimo entre filas de obstáculos es 0,5 s, y un salto más largo
+  que ese intervalo crearía situaciones sin salida). En el aire **no se puede
+  cambiar de carril** (saltar es comprometerse); los inputs de carril se
+  ignoran mientras está en el aire. Al aterrizar, cooldown ~10 ticks.
+  El generador además nunca exige dos saltos en filas consecutivas.
 - **Obstáculos de dos clases:** *sólidos* (solo se esquivan, los actuales) y
   *saltables* (vallas/baches bajos: se esquivan o se saltan; visualmente más
   chatos). La proporción de saltables sube con el nivel (~25% → ~45%). En el
@@ -94,7 +97,9 @@ docs. Los juegos evolucionan de reglas sin renombrarse ni duplicarse.
   `snake-survivor` ganan slider de codicia de moneda. La brecha
   trivial-vs-planificadora es la vara del benchmark.
 - **Web:** render y controles nuevos en `SnakeGame.tsx` y `RacingGame.tsx`;
-  instrucciones actualizadas en los 4 idiomas; el modo libre hereda todo.
+  instrucciones actualizadas en los 4 idiomas; el modo libre hereda todo. El
+  visor de replays (modo espectador y sandbox del builder) también dibuja y
+  re-simula las mecánicas nuevas.
 - **Docs:** ejemplo del agente LLM de Racing en la página de agentes
   refrescado; README de game-sdk / agent-sdk / strategies / mcp.
 - **Tests:** determinismo de replays v2 en `engines.test.ts`; test
