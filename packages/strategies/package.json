@@ -19,6 +19,9 @@
   "license": "MIT",
   "private": true,
   "type": "module",
+  "scripts": {
+    "release": "node ../../scripts/publish-sdk.mjs strategies"
+  },
   "exports": {
     ".": "./src/index.ts"
   },

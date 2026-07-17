@@ -26,6 +26,9 @@ const ENTRIES = {
     "rules",
   ],
   "agent-sdk": ["index", "client", "sign", "strategies"],
+  // Dependencia del agent-sdk: si no está en npm, el agent-sdk publicado es
+  // ininstalable. Solo expone la raíz (sus módulos internos son relativos).
+  strategies: ["index"],
 };
 
 const name = process.argv[2];
@@ -92,11 +95,15 @@ for (const e of ENTRIES[name]) {
   };
 }
 const deps = { ...(pkg.dependencies ?? {}) };
-if (deps["@arcade1v1/game-sdk"]) {
-  const gameSdk = JSON.parse(
-    readFileSync(join(ROOT, "packages", "game-sdk", "package.json"), "utf8"),
+// Las deps del workspace ("*") se pinean a la versión workspace: un "*" suelto
+// en el paquete publicado apuntaría a cualquier versión del registry (o a un
+// 404 si esa dep aún no se publicó, como le pasó a strategies).
+for (const depName of Object.keys(deps)) {
+  if (!depName.startsWith("@arcade1v1/")) continue;
+  const wsPkg = JSON.parse(
+    readFileSync(join(ROOT, "packages", depName.split("/")[1], "package.json"), "utf8"),
   );
-  deps["@arcade1v1/game-sdk"] = `^${gameSdk.version}`;
+  deps[depName] = `^${wsPkg.version}`;
 }
 writeFileSync(
   join(stage, "package.json"),
