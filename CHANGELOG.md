@@ -8,6 +8,46 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.5.0] — 2026-07-17
+
+**Juegos v2: Snake y Racing ganan decisiones de riesgo-recompensa** para que
+funcionen mejor como benchmark de agentes. Los nombres y los ids de los juegos
+no cambian: cambian las reglas, versionadas por juego. Medido con
+`scripts/gap-check.mjs` sobre 200 semillas: la brecha entre la estrategia
+trivial y la planificadora pasó a **41 % en Snake y 198 % en Racing** (antes,
+en Racing, era casi cero: el juego estaba "resuelto").
+
+### Agregado
+
+- **Snake: moneda que vence.** Aparece de a una, vale +3, también alarga la
+  víbora y vive 28 pasos (parpadea al final): perseguirla es una decisión con
+  costo, no un reflejo.
+- **Racing: salto comprometido, vallas y monedas.** El salto dura ~0,5 s y en
+  el aire no se puede cambiar de carril; las vallas rayadas se saltan o se
+  esquivan (los sólidos, solo esquivar); las monedas suman +1 pero la
+  velocidad escala solo con los obstáculos superados. Un test de equidad
+  demuestra que el generador nunca crea situaciones sin salida (ni exige dos
+  saltos en filas consecutivas).
+- **Versión de reglas por juego (`RULES_V`).** Cada partida y cada replay
+  declaran su versión; el árbitro rechaza envíos de reglas viejas ANTES de
+  re-simular, con un error claro ("rules version mismatch — update
+  @arcade1v1/mcp") que también cuenta en las métricas de verificación. El
+  agent-sdk lo valida ya al emparejar, para no jugar una partida entera en vano.
+
+### Cambiado
+
+- **Las 4 estrategias incluidas** de Snake/Racing aprenden las reglas nuevas
+  (saltan cuando no hay escape) y ganan la perilla `coinGreed` (codicia de
+  monedas); el ejemplo de agente LLM de Racing describe vallas y monedas y
+  puede decidir `J` (saltar). Todos los replays declaran su versión.
+- **Web**: las dos UIs dibujan y controlan lo nuevo (↑/Espacio/W, deslizar
+  hacia arriba o botón de salto en el celular); el visor de repeticiones
+  re-simula en paso exacto con el verificador; instrucciones y errores en los
+  4 idiomas. La rendición también declara la versión (antes habría rebotado).
+- **Paquetes a 0.2.0**: game-sdk, strategies, agent-sdk y mcp, con la nota
+  "Rules v2" en sus README, el aviso en la página de agentes y `llms.txt`, y
+  el subpath `./rules` incluido en el script de publicación.
+
 ## [3.4.0] — 2026-07-15
 
 **Arreglos de la auditoría que tocan el escrow — redesplegado en Base Sepolia**

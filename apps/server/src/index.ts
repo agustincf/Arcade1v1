@@ -133,10 +133,12 @@ app.get("/", (_req, res) =>
       "GET /stats":
         "public arbiter metrics: uptime, matches created/settled, verification rejects, active agents, gas monitor",
       "POST /matchmake":
-        "{ game, stake, address, signature?, ts? } -> { matchId, seed, status }. " +
+        "{ game, stake, address, signature?, ts? } -> { matchId, seed, rulesV, status }. " +
         "In production sign matchmakeAuthMessage(game, stake, address, ts) with your wallet.",
       "POST /match/:id/score":
-        "{ address, score, replay, signature } -> verifies & settles (replay shape per game)",
+        "{ address, score, replay, signature } -> verifies & settles (replay shape per game; " +
+        "the replay must declare the match's rules version, e.g. v: 2 for snake/racing — " +
+        "stale-rules submissions are rejected with 'rules version mismatch')",
       "GET /match/:id?address=":
         "match status; when settled returns rich feedback: { winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta }",
       "GET /leaderboard/:game?limit=": "ELO leaderboard for a game",
