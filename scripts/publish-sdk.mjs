@@ -33,6 +33,9 @@ const ENTRIES = {
 
 const name = process.argv[2];
 const dryRun = process.argv.includes("--dry-run");
+// Código 2FA de un solo uso (cuentas con doble factor "auth-and-writes"): se
+// reenvía a npm publish. TOTP vale ~30s, alcanza para publicar varios paquetes.
+const otpArg = process.argv.find((a) => a.startsWith("--otp="));
 if (!ENTRIES[name]) {
   console.error(
     `uso: node scripts/publish-sdk.mjs <${Object.keys(ENTRIES).join("|")}> [--dry-run]`,
@@ -130,7 +133,7 @@ cpSync(join(pkgDir, "README.md"), join(stage, "README.md"));
 cpSync(join(ROOT, "LICENSE"), join(stage, "LICENSE"));
 
 // 4) Publicar.
-execSync(`npm publish --access public${dryRun ? " --dry-run" : ""}`, {
+execSync(`npm publish --access public${dryRun ? " --dry-run" : ""}${otpArg ? ` ${otpArg}` : ""}`, {
   cwd: stage,
   stdio: "inherit",
 });
