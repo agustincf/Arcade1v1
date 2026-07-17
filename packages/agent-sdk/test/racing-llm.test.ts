@@ -57,8 +57,8 @@ test("describeState: describe el carril actual y qué carriles están despejados
   g.obstacles.length = 0;
   // Obstáculo por delante en el carril 0, y a la ALTURA del auto en el carril 2:
   // el motor choca en una ventana simétrica, así que el carril 2 NO está despejado.
-  g.obstacles.push({ lane: 0, y: CAR_Y - 120, kind: 0, passed: false });
-  g.obstacles.push({ lane: 2, y: CAR_Y, kind: 0, passed: false });
+  g.obstacles.push({ lane: 0, y: CAR_Y - 120, kind: 0, jumpable: false, passed: false });
+  g.obstacles.push({ lane: 2, y: CAR_Y, kind: 0, jumpable: false, passed: false });
 
   const state = describeState(g);
   assert.match(state, /carril 1 de 3/, "reporta el carril actual");
