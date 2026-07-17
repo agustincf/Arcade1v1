@@ -5,6 +5,7 @@ import {
   SnakeEngine,
   GRID,
   SNAKE_DT,
+  SNAKE_RULES_V,
   type SnakeAction,
   type ReplaySnake,
 } from "@arcade1v1/game-sdk/snake";
@@ -78,6 +79,27 @@ export function SnakeGame({
       ctx.shadowBlur = 10;
       ctx.fillRect(eng.food.x * CELL + 3, eng.food.y * CELL + 3, CELL - 6, CELL - 6);
       ctx.shadowBlur = 0;
+      // moneda (vale 3, vence): parpadea a ritmo de paso cuando está por irse
+      if (eng.coin && (!eng.coinBlinking() || eng.coinSteps % 2 === 0)) {
+        ctx.fillStyle = "#ffd23d";
+        ctx.shadowColor = "#ffd23d";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(
+          eng.coin.x * CELL + CELL / 2,
+          eng.coin.y * CELL + CELL / 2,
+          CELL / 2 - 4,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#8a6d00";
+        ctx.font = "bold 10px ui-sans-serif, system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("3", eng.coin.x * CELL + CELL / 2, eng.coin.y * CELL + CELL / 2 + 3.5);
+        ctx.textAlign = "left";
+      }
       // serpiente
       eng.body.forEach((s, i) => {
         ctx.fillStyle = i === 0 ? "#b6ff3d" : "#39ff7a";
@@ -190,7 +212,7 @@ export function SnakeGame({
             onConfirm={() =>
               onFinish({
                 score,
-                replay: { seed, ticks: tickRef.current, inputs: inputs.current },
+                replay: { seed, ticks: tickRef.current, inputs: inputs.current, v: SNAKE_RULES_V },
               })
             }
           />

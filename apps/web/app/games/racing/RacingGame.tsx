@@ -5,6 +5,7 @@ import {
   RacingEngine,
   RACING_CONST,
   RACING_DT,
+  RACING_RULES_V,
   type RaceAction,
   type ReplayRacing,
 } from "@arcade1v1/game-sdk/racing";
@@ -46,6 +47,7 @@ export function RacingGame({
   const inputs = useRef<{ t: number; a: RaceAction }[]>([]);
   const tickRef = useRef(0);
   const pending = useRef<RaceAction[]>([]);
+  const touch = useRef<{ x: number; y: number } | null>(null);
 
   function enqueue(a: RaceAction) {
     if (engineRef.current!.over) return;
@@ -83,16 +85,32 @@ export function RacingGame({
       else ctx.rect(x, y, w, h);
     };
 
-    function drawCar(cx: number, cy: number, scale: number, body: string, player = false) {
-      const w = 42 * scale;
-      const h = 30 * scale;
+    function drawCar(
+      cx: number,
+      cy: number,
+      scale: number,
+      body: string,
+      player = false,
+      jumpArc = 0,
+    ) {
+      const lift = 26 * jumpArc * scale; // el cuerpo sube; la sombra NO
+      const s = scale * (1 + 0.3 * jumpArc);
+      const w = 42 * s;
+      const h = 30 * s;
       const x = cx - w / 2;
-      const y = cy - h / 2;
-      const s = scale;
-      // sombra
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      const y = cy - h / 2 - lift;
+      // sombra (queda en el piso y se achica al despegar)
+      ctx.fillStyle = `rgba(0,0,0,${0.35 - 0.18 * jumpArc})`;
       ctx.beginPath();
-      ctx.ellipse(cx, cy + h * 0.5, w * 0.55, h * 0.28, 0, 0, Math.PI * 2);
+      ctx.ellipse(
+        cx,
+        cy + 30 * scale * 0.5,
+        w * (0.55 - 0.15 * jumpArc),
+        h * 0.28,
+        0,
+        0,
+        Math.PI * 2,
+      );
       ctx.fill();
       // ruedas
       ctx.fillStyle = "#0a0510";
@@ -222,12 +240,42 @@ export function RacingGame({
       for (const o of obs) {
         const sy = projY(o.y);
         if (sy < HORIZON - 2) continue;
-        drawCar(laneCenterAt(o.lane, sy), sy, depthScale(sy), OBST_COLORS[o.kind]);
+        if (o.jumpable) {
+          // valla baja con franjas amarillo/negro
+          const sc = depthScale(sy);
+          const w = 46 * sc;
+          const h = 12 * sc;
+          const bx = laneCenterAt(o.lane, sy) - w / 2;
+          ctx.fillStyle = "#0a0510";
+          ctx.fillRect(bx, sy - h, w, h);
+          ctx.fillStyle = "#ffd23d";
+          const stripe = w / 5;
+          for (let i = 0; i < 5; i += 2) ctx.fillRect(bx + i * stripe, sy - h, stripe, h);
+          ctx.fillStyle = "#0a0510";
+          ctx.fillRect(bx, sy - h - 3 * sc, 3 * sc, h + 3 * sc);
+          ctx.fillRect(bx + w - 3 * sc, sy - h - 3 * sc, 3 * sc, h + 3 * sc);
+        } else {
+          drawCar(laneCenterAt(o.lane, sy), sy, depthScale(sy), OBST_COLORS[o.kind]);
+        }
       }
-
-      // --- Auto del jugador ---
+      // monedas
+      for (const c of eng.coins) {
+        if (c.taken) continue;
+        const sy = projY(c.y);
+        if (sy < HORIZON - 2) continue;
+        const sc = depthScale(sy);
+        ctx.fillStyle = "#ffd23d";
+        ctx.shadowColor = "#ffd23d";
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(laneCenterAt(c.lane, sy), sy - 8 * sc, 7 * sc, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      // auto del jugador (con arco de salto)
       const psy = projY(eng.carY);
-      drawCar(laneCenterAt(eng.carLane, psy), psy, depthScale(psy), "#39ff7a", true);
+      const jumpArc = Math.sin(Math.PI * eng.jumpProgress());
+      drawCar(laneCenterAt(eng.carLane, psy), psy, depthScale(psy), "#39ff7a", true, jumpArc);
 
       // --- HUD puntaje (en la esquina, fuera de la pista) ---
       ctx.textAlign = "left";
@@ -252,7 +300,8 @@ export function RacingGame({
         while (pending.current.length) {
           const a = pending.current.shift()!;
           if (a === "l") eng.moveLeft();
-          else eng.moveRight();
+          else if (a === "r") eng.moveRight();
+          else eng.jump();
           inputs.current.push({ t: tickRef.current, a });
         }
         eng.update(RACING_DT);
@@ -287,6 +336,9 @@ export function RacingGame({
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         enqueue("r");
+      } else if (e.key === "ArrowUp" || e.key === " " || e.key === "w" || e.key === "W") {
+        e.preventDefault();
+        enqueue("j");
       }
     }
     window.addEventListener("keydown", onKey);
@@ -298,8 +350,20 @@ export function RacingGame({
       <div
         className="relative overflow-hidden rounded-lg border-2 border-(--color-ink)"
         style={{ width: "min(86vw, 320px)" }}
+        onPointerDown={(e) => (touch.current = { x: e.clientX, y: e.clientY })}
+        onPointerUp={(e) => {
+          if (!touch.current) return;
+          const dy = e.clientY - touch.current.y;
+          touch.current = null;
+          if (dy < -24) enqueue("j");
+        }}
       >
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block h-auto w-full" />
+        <canvas
+          ref={canvasRef}
+          width={WIDTH}
+          height={HEIGHT}
+          className="block h-auto w-full touch-none"
+        />
 
         {!started && (
           <StartScreen
@@ -321,7 +385,7 @@ export function RacingGame({
             onConfirm={() =>
               onFinish({
                 score,
-                replay: { seed, ticks: tickRef.current, inputs: inputs.current },
+                replay: { seed, ticks: tickRef.current, inputs: inputs.current, v: RACING_RULES_V },
               })
             }
           />
@@ -330,13 +394,20 @@ export function RacingGame({
 
       {/* Controles tactiles */}
       {started && !over && (
-        <div className="grid w-full max-w-[320px] grid-cols-2 gap-3">
+        <div className="grid w-full max-w-[320px] grid-cols-3 gap-3">
           <button
             onClick={() => enqueue("l")}
             aria-label="Mover a la izquierda"
             className="btn3d btn3d--cyan !text-2xl"
           >
             <span aria-hidden="true">◀</span>
+          </button>
+          <button
+            onClick={() => enqueue("j")}
+            aria-label="Saltar"
+            className="btn3d btn3d--cyan !text-2xl"
+          >
+            <span aria-hidden="true">⤒</span>
           </button>
           <button
             onClick={() => enqueue("r")}
