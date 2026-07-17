@@ -66,12 +66,6 @@ const RIVAL_STRATEGIES: Record<string, string> = {
   invaders: "invaders.hunter",
 };
 
-// Los tests de PROTOCOLO webhook (notificar/forfeit/auto-pausa/kill switch) son
-// agnósticos al juego: usan "flappy" (v1) a propósito. Las estrategias v2 de
-// snake/racing todavía no declaran `v` (le toca a la tarea de estrategias) y el
-// rival hosteado real quedaría trabado reintentando para siempre por la nueva
-// versión de reglas, sin aportar nada a lo que este archivo verifica.
-
 function newHostedRival(name: string, game = "snake") {
   return createHostedAgent({
     owner: "0x00000000000000000000000000000000000000cc",
@@ -90,8 +84,11 @@ function pauseAll() {
 }
 
 test("emparejar → notificar con HMAC verificable → forfeit al vencer el plazo", async () => {
-  const byo = newWebhookAgent("Remota", "flappy");
-  newHostedRival("Rival Local", "flappy");
+  // v2: las estrategias hosteadas de snake/racing ya declaran `v`, así que este
+  // test de protocolo vuelve a ejercer el juego real (antes reroteado a flappy
+  // porque el rival hosteado quedaba trabado por versión de reglas).
+  const byo = newWebhookAgent("Remota", "snake");
+  newHostedRival("Rival Local", "snake");
 
   // Tick 1: ambos se encolan y quedan emparejados. Tick 2: el hosteado juega
   // y al BYO se lo notifica. (El orden dentro del tick no importa: iteramos
@@ -101,7 +98,7 @@ test("emparejar → notificar con HMAC verificable → forfeit al vencer el plaz
 
   const n = received[0];
   assert.equal(n.body.agentId, byo.id);
-  assert.equal(n.body.game, "flappy");
+  assert.equal(n.body.game, "snake");
   assert.equal(typeof n.body.seed, "number");
   assert.equal(typeof n.body.deadline, "number");
   // El dev verifica la autenticidad con su secreto: HMAC del body crudo.
@@ -144,8 +141,8 @@ test("fallas consecutivas → auto-pausa", async () => {
   received.length = 0;
   respondWith = 500;
   try {
-    const byo = newWebhookAgent("Muerta", "flappy");
-    newHostedRival("Rival Racing", "flappy");
+    const byo = newWebhookAgent("Muerta", "racing");
+    newHostedRival("Rival Racing", "racing");
     // Cada partida con el endpoint roto suma: notificación fallida (+1) y
     // forfeit al vencer el plazo (+1). A la tercera consecutiva se pausa.
     for (let round = 0; round < 30 && byo.active; round++) {
@@ -162,8 +159,8 @@ test("kill switch a mitad de partida: el runner rinde igual, el rival no queda c
   pauseAll();
   received.length = 0;
   respondWith = 200;
-  const byo = newWebhookAgent("EnVuelo", "flappy");
-  newHostedRival("Rival EnVuelo", "flappy");
+  const byo = newWebhookAgent("EnVuelo", "snake");
+  newHostedRival("Rival EnVuelo", "snake");
   // Emparejar y notificar (partida en vuelo, esperando el /play del dev).
   for (let i = 0; i < 4 && received.length === 0; i++) await runAgentsTick();
   assert.equal(received.length, 1, "notificada");

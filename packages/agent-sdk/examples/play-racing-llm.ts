@@ -27,8 +27,10 @@ import {
   RacingEngine,
   RACING_DT,
   RACING_CONST,
+  RACING_RULES_V,
   LANES,
   type ReplayRacing,
+  type RaceAction,
 } from "@arcade1v1/game-sdk/racing";
 import { ArbiterClient, randomWallet, signMatchmake, signScore } from "../src/index.js";
 
@@ -38,17 +40,17 @@ const CAR_Y = RACING_CONST.HEIGHT - 80; // el motor mantiene CAR_Y privado; mism
 const DECISION_DISTANCE = 200; // px por delante para considerar un obstáculo "peligro"
 const DECISION_COOLDOWN = 8; // ticks mínimos entre consultas al cerebro (anti-spam)
 
-/** Movimiento discreto: izquierda / derecha / seguir. */
-export type Action = "L" | "R" | "S";
+/** Movimiento discreto: izquierda / derecha / saltar / seguir. */
+export type Action = "L" | "R" | "J" | "S";
 
 /** El "cerebro": recibe el estado en texto y devuelve la acción. Se inyecta,
  *  así el ejemplo real usa Claude y el test un doble determinista. */
 export type Brain = (state: string) => Promise<Action>;
 
-/** Distancia (px) al obstáculo más cercano por delante en `lane`, o null si el
- *  carril está despejado por delante del auto. */
-function nearestAhead(g: RacingEngine, lane: number): number | null {
-  let best: number | null = null;
+/** Obstáculo más cercano por delante en `lane` (distancia + si es saltable),
+ *  o null si el carril está despejado por delante del auto. */
+function nearestAhead(g: RacingEngine, lane: number): { dist: number; jumpable: boolean } | null {
+  let best: { dist: number; jumpable: boolean } | null = null;
   for (const o of g.obstacles) {
     if (o.lane !== lane) continue;
     const d = CAR_Y - o.y; // > 0 por delante; <= 0 a la altura o ya pasando el auto
@@ -59,7 +61,20 @@ function nearestAhead(g: RacingEngine, lane: number): number | null {
     // racing.dodger: peligro hasta CAR_Y + CAR_H).
     if (d <= -RACING_CONST.CAR_H) continue;
     const dist = Math.max(0, d); // 0 = a la altura del auto (peligro inmediato)
-    if (best === null || dist < best) best = dist;
+    if (best === null || dist < best.dist) best = { dist, jumpable: o.jumpable };
+  }
+  return best;
+}
+
+/** Moneda sin tomar más cercana por delante en `lane` (px), o null. Las
+ *  monedas no chocan, así que alcanza con la más próxima aún por delante. */
+function nearestCoin(g: RacingEngine, lane: number): number | null {
+  let best: number | null = null;
+  for (const c of g.coins) {
+    if (c.taken || c.lane !== lane) continue;
+    const d = CAR_Y - c.y;
+    if (d <= 0) continue; // ya a la altura (se recoge sola) o pasada
+    if (best === null || d < best) best = d;
   }
   return best;
 }
@@ -67,32 +82,48 @@ function nearestAhead(g: RacingEngine, lane: number): number | null {
 /** ¿Es este tick un punto de decisión? Hay un obstáculo dentro de la distancia
  *  de peligro en el carril actual, así que conviene decidir si esquivar. */
 export function isDecisionPoint(g: RacingEngine): boolean {
-  const d = nearestAhead(g, g.carLane);
-  return d !== null && d < DECISION_DISTANCE;
+  const b = nearestAhead(g, g.carLane);
+  return b !== null && b.dist < DECISION_DISTANCE;
 }
 
-/** Serializa el estado observable a texto compacto para el LLM. */
+/** Serializa el estado observable a texto compacto para el LLM: por carril,
+ *  si lo que viene es una valla saltable o un sólido; si se puede saltar
+ *  ahora (no en el aire); y las monedas sueltas a la vista por carril. */
 export function describeState(g: RacingEngine): string {
   const lanes: string[] = [];
   for (let l = 0; l < LANES; l++) {
-    const d = nearestAhead(g, l);
-    lanes.push(`carril ${l}: ${d !== null ? `obstáculo a ${Math.round(d)}px` : "despejado"}`);
+    const b = nearestAhead(g, l);
+    if (b === null) lanes.push(`carril ${l}: despejado`);
+    else if (b.jumpable) lanes.push(`carril ${l}: valla saltable a ${Math.round(b.dist)}px`);
+    else lanes.push(`carril ${l}: obstáculo a ${Math.round(b.dist)}px`);
   }
-  const canLeft = g.carLane > 0;
-  const canRight = g.carLane < LANES - 1;
+  // En el aire el motor ignora moveLeft/moveRight/jump por igual (lane-lock):
+  // ofrecer L/R ahí sería engañoso, así que las 3 comparten la misma guarda.
+  const canJump = !g.airborne;
+  const canLeft = canJump && g.carLane > 0;
+  const canRight = canJump && g.carLane < LANES - 1;
+  const coinParts: string[] = [];
+  for (let l = 0; l < LANES; l++) {
+    const cd = nearestCoin(g, l);
+    if (cd !== null) coinParts.push(`carril ${l} a ${Math.round(cd)}px`);
+  }
   return [
     `Vas en el carril ${g.carLane} de ${LANES} (0=izquierda, ${LANES - 1}=derecha).`,
     `${lanes.join("; ")}.`,
-    `Podés: ${canLeft ? "L " : ""}${canRight ? "R " : ""}S.`,
-  ].join(" ");
+    `Podés: ${canLeft ? "L " : ""}${canRight ? "R " : ""}${canJump ? "J " : ""}S.`,
+    canJump ? "" : "Estás en el aire: no podés saltar ni cambiar de carril.",
+    coinParts.length > 0 ? `Monedas: ${coinParts.join(", ")}.` : "",
+  ]
+    .filter((s) => s.length > 0)
+    .join(" ");
 }
 
 /** Parsea la respuesta del LLM a una acción; default seguro = S (seguir).
  *  Espera una sola letra (lo que pide el system prompt); toma el primer
- *  carácter no-espacio y cae a S ante cualquier cosa que no sea L/R/S. */
+ *  carácter no-espacio y cae a S ante cualquier cosa que no sea L/R/J/S. */
 export function parseAction(raw: string): Action {
   const c = raw.trim().toUpperCase().charAt(0);
-  return c === "L" || c === "R" || c === "S" ? c : "S";
+  return c === "L" || c === "R" || c === "J" || c === "S" ? c : "S";
 }
 
 /** Corre una partida de Racing dejando que `brain` decida en los puntos de
@@ -104,7 +135,7 @@ export async function playRacingWithBrain(
 ): Promise<{ score: number; replay: ReplayRacing }> {
   const maxTicks = opts.maxTicks ?? MAX_TICKS;
   const g = new RacingEngine(seed);
-  const inputs: { t: number; a: "l" | "r" }[] = [];
+  const inputs: { t: number; a: RaceAction }[] = [];
   let cooldown = 0;
 
   for (let t = 0; t < maxTicks && !g.over; t++) {
@@ -119,13 +150,17 @@ export async function playRacingWithBrain(
         g.moveRight();
         inputs.push({ t, a: "r" });
         cooldown = DECISION_COOLDOWN;
+      } else if (action === "J" && !g.airborne) {
+        g.jump();
+        inputs.push({ t, a: "j" });
+        cooldown = DECISION_COOLDOWN;
       }
-      // S (o un movimiento inválido contra el borde): no hace nada este tick.
+      // S (o un movimiento inválido contra el borde/en el aire): no hace nada este tick.
     }
     g.update(RACING_DT);
   }
 
-  return { score: g.score, replay: { seed, ticks: maxTicks, inputs } };
+  return { score: g.score, replay: { seed, ticks: maxTicks, inputs, v: RACING_RULES_V } };
 }
 
 // --- El cerebro real: Claude elige el movimiento ---
@@ -137,8 +172,11 @@ const MODEL = process.env.ARCADE_LLM_MODEL ?? "claude-opus-4-8";
 const SYSTEM = [
   "Sos un agente jugando a un juego de carreras: esquivás obstáculos moviéndote entre carriles.",
   "Te doy el estado y respondés con UNA sola letra, sin explicación ni puntuación:",
-  "L = moverte un carril a la izquierda, R = un carril a la derecha, S = seguir en tu carril.",
-  "Elegí el movimiento que evita chocar; si tu carril está despejado, S.",
+  "L = moverte un carril a la izquierda, R = un carril a la derecha,",
+  "J = saltar (solo sirve contra una VALLA saltable, no contra un obstáculo sólido),",
+  "S = seguir en tu carril.",
+  "Elegí el movimiento que evita chocar; si no hay carril libre pero lo que viene es saltable, J.",
+  "Si tu carril está despejado, S.",
 ].join(" ");
 
 function claudeBrain(client: Anthropic): Brain {
