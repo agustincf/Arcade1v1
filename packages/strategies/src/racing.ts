@@ -1,8 +1,9 @@
 // Estrategia de la Carrera: seguir en el carril hasta que un obstáculo entre
 // en la distancia de mirada, y ahí esquivar hacia el carril libre más cercano
-// (con preferencia configurable). v2: si no hay carril limpio y lo que viene
-// es una VALLA, la salta con timing; con `coinGreed`, deriva hacia filas de
-// monedas cuando el desvío es seguro. Histéresis con cooldown anti-zigzag.
+// (con preferencia configurable). Sin peligro, recentra al carril preferido
+// SIEMPRE (igual que v1) salvo que la codicia encuentre un desvío por monedas
+// más urgente. v2: si no hay carril limpio y lo que viene es una VALLA, la
+// salta con timing. Histéresis con cooldown anti-zigzag.
 
 import {
   RacingEngine,
@@ -118,15 +119,28 @@ export const strategyRacingDodger: StrategyDef = {
               if (softSide.length > 0) target = softSide[0];
             }
           }
-        } else if (coinGreed > 0) {
-          // Codicia: derivar hacia un carril vecino con monedas si está limpio.
-          const sides = [g.carLane - 1, g.carLane + 1].filter(
-            (l) => l >= 0 && l < LANES && coinsAhead(l) && !danger(l, lookahead * (2 - coinGreed)),
-          );
-          if (sides.length > 0) target = sides[0];
-          else if (
+        } else {
+          // Sin peligro: primero el desvío por monedas (solo si hay codicia);
+          // si no hubo desvío —coinGreed=0, o codicia sin jugada segura—,
+          // recentrar al preferido COMO EN v1, sin condicionarlo a la codicia
+          // (si el recentrado dependiera de coinGreed>0, coinGreed=0 perdía
+          // el recentrado de v1 y el efecto medido de la codicia se inflaba
+          // con algo que no era "puntos por moneda").
+          let coinDrift = false;
+          if (coinGreed > 0) {
+            // Codicia: derivar hacia un carril vecino con monedas si está limpio.
+            const sides = [g.carLane - 1, g.carLane + 1].filter(
+              (l) =>
+                l >= 0 && l < LANES && coinsAhead(l) && !danger(l, lookahead * (2 - coinGreed)),
+            );
+            if (sides.length > 0) {
+              target = sides[0];
+              coinDrift = true;
+            }
+          }
+          if (
+            !coinDrift &&
             g.carLane !== homeLane &&
-            !coinsAhead(g.carLane) &&
             !danger(homeLane, lookahead * 1.5) &&
             !danger(g.carLane + Math.sign(homeLane - g.carLane), lookahead * 1.5)
           ) {
