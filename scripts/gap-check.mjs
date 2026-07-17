@@ -30,13 +30,17 @@ function racingV1Avg() {
     const g = new RacingEngine(seed);
     let cooldown = 0;
     const danger = (lane, dist) =>
-      g.obstacles.some((o) => o.lane === lane && o.y > CAR_Y - dist && o.y < CAR_Y + RACING_CONST.CAR_H);
+      g.obstacles.some(
+        (o) => o.lane === lane && o.y > CAR_Y - dist && o.y < CAR_Y + RACING_CONST.CAR_H,
+      );
     for (let t = 0; t < 36_000 && !g.over; t++) {
       if (cooldown > 0) cooldown--;
       if (cooldown === 0) {
         let target = g.carLane;
         if (danger(g.carLane, 160)) {
-          const c = [g.carLane - 1, g.carLane + 1].filter((l) => l >= 0 && l < LANES && !danger(l, 200));
+          const c = [g.carLane - 1, g.carLane + 1].filter(
+            (l) => l >= 0 && l < LANES && !danger(l, 200),
+          );
           if (c.length > 0) {
             c.sort((a, b) => Math.abs(a - 1) - Math.abs(b - 1));
             target = c[0];
@@ -71,5 +75,9 @@ const gaps = [
   gapLine("racing", racingV1Avg(), avg("racing.dodger", {})),
 ];
 const ok = gaps.every((g) => g >= 10);
-console.log(ok ? "\nOK: brecha ≥ 10% en ambos juegos." : "\nATENCIÓN: brecha < 10% — recalibrar (COIN_CHANCE/COIN_VALUE o monedas de racing).");
+console.log(
+  ok
+    ? "\nOK: brecha ≥ 10% en ambos juegos."
+    : "\nATENCIÓN: brecha < 10% — recalibrar (COIN_CHANCE/COIN_VALUE o monedas de racing).",
+);
 process.exit(ok ? 0 : 1);

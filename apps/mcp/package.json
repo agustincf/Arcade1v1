@@ -1,6 +1,6 @@
 {
   "name": "@arcade1v1/mcp",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "MCP server for Arcade1v1 — let an AI assistant play 1v1 skill games (2048, Tetris, Snake, Flappy, Racing, Space Invaders) and climb the ELO ladder.",
   "mcpName": "io.github.agustincf/arcade1v1",
   "keywords": [

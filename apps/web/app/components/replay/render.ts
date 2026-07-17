@@ -39,7 +39,13 @@ export function drawSnake(ctx: CanvasRenderingContext2D, eng: SnakeEngine) {
   if (eng.coin && (!eng.coinBlinking() || eng.coinSteps % 2 === 0)) {
     ctx.fillStyle = "#ffd23d";
     ctx.beginPath();
-    ctx.arc(eng.coin.x * CELL + CELL / 2, eng.coin.y * CELL + CELL / 2, CELL / 2 - 4, 0, Math.PI * 2);
+    ctx.arc(
+      eng.coin.x * CELL + CELL / 2,
+      eng.coin.y * CELL + CELL / 2,
+      CELL / 2 - 4,
+      0,
+      Math.PI * 2,
+    );
     ctx.fill();
   }
   eng.body.forEach((s, i) => {

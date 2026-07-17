@@ -181,7 +181,7 @@ export const fr: Dict = {
   "g.flappy.over": "TU ES TOMBÉ ! 💥",
   "g.racing.title": "COURSE",
   "g.racing.instr":
-    "Changez de voie et sautez les barrières rayées. +1 par voiture laissée derrière et par pièce. Ça accélère sans cesse !",
+    "Change de voie et saute les barrières rayées. +1 par voiture laissée derrière et par pièce. Ça accélère sans cesse !",
   "g.racing.over": "TU AS CRASHÉ ! 💥",
   "g.2048.title": "2048",
   "g.2048.instr":
@@ -195,7 +195,7 @@ export const fr: Dict = {
     "Clavier : ← → bouger · ↑/X tourner · ↓ descendre · Espace = chute rapide · P = pause",
   "g.flappy.hint": "Tape l'écran ou appuie sur espace pour voler.",
   "g.racing.hint":
-    "← → voies · ↑ ou Espace pour sauter · sur mobile : boutons ou glissez vers le haut.",
+    "← → voies · ↑ ou Espace pour sauter · sur mobile : boutons ou glisse vers le haut.",
   "g.2048.hint": "Flèches du clavier ou glisse sur le plateau.",
   "game.snake.name": "Snake",
   "game.snake.desc":
@@ -205,7 +205,7 @@ export const fr: Dict = {
     "Détruis les vagues d'aliens avant l'invasion. Plus d'aliens abattus = plus de cagnotte.",
   "g.snake.title": "SNAKE",
   "g.snake.instr":
-    "Utilisez les flèches (ou glissez) pour manger et grandir. La pièce dorée vaut 3 — mais elle disparaît vite ! Ne mordez pas votre queue (les bords se rejoignent).",
+    "Utilise les flèches (ou glisse) pour manger et grandir. La pièce dorée vaut 3 — mais elle disparaît vite ! Ne mords pas ta queue (les bords se rejoignent).",
   "g.snake.over": "CRASHÉ ! 🐍",
   "g.snake.hint": "Flèches du clavier ou glisse sur le plateau.",
   "g.invaders.title": "SPACE INVADERS",

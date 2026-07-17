@@ -25,10 +25,12 @@
 ### Task 1: Snake v2 — moneda que vence (motor)
 
 **Files:**
+
 - Modify: `packages/game-sdk/src/snake.ts`
 - Test: `packages/game-sdk/test/engines.test.ts` (agregar bloque al final)
 
 **Interfaces:**
+
 - Produces: `SNAKE_RULES_V = 2`, `COIN_VALUE = 3`, `COIN_LIFE_STEPS = 28`, `COIN_BLINK_STEPS = 8` (constantes exportadas); en `SnakeEngine`: `coin: { x: number; y: number } | null`, `coinSteps: number` (pasos de vida restantes), `coinBlinking(): boolean`; `ReplaySnake` gana `v?: number`. `verifySnake` no cambia de firma.
 
 - [ ] **Step 1: Escribir los tests que fallan**
@@ -37,11 +39,7 @@ Al final de `packages/game-sdk/test/engines.test.ts` (después del `for (const c
 
 ```ts
 // ------------------------- Snake v2: moneda que vence -------------------------
-import {
-  SNAKE_RULES_V,
-  COIN_VALUE,
-  COIN_LIFE_STEPS,
-} from "@arcade1v1/game-sdk/snake";
+import { SNAKE_RULES_V, COIN_VALUE, COIN_LIFE_STEPS } from "@arcade1v1/game-sdk/snake";
 
 test("snake v2: exporta la versión de reglas 2", () => {
   assert.equal(SNAKE_RULES_V, 2);
@@ -87,7 +85,10 @@ test("snake v2: contabilidad — largo y puntaje cierran (fruta +1, moneda +3, a
     for (let t = 0; t < 3000 && !g.over; t++) g.tick();
     const grown = g.body.length - 3;
     const coins = (g.score - grown) / 2;
-    assert.ok(Number.isInteger(coins) && coins >= 0, `seed ${seed}: score ${g.score} / largo ${g.body.length} inconsistentes`);
+    assert.ok(
+      Number.isInteger(coins) && coins >= 0,
+      `seed ${seed}: score ${g.score} / largo ${g.body.length} inconsistentes`,
+    );
   }
 });
 
@@ -226,10 +227,12 @@ git commit -m "feat(game-sdk): Snake v2 — moneda que vence (+3, alarga, 28 pas
 ### Task 2: Racing v2 — salto, vallas y monedas (motor)
 
 **Files:**
+
 - Modify: `packages/game-sdk/src/racing.ts`
 - Test: `packages/game-sdk/test/engines.test.ts` (agregar bloque al final)
 
 **Interfaces:**
+
 - Produces: `RACING_RULES_V = 2`, `JUMP_TICKS = 30`, `JUMP_COOLDOWN = 10` (exportadas); `RaceAction = "l" | "r" | "j"`; `Obstacle` gana `jumpable: boolean`; en `RacingEngine`: `jump()`, `get airborne(): boolean`, `jumpProgress(): number` (0..1 para dibujar el arco), `coins: { lane: number; y: number; taken: boolean }[]`, `passedCount: number`; `ReplayRacing` gana `v?: number`; `verifyRacing` procesa `"j"`.
 
 - [ ] **Step 1: Escribir los tests que fallan**
@@ -272,9 +275,7 @@ test("racing v2: saltar una valla salva; sin saltar, mata", () => {
       if (a.over) deathTick = t;
     }
     if (deathTick < 0) continue;
-    const killer = a.obstacles.find(
-      (o) => o.lane === a.carLane && Math.abs(o.y - CAR_Y_TEST) < 60,
-    );
+    const killer = a.obstacles.find((o) => o.lane === a.carLane && Math.abs(o.y - CAR_Y_TEST) < 60);
     if (!killer || !killer.jumpable) continue;
     found = true;
     const b = new RacingEngine(seed);
@@ -307,9 +308,16 @@ test("racing v2: monedas suman puntaje pero NO velocidad (speed usa passedCount)
     if (g.score > g.passedCount) sawCoins = true;
     assert.ok(g.score >= g.passedCount, "score = obstáculos pasados + monedas");
     const expected = Math.min(480, 190 + Math.floor(g.elapsedMs / 8000) * 35 + g.passedCount * 2);
-    assert.equal(g.speed(), expected, `seed ${seed}: la velocidad escala con passedCount, no con score`);
+    assert.equal(
+      g.speed(),
+      expected,
+      `seed ${seed}: la velocidad escala con passedCount, no con score`,
+    );
   }
-  assert.ok(sawCoins, "en 20 semillas alguna corrida debe haber tomado monedas (si no, el test no prueba nada)");
+  assert.ok(
+    sawCoins,
+    "en 20 semillas alguna corrida debe haber tomado monedas (si no, el test no prueba nada)",
+  );
 });
 
 test("racing v2: verify procesa saltos y reproduce el puntaje", () => {
@@ -370,8 +378,13 @@ export interface Obstacle {
 3. Estado nuevo en la clase (junto a `obstacles`) y campos privados (junto a `lastFree`):
 
 ```ts
-  coins: { lane: number; y: number; taken: boolean }[] = [];
-  passedCount = 0; // obstáculos superados: SOLO esto acelera el juego
+coins: {
+  lane: number;
+  y: number;
+  taken: boolean;
+}
+[] = [];
+passedCount = 0; // obstáculos superados: SOLO esto acelera el juego
 ```
 
 ```ts
@@ -580,9 +593,11 @@ git commit -m "feat(game-sdk): Racing v2 — salto comprometido, vallas saltable
 ### Task 3: Racing v2 — el generador nunca crea situaciones imposibles
 
 **Files:**
+
 - Create: `packages/game-sdk/test/racing-fairness.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RacingEngine`, `RACING_DT`, `JUMP_TICKS`, `RACING_CONST` de Task 2.
 
 - [ ] **Step 1: Escribir el test de invariantes + oráculo (falla si el generador es injusto)**
@@ -599,11 +614,7 @@ Crear `packages/game-sdk/test/racing-fairness.test.ts`:
 //       creara algo imposible, el oráculo muere al instante y esto se pone rojo.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  RacingEngine,
-  RACING_DT,
-  RACING_CONST,
-} from "@arcade1v1/game-sdk/racing";
+import { RacingEngine, RACING_DT, RACING_CONST } from "@arcade1v1/game-sdk/racing";
 
 const CAR_Y = RACING_CONST.HEIGHT - 80;
 const SEEDS = 200;
@@ -712,12 +723,14 @@ git commit -m "test(game-sdk): Racing v2 — invariantes de salida garantizada +
 ### Task 4: RULES_V + rechazo claro en el árbitro
 
 **Files:**
+
 - Create: `packages/game-sdk/src/rules.ts`
 - Modify: `packages/game-sdk/package.json` (agregar export `./rules`)
 - Modify: `apps/server/src/matchmaking.ts`
 - Test: `apps/server/test/rules-version.test.ts` (nuevo)
 
 **Interfaces:**
+
 - Produces: `RULES_V: Record<string, number>` en `@arcade1v1/game-sdk/rules`; `Match.rulesV?: number`; `MatchView.rulesV?: number` (lado server). El mensaje de rechazo SIEMPRE matchea `/rules version mismatch/` y menciona `@arcade1v1/mcp`.
 
 - [ ] **Step 1: Crear `packages/game-sdk/src/rules.ts`**
@@ -819,18 +832,18 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 4. En `submitScore`, DENTRO del `try` anti-trampa, como PRIMERA validación (antes de `const verifier = …`):
 
 ```ts
-    // VERSIÓN DE REGLAS (corte seco con dignidad): un cliente con el paquete
-    // viejo simula OTRAS reglas — su replay jamás verificaría. Rechazamos
-    // ANTES de re-simular, con el motivo real y el remedio, nunca un
-    // "score mismatch" críptico. Cubre también partidas nacidas pre-deploy.
-    const currentV = RULES_V[m.game] ?? 1;
-    const matchV = m.rulesV ?? 1;
-    const replayV = (replay as { v?: unknown })?.v ?? 1;
-    if (matchV !== currentV || replayV !== currentV) {
-      throw new Error(
-        `rules version mismatch (match v${matchV}, replay v${String(replayV)}, arbiter v${currentV}) — update @arcade1v1/mcp`,
-      );
-    }
+// VERSIÓN DE REGLAS (corte seco con dignidad): un cliente con el paquete
+// viejo simula OTRAS reglas — su replay jamás verificaría. Rechazamos
+// ANTES de re-simular, con el motivo real y el remedio, nunca un
+// "score mismatch" críptico. Cubre también partidas nacidas pre-deploy.
+const currentV = RULES_V[m.game] ?? 1;
+const matchV = m.rulesV ?? 1;
+const replayV = (replay as { v?: unknown })?.v ?? 1;
+if (matchV !== currentV || replayV !== currentV) {
+  throw new Error(
+    `rules version mismatch (match v${matchV}, replay v${String(replayV)}, arbiter v${currentV}) — update @arcade1v1/mcp`,
+  );
+}
 ```
 
 5. `interface MatchView`: agregar tras `seed: number;`:
@@ -864,11 +877,13 @@ git commit -m "feat(server): versión de reglas por juego — rechazo claro a cl
 ### Task 5: agent-sdk — validación proactiva de versión
 
 **Files:**
+
 - Modify: `packages/agent-sdk/src/client.ts` (MatchView + rulesV)
 - Modify: `packages/agent-sdk/src/agent.ts` (guard en playAndSubmit)
 - Test: `packages/agent-sdk/test/rules-guard.test.ts` (nuevo)
 
 **Interfaces:**
+
 - Consumes: `RULES_V` de Task 4; `MatchView.rulesV` del server.
 - Produces: `MatchView.rulesV?: number` (lado cliente); `playAndSubmit` lanza `/rules version mismatch/` ANTES de jugar si el árbitro corre otra versión.
 
@@ -933,14 +948,14 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 y en `playAndSubmit`, inmediatamente después de `const m = await matchmake(args.game, args.stake);`:
 
 ```ts
-    // Guard de versión: si el árbitro corre otras reglas, avisar YA (antes de
-    // jugar), con el remedio. El árbitro repite este control en el submit.
-    const localV = RULES_V[args.game];
-    if (m.rulesV !== undefined && localV !== undefined && m.rulesV !== localV) {
-      throw new Error(
-        `rules version mismatch for ${args.game}: arbiter v${m.rulesV}, SDK v${localV} — update @arcade1v1 packages`,
-      );
-    }
+// Guard de versión: si el árbitro corre otras reglas, avisar YA (antes de
+// jugar), con el remedio. El árbitro repite este control en el submit.
+const localV = RULES_V[args.game];
+if (m.rulesV !== undefined && localV !== undefined && m.rulesV !== localV) {
+  throw new Error(
+    `rules version mismatch for ${args.game}: arbiter v${m.rulesV}, SDK v${localV} — update @arcade1v1 packages`,
+  );
+}
 ```
 
 - [ ] **Step 3: Verificar**
@@ -960,6 +975,7 @@ git commit -m "feat(agent-sdk): validar la versión de reglas al matchmakear"
 ### Task 6: Estrategias v2 — saltan, codician monedas, replays con v
 
 **Files:**
+
 - Modify: `packages/strategies/src/racing.ts` (dodger)
 - Modify: `packages/strategies/src/racing-weaver.ts`
 - Modify: `packages/strategies/src/snake.ts` (greedy)
@@ -967,6 +983,7 @@ git commit -m "feat(agent-sdk): validar la versión de reglas al matchmakear"
 - Test: `packages/strategies/test/strategies-v2.test.ts` (nuevo)
 
 **Interfaces:**
+
 - Consumes: motores v2 (Tasks 1-2): `jump()`, `airborne`, `coins`, `Obstacle.jumpable`, `g.coin`, `g.coinSteps`, `RACING_RULES_V`, `SNAKE_RULES_V`.
 - Produces: las 4 estrategias devuelven replays `{ seed, ticks, inputs, v: <RULES_V del juego> }` y ganan el param `coinGreed` (slider 0..1). Claves i18n nuevas: `strat.racing.dodger.coinGreed`, `strat.racing.weaver.coinGreed`, `strat.snake.greedy.coinGreed`, `strat.snake.survivor.coinGreed` (textos en Task 9).
 
@@ -1204,28 +1221,28 @@ export const strategyRacingDodger: StrategyDef = {
 3. `clearance` ya cuenta vallas como obstáculo (elige carriles esquivando todo): queda igual. Agregar DESPUÉS del bloque `if (target !== g.carLane && …)` (dentro del `if (cooldown === 0)`), el salto de emergencia:
 
 ```ts
-        // v2: si me quedé sin deriva y lo que tengo encima es una VALLA, saltar.
-        if (!g.airborne && clearance(g.carLane) < DANGER) {
-          const threat = g.obstacles
-            .filter((o) => o.lane === g.carLane && o.y < CAR_Y + HIT_BAND)
-            .sort((a, b) => b.y - a.y)[0];
-          if (threat?.jumpable && CAR_Y - threat.y < 120) {
-            g.jump();
-            inputs.push({ t, a: "j" });
-          }
-        }
+// v2: si me quedé sin deriva y lo que tengo encima es una VALLA, saltar.
+if (!g.airborne && clearance(g.carLane) < DANGER) {
+  const threat = g.obstacles
+    .filter((o) => o.lane === g.carLane && o.y < CAR_Y + HIT_BAND)
+    .sort((a, b) => b.y - a.y)[0];
+  if (threat?.jumpable && CAR_Y - threat.y < 120) {
+    g.jump();
+    inputs.push({ t, a: "j" });
+  }
+}
 ```
 
 4. Sesgo de monedas en `eff` — reemplazar la definición de `eff` por:
 
 ```ts
-        const coinBias = (lane: number): number =>
-          coinGreed > 0 &&
-          g.coins.some((c) => !c.taken && c.lane === lane && c.y < CAR_Y && c.y > CAR_Y - 300)
-            ? coinGreed * 40
-            : 0;
-        const eff = (lane: number): number =>
-          clearance(lane) - CENTER_BIAS * Math.abs(lane - CENTER) + coinBias(lane);
+const coinBias = (lane: number): number =>
+  coinGreed > 0 &&
+  g.coins.some((c) => !c.taken && c.lane === lane && c.y < CAR_Y && c.y > CAR_Y - 300)
+    ? coinGreed * 40
+    : 0;
+const eff = (lane: number): number =>
+  clearance(lane) - CENTER_BIAS * Math.abs(lane - CENTER) + coinBias(lane);
 ```
 
 5. Param nuevo en `PARAMS` (después de boldness) + su lectura:
@@ -1243,7 +1260,7 @@ export const strategyRacingDodger: StrategyDef = {
 ```
 
 ```ts
-    const coinGreed = num(params, PARAMS[1]);
+const coinGreed = num(params, PARAMS[1]);
 ```
 
 6. Return con versión: `replay: { seed, ticks: MAX_TICKS, inputs, v: RACING_RULES_V }`.
@@ -1257,13 +1274,12 @@ En ambos, el patrón es el mismo (cambios mínimos):
 3. Objetivo dinámico — en el loop, ANTES del `for (const a of ACTS)`, elegir blanco:
 
 ```ts
-      // v2: perseguir la moneda solo si es alcanzable ANTES de que venza y
-      // está dentro del radio que la codicia habilita.
-      const head0 = g.body[0];
-      const coinDist = g.coin ? wrapDist(head0.x, head0.y, g.coin.x, g.coin.y) : Infinity;
-      const chaseCoin =
-        g.coin !== null && coinDist <= g.coinSteps && coinDist <= coinGreed * GRID;
-      const target = chaseCoin ? g.coin! : g.food;
+// v2: perseguir la moneda solo si es alcanzable ANTES de que venza y
+// está dentro del radio que la codicia habilita.
+const head0 = g.body[0];
+const coinDist = g.coin ? wrapDist(head0.x, head0.y, g.coin.x, g.coin.y) : Infinity;
+const chaseCoin = g.coin !== null && coinDist <= g.coinSteps && coinDist <= coinGreed * GRID;
+const target = chaseCoin ? g.coin! : g.food;
 ```
 
 4. Dentro del loop de acciones, reemplazar la distancia a `g.food` por `target`:
@@ -1289,9 +1305,11 @@ git commit -m "feat(strategies): las 4 estrategias de Snake/Racing aprenden mone
 ### Task 7: Script de brecha — el criterio de éxito medible
 
 **Files:**
+
 - Create: `scripts/gap-check.mjs`
 
 **Interfaces:**
+
 - Consumes: estrategias v2 (Task 6) vía `@arcade1v1/strategies`.
 
 - [ ] **Step 1: Crear `scripts/gap-check.mjs`**
@@ -1329,13 +1347,17 @@ function racingV1Avg() {
     const g = new RacingEngine(seed);
     let cooldown = 0;
     const danger = (lane, dist) =>
-      g.obstacles.some((o) => o.lane === lane && o.y > CAR_Y - dist && o.y < CAR_Y + RACING_CONST.CAR_H);
+      g.obstacles.some(
+        (o) => o.lane === lane && o.y > CAR_Y - dist && o.y < CAR_Y + RACING_CONST.CAR_H,
+      );
     for (let t = 0; t < 36_000 && !g.over; t++) {
       if (cooldown > 0) cooldown--;
       if (cooldown === 0) {
         let target = g.carLane;
         if (danger(g.carLane, 160)) {
-          const c = [g.carLane - 1, g.carLane + 1].filter((l) => l >= 0 && l < LANES && !danger(l, 200));
+          const c = [g.carLane - 1, g.carLane + 1].filter(
+            (l) => l >= 0 && l < LANES && !danger(l, 200),
+          );
           if (c.length > 0) {
             c.sort((a, b) => Math.abs(a - 1) - Math.abs(b - 1));
             target = c[0];
@@ -1370,7 +1392,11 @@ const gaps = [
   gapLine("racing", racingV1Avg(), avg("racing.dodger", {})),
 ];
 const ok = gaps.every((g) => g >= 10);
-console.log(ok ? "\nOK: brecha ≥ 10% en ambos juegos." : "\nATENCIÓN: brecha < 10% — recalibrar (COIN_CHANCE/COIN_VALUE o monedas de racing).");
+console.log(
+  ok
+    ? "\nOK: brecha ≥ 10% en ambos juegos."
+    : "\nATENCIÓN: brecha < 10% — recalibrar (COIN_CHANCE/COIN_VALUE o monedas de racing).",
+);
 process.exit(ok ? 0 : 1);
 ```
 
@@ -1397,10 +1423,12 @@ git commit -m "feat(scripts): gap-check — mide la brecha trivial vs planificad
 ### Task 8: UI web — Snake dibuja la moneda; Racing salta; replays declaran v
 
 **Files:**
+
 - Modify: `apps/web/app/games/snake/SnakeGame.tsx`
 - Modify: `apps/web/app/games/racing/RacingGame.tsx`
 
 **Interfaces:**
+
 - Consumes: `coin`, `coinSteps`, `coinBlinking()`, `SNAKE_RULES_V`; `jump()`, `airborne`, `jumpProgress()`, `coins`, `Obstacle.jumpable`, `RACING_RULES_V`.
 - Produces: replays con `v` desde la web; controles de salto (↑/Espacio/W, swipe up, botón central).
 
@@ -1410,21 +1438,21 @@ git commit -m "feat(scripts): gap-check — mide la brecha trivial vs planificad
 2. En `draw()`, después del bloque de la comida y antes de la serpiente:
 
 ```ts
-      // moneda (vale 3, vence): parpadea a ritmo de paso cuando está por irse
-      if (eng.coin && (!eng.coinBlinking() || eng.coinSteps % 2 === 0)) {
-        ctx.fillStyle = "#ffd23d";
-        ctx.shadowColor = "#ffd23d";
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.arc(eng.coin.x * CELL + CELL / 2, eng.coin.y * CELL + CELL / 2, CELL / 2 - 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "#8a6d00";
-        ctx.font = "bold 10px ui-sans-serif, system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText("3", eng.coin.x * CELL + CELL / 2, eng.coin.y * CELL + CELL / 2 + 3.5);
-        ctx.textAlign = "left";
-      }
+// moneda (vale 3, vence): parpadea a ritmo de paso cuando está por irse
+if (eng.coin && (!eng.coinBlinking() || eng.coinSteps % 2 === 0)) {
+  ctx.fillStyle = "#ffd23d";
+  ctx.shadowColor = "#ffd23d";
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.arc(eng.coin.x * CELL + CELL / 2, eng.coin.y * CELL + CELL / 2, CELL / 2 - 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#8a6d00";
+  ctx.font = "bold 10px ui-sans-serif, system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText("3", eng.coin.x * CELL + CELL / 2, eng.coin.y * CELL + CELL / 2 + 3.5);
+  ctx.textAlign = "left";
+}
 ```
 
 3. En el `onConfirm` del `GameOverScreen`, el replay declara la versión:
@@ -1439,13 +1467,13 @@ git commit -m "feat(scripts): gap-check — mide la brecha trivial vs planificad
 2. En el loop determinista, el drenaje de `pending` maneja `"j"`:
 
 ```ts
-        while (pending.current.length) {
-          const a = pending.current.shift()!;
-          if (a === "l") eng.moveLeft();
-          else if (a === "r") eng.moveRight();
-          else eng.jump();
-          inputs.current.push({ t: tickRef.current, a });
-        }
+while (pending.current.length) {
+  const a = pending.current.shift()!;
+  if (a === "l") eng.moveLeft();
+  else if (a === "r") eng.moveRight();
+  else eng.jump();
+  inputs.current.push({ t: tickRef.current, a });
+}
 ```
 
 3. Teclado — agregar salto al `onKey`:
@@ -1474,17 +1502,25 @@ con el ref correspondiente junto a los otros refs: `const touch = useRef<{ x: nu
 5. Botonera táctil: pasar el grid a 3 columnas con salto en el medio:
 
 ```tsx
-        <div className="grid w-full max-w-[320px] grid-cols-3 gap-3">
-          <button onClick={() => enqueue("l")} aria-label="Mover a la izquierda" className="btn3d btn3d--cyan !text-2xl">
-            <span aria-hidden="true">◀</span>
-          </button>
-          <button onClick={() => enqueue("j")} aria-label="Saltar" className="btn3d btn3d--cyan !text-2xl">
-            <span aria-hidden="true">⤒</span>
-          </button>
-          <button onClick={() => enqueue("r")} aria-label="Mover a la derecha" className="btn3d btn3d--cyan !text-2xl">
-            <span aria-hidden="true">▶</span>
-          </button>
-        </div>
+<div className="grid w-full max-w-[320px] grid-cols-3 gap-3">
+  <button
+    onClick={() => enqueue("l")}
+    aria-label="Mover a la izquierda"
+    className="btn3d btn3d--cyan !text-2xl"
+  >
+    <span aria-hidden="true">◀</span>
+  </button>
+  <button onClick={() => enqueue("j")} aria-label="Saltar" className="btn3d btn3d--cyan !text-2xl">
+    <span aria-hidden="true">⤒</span>
+  </button>
+  <button
+    onClick={() => enqueue("r")}
+    aria-label="Mover a la derecha"
+    className="btn3d btn3d--cyan !text-2xl"
+  >
+    <span aria-hidden="true">▶</span>
+  </button>
+</div>
 ```
 
 6. Render — `drawCar` gana un parámetro de salto (el cuerpo sube, la sombra queda en el piso). Firma y primeras líneas nuevas:
@@ -1509,46 +1545,46 @@ y TODO el resto del cuerpo del auto usa `s` en lugar de `scale` y la `y` ya corr
 7. Obstáculos — en el bucle de dibujo, vallas distintas y por encima el auto saltando:
 
 ```ts
-      const obs = [...eng.obstacles].sort((a, b) => a.y - b.y);
-      for (const o of obs) {
-        const sy = projY(o.y);
-        if (sy < HORIZON - 2) continue;
-        if (o.jumpable) {
-          // valla baja con franjas amarillo/negro
-          const sc = depthScale(sy);
-          const w = 46 * sc;
-          const h = 12 * sc;
-          const bx = laneCenterAt(o.lane, sy) - w / 2;
-          ctx.fillStyle = "#0a0510";
-          ctx.fillRect(bx, sy - h, w, h);
-          ctx.fillStyle = "#ffd23d";
-          const stripe = w / 5;
-          for (let i = 0; i < 5; i += 2) ctx.fillRect(bx + i * stripe, sy - h, stripe, h);
-          ctx.fillStyle = "#0a0510";
-          ctx.fillRect(bx, sy - h - 3 * sc, 3 * sc, h + 3 * sc);
-          ctx.fillRect(bx + w - 3 * sc, sy - h - 3 * sc, 3 * sc, h + 3 * sc);
-        } else {
-          drawCar(laneCenterAt(o.lane, sy), sy, depthScale(sy), OBST_COLORS[o.kind]);
-        }
-      }
-      // monedas
-      for (const c of eng.coins) {
-        if (c.taken) continue;
-        const sy = projY(c.y);
-        if (sy < HORIZON - 2) continue;
-        const sc = depthScale(sy);
-        ctx.fillStyle = "#ffd23d";
-        ctx.shadowColor = "#ffd23d";
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.arc(laneCenterAt(c.lane, sy), sy - 8 * sc, 7 * sc, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-      // auto del jugador (con arco de salto)
-      const psy = projY(eng.carY);
-      const jumpArc = Math.sin(Math.PI * eng.jumpProgress());
-      drawCar(laneCenterAt(eng.carLane, psy), psy, depthScale(psy), "#39ff7a", true, jumpArc);
+const obs = [...eng.obstacles].sort((a, b) => a.y - b.y);
+for (const o of obs) {
+  const sy = projY(o.y);
+  if (sy < HORIZON - 2) continue;
+  if (o.jumpable) {
+    // valla baja con franjas amarillo/negro
+    const sc = depthScale(sy);
+    const w = 46 * sc;
+    const h = 12 * sc;
+    const bx = laneCenterAt(o.lane, sy) - w / 2;
+    ctx.fillStyle = "#0a0510";
+    ctx.fillRect(bx, sy - h, w, h);
+    ctx.fillStyle = "#ffd23d";
+    const stripe = w / 5;
+    for (let i = 0; i < 5; i += 2) ctx.fillRect(bx + i * stripe, sy - h, stripe, h);
+    ctx.fillStyle = "#0a0510";
+    ctx.fillRect(bx, sy - h - 3 * sc, 3 * sc, h + 3 * sc);
+    ctx.fillRect(bx + w - 3 * sc, sy - h - 3 * sc, 3 * sc, h + 3 * sc);
+  } else {
+    drawCar(laneCenterAt(o.lane, sy), sy, depthScale(sy), OBST_COLORS[o.kind]);
+  }
+}
+// monedas
+for (const c of eng.coins) {
+  if (c.taken) continue;
+  const sy = projY(c.y);
+  if (sy < HORIZON - 2) continue;
+  const sc = depthScale(sy);
+  ctx.fillStyle = "#ffd23d";
+  ctx.shadowColor = "#ffd23d";
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(laneCenterAt(c.lane, sy), sy - 8 * sc, 7 * sc, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
+// auto del jugador (con arco de salto)
+const psy = projY(eng.carY);
+const jumpArc = Math.sin(Math.PI * eng.jumpProgress());
+drawCar(laneCenterAt(eng.carLane, psy), psy, depthScale(psy), "#39ff7a", true, jumpArc);
 ```
 
 (Esto REEMPLAZA los bloques actuales de obstáculos y auto del jugador.)
@@ -1574,10 +1610,12 @@ git commit -m "feat(web): UI v2 — moneda de Snake y salto/vallas/monedas de Ra
 ### Task 9: i18n — instrucciones nuevas, labels de estrategias y err.rulesVersion (4 idiomas)
 
 **Files:**
+
 - Modify: `apps/web/app/lib/i18n/es.ts`, `en.ts`, `fr.ts`, `hi.ts`
 - Modify: `apps/web/app/game/[gameId]/match/page.tsx` (catch del envío)
 
 **Interfaces:**
+
 - Consumes: claves `strat.*.coinGreed` referenciadas en Task 6.
 - Produces: claves `err.rulesVersion` + instrucciones actualizadas. El catch del submit distingue `/rules version mismatch/`.
 
@@ -1681,10 +1719,12 @@ git commit -m "feat(web): i18n v2 en 4 idiomas + error claro de versión de regl
 ### Task 10: Visor de replays — dibuja y re-simula las reglas v2
 
 **Files:**
+
 - Modify: `apps/web/app/components/replay/render.ts`
 - Modify: `apps/web/app/components/replay/ReplayPlayer.tsx`
 
 **Interfaces:**
+
 - Consumes: `coin`/`coinBlinking()` de Snake v2; `coins`/`jumpable`/`airborne`/`jumpProgress()` y acción `"j"` de Racing v2.
 
 - [ ] **Step 1: `render.ts`**
@@ -1692,49 +1732,49 @@ git commit -m "feat(web): i18n v2 en 4 idiomas + error claro de versión de regl
 1. `drawSnake` — después del bloque de comida:
 
 ```ts
-  if (eng.coin && (!eng.coinBlinking() || eng.coinSteps % 2 === 0)) {
-    ctx.fillStyle = "#ffd23d";
-    ctx.beginPath();
-    ctx.arc(eng.coin.x * CELL + CELL / 2, eng.coin.y * CELL + CELL / 2, CELL / 2 - 4, 0, Math.PI * 2);
-    ctx.fill();
-  }
+if (eng.coin && (!eng.coinBlinking() || eng.coinSteps % 2 === 0)) {
+  ctx.fillStyle = "#ffd23d";
+  ctx.beginPath();
+  ctx.arc(eng.coin.x * CELL + CELL / 2, eng.coin.y * CELL + CELL / 2, CELL / 2 - 4, 0, Math.PI * 2);
+  ctx.fill();
+}
 ```
 
 2. `drawRacing` — reemplazar el bloque de obstáculos y auto por:
 
 ```ts
-  // obstáculos: sólidos llenos; vallas = barra chata rayada
-  for (const o of eng.obstacles) {
-    if (o.jumpable) {
-      const w = OBST_W;
-      const h = OBST_H * 0.35;
-      const bx = laneX(o.lane) - w / 2;
-      ctx.fillStyle = "#0a0510";
-      ctx.fillRect(bx, o.y - h / 2, w, h);
-      ctx.fillStyle = "#ffd23d";
-      const stripe = w / 5;
-      for (let i = 0; i < 5; i += 2) ctx.fillRect(bx + i * stripe, o.y - h / 2, stripe, h);
-    } else {
-      ctx.fillStyle = OBST_COLORS[o.kind % OBST_COLORS.length];
-      ctx.fillRect(laneX(o.lane) - OBST_W / 2, o.y - OBST_H / 2, OBST_W, OBST_H);
-    }
+// obstáculos: sólidos llenos; vallas = barra chata rayada
+for (const o of eng.obstacles) {
+  if (o.jumpable) {
+    const w = OBST_W;
+    const h = OBST_H * 0.35;
+    const bx = laneX(o.lane) - w / 2;
+    ctx.fillStyle = "#0a0510";
+    ctx.fillRect(bx, o.y - h / 2, w, h);
+    ctx.fillStyle = "#ffd23d";
+    const stripe = w / 5;
+    for (let i = 0; i < 5; i += 2) ctx.fillRect(bx + i * stripe, o.y - h / 2, stripe, h);
+  } else {
+    ctx.fillStyle = OBST_COLORS[o.kind % OBST_COLORS.length];
+    ctx.fillRect(laneX(o.lane) - OBST_W / 2, o.y - OBST_H / 2, OBST_W, OBST_H);
   }
-  // monedas
-  ctx.fillStyle = "#ffd23d";
-  for (const c of eng.coins) {
-    if (c.taken) continue;
-    ctx.beginPath();
-    ctx.arc(laneX(c.lane), c.y, 6, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // auto (se agranda al saltar)
-  const jumpArc = Math.sin(Math.PI * eng.jumpProgress());
-  const cw = CAR_W * (1 + 0.3 * jumpArc);
-  const ch = CAR_H * (1 + 0.3 * jumpArc);
-  ctx.fillStyle = "#39ff7a";
-  ctx.fillRect(laneX(eng.carLane) - cw / 2, eng.carY - ch / 2, cw, ch);
-  ctx.fillStyle = "#0a0518";
-  ctx.fillRect(laneX(eng.carLane) - cw / 2 + 6, eng.carY - ch / 2 + 10, cw - 12, 16);
+}
+// monedas
+ctx.fillStyle = "#ffd23d";
+for (const c of eng.coins) {
+  if (c.taken) continue;
+  ctx.beginPath();
+  ctx.arc(laneX(c.lane), c.y, 6, 0, Math.PI * 2);
+  ctx.fill();
+}
+// auto (se agranda al saltar)
+const jumpArc = Math.sin(Math.PI * eng.jumpProgress());
+const cw = CAR_W * (1 + 0.3 * jumpArc);
+const ch = CAR_H * (1 + 0.3 * jumpArc);
+ctx.fillStyle = "#39ff7a";
+ctx.fillRect(laneX(eng.carLane) - cw / 2, eng.carY - ch / 2, cw, ch);
+ctx.fillStyle = "#0a0518";
+ctx.fillRect(laneX(eng.carLane) - cw / 2 + 6, eng.carY - ch / 2 + 10, cw - 12, 16);
 ```
 
 - [ ] **Step 2: `ReplayPlayer.tsx` — la rama de racing maneja `"j"`**
@@ -1742,9 +1782,9 @@ git commit -m "feat(web): i18n v2 en 4 idiomas + error claro de versión de regl
 Donde hoy dice `if (a === "l") eng.moveLeft(); else eng.moveRight();` (líneas ~128-129), reemplazar por:
 
 ```ts
-              if (a === "l") eng.moveLeft();
-              else if (a === "r") eng.moveRight();
-              else eng.jump();
+if (a === "l") eng.moveLeft();
+else if (a === "r") eng.moveRight();
+else eng.jump();
 ```
 
 - [ ] **Step 3: Verificar**
@@ -1764,12 +1804,14 @@ git commit -m "feat(web): el visor de replays entiende las reglas v2 de Snake y 
 ### Task 11: Docs, catálogo y bump 0.2.0 de los 4 paquetes
 
 **Files:**
+
 - Modify: `packages/game-sdk/package.json`, `packages/strategies/package.json`, `packages/agent-sdk/package.json`, `apps/mcp/package.json` (version → `0.2.0`)
 - Modify: `apps/mcp/src/server.ts` (version del McpServer → `"0.2.0"`)
 - Modify: `packages/game-sdk/README.md`, `packages/strategies/README.md`, `packages/agent-sdk/README.md`, `apps/mcp/README.md`
 - Verify: `apps/web/app/agents/content.ts`, `apps/web/app/agents/start/content.ts`, `apps/web/app/lib/games.ts`
 
 **Interfaces:**
+
 - Consumes: nada de código; solo lo publicado en Tasks 1-10.
 
 - [ ] **Step 1: Versiones**

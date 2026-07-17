@@ -265,7 +265,10 @@ test("snake v2: contabilidad — largo y puntaje cierran (fruta +1, moneda +3, a
     for (let t = 0; t < 3000 && !g.over; t++) g.tick();
     const grown = g.body.length - 3;
     const coins = (g.score - grown) / 2;
-    assert.ok(Number.isInteger(coins) && coins >= 0, `seed ${seed}: score ${g.score} / largo ${g.body.length} inconsistentes`);
+    assert.ok(
+      Number.isInteger(coins) && coins >= 0,
+      `seed ${seed}: score ${g.score} / largo ${g.body.length} inconsistentes`,
+    );
   }
 });
 
@@ -333,9 +336,7 @@ test("racing v2: saltar una valla salva; sin saltar, mata", () => {
       if (a.over) deathTick = t;
     }
     if (deathTick < 0) continue;
-    const killer = a.obstacles.find(
-      (o) => o.lane === a.carLane && Math.abs(o.y - CAR_Y_TEST) < 60,
-    );
+    const killer = a.obstacles.find((o) => o.lane === a.carLane && Math.abs(o.y - CAR_Y_TEST) < 60);
     if (!killer || !killer.jumpable) continue;
     found = true;
     const b = new RacingEngine(seed);
@@ -343,7 +344,10 @@ test("racing v2: saltar una valla salva; sin saltar, mata", () => {
       if (t === deathTick) b.jump();
       b.update(RACING_DT);
     }
-    assert.ok(b.score > a.score, `seed ${seed}: saltando la valla debe pasarla y puntuar más (a=${a.score}, b=${b.score})`);
+    assert.ok(
+      b.score > a.score,
+      `seed ${seed}: saltando la valla debe pasarla y puntuar más (a=${a.score}, b=${b.score})`,
+    );
   }
   assert.ok(found, "en 60 semillas tiene que existir una muerte por valla jugando quieto");
 });
@@ -365,9 +369,16 @@ test("racing v2: monedas suman puntaje pero NO velocidad (speed usa passedCount)
     if (g.score > g.passedCount) sawCoins = true;
     assert.ok(g.score >= g.passedCount, "score = obstáculos pasados + monedas");
     const expected = Math.min(480, 190 + Math.floor(g.elapsedMs / 8000) * 35 + g.passedCount * 2);
-    assert.equal(g.speed(), expected, `seed ${seed}: la velocidad escala con passedCount, no con score`);
+    assert.equal(
+      g.speed(),
+      expected,
+      `seed ${seed}: la velocidad escala con passedCount, no con score`,
+    );
   }
-  assert.ok(sawCoins, "en 20 semillas alguna corrida debe haber tomado monedas (si no, el test no prueba nada)");
+  assert.ok(
+    sawCoins,
+    "en 20 semillas alguna corrida debe haber tomado monedas (si no, el test no prueba nada)",
+  );
 });
 
 test("racing v2: verify procesa saltos y reproduce el puntaje", () => {

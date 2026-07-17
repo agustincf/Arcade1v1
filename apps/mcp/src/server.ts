@@ -20,7 +20,7 @@ const ok = (data: unknown) => ({
 
 export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpServer {
   const { agent, client } = deps;
-  const server = new McpServer({ name: "arcade1v1", version: "0.0.0" });
+  const server = new McpServer({ name: "arcade1v1", version: "0.2.0" });
 
   server.registerTool(
     "list_games",
