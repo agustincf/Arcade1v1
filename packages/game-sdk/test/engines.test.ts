@@ -31,7 +31,14 @@ import {
   type RaceAction,
   type ReplayRacing,
 } from "@arcade1v1/game-sdk/racing";
-import { SnakeEngine, verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
+import {
+  SnakeEngine,
+  verifySnake,
+  type ReplaySnake,
+  SNAKE_RULES_V,
+  COIN_VALUE,
+  COIN_LIFE_STEPS,
+} from "@arcade1v1/game-sdk/snake";
 import {
   InvadersEngine,
   verifyInvaders,
@@ -210,3 +217,58 @@ for (const c of CASES) {
     );
   });
 }
+
+// ------------------------- Snake v2: moneda que vence -------------------------
+test("snake v2: exporta la versión de reglas 2", () => {
+  assert.equal(SNAKE_RULES_V, 2);
+  assert.equal(COIN_VALUE, 3);
+});
+
+test("snake v2: la moneda aparece, y si nadie la come expira intacta a los N pasos", () => {
+  // Jugador quieto (va derecho y wrapea): observamos el ciclo de vida de la
+  // moneda contando PASOS (cambios de largo/posición de la cabeza).
+  const g = new SnakeEngine(SEED);
+  let sawCoin = false;
+  let expiredAfter = -1;
+  let bornAtStep = -1;
+  let steps = 0;
+  let prevHead = { ...g.body[0] };
+  let prevCoin: { x: number; y: number } | null = null;
+  let prevScore = 0;
+  for (let t = 0; t < 4000 && !g.over && expiredAfter < 0; t++) {
+    g.tick();
+    const head = g.body[0];
+    const stepped = head.x !== prevHead.x || head.y !== prevHead.y;
+    if (stepped) steps += 1;
+    prevHead = { ...head };
+    if (g.coin && !prevCoin) {
+      sawCoin = true;
+      bornAtStep = steps;
+    }
+    if (!g.coin && prevCoin && g.score === prevScore) {
+      expiredAfter = steps - bornAtStep; // desapareció sin sumar => expiró
+    }
+    prevCoin = g.coin ? { ...g.coin } : null;
+    prevScore = g.score;
+  }
+  assert.ok(sawCoin, "en ~300 pasos tiene que aparecer al menos una moneda");
+  assert.equal(expiredAfter, COIN_LIFE_STEPS, "la moneda vive exactamente COIN_LIFE_STEPS pasos");
+});
+
+test("snake v2: contabilidad — largo y puntaje cierran (fruta +1, moneda +3, ambas alargan)", () => {
+  // score = frutas + 3*monedas ; largo = 3 + frutas + monedas
+  // => monedas = (score - (largo - 3)) / 2, entero y >= 0 SIEMPRE.
+  for (let seed = 1; seed <= 30; seed++) {
+    const g = new SnakeEngine(seed);
+    for (let t = 0; t < 3000 && !g.over; t++) g.tick();
+    const grown = g.body.length - 3;
+    const coins = (g.score - grown) / 2;
+    assert.ok(Number.isInteger(coins) && coins >= 0, `seed ${seed}: score ${g.score} / largo ${g.body.length} inconsistentes`);
+  }
+});
+
+test("snake v2: verify reproduce un replay que declara v", () => {
+  const { score, replay } = playSnake(SEED);
+  const withV = { ...(replay as object), v: SNAKE_RULES_V } as ReplaySnake;
+  assert.equal(verifySnake(withV), score, "verify ignora el campo v y re-simula igual");
+});
