@@ -14,7 +14,17 @@ const ROOT = new URL("..", import.meta.url).pathname;
 
 // Subpaths que expone cada paquete publicado (mismos que en el workspace).
 const ENTRIES = {
-  "game-sdk": ["index", "g2048", "tetris", "flappy", "racing", "snake", "invaders", "auth"],
+  "game-sdk": [
+    "index",
+    "g2048",
+    "tetris",
+    "flappy",
+    "racing",
+    "snake",
+    "invaders",
+    "auth",
+    "rules",
+  ],
   "agent-sdk": ["index", "client", "sign", "strategies"],
 };
 
