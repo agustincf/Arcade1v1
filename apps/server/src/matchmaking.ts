@@ -11,6 +11,7 @@ import { verifyFlappy, type ReplayFlappy } from "@arcade1v1/game-sdk/flappy";
 import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
 import { verifyInvaders, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
+import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import {
   scoreAuthMessage,
   matchmakeAuthMessage,
@@ -94,6 +95,7 @@ interface Match {
   game: string;
   stake: number;
   seed: number;
+  rulesV?: number; // versión de reglas con la que nació la partida
   p1: string;
   p2?: string;
   target?: string; // desafío directo: solo esta address (un agente) puede aceptar
@@ -201,6 +203,7 @@ function createWaiting(k: string, game: string, stake: number, address: string) 
     game,
     stake,
     seed: randomSeed(),
+    rulesV: RULES_V[game] ?? 1,
     p1: address,
     scores: {},
     replays: {},
@@ -232,6 +235,7 @@ export function createChallenge(game: string, challenger: string, target: string
     game,
     stake: 0,
     seed: randomSeed(),
+    rulesV: RULES_V[game] ?? 1,
     p1: challenger,
     target,
     scores: {},
@@ -405,6 +409,18 @@ export async function submitScore(
   // confía en un puntaje sin re-jugarlo. Todo rechazo de este bloque cuenta como
   // "verificación rechazada" en las métricas (el catch incrementa y re-lanza).
   try {
+    // VERSIÓN DE REGLAS (corte seco con dignidad): un cliente con el paquete
+    // viejo simula OTRAS reglas — su replay jamás verificaría. Rechazamos
+    // ANTES de re-simular, con el motivo real y el remedio, nunca un
+    // "score mismatch" críptico. Cubre también partidas nacidas pre-deploy.
+    const currentV = RULES_V[m.game] ?? 1;
+    const matchV = m.rulesV ?? 1;
+    const replayV = (replay as { v?: unknown })?.v ?? 1;
+    if (matchV !== currentV || replayV !== currentV) {
+      throw new Error(
+        `rules version mismatch (match v${matchV}, replay v${String(replayV)}, arbiter v${currentV}) — update @arcade1v1/mcp`,
+      );
+    }
     const verifier = VERIFIERS[m.game];
     if (!verifier) throw new Error(`unknown game: ${m.game}`);
     if (!verifier.valid(replay)) throw new Error("replay required");
@@ -558,6 +574,8 @@ export interface MatchView {
   game: string;
   stake: number;
   seed: number;
+  /** Versión de reglas del juego en esta partida (clientes nuevos la validan). */
+  rulesV?: number;
   status: Status;
   role?: "p1" | "p2";
   opponent?: string;
@@ -610,6 +628,7 @@ function view(m: Match, address?: string, opts?: { revealOwnScore?: boolean }): 
     game: m.game,
     stake: m.stake,
     seed: m.seed,
+    rulesV: m.rulesV,
     status: m.status,
     role: address === m.p1 ? "p1" : address === m.p2 ? "p2" : undefined,
     opponent: address === m.p1 ? m.p2 : m.p1,

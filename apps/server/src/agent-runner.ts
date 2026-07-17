@@ -8,6 +8,7 @@
 import { privateKeyToAccount } from "viem/accounts";
 import { runStrategy } from "@arcade1v1/strategies";
 import { matchmakeAuthMessage, scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import {
   getMatch,
   matchmake,
@@ -43,11 +44,17 @@ const CHALLENGE_ABANDON_MS = Number(process.env.CHALLENGE_ABANDON_MS ?? 5 * 60_0
 const WEBHOOK_PLAY_DEADLINE_MS = Number(process.env.WEBHOOK_PLAY_DEADLINE_MS ?? 10 * 60_000);
 
 /** Replay VACÍO por juego: la "rendición real" (score 0 verificable). Espejo
- *  exacto del submitForfeit de la web (apps/web/.../match/page.tsx). */
+ *  exacto del submitForfeit de la web (apps/web/.../match/page.tsx). Declara
+ *  `v` en los juegos v2+: sin ella, el guard de versión del árbitro rechazaría
+ *  hasta la propia rendición (ausente = v1, y una rendición v1 en una partida
+ *  v2 no matchea) — el rival quedaría colgado hasta el reembolso por expiración.
+ */
 export function emptyReplay(game: string, seed: number): unknown {
-  if (game === "2048") return { seed, moves: [] };
-  if (game === "flappy") return { seed, ticks: 0, flaps: [] };
-  return { seed, ticks: 0, inputs: [] };
+  const rulesV = RULES_V[game] ?? 1;
+  const v = rulesV !== 1 ? { v: rulesV } : {};
+  if (game === "2048") return { seed, moves: [], ...v };
+  if (game === "flappy") return { seed, ticks: 0, flaps: [], ...v };
+  return { seed, ticks: 0, inputs: [], ...v };
 }
 
 const normAddr = (a: string) => String(a).toLowerCase();

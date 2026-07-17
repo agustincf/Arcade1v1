@@ -9,6 +9,8 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import type { AddressInfo } from "node:net";
+import { SNAKE_RULES_V } from "@arcade1v1/game-sdk/snake";
+import { RACING_RULES_V } from "@arcade1v1/game-sdk/racing";
 
 // Flags leídos a la carga de módulos: ANTES del import dinámico.
 process.env.WEBHOOK_ALLOW_PRIVATE = "true"; // el fake server vive en 127.0.0.1
@@ -64,6 +66,12 @@ const RIVAL_STRATEGIES: Record<string, string> = {
   invaders: "invaders.hunter",
 };
 
+// Los tests de PROTOCOLO webhook (notificar/forfeit/auto-pausa/kill switch) son
+// agnósticos al juego: usan "flappy" (v1) a propósito. Las estrategias v2 de
+// snake/racing todavía no declaran `v` (le toca a la tarea de estrategias) y el
+// rival hosteado real quedaría trabado reintentando para siempre por la nueva
+// versión de reglas, sin aportar nada a lo que este archivo verifica.
+
 function newHostedRival(name: string, game = "snake") {
   return createHostedAgent({
     owner: "0x00000000000000000000000000000000000000cc",
@@ -82,8 +90,8 @@ function pauseAll() {
 }
 
 test("emparejar → notificar con HMAC verificable → forfeit al vencer el plazo", async () => {
-  const byo = newWebhookAgent("Remota");
-  newHostedRival("Rival Local");
+  const byo = newWebhookAgent("Remota", "flappy");
+  newHostedRival("Rival Local", "flappy");
 
   // Tick 1: ambos se encolan y quedan emparejados. Tick 2: el hosteado juega
   // y al BYO se lo notifica. (El orden dentro del tick no importa: iteramos
@@ -93,7 +101,7 @@ test("emparejar → notificar con HMAC verificable → forfeit al vencer el plaz
 
   const n = received[0];
   assert.equal(n.body.agentId, byo.id);
-  assert.equal(n.body.game, "snake");
+  assert.equal(n.body.game, "flappy");
   assert.equal(typeof n.body.seed, "number");
   assert.equal(typeof n.body.deadline, "number");
   // El dev verifica la autenticidad con su secreto: HMAC del body crudo.
@@ -136,8 +144,8 @@ test("fallas consecutivas → auto-pausa", async () => {
   received.length = 0;
   respondWith = 500;
   try {
-    const byo = newWebhookAgent("Muerta", "racing");
-    newHostedRival("Rival Racing", "racing");
+    const byo = newWebhookAgent("Muerta", "flappy");
+    newHostedRival("Rival Racing", "flappy");
     // Cada partida con el endpoint roto suma: notificación fallida (+1) y
     // forfeit al vencer el plazo (+1). A la tercera consecutiva se pausa.
     for (let round = 0; round < 30 && byo.active; round++) {
@@ -154,8 +162,8 @@ test("kill switch a mitad de partida: el runner rinde igual, el rival no queda c
   pauseAll();
   received.length = 0;
   respondWith = 200;
-  const byo = newWebhookAgent("EnVuelo", "snake");
-  newHostedRival("Rival EnVuelo", "snake");
+  const byo = newWebhookAgent("EnVuelo", "flappy");
+  newHostedRival("Rival EnVuelo", "flappy");
   // Emparejar y notificar (partida en vuelo, esperando el /play del dev).
   for (let i = 0; i < 4 && received.length === 0; i++) await runAgentsTick();
   assert.equal(received.length, 1, "notificada");
@@ -186,8 +194,9 @@ test("desafío al BYO: NO se notifica hasta que el retador juegue", async () => 
   assert.equal(received.length, 0, "cero requests al dev: el retador no jugó");
 });
 
-test("emptyReplay: forma correcta por juego", () => {
+test("emptyReplay: forma correcta por juego (v1 sin `v`; v2 la declara)", () => {
   assert.deepEqual(emptyReplay("2048", 7), { seed: 7, moves: [] });
   assert.deepEqual(emptyReplay("flappy", 7), { seed: 7, ticks: 0, flaps: [] });
-  assert.deepEqual(emptyReplay("snake", 7), { seed: 7, ticks: 0, inputs: [] });
+  assert.deepEqual(emptyReplay("snake", 7), { seed: 7, ticks: 0, inputs: [], v: SNAKE_RULES_V });
+  assert.deepEqual(emptyReplay("racing", 7), { seed: 7, ticks: 0, inputs: [], v: RACING_RULES_V });
 });
