@@ -62,7 +62,8 @@ export const en: Dict = {
   "game.flappy.desc":
     "Dodge the pipes and last longer than your rival. Steel nerves, full pockets.",
   "game.racing.name": "Racing",
-  "game.racing.desc": "Drive, dodge and never stop accelerating. Last to crash wins the match.",
+  "game.racing.desc":
+    "Dodge the traffic, jump the barriers and grab coins. Go the furthest and take the pot.",
   "game.2048.name": "2048",
   "game.2048.desc":
     "Swipe, merge equal tiles and reach the highest number. More points, you take the pot.",
@@ -174,7 +175,7 @@ export const en: Dict = {
   "g.flappy.over": "YOU FELL! 💥",
   "g.racing.title": "RACING",
   "g.racing.instr":
-    "Switch lanes to dodge the cars. +1 for each one you leave behind. And it accelerates!",
+    "Switch lanes and jump the striped barriers. +1 per car you leave behind and per coin. It keeps speeding up!",
   "g.racing.over": "YOU CRASHED! 💥",
   "g.2048.title": "2048",
   "g.2048.instr":
@@ -186,7 +187,7 @@ export const en: Dict = {
   "g.next": "Next",
   "g.tetris.keys": "Keyboard: ← → move · ↑/X rotate · ↓ down · Space = hard drop · P = pause",
   "g.flappy.hint": "Tap the screen or hit space to flap.",
-  "g.racing.hint": "Arrows ← → (or the buttons) to change lanes.",
+  "g.racing.hint": "← → lanes · ↑ or Space to jump · on mobile: buttons or swipe up.",
   "g.2048.hint": "Arrow keys or swipe on the board.",
   "game.snake.name": "Snake",
   "game.snake.desc":
@@ -195,7 +196,7 @@ export const en: Dict = {
   "game.invaders.desc": "Blast waves of aliens before they invade. More aliens down = more pot.",
   "g.snake.title": "SNAKE",
   "g.snake.instr":
-    "Use the arrows (or swipe) to eat the food and grow. Don't hit the walls or yourself!",
+    "Use the arrows (or swipe) to eat and grow. The golden coin is worth 3 — but it vanishes fast! Don't bite your tail (edges wrap around).",
   "g.snake.over": "CRASHED! 🐍",
   "g.snake.hint": "Arrow keys or swipe on the board.",
   "g.invaders.title": "SPACE INVADERS",
@@ -344,6 +345,8 @@ export const en: Dict = {
   "err.wrongNetwork":
     "Your wallet is on a different network. Approve the network switch it suggests (or switch to {chain} manually) and try again.",
   "err.signFailed": "Your wallet couldn't sign: {reason}",
+  "err.rulesVersion":
+    "The game rules were updated while you were playing. Reload the page and play again.",
   "build.prev": "Back",
   "build.next": "Next",
   "build.game": "Game",
@@ -414,12 +417,14 @@ export const en: Dict = {
   "strat.2048.priority.greed": "Greed (chase instant merges)",
   "strat.snake.greedy.name": "Food chaser",
   "strat.snake.greedy.caution": "Caution (avoid dead ends)",
+  "strat.snake.greedy.coinGreed": "Coin greed",
   "strat.flappy.threshold.name": "Threshold flapper",
   "strat.flappy.threshold.riskOffset": "Aim offset (px below the gap)",
   "strat.flappy.threshold.reaction": "Reaction time (ticks)",
   "strat.racing.dodger.name": "Obstacle dodger",
   "strat.racing.dodger.lookahead": "Look-ahead distance (px)",
   "strat.racing.dodger.preferredLane": "Preferred lane",
+  "strat.racing.dodger.coinGreed": "Coin greed",
   "strat.invaders.hunter.name": "Column hunter",
   "strat.invaders.hunter.aggression": "Aggression (trigger-happy)",
   "strat.invaders.hunter.dodge": "Dodge (avoid bombs)",
@@ -439,8 +444,10 @@ export const en: Dict = {
   "strat.2048.corner.patience": "Patience (order over instant merges)",
   "strat.snake.survivor.name": "Survivor",
   "strat.snake.survivor.foodPull": "Food pull (risk for food vs space)",
+  "strat.snake.survivor.coinGreed": "Coin greed",
   "strat.racing.weaver.name": "Lane weaver",
   "strat.racing.weaver.boldness": "Boldness (clearance edge to switch lanes)",
+  "strat.racing.weaver.coinGreed": "Coin greed",
   "strat.2048.priority.desc": "Merges tiles the moment it can",
   "strat.2048.corner.desc": "Herds tiles neatly into one corner",
   "strat.snake.greedy.desc": "Heads straight for the food",

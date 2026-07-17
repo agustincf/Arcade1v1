@@ -63,7 +63,8 @@ export const fr: Dict = {
   "game.flappy.name": "Flappy 1v1",
   "game.flappy.desc": "Évite les tuyaux et tiens plus longtemps. Nerfs d'acier, poches pleines.",
   "game.racing.name": "Course",
-  "game.racing.desc": "Conduis, esquive et accélère sans cesse. Le dernier à crasher gagne.",
+  "game.racing.desc":
+    "Évite le trafic, saute les barrières et ramasse des pièces. Va le plus loin et prends la cagnotte.",
   "game.2048.name": "2048",
   "game.2048.desc":
     "Glisse, fusionne les tuiles égales et atteins le plus grand nombre. Plus de points, la cagnotte.",
@@ -180,7 +181,7 @@ export const fr: Dict = {
   "g.flappy.over": "TU ES TOMBÉ ! 💥",
   "g.racing.title": "COURSE",
   "g.racing.instr":
-    "Change de voie pour éviter les voitures. +1 par voiture dépassée. Et ça accélère !",
+    "Changez de voie et sautez les barrières rayées. +1 par voiture laissée derrière et par pièce. Ça accélère sans cesse !",
   "g.racing.over": "TU AS CRASHÉ ! 💥",
   "g.2048.title": "2048",
   "g.2048.instr":
@@ -193,7 +194,8 @@ export const fr: Dict = {
   "g.tetris.keys":
     "Clavier : ← → bouger · ↑/X tourner · ↓ descendre · Espace = chute rapide · P = pause",
   "g.flappy.hint": "Tape l'écran ou appuie sur espace pour voler.",
-  "g.racing.hint": "Flèches ← → (ou les boutons) pour changer de voie.",
+  "g.racing.hint":
+    "← → voies · ↑ ou Espace pour sauter · sur mobile : boutons ou glissez vers le haut.",
   "g.2048.hint": "Flèches du clavier ou glisse sur le plateau.",
   "game.snake.name": "Snake",
   "game.snake.desc":
@@ -203,7 +205,7 @@ export const fr: Dict = {
     "Détruis les vagues d'aliens avant l'invasion. Plus d'aliens abattus = plus de cagnotte.",
   "g.snake.title": "SNAKE",
   "g.snake.instr":
-    "Flèches (ou glisse) pour manger et grandir. Ne touche ni les murs ni ta queue !",
+    "Utilisez les flèches (ou glissez) pour manger et grandir. La pièce dorée vaut 3 — mais elle disparaît vite ! Ne mordez pas votre queue (les bords se rejoignent).",
   "g.snake.over": "CRASHÉ ! 🐍",
   "g.snake.hint": "Flèches du clavier ou glisse sur le plateau.",
   "g.invaders.title": "SPACE INVADERS",
@@ -355,6 +357,8 @@ export const fr: Dict = {
   "err.wrongNetwork":
     "Ton wallet est sur un autre réseau. Accepte le changement de réseau proposé (ou passe sur {chain} manuellement) et réessaie.",
   "err.signFailed": "Ton wallet n'a pas pu signer : {reason}",
+  "err.rulesVersion":
+    "Les règles du jeu ont été mises à jour pendant que vous jouiez. Rechargez la page et rejouez.",
   "build.prev": "Retour",
   "build.next": "Suivant",
   "build.game": "Jeu",
@@ -425,12 +429,14 @@ export const fr: Dict = {
   "strat.2048.priority.greed": "Gourmandise (fusions immédiates)",
   "strat.snake.greedy.name": "Chasseur de nourriture",
   "strat.snake.greedy.caution": "Prudence (éviter les impasses)",
+  "strat.snake.greedy.coinGreed": "Gourmandise de pièces",
   "strat.flappy.threshold.name": "Battement à seuil",
   "strat.flappy.threshold.riskOffset": "Visée (px sous l'ouverture)",
   "strat.flappy.threshold.reaction": "Temps de réaction (ticks)",
   "strat.racing.dodger.name": "Esquiveur d'obstacles",
   "strat.racing.dodger.lookahead": "Distance d'anticipation (px)",
   "strat.racing.dodger.preferredLane": "Voie préférée",
+  "strat.racing.dodger.coinGreed": "Gourmandise de pièces",
   "strat.invaders.hunter.name": "Chasseur de colonnes",
   "strat.invaders.hunter.aggression": "Agressivité (gâchette facile)",
   "strat.invaders.hunter.dodge": "Esquive (éviter les bombes)",
@@ -450,8 +456,10 @@ export const fr: Dict = {
   "strat.2048.corner.patience": "Patience (ordre avant les fusions immédiates)",
   "strat.snake.survivor.name": "Survivant",
   "strat.snake.survivor.foodPull": "Attrait de la nourriture (risque vs espace)",
+  "strat.snake.survivor.coinGreed": "Gourmandise de pièces",
   "strat.racing.weaver.name": "Slalomeur",
   "strat.racing.weaver.boldness": "Audace (avance de voie pour changer)",
+  "strat.racing.weaver.coinGreed": "Gourmandise de pièces",
   "strat.2048.priority.desc": "Fusionne les tuiles dès qu'il peut",
   "strat.2048.corner.desc": "Empile proprement vers un coin",
   "strat.snake.greedy.desc": "Fonce droit vers la nourriture",

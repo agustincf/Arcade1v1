@@ -62,7 +62,8 @@ export const hi: Dict = {
   "game.flappy.name": "Flappy 1v1",
   "game.flappy.desc": "पाइपों से बचो और प्रतिद्वंद्वी से ज़्यादा टिको। मज़बूत नसें, भरी जेब।",
   "game.racing.name": "रेसिंग",
-  "game.racing.desc": "चलाओ, बचो और रफ़्तार बढ़ाते रहो। आख़िरी में टकराने वाला जीतता है।",
+  "game.racing.desc":
+    "ट्रैफ़िक से बचो, बाधाओं के ऊपर से कूदो और सिक्के बटोरो। सबसे दूर पहुंचने वाला जीतता है।",
   "game.2048.name": "2048",
   "game.2048.desc":
     "स्वाइप करो, बराबर टाइलें मिलाओ और सबसे बड़ा नंबर बनाओ। ज़्यादा अंक, पॉट तुम्हारा।",
@@ -174,7 +175,7 @@ export const hi: Dict = {
   "g.flappy.over": "तुम गिर गए! 💥",
   "g.racing.title": "रेसिंग",
   "g.racing.instr":
-    "कारों से बचने के लिए लेन बदलो। हर एक को पीछे छोड़ने पर +1। और रफ़्तार बढ़ती है!",
+    "लेन बदलें और धारीदार बाधाओं के ऊपर से कूदें। हर पीछे छूटी कार और हर सिक्के पर +1। रफ़्तार बढ़ती जाती है!",
   "g.racing.over": "तुम टकरा गए! 💥",
   "g.2048.title": "2048",
   "g.2048.instr":
@@ -186,7 +187,7 @@ export const hi: Dict = {
   "g.next": "अगला",
   "g.tetris.keys": "कीबोर्ड: ← → चलाओ · ↑/X घुमाओ · ↓ नीचे · स्पेस = तेज़ गिराओ · P = रुको",
   "g.flappy.hint": "फ्लैप के लिए स्क्रीन टैप करो या स्पेस दबाओ।",
-  "g.racing.hint": "लेन बदलने के लिए ← → (या बटन)।",
+  "g.racing.hint": "← → लेन · कूदने के लिए ↑ या Space · मोबाइल पर: बटन या ऊपर स्वाइप करें।",
   "g.2048.hint": "कीबोर्ड के तीर या बोर्ड पर स्वाइप।",
   "game.snake.name": "Snake",
   "game.snake.desc":
@@ -194,7 +195,8 @@ export const hi: Dict = {
   "game.invaders.name": "Space Invaders",
   "game.invaders.desc": "एलियंस की लहरों को हमले से पहले उड़ाओ। जितने ज़्यादा गिराओ, उतना पॉट।",
   "g.snake.title": "SNAKE",
-  "g.snake.instr": "तीर (या स्वाइप) से खाना खाओ और बढ़ो। दीवारों या ख़ुद से मत टकराओ!",
+  "g.snake.instr":
+    "तीरों (या स्वाइप) से खाएँ और बढ़ें। सुनहरा सिक्का 3 अंक का है — पर जल्दी गायब हो जाता है! अपनी पूँछ मत काटें (किनारे आपस में जुड़े हैं)।",
   "g.snake.over": "टकरा गए! 🐍",
   "g.snake.hint": "कीबोर्ड के तीर या बोर्ड पर स्वाइप।",
   "g.invaders.title": "SPACE INVADERS",
@@ -343,6 +345,7 @@ export const hi: Dict = {
   "err.wrongNetwork":
     "आपका वॉलेट किसी और नेटवर्क पर है। सुझाया गया नेटवर्क बदलाव स्वीकार करें (या खुद {chain} पर जाएँ) और फिर से कोशिश करें।",
   "err.signFailed": "आपका वॉलेट हस्ताक्षर नहीं कर पाया: {reason}",
+  "err.rulesVersion": "खेलते समय खेल के नियम अपडेट हो गए। पेज को फिर से लोड करें और दोबारा खेलें।",
   "build.prev": "पीछे",
   "build.next": "आगे",
   "build.game": "खेल",
@@ -412,12 +415,14 @@ export const hi: Dict = {
   "strat.2048.priority.greed": "लालच (तुरंत मर्ज खोजें)",
   "strat.snake.greedy.name": "भोजन पीछा करने वाला",
   "strat.snake.greedy.caution": "सावधानी (बंद गलियों से बचें)",
+  "strat.snake.greedy.coinGreed": "सिक्कों का लालच",
   "strat.flappy.threshold.name": "थ्रेशोल्ड फ्लैपर",
   "strat.flappy.threshold.riskOffset": "निशाना (गैप से नीचे px)",
   "strat.flappy.threshold.reaction": "प्रतिक्रिया समय (ticks)",
   "strat.racing.dodger.name": "बाधा चकमेबाज़",
   "strat.racing.dodger.lookahead": "आगे देखने की दूरी (px)",
   "strat.racing.dodger.preferredLane": "पसंदीदा लेन",
+  "strat.racing.dodger.coinGreed": "सिक्कों का लालच",
   "strat.invaders.hunter.name": "कॉलम शिकारी",
   "strat.invaders.hunter.aggression": "आक्रामकता (जल्दी फायर)",
   "strat.invaders.hunter.dodge": "चकमा (बमों से बचें)",
@@ -437,8 +442,10 @@ export const hi: Dict = {
   "strat.2048.corner.patience": "धैर्य (तुरंत मर्ज से पहले क्रम)",
   "strat.snake.survivor.name": "उत्तरजीवी",
   "strat.snake.survivor.foodPull": "भोजन खिंचाव (भोजन बनाम जगह का जोखिम)",
+  "strat.snake.survivor.coinGreed": "सिक्कों का लालच",
   "strat.racing.weaver.name": "लेन बुनकर",
   "strat.racing.weaver.boldness": "साहस (लेन बदलने के लिए जगह की बढ़त)",
+  "strat.racing.weaver.coinGreed": "सिक्कों का लालच",
   "strat.2048.priority.desc": "जैसे ही संभव हो टाइलें मर्ज करता है",
   "strat.2048.corner.desc": "टाइलों को एक कोने में करीने से जमाता है",
   "strat.snake.greedy.desc": "सीधे भोजन की ओर जाता है",
