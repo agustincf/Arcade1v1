@@ -126,7 +126,8 @@ function makeSim(game: string, replay: unknown): Sim | null {
           if (acts) {
             for (const a of acts) {
               if (a === "l") eng.moveLeft();
-              else eng.moveRight();
+              else if (a === "r") eng.moveRight();
+              else eng.jump();
             }
           }
           eng.update(RACING_DT);
