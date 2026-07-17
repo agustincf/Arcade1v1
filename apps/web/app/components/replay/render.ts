@@ -36,6 +36,18 @@ export function drawSnake(ctx: CanvasRenderingContext2D, eng: SnakeEngine) {
   }
   ctx.fillStyle = "#ff3df0";
   ctx.fillRect(eng.food.x * CELL + 3, eng.food.y * CELL + 3, CELL - 6, CELL - 6);
+  if (eng.coin && (!eng.coinBlinking() || eng.coinSteps % 2 === 0)) {
+    ctx.fillStyle = "#ffd23d";
+    ctx.beginPath();
+    ctx.arc(
+      eng.coin.x * CELL + CELL / 2,
+      eng.coin.y * CELL + CELL / 2,
+      CELL / 2 - 4,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
   eng.body.forEach((s, i) => {
     ctx.fillStyle = i === 0 ? "#b6ff3d" : "#39ff7a";
     ctx.fillRect(s.x * CELL + 1, s.y * CELL + 1, CELL - 2, CELL - 2);
@@ -164,16 +176,38 @@ export function drawRacing(ctx: CanvasRenderingContext2D, eng: RacingEngine) {
     ctx.stroke();
   }
   ctx.setLineDash([]);
-  // obstáculos
+  // obstáculos: sólidos llenos; vallas = barra chata rayada
   for (const o of eng.obstacles) {
-    ctx.fillStyle = OBST_COLORS[o.kind % OBST_COLORS.length];
-    ctx.fillRect(laneX(o.lane) - OBST_W / 2, o.y - OBST_H / 2, OBST_W, OBST_H);
+    if (o.jumpable) {
+      const w = OBST_W;
+      const h = OBST_H * 0.35;
+      const bx = laneX(o.lane) - w / 2;
+      ctx.fillStyle = "#0a0510";
+      ctx.fillRect(bx, o.y - h / 2, w, h);
+      ctx.fillStyle = "#ffd23d";
+      const stripe = w / 5;
+      for (let i = 0; i < 5; i += 2) ctx.fillRect(bx + i * stripe, o.y - h / 2, stripe, h);
+    } else {
+      ctx.fillStyle = OBST_COLORS[o.kind % OBST_COLORS.length];
+      ctx.fillRect(laneX(o.lane) - OBST_W / 2, o.y - OBST_H / 2, OBST_W, OBST_H);
+    }
   }
-  // auto
+  // monedas
+  ctx.fillStyle = "#ffd23d";
+  for (const c of eng.coins) {
+    if (c.taken) continue;
+    ctx.beginPath();
+    ctx.arc(laneX(c.lane), c.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // auto (se agranda al saltar)
+  const jumpArc = Math.sin(Math.PI * eng.jumpProgress());
+  const cw = CAR_W * (1 + 0.3 * jumpArc);
+  const ch = CAR_H * (1 + 0.3 * jumpArc);
   ctx.fillStyle = "#39ff7a";
-  ctx.fillRect(laneX(eng.carLane) - CAR_W / 2, eng.carY - CAR_H / 2, CAR_W, CAR_H);
+  ctx.fillRect(laneX(eng.carLane) - cw / 2, eng.carY - ch / 2, cw, ch);
   ctx.fillStyle = "#0a0518";
-  ctx.fillRect(laneX(eng.carLane) - CAR_W / 2 + 6, eng.carY - CAR_H / 2 + 10, CAR_W - 12, 16);
+  ctx.fillRect(laneX(eng.carLane) - cw / 2 + 6, eng.carY - ch / 2 + 10, cw - 12, 16);
 }
 
 export function invadersCanvasSize() {

@@ -48,6 +48,11 @@ arbiter expects:
 | `@arcade1v1/game-sdk/invaders` | Space Invaders              |
 | `@arcade1v1/game-sdk/auth`     | Wallet-auth message helpers |
 
+> **Rules v2 (July 2026):** Snake now spawns a fleeting golden coin (+3, it also
+> grows you) and Racing adds a committed jump, jumpable barriers and coin rows.
+> Replays must declare `v` — packages older than 0.2.0 are rejected by the
+> arbiter with a clear `rules version mismatch` error. Update to `>=0.2.0`.
+
 ## Auth helpers (`/auth`)
 
 The production arbiter requires wallet signatures (anti-impersonation). Sign these

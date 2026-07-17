@@ -64,7 +64,8 @@ export const es: Dict = {
   "game.flappy.desc":
     "Esquiva los tubos y aguanta más que el rival. Pulso de acero, bolsillo lleno.",
   "game.racing.name": "Carrera",
-  "game.racing.desc": "Manejás, esquivás y acelera sin parar. El último en chocar gana la partida.",
+  "game.racing.desc":
+    "Esquivá el tráfico, saltá las vallas y juntá monedas. El que llega más lejos gana.",
   "game.2048.name": "2048",
   "game.2048.desc":
     "Desliza, combina fichas iguales y hace el número más alto. Más puntaje, te llevás el pozo.",
@@ -177,7 +178,7 @@ export const es: Dict = {
   "g.flappy.over": "¡TE CAÍSTE! 💥",
   "g.racing.title": "CARRERA",
   "g.racing.instr":
-    "Cambiá de carril para esquivar los autos. +1 por cada uno que dejás atrás. ¡Y acelera!",
+    "Cambiá de carril y saltá las vallas rayadas. +1 por auto que dejás atrás y por moneda. ¡Cada vez más rápido!",
   "g.racing.over": "¡CHOCASTE! 💥",
   "g.2048.title": "2048",
   "g.2048.instr":
@@ -189,7 +190,8 @@ export const es: Dict = {
   "g.next": "Sigue",
   "g.tetris.keys": "Teclado: ← → mover · ↑/X rotar · ↓ bajar · Espacio = caída rápida · P = pausa",
   "g.flappy.hint": "Tocá la pantalla o la barra espaciadora para aletear.",
-  "g.racing.hint": "Flechas ← → (o los botones) para cambiar de carril.",
+  "g.racing.hint":
+    "← → carril · ↑ o Espacio para saltar · en el celu: botones o deslizá hacia arriba.",
   "g.2048.hint": "Flechas del teclado o deslizá en el tablero.",
   "game.snake.name": "Snake",
   "game.snake.desc":
@@ -199,7 +201,7 @@ export const es: Dict = {
     "Destruí oleadas de aliens antes de que te invadan. Más naves abatidas = más pozo.",
   "g.snake.title": "SNAKE",
   "g.snake.instr":
-    "Usá las flechas (o deslizá) para comer y crecer. ¡No choques las paredes ni tu cola!",
+    "Usá las flechas (o deslizá) para comer y crecer. La moneda dorada vale 3, ¡pero desaparece rápido! No te muerdas la cola (los bordes dan la vuelta).",
   "g.snake.over": "¡CHOCASTE! 🐍",
   "g.snake.hint": "Flechas del teclado o deslizá en el tablero.",
   "g.invaders.title": "SPACE INVADERS",
@@ -351,6 +353,8 @@ export const es: Dict = {
   "err.wrongNetwork":
     "Tu wallet está conectada en otra red. Aceptá el cambio de red que te propone (o pasala a {chain} a mano) y probá de nuevo.",
   "err.signFailed": "Tu wallet no pudo firmar: {reason}",
+  "err.rulesVersion":
+    "Las reglas del juego se actualizaron mientras jugabas. Recargá la página y jugá de nuevo.",
   "build.prev": "Atrás",
   "build.next": "Seguir",
   "build.game": "Juego",
@@ -420,12 +424,14 @@ export const es: Dict = {
   "strat.2048.priority.greed": "Codicia (buscar fusiones ya)",
   "strat.snake.greedy.name": "Cazador de comida",
   "strat.snake.greedy.caution": "Cautela (evitar encierros)",
+  "strat.snake.greedy.coinGreed": "Codicia de monedas",
   "strat.flappy.threshold.name": "Aleteo por umbral",
   "strat.flappy.threshold.riskOffset": "Puntería (px bajo el hueco)",
   "strat.flappy.threshold.reaction": "Tiempo de reacción (ticks)",
   "strat.racing.dodger.name": "Esquivador",
   "strat.racing.dodger.lookahead": "Distancia de mirada (px)",
   "strat.racing.dodger.preferredLane": "Carril preferido",
+  "strat.racing.dodger.coinGreed": "Codicia de monedas",
   "strat.invaders.hunter.name": "Cazador de columnas",
   "strat.invaders.hunter.aggression": "Agresividad (gatillo fácil)",
   "strat.invaders.hunter.dodge": "Esquive (evitar bombas)",
@@ -445,8 +451,10 @@ export const es: Dict = {
   "strat.2048.corner.patience": "Paciencia (orden antes que fusionar ya)",
   "strat.snake.survivor.name": "Superviviente",
   "strat.snake.survivor.foodPull": "Tirón a la comida (riesgo vs espacio)",
+  "strat.snake.survivor.coinGreed": "Codicia de monedas",
   "strat.racing.weaver.name": "Serpenteador",
   "strat.racing.weaver.boldness": "Audacia (ventaja de pista para cambiar de carril)",
+  "strat.racing.weaver.coinGreed": "Codicia de monedas",
   "strat.2048.priority.desc": "Junta fichas apenas puede",
   "strat.2048.corner.desc": "Apila prolijo hacia una esquina",
   "strat.snake.greedy.desc": "Va derecho a la comida",

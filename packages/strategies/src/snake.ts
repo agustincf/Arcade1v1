@@ -4,7 +4,7 @@
 // motor real; solo registra el input cuando la dirección cambia (el replay
 // tiene que entrar en el límite de 256kb del árbitro).
 
-import { SnakeEngine, GRID, type SnakeAction } from "@arcade1v1/game-sdk/snake";
+import { SnakeEngine, GRID, SNAKE_RULES_V, type SnakeAction } from "@arcade1v1/game-sdk/snake";
 import type { StrategyDef, PlayResult } from "./types";
 import { num } from "./params";
 
@@ -53,6 +53,15 @@ const PARAMS = [
     def: 0.5,
     labelKey: "strat.snake.greedy.caution",
   },
+  {
+    key: "coinGreed",
+    kind: "slider" as const,
+    min: 0,
+    max: 1,
+    step: 0.1,
+    def: 0.5,
+    labelKey: "strat.snake.greedy.coinGreed",
+  },
 ];
 
 export const strategySnakeGreedy: StrategyDef = {
@@ -62,6 +71,7 @@ export const strategySnakeGreedy: StrategyDef = {
   params: PARAMS,
   play(seed: number, params: Record<string, unknown>): PlayResult {
     const caution = num(params, PARAMS[0]);
+    const coinGreed = num(params, PARAMS[1]);
     const g = new SnakeEngine(seed);
     const inputs: { t: number; a: SnakeAction }[] = [];
     let lastApplied: SnakeAction | null = null;
@@ -70,6 +80,13 @@ export const strategySnakeGreedy: StrategyDef = {
       const head = g.body[0];
       const occupied = new Set<number>();
       for (const s of g.body) occupied.add(s.y * GRID + s.x);
+
+      // v2: perseguir la moneda solo si es alcanzable ANTES de que venza y
+      // está dentro del radio que la codicia habilita.
+      const head0 = g.body[0];
+      const coinDist = g.coin ? wrapDist(head0.x, head0.y, g.coin.x, g.coin.y) : Infinity;
+      const chaseCoin = g.coin !== null && coinDist <= g.coinSteps && coinDist <= coinGreed * GRID;
+      const target = chaseCoin ? g.coin! : g.food;
 
       let best: SnakeAction | null = null;
       let bestValue = -Infinity;
@@ -80,7 +97,7 @@ export const strategySnakeGreedy: StrategyDef = {
         const nx = (head.x + d.x + GRID) % GRID;
         const ny = (head.y + d.y + GRID) % GRID;
         if (occupied.has(ny * GRID + nx)) continue;
-        const dist = wrapDist(nx, ny, g.food.x, g.food.y);
+        const dist = wrapDist(nx, ny, target.x, target.y);
         // Cautela: premiar salidas con más espacio libre alcanzable (evita
         // meterse en bolsillos). Flood fill acotado para que sea barato.
         const space = caution > 0 ? freeSpace(occupied, nx, ny, 60) : 0;
@@ -100,6 +117,6 @@ export const strategySnakeGreedy: StrategyDef = {
 
     // ticks reales consumidos: si murió antes, el replay corta ahí igual que
     // el verificador (que frena en `over`).
-    return { score: g.score, replay: { seed, ticks: MAX_TICKS, inputs } };
+    return { score: g.score, replay: { seed, ticks: MAX_TICKS, inputs, v: SNAKE_RULES_V } };
   },
 };

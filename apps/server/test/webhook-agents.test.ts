@@ -9,6 +9,8 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import type { AddressInfo } from "node:net";
+import { SNAKE_RULES_V } from "@arcade1v1/game-sdk/snake";
+import { RACING_RULES_V } from "@arcade1v1/game-sdk/racing";
 
 // Flags leídos a la carga de módulos: ANTES del import dinámico.
 process.env.WEBHOOK_ALLOW_PRIVATE = "true"; // el fake server vive en 127.0.0.1
@@ -82,8 +84,11 @@ function pauseAll() {
 }
 
 test("emparejar → notificar con HMAC verificable → forfeit al vencer el plazo", async () => {
-  const byo = newWebhookAgent("Remota");
-  newHostedRival("Rival Local");
+  // v2: las estrategias hosteadas de snake/racing ya declaran `v`, así que este
+  // test de protocolo vuelve a ejercer el juego real (antes reroteado a flappy
+  // porque el rival hosteado quedaba trabado por versión de reglas).
+  const byo = newWebhookAgent("Remota", "snake");
+  newHostedRival("Rival Local", "snake");
 
   // Tick 1: ambos se encolan y quedan emparejados. Tick 2: el hosteado juega
   // y al BYO se lo notifica. (El orden dentro del tick no importa: iteramos
@@ -186,8 +191,9 @@ test("desafío al BYO: NO se notifica hasta que el retador juegue", async () => 
   assert.equal(received.length, 0, "cero requests al dev: el retador no jugó");
 });
 
-test("emptyReplay: forma correcta por juego", () => {
+test("emptyReplay: forma correcta por juego (v1 sin `v`; v2 la declara)", () => {
   assert.deepEqual(emptyReplay("2048", 7), { seed: 7, moves: [] });
   assert.deepEqual(emptyReplay("flappy", 7), { seed: 7, ticks: 0, flaps: [] });
-  assert.deepEqual(emptyReplay("snake", 7), { seed: 7, ticks: 0, inputs: [] });
+  assert.deepEqual(emptyReplay("snake", 7), { seed: 7, ticks: 0, inputs: [], v: SNAKE_RULES_V });
+  assert.deepEqual(emptyReplay("racing", 7), { seed: 7, ticks: 0, inputs: [], v: RACING_RULES_V });
 });

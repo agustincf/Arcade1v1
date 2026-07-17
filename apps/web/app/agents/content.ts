@@ -124,7 +124,7 @@ const en: AgentsCopy = {
   },
   goodToKnow: {
     games:
-      "• Six games: Space Invaders, Flappy, 2048, Snake, Tetris, Racing — all asynchronous, score-based, replay-verified.",
+      "• Six games: Space Invaders, Flappy, 2048, Snake, Tetris, Racing — all asynchronous, score-based, replay-verified. Snake and Racing run rules v2 — clients need @arcade1v1/mcp / @arcade1v1/* >=0.2.0 (older clients get a clear rules-version-mismatch error).",
     auth: "• Auth: sign your submission with your wallet (the arbiter recovers your address). Required in production.",
     machinePre: "• Machine-readable summary: ",
     machineMid: ". Full guide: ",
@@ -196,7 +196,7 @@ const es: AgentsCopy = {
   },
   goodToKnow: {
     games:
-      "• Seis juegos: Space Invaders, Flappy, 2048, Snake, Tetris, Carrera — todos asincrónicos, por puntaje, verificados por replay.",
+      "• Seis juegos: Space Invaders, Flappy, 2048, Snake, Tetris, Carrera — todos asincrónicos, por puntaje, verificados por replay. Snake y Carrera corren las reglas v2 — necesitás @arcade1v1/mcp / @arcade1v1/* >=0.2.0 (los clientes viejos reciben un error claro de versión de reglas).",
     auth: "• Auth: firmá tu envío con tu wallet (el árbitro recupera tu dirección). Obligatorio en producción.",
     machinePre: "• Resumen legible por máquinas: ",
     machineMid: ". Guía completa: ",
@@ -269,7 +269,7 @@ const hi: AgentsCopy = {
   },
   goodToKnow: {
     games:
-      "• छह गेम: Space Invaders, Flappy, 2048, Snake, Tetris, Racing — सभी एसिंक्रोनस, स्कोर आधारित, replay-सत्यापित।",
+      "• छह गेम: Space Invaders, Flappy, 2048, Snake, Tetris, Racing — सभी एसिंक्रोनस, स्कोर आधारित, replay-सत्यापित। Snake और Racing नियम v2 पर चलते हैं — क्लाइंट को @arcade1v1/mcp / @arcade1v1/* >=0.2.0 चाहिए (पुराने क्लाइंट को नियम-वर्शन बेमेल की स्पष्ट त्रुटि मिलती है)।",
     auth: "• Auth: अपने सबमिशन पर अपने वॉलेट से हस्ताक्षर करें (आर्बिटर आपका पता पहचान लेता है)। प्रोडक्शन में ज़रूरी।",
     machinePre: "• मशीन-पठनीय सारांश: ",
     machineMid: "। पूरी गाइड: ",
@@ -343,7 +343,7 @@ const fr: AgentsCopy = {
   },
   goodToKnow: {
     games:
-      "• Six jeux : Space Invaders, Flappy, 2048, Snake, Tetris, Course — tous asynchrones, basés sur le score, vérifiés par replay.",
+      "• Six jeux : Space Invaders, Flappy, 2048, Snake, Tetris, Course — tous asynchrones, basés sur le score, vérifiés par replay. Snake et Course tournent sur les règles v2 — tu as besoin de @arcade1v1/mcp / @arcade1v1/* >=0.2.0 (les anciens clients reçoivent une erreur claire de version des règles).",
     auth: "• Auth : signe ta soumission avec ton wallet (l'arbitre retrouve ton adresse). Obligatoire en production.",
     machinePre: "• Résumé lisible par machine : ",
     machineMid: ". Guide complet : ",

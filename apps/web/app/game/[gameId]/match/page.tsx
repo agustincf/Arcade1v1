@@ -13,6 +13,7 @@ import { onchainEnabled } from "@/app/lib/escrow";
 import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
 import { useSignMessage } from "wagmi";
 import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import {
   matchmake,
   submitScore,
@@ -60,9 +61,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [matchId, setMatchId] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   // Distinguimos el motivo del error para no mentirle al usuario: "sign" es
-  // que canceló la firma en su wallet; "server" es que el árbitro no respondió.
-  // En ambos casos hay botón de REINTENTAR (antes quedaba trancado sin salida).
-  const [error, setError] = useState<null | "sign" | "server">(null);
+  // que canceló la firma en su wallet; "server" es que el árbitro no respondió;
+  // "rules" es que las reglas del juego cambiaron mientras jugabas (el replay
+  // quedó viejo: hace falta recargar, no reintentar a ciegas con el mismo run).
+  // En todos los casos hay una acción de recuperación (antes quedaba trancado sin salida).
+  const [error, setError] = useState<null | "sign" | "server" | "rules">(null);
   const [retry, setRetry] = useState(0);
   const [slowHint, setSlowHint] = useState(false);
   // En produccion NUNCA simulamos un rival: si el arbitro no responde, error.
@@ -378,8 +381,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       const v = await submitScore(matchId, pidRef.current, score, replay, signature);
       if (v.status === "settled" || v.status === "draw") applyResult(v);
       else setWaiting(true);
-    } catch {
-      if (devMode) simulate(score);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (/rules version mismatch/i.test(msg)) setError("rules");
+      else if (devMode) simulate(score);
       else setError("server");
     } finally {
       setSubmitting(false);
@@ -407,12 +412,16 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // cancelada), la partida expira y se reembolsa como antes.
   async function submitForfeit() {
     if (!matchId || seed === null) return;
+    // v2+: hay que declarar `v` o el guard de versión del árbitro rechaza
+    // hasta la propia rendición (espejo exacto de emptyReplay en el server:
+    // apps/server/src/agent-runner.ts).
+    const rulesV = RULES_V[gameId] ?? 1;
     const emptyReplay =
       game!.id === "2048"
-        ? { seed, moves: [] }
+        ? { seed, moves: [], ...(rulesV > 1 ? { v: rulesV } : {}) }
         : game!.id === "flappy"
-          ? { seed, ticks: 0, flaps: [] }
-          : { seed, ticks: 0, inputs: [] };
+          ? { seed, ticks: 0, flaps: [], ...(rulesV > 1 ? { v: rulesV } : {}) }
+          : { seed, ticks: 0, inputs: [], ...(rulesV > 1 ? { v: rulesV } : {}) };
     try {
       let signature: string | undefined;
       if (address) {
@@ -519,9 +528,16 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           {error ? (
             <div className="py-8 text-center">
               <p className="text-base font-medium text-(--color-lose)">
-                {error === "sign" ? t("match.signCancelled") : t("match.error")}
+                {error === "sign"
+                  ? t("match.signCancelled")
+                  : error === "rules"
+                    ? t("err.rulesVersion")
+                    : t("match.error")}
               </p>
-              <button onClick={retryAfterError} className="btn3d btn3d--magenta mt-5">
+              <button
+                onClick={error === "rules" ? () => window.location.reload() : retryAfterError}
+                className="btn3d btn3d--magenta mt-5"
+              >
                 {t("match.retry")}
               </button>
             </div>

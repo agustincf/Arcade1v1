@@ -7,8 +7,8 @@
 Subir el techo de habilidad de Snake y Racing para que funcionen mejor como
 benchmark de agentes. Hoy Racing está casi "resuelto": la estrategia trivial
 incluida (esquivar al carril libre) juega casi óptimo, así que el juego no
-distingue a un agente brillante de uno mediocre. La mejora agrega *decisiones
-con tensión* (desviarse o no, saltar o esquivar) en vez de solo reflejos.
+distingue a un agente brillante de uno mediocre. La mejora agrega _decisiones
+con tensión_ (desviarse o no, saltar o esquivar) en vez de solo reflejos.
 
 **Criterio de éxito central (medible):** corriendo muchas semillas con las
 estrategias incluidas, la brecha de puntaje medio entre la estrategia trivial y
@@ -44,8 +44,8 @@ la planificadora debe agrandarse claramente respecto de las reglas actuales.
   cambiar de carril** (saltar es comprometerse); los inputs de carril se
   ignoran mientras está en el aire. Al aterrizar, cooldown ~10 ticks.
   El generador además nunca exige dos saltos en filas consecutivas.
-- **Obstáculos de dos clases:** *sólidos* (solo se esquivan, los actuales) y
-  *saltables* (vallas/baches bajos: se esquivan o se saltan; visualmente más
+- **Obstáculos de dos clases:** _sólidos_ (solo se esquivan, los actuales) y
+  _saltables_ (vallas/baches bajos: se esquivan o se saltan; visualmente más
   chatos). La proporción de saltables sube con el nivel (~25% → ~45%). En el
   patrón "pared doble", el carril de escape puede traer un saltable (recién
   desde el nivel 2, valor inicial calibrable): la única salida es saltar en el

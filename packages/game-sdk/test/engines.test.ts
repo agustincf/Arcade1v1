@@ -30,8 +30,17 @@ import {
   verifyRacing,
   type RaceAction,
   type ReplayRacing,
+  RACING_RULES_V,
+  JUMP_TICKS,
 } from "@arcade1v1/game-sdk/racing";
-import { SnakeEngine, verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
+import {
+  SnakeEngine,
+  verifySnake,
+  type ReplaySnake,
+  SNAKE_RULES_V,
+  COIN_VALUE,
+  COIN_LIFE_STEPS,
+} from "@arcade1v1/game-sdk/snake";
 import {
   InvadersEngine,
   verifyInvaders,
@@ -210,3 +219,181 @@ for (const c of CASES) {
     );
   });
 }
+
+// ------------------------- Snake v2: moneda que vence -------------------------
+test("snake v2: exporta la versión de reglas 2", () => {
+  assert.equal(SNAKE_RULES_V, 2);
+  assert.equal(COIN_VALUE, 3);
+});
+
+test("snake v2: la moneda aparece, y si nadie la come expira intacta a los N pasos", () => {
+  // Jugador quieto (va derecho y wrapea): observamos el ciclo de vida de la
+  // moneda contando PASOS (cambios de largo/posición de la cabeza).
+  const g = new SnakeEngine(SEED);
+  let sawCoin = false;
+  let expiredAfter = -1;
+  let bornAtStep = -1;
+  let steps = 0;
+  let prevHead = { ...g.body[0] };
+  let prevCoin: { x: number; y: number } | null = null;
+  let prevScore = 0;
+  for (let t = 0; t < 4000 && !g.over && expiredAfter < 0; t++) {
+    g.tick();
+    const head = g.body[0];
+    const stepped = head.x !== prevHead.x || head.y !== prevHead.y;
+    if (stepped) steps += 1;
+    prevHead = { ...head };
+    if (g.coin && !prevCoin) {
+      sawCoin = true;
+      bornAtStep = steps;
+    }
+    if (!g.coin && prevCoin && g.score === prevScore) {
+      expiredAfter = steps - bornAtStep; // desapareció sin sumar => expiró
+    }
+    prevCoin = g.coin ? { ...g.coin } : null;
+    prevScore = g.score;
+  }
+  assert.ok(sawCoin, "en ~300 pasos tiene que aparecer al menos una moneda");
+  assert.equal(expiredAfter, COIN_LIFE_STEPS, "la moneda vive exactamente COIN_LIFE_STEPS pasos");
+});
+
+test("snake v2: contabilidad — largo y puntaje cierran (fruta +1, moneda +3, ambas alargan)", () => {
+  // score = frutas + 3*monedas ; largo = 3 + frutas + monedas
+  // => monedas = (score - (largo - 3)) / 2, entero y >= 0 SIEMPRE.
+  for (let seed = 1; seed <= 30; seed++) {
+    const g = new SnakeEngine(seed);
+    for (let t = 0; t < 3000 && !g.over; t++) g.tick();
+    const grown = g.body.length - 3;
+    const coins = (g.score - grown) / 2;
+    assert.ok(
+      Number.isInteger(coins) && coins >= 0,
+      `seed ${seed}: score ${g.score} / largo ${g.body.length} inconsistentes`,
+    );
+  }
+});
+
+test("snake v2: verify reproduce un replay que declara v", () => {
+  const { score, replay } = playSnake(SEED);
+  const withV = { ...(replay as object), v: SNAKE_RULES_V } as ReplaySnake;
+  assert.equal(verifySnake(withV), score, "verify ignora el campo v y re-simula igual");
+});
+
+test("snake v2: la fruta nunca reaparece sobre la moneda viva", () => {
+  // Llamamos spawnFood() directo (privado en TS, accesible en runtime) con la
+  // moneda clavada en una celda: así el guard se ejercita SIEMPRE, no cuando
+  // el azar quiere — sin el fix, este test cae en pocos cientos de tiradas.
+  for (let seed = 1; seed <= 5; seed++) {
+    const g = new SnakeEngine(seed);
+    g.coin = { x: 5, y: 5 };
+    const spawnFood = (g as unknown as { spawnFood(): void }).spawnFood.bind(g);
+    for (let i = 0; i < 500; i++) {
+      spawnFood();
+      assert.ok(
+        !(g.food.x === 5 && g.food.y === 5),
+        `seed ${seed}, tirada ${i}: la fruta cayó sobre la moneda`,
+      );
+    }
+  }
+});
+
+// --------------------- Racing v2: salto, vallas y monedas ---------------------
+// (RACING_RULES_V y JUMP_TICKS se agregan al import de racing ya existente al
+// tope del archivo; RACING_DT ya está importado — usarlo directo.)
+
+test("racing v2: exporta la versión de reglas 2 y acepta la acción j", () => {
+  assert.equal(RACING_RULES_V, 2);
+  const g = new RacingEngine(SEED);
+  g.jump();
+  assert.ok(g.airborne, "tras jump() el auto está en el aire");
+  g.update(RACING_DT);
+  assert.ok(g.jumpProgress() > 0 && g.jumpProgress() < 1);
+});
+
+test("racing v2: en el aire no se cambia de carril (saltar compromete)", () => {
+  const g = new RacingEngine(SEED);
+  g.jump();
+  g.moveLeft();
+  assert.equal(g.carLane, 1, "moveLeft() bloqueado mientras está en el aire");
+  // Simular JUMP_TICKS updates para aterrizar
+  for (let i = 0; i < JUMP_TICKS; i++) {
+    g.update(RACING_DT);
+  }
+  g.moveLeft();
+  assert.equal(g.carLane, 0, "al aterrizar el control vuelve");
+});
+
+test("racing v2: saltar una valla salva; sin saltar, mata", () => {
+  // Buscamos una semilla donde, jugando quieto, la muerte llega por una VALLA
+  // (jumpable) en el carril del auto. Después re-jugamos igual pero saltando
+  // EXACTAMENTE en el muerte tick para pasar la valla: el motor debe dejarlo vivo.
+  const CAR_Y_TEST = 480 - 80;
+  let found = false;
+  for (let seed = 1; seed <= 60 && !found; seed++) {
+    const a = new RacingEngine(seed);
+    let deathTick = -1;
+    for (let t = 0; t < 3600 && !a.over; t++) {
+      a.update(RACING_DT);
+      if (a.over) deathTick = t;
+    }
+    if (deathTick < 0) continue;
+    const killer = a.obstacles.find((o) => o.lane === a.carLane && Math.abs(o.y - CAR_Y_TEST) < 60);
+    if (!killer || !killer.jumpable) continue;
+    found = true;
+    const b = new RacingEngine(seed);
+    for (let t = 0; t < 3600 && !b.over; t++) {
+      if (t === deathTick) b.jump();
+      b.update(RACING_DT);
+    }
+    assert.ok(
+      b.score > a.score,
+      `seed ${seed}: saltando la valla debe pasarla y puntuar más (a=${a.score}, b=${b.score})`,
+    );
+  }
+  assert.ok(found, "en 60 semillas tiene que existir una muerte por valla jugando quieto");
+});
+
+test("racing v2: monedas suman puntaje pero NO velocidad (speed usa passedCount)", () => {
+  // Jugador que barre carriles (para pisar filas de monedas). El test solo
+  // discrimina si alguna corrida realmente tomó monedas (score > passedCount):
+  // lo exigimos, y en TODAS validamos que la fórmula usa passedCount.
+  let sawCoins = false;
+  for (let seed = 1; seed <= 20; seed++) {
+    const g = new RacingEngine(seed);
+    for (let t = 0; t < 3600 && !g.over; t++) {
+      if (t % 120 === 0) {
+        if ((t / 120) % 2 === 0) g.moveRight();
+        else g.moveLeft();
+      }
+      g.update(RACING_DT);
+    }
+    if (g.score > g.passedCount) sawCoins = true;
+    assert.ok(g.score >= g.passedCount, "score = obstáculos pasados + monedas");
+    const expected = Math.min(480, 190 + Math.floor(g.elapsedMs / 8000) * 35 + g.passedCount * 2);
+    assert.equal(
+      g.speed(),
+      expected,
+      `seed ${seed}: la velocidad escala con passedCount, no con score`,
+    );
+  }
+  assert.ok(
+    sawCoins,
+    "en 20 semillas alguna corrida debe haber tomado monedas (si no, el test no prueba nada)",
+  );
+});
+
+test("racing v2: verify procesa saltos y reproduce el puntaje", () => {
+  // Un run con saltos periódicos: verify debe re-simular idéntico.
+  const g = new RacingEngine(SEED);
+  const inputs: { t: number; a: "l" | "r" | "j" }[] = [];
+  let t = 0;
+  while (!g.over && t < 3600) {
+    if (t % 90 === 0) {
+      g.jump();
+      inputs.push({ t, a: "j" });
+    }
+    g.update(RACING_DT);
+    t++;
+  }
+  const replay = { seed: SEED, ticks: t, inputs, v: RACING_RULES_V };
+  assert.equal(verifyRacing(replay), g.score);
+});

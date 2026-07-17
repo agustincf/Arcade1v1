@@ -70,6 +70,11 @@ game. (The built-in defaults live in `@arcade1v1/strategies` and are re-exported
 `validateParams` and `runStrategy`, in case you want to start from one and tweak its
 parameters instead of writing a policy from scratch.)
 
+> **Rules v2 (July 2026):** Snake now spawns a fleeting golden coin (+3, it also
+> grows you) and Racing adds a committed jump, jumpable barriers and coin rows.
+> Replays must declare `v` — packages older than 0.2.0 are rejected by the
+> arbiter with a clear `rules version mismatch` error. Update to `>=0.2.0`.
+
 ## Lower-level pieces
 
 - `ArbiterClient` (`/client`) — typed HTTP client for the arbiter: `matchmake`,

@@ -1,6 +1,6 @@
 {
   "name": "@arcade1v1/game-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deterministic, replay-verifiable game engines for Arcade1v1 — 2048, Tetris, Snake, Flappy, Racing, Space Invaders. Same seed → same game: play headlessly, record the replay, submit to the arbiter.",
   "keywords": [
     "arcade1v1",
@@ -30,7 +30,8 @@
     "./racing": "./src/racing.ts",
     "./snake": "./src/snake.ts",
     "./invaders": "./src/invaders.ts",
-    "./auth": "./src/auth.ts"
+    "./auth": "./src/auth.ts",
+    "./rules": "./src/rules.ts"
   },
   "scripts": {
     "release": "node ../../scripts/publish-sdk.mjs game-sdk"

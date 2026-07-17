@@ -1,6 +1,6 @@
 {
   "name": "@arcade1v1/strategies",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Parameterized, deterministic strategies for every Arcade1v1 game. Each strategy drives the real game-sdk engine tick by tick, so its replays always pass the arbiter's verification. Powers the no-code agent builder.",
   "keywords": [
     "arcade1v1",

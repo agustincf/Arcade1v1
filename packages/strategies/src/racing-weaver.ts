@@ -5,7 +5,14 @@
 // libre); si va tranquilo, solo deriva cuando otro carril es claramente mejor
 // (`boldness`). Maneja el motor real, así el replay verifica idéntico.
 
-import { RacingEngine, RACING_DT, RACING_CONST, LANES } from "@arcade1v1/game-sdk/racing";
+import {
+  RacingEngine,
+  RACING_DT,
+  RACING_CONST,
+  RACING_RULES_V,
+  LANES,
+  type RaceAction,
+} from "@arcade1v1/game-sdk/racing";
 import type { StrategyDef, PlayResult } from "./types";
 import { num } from "./params";
 
@@ -29,6 +36,15 @@ const PARAMS = [
     def: 0.3,
     labelKey: "strat.racing.weaver.boldness",
   },
+  {
+    key: "coinGreed",
+    kind: "slider" as const,
+    min: 0,
+    max: 1,
+    step: 0.1,
+    def: 0.4,
+    labelKey: "strat.racing.weaver.coinGreed",
+  },
 ];
 
 export const strategyRacingWeaver: StrategyDef = {
@@ -39,8 +55,9 @@ export const strategyRacingWeaver: StrategyDef = {
   params: PARAMS,
   play(seed: number, params: Record<string, unknown>): PlayResult {
     const boldness = num(params, PARAMS[0]);
+    const coinGreed = num(params, PARAMS[1]);
     const g = new RacingEngine(seed);
-    const inputs: { t: number; a: "l" | "r" }[] = [];
+    const inputs: { t: number; a: RaceAction }[] = [];
     let cooldown = 0;
 
     /** Holgura de un carril = hueco al obstáculo más cercano que todavía puede
@@ -62,8 +79,15 @@ export const strategyRacingWeaver: StrategyDef = {
         // Holgura con sesgo al centro: un extremo tiene que ser bastante más
         // despejado para ganarle al centro (que es escapable ante dobles). En
         // ruta abierta todos empatan en CAP y el sesgo devuelve al auto al medio.
+        // Sesgo de monedas: empuja hacia un carril vecino con fila de monedas
+        // a la vista, sin pisar el candado de seguridad (clearance sigue mandando).
+        const coinBias = (lane: number): number =>
+          coinGreed > 0 &&
+          g.coins.some((c) => !c.taken && c.lane === lane && c.y < CAR_Y && c.y > CAR_Y - 300)
+            ? coinGreed * 40
+            : 0;
         const eff = (lane: number): number =>
-          clearance(lane) - CENTER_BIAS * Math.abs(lane - CENTER);
+          clearance(lane) - CENTER_BIAS * Math.abs(lane - CENTER) + coinBias(lane);
         let target = g.carLane;
         let bestEff = eff(g.carLane);
         for (let l = 0; l < LANES; l++) {
@@ -84,10 +108,20 @@ export const strategyRacingWeaver: StrategyDef = {
           inputs.push({ t, a });
           cooldown = CHANGE_COOLDOWN;
         }
+        // v2: si me quedé sin deriva y lo que tengo encima es una VALLA, saltar.
+        if (!g.airborne && clearance(g.carLane) < DANGER) {
+          const threat = g.obstacles
+            .filter((o) => o.lane === g.carLane && o.y < CAR_Y + HIT_BAND)
+            .sort((a, b) => b.y - a.y)[0];
+          if (threat?.jumpable && CAR_Y - threat.y < 120) {
+            g.jump();
+            inputs.push({ t, a: "j" });
+          }
+        }
       }
       g.update(RACING_DT);
     }
 
-    return { score: g.score, replay: { seed, ticks: MAX_TICKS, inputs } };
+    return { score: g.score, replay: { seed, ticks: MAX_TICKS, inputs, v: RACING_RULES_V } };
   },
 };

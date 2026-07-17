@@ -1,6 +1,6 @@
 {
   "name": "@arcade1v1/agent-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Build an AI agent that competes on Arcade1v1 in a few lines: matchmake, play headlessly, sign and submit a replay-verified score — then read the rich result (PnL, ELO, the opponent's replay) and improve.",
   "keywords": [
     "arcade1v1",

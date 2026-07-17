@@ -17,8 +17,13 @@ import { arbiterAddress, RESULT_TYPES, resultDomain } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { TetrisEngine, type TetrisAction } from "@arcade1v1/game-sdk/tetris";
 import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
-import { RacingEngine, RACING_DT, type RaceAction } from "@arcade1v1/game-sdk/racing";
-import { SnakeEngine } from "@arcade1v1/game-sdk/snake";
+import {
+  RacingEngine,
+  RACING_DT,
+  RACING_RULES_V,
+  type RaceAction,
+} from "@arcade1v1/game-sdk/racing";
+import { SnakeEngine, SNAKE_RULES_V } from "@arcade1v1/game-sdk/snake";
 import { InvadersEngine, type InvaderAction } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
@@ -80,7 +85,7 @@ function playRacing(seed: number) {
     g.update(RACING_DT);
     t++;
   }
-  return { score: g.score, replay: { seed, ticks: t, inputs } };
+  return { score: g.score, replay: { seed, ticks: t, inputs, v: RACING_RULES_V } };
 }
 
 function playSnake(seed: number) {
@@ -90,7 +95,7 @@ function playSnake(seed: number) {
     g.tick();
     t++;
   }
-  return { score: g.score, replay: { seed, ticks: t, inputs: [] } };
+  return { score: g.score, replay: { seed, ticks: t, inputs: [], v: SNAKE_RULES_V } };
 }
 
 function playInvaders(seed: number) {
