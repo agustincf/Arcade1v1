@@ -280,7 +280,7 @@ test("racing v2: saltar una valla salva; sin saltar, mata", () => {
     const b = new RacingEngine(seed);
     for (let t = 0; t < 3600 && !b.over; t++) {
       if (t === deathTick - Math.floor(JUMP_TICKS / 2)) b.jump();
-      b.update(RDT);
+      b.update(RACING_DT);
     }
     assert.ok(
       b.over === false || b.score > a.score,
@@ -291,13 +291,25 @@ test("racing v2: saltar una valla salva; sin saltar, mata", () => {
 });
 
 test("racing v2: monedas suman puntaje pero NO velocidad (speed usa passedCount)", () => {
+  // Jugador que barre carriles (para pisar filas de monedas). El test solo
+  // discrimina si alguna corrida realmente tomó monedas (score > passedCount):
+  // lo exigimos, y en TODAS validamos que la fórmula usa passedCount.
+  let sawCoins = false;
   for (let seed = 1; seed <= 20; seed++) {
     const g = new RacingEngine(seed);
-    for (let t = 0; t < 3600 && !g.over; t++) g.update(RDT);
+    for (let t = 0; t < 3600 && !g.over; t++) {
+      if (t % 120 === 0) {
+        if ((t / 120) % 2 === 0) g.moveRight();
+        else g.moveLeft();
+      }
+      g.update(RACING_DT);
+    }
+    if (g.score > g.passedCount) sawCoins = true;
     assert.ok(g.score >= g.passedCount, "score = obstáculos pasados + monedas");
     const expected = Math.min(480, 190 + Math.floor(g.elapsedMs / 8000) * 35 + g.passedCount * 2);
     assert.equal(g.speed(), expected, `seed ${seed}: la velocidad escala con passedCount, no con score`);
   }
+  assert.ok(sawCoins, "en 20 semillas alguna corrida debe haber tomado monedas (si no, el test no prueba nada)");
 });
 
 test("racing v2: verify procesa saltos y reproduce el puntaje", () => {
@@ -310,7 +322,7 @@ test("racing v2: verify procesa saltos y reproduce el puntaje", () => {
       g.jump();
       inputs.push({ t, a: "j" });
     }
-    g.update(RDT);
+    g.update(RACING_DT);
     t++;
   }
   const replay = { seed: SEED, ticks: t, inputs, v: RACING_RULES_V };
