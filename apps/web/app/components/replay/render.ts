@@ -6,7 +6,15 @@
 import { SnakeEngine, GRID } from "@arcade1v1/game-sdk/snake";
 import { FlappyEngine, FLAPPY_CONST } from "@arcade1v1/game-sdk/flappy";
 import { RacingEngine, RACING_CONST, laneX } from "@arcade1v1/game-sdk/racing";
-import { InvadersEngine, INVADERS_CONST, ALIEN_W, ALIEN_H } from "@arcade1v1/game-sdk/invaders";
+import { InvadersEngine, INVADERS_CONST } from "@arcade1v1/game-sdk/invaders";
+import {
+  drawAlien,
+  drawShip,
+  drawUfo,
+  drawShieldBlock,
+  drawBullet,
+  drawBomb,
+} from "@/app/games/invaders/sprites";
 import {
   TetrisEngine,
   PIECE_COLORS,
@@ -214,37 +222,38 @@ export function invadersCanvasSize() {
   return { w: INVADERS_CONST.WIDTH, h: INVADERS_CONST.HEIGHT };
 }
 
-const ROW_COLOR = ["#ff3df0", "#27e8ff", "#ffd23d", "#39ff7a"];
+// Estrellas fijas del fondo del modo espectador.
+const INV_STARS = Array.from({ length: 40 }, (_, i) => ({
+  x: (i * 71) % INVADERS_CONST.WIDTH,
+  y: (i * 137) % INVADERS_CONST.HEIGHT,
+  s: (i % 3) + 1,
+}));
 
 export function drawInvaders(ctx: CanvasRenderingContext2D, eng: InvadersEngine) {
-  const { WIDTH, HEIGHT, PLAYER_W, PLAYER_H, PLAYER_Y, SB, UFO_W, UFO_H, UFO_Y } = INVADERS_CONST;
-  ctx.fillStyle = "#0a0518";
+  const { WIDTH, HEIGHT, PLAYER_Y, BULLET_H, BOMB_H, UFO_Y } = INVADERS_CONST;
+  // Mismos sprites que el juego; el "tick" visual se deriva del estado
+  // (el visor no lleva contador propio).
+  const tick = Math.floor(eng.offsetX * 2) + eng.wave * 7;
+  const bg = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+  bg.addColorStop(0, "#05020f");
+  bg.addColorStop(0.6, "#0a0518");
+  bg.addColorStop(1, "#140a2e");
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillStyle = "rgba(109,94,252,0.7)";
+  for (const st of INV_STARS) ctx.fillRect(st.x, st.y, st.s, st.s);
   // ovni
-  if (eng.ufo) {
-    ctx.fillStyle = "#ff3df0";
-    ctx.fillRect(eng.ufo.x, UFO_Y, UFO_W, UFO_H);
-  }
+  if (eng.ufo) drawUfo(ctx, eng.ufo.x, UFO_Y, tick);
   // aliens
-  for (const a of eng.aliveAliens()) {
-    ctx.fillStyle = ROW_COLOR[a.row % ROW_COLOR.length];
-    ctx.fillRect(a.x, a.y, ALIEN_W, ALIEN_H);
-    ctx.fillStyle = "#0a0518";
-    ctx.fillRect(a.x + 5, a.y + 5, 4, 4);
-    ctx.fillRect(a.x + ALIEN_W - 9, a.y + 5, 4, 4);
-  }
+  const frame = Math.floor(eng.offsetX / 10) % 2;
+  for (const a of eng.aliveAliens()) drawAlien(ctx, a.x, a.y, a.row, frame);
   // escudos
-  ctx.fillStyle = "#39ff7a";
-  for (const s of eng.shields) ctx.fillRect(s.x, s.y, SB, SB);
+  for (const s of eng.shields) drawShieldBlock(ctx, s.x, s.y);
   // balas y bombas
-  ctx.fillStyle = "#27e8ff";
-  for (const b of eng.bullets) ctx.fillRect(b.x - 1, b.y - 10, 3, 10);
-  ctx.fillStyle = "#ff4d6d";
-  for (const b of eng.bombs) ctx.fillRect(b.x - 1, b.y, 3, 10);
+  for (const b of eng.bullets) drawBullet(ctx, b.x, b.y - BULLET_H, BULLET_H);
+  for (const b of eng.bombs) drawBomb(ctx, b.x, b.y, BOMB_H, (tick >> 2) & 1);
   // jugador
-  ctx.fillStyle = "#39ff7a";
-  ctx.fillRect(eng.playerX - PLAYER_W / 2, PLAYER_Y - PLAYER_H, PLAYER_W, PLAYER_H);
-  ctx.fillRect(eng.playerX - 2, PLAYER_Y - PLAYER_H - 6, 4, 6);
+  drawShip(ctx, eng.playerX, PLAYER_Y);
   // vidas
   ctx.fillStyle = "#ffd23d";
   ctx.font = "bold 12px ui-sans-serif, system-ui";

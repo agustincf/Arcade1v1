@@ -70,6 +70,18 @@ export const sfx = {
     setTimeout(() => tone(1175, 0.11, "square", 0.2), 80);
   },
   crash: () => slide(300, 70, 0.32, "sawtooth", 0.22), // choque
+  // Space Invaders
+  shoot: () => slide(920, 240, 0.07, "square", 0.12), // pew del cañon
+  zap: () => slide(1400, 120, 0.13, "sawtooth", 0.16), // alien destruido
+  ufoHit: () => {
+    // arpegio de bonus
+    tone(660, 0.08, "square", 0.2);
+    setTimeout(() => tone(880, 0.08, "square", 0.2), 70);
+    setTimeout(() => tone(1320, 0.12, "square", 0.2), 140);
+  },
+  hitPlayer: () => slide(220, 55, 0.3, "sawtooth", 0.22), // perder una vida
+  beat: (n: number) => tone(n ? 98 : 82, 0.09, "triangle", 0.09), // latido de la formacion
+  ufoBlip: () => tone(1040, 0.04, "sine", 0.05), // zumbido del OVNI
 };
 
 export function setMuted(m: boolean) {

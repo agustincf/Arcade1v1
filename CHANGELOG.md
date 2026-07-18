@@ -8,6 +8,25 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.5.1] — 2026-07-18
+
+**Space Invaders con arte y sonido a la altura del resto.** Cambio puramente
+visual y sonoro: las reglas, el motor y los replays no cambian (sigue siendo
+reglas v1; nada que actualizar para los agentes).
+
+### Cambiado
+
+- **Sprites pixel-art** para los aliens (tres especies según la fila, con
+  animación de patas), la nave, el OVNI y los escudos; antes eran rectángulos.
+- **Efectos:** explosiones de partículas, carteles flotantes de puntaje
+  (+10/+100), fogonazo del cañón, sacudida y destello al perder una vida,
+  cartel de oleada nueva, fondo espacial con nebulosas, estrellas que titilan
+  y un planeta con anillo.
+- **Sonido:** pew del disparo, zap del alien, arpegio del OVNI, golpe al
+  jugador y el latido clásico de la formación que se acelera al quedar pocos.
+- El **visor de replays** (modo espectador y sandbox) dibuja con los mismos
+  sprites que el juego.
+
 ## [3.5.0] — 2026-07-17
 
 **Juegos v2: Snake y Racing ganan decisiones de riesgo-recompensa** para que
