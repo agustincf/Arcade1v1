@@ -96,6 +96,18 @@ export const sfx = {
     setTimeout(() => tone(1047, 0.16, "square", 0.22), 240);
   },
   levelUp: () => slide(392, 1046, 0.22, "square", 0.16), // subida de nivel
+  // 2048
+  merge: (level: number) => {
+    // fusion: el tono sube con el tamaño de la jugada
+    const f = 240 * Math.pow(2, Math.min(level, 12) / 6);
+    tone(f, 0.08, "square", 0.16);
+  },
+  milestone: () => {
+    // ficha grande nueva (128, 256, ...)
+    tone(523, 0.08, "square", 0.2);
+    setTimeout(() => tone(784, 0.08, "square", 0.2), 75);
+    setTimeout(() => tone(1047, 0.14, "square", 0.22), 150);
+  },
 };
 
 export function setMuted(m: boolean) {

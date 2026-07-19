@@ -327,6 +327,16 @@ export function draw2048(ctx: CanvasRenderingContext2D, eng: Game2048) {
       ctx.fillStyle = v === 0 ? "rgba(75,59,128,0.18)" : (TILE_COLORS[v] ?? "#ffd23d");
       ctx.fillRect(x + 4, y + 4, CELL - 8, CELL - 8);
       if (v !== 0) {
+        // relieve (mismo look glossy que el juego)
+        const s = CELL - 8;
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.fillRect(x + 4, y + 4, s, 2);
+        ctx.fillRect(x + 4, y + 4, 2, s);
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.fillRect(x + 4, y + 4 + s - 2, s, 2);
+        ctx.fillRect(x + 4 + s - 2, y + 4, 2, s);
+      }
+      if (v !== 0) {
         ctx.fillStyle = v <= 4 ? "#e8e3ff" : "#140a2e";
         ctx.font = `bold ${v >= 1024 ? 20 : 26}px ui-sans-serif, system-ui`;
         ctx.fillText(String(v), x + CELL / 2, y + CELL / 2);

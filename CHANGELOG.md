@@ -8,6 +8,22 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.5.3] — 2026-07-18
+
+**2048 completa la tanda de pulido.** Solo visual y sonoro: motor, reglas y
+replays intactos. Con esto los seis juegos quedan parejos.
+
+### Cambiado
+
+- **2048:** las fichas "popean" al aparecer y al fusionarse, cada jugada
+  muestra sus puntos flotando (+8, +32…), el sonido de fusión sube de tono
+  con el tamaño de la jugada y lograr una ficha grande (128 en adelante) trae
+  su fanfarria y su cartel.
+- Las animaciones nuevas respetan la preferencia de "reducir movimiento" del
+  sistema.
+- El visor de replays dibuja las fichas del 2048 con el mismo relieve que el
+  juego.
+
 ## [3.5.2] — 2026-07-18
 
 **Tetris y Flappy ganan el mismo pulido que Invaders.** Solo visual y sonoro:

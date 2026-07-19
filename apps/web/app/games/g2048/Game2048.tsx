@@ -49,14 +49,33 @@ export function Game2048Component({
   const touch = useRef<{ x: number; y: number } | null>(null);
   const moves = useRef<Dir[]>([]); // se graba cada movimiento (para el replay)
 
+  // Cartel flotante de puntos / hito (visual: el replay no cambia).
+  const [fxPopup, setFxPopup] = useState<{ id: number; txt: string; sub?: string } | null>(null);
+  const popupId = useRef(0);
+
   const engine = engineRef.current;
 
   function doMove(dir: Dir) {
     const eng = engineRef.current!;
     if (eng.over) return;
+    const prevScore = eng.score;
+    const prevMax = Math.max(...eng.board.flat());
     if (eng.move(dir)) {
       moves.current.push(dir);
-      sfx.move();
+      const delta = eng.score - prevScore;
+      const newMax = Math.max(...eng.board.flat());
+      const hito = newMax > prevMax && newMax >= 128;
+      if (hito) {
+        sfx.milestone();
+        popupId.current += 1;
+        setFxPopup({ id: popupId.current, txt: `+${delta}`, sub: `¡${newMax}!` });
+      } else if (delta > 0) {
+        sfx.merge(Math.log2(delta));
+        popupId.current += 1;
+        setFxPopup({ id: popupId.current, txt: `+${delta}` });
+      } else {
+        sfx.move();
+      }
       force();
       if (eng.over) setOver(true);
     }
@@ -119,12 +138,37 @@ export function Game2048Component({
                 {v === 0 ? (
                   <div className="h-full w-full rounded-[4px] bg-[rgba(75,59,128,0.18)]" />
                 ) : (
-                  <Tile value={v} />
+                  // key por valor: al cambiar la celda, la ficha re-monta y "popea"
+                  <Tile key={v} value={v} />
                 )}
               </div>
             )),
           )}
         </div>
+
+        {/* Cartel flotante: puntos del movimiento y fichas hito */}
+        {fxPopup && (
+          <div
+            key={fxPopup.id}
+            className="rise-fade pointer-events-none absolute inset-x-0 top-1/3 text-center"
+            onAnimationEnd={() => setFxPopup(null)}
+          >
+            {fxPopup.sub && (
+              <div
+                className="font-pixel text-2xl text-(--color-gold)"
+                style={{ textShadow: "0 0 14px #ffd23d" }}
+              >
+                {fxPopup.sub}
+              </div>
+            )}
+            <div
+              className="font-pixel text-lg text-white"
+              style={{ textShadow: "0 0 8px #ffffff" }}
+            >
+              {fxPopup.txt}
+            </div>
+          </div>
+        )}
 
         {!started && (
           <StartScreen
@@ -176,7 +220,7 @@ function Tile({ value }: { value: number }) {
   const size = value >= 1000 ? "text-base" : value >= 100 ? "text-xl" : "text-2xl";
   return (
     <div
-      className="flex h-full w-full items-center justify-center rounded-[4px]"
+      className="tile-pop flex h-full w-full items-center justify-center rounded-[4px]"
       style={{
         backgroundColor: color,
         backgroundImage:

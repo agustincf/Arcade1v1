@@ -273,6 +273,38 @@ body {
     }
   }
 
+  /* FX de los juegos: pop de ficha (2048) y cartel que sube y se desvanece */
+  .tile-pop {
+    animation: tile-pop 150ms ease-out;
+  }
+  @keyframes tile-pop {
+    0% {
+      transform: scale(0.55);
+    }
+    70% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  .rise-fade {
+    animation: rise-fade 800ms ease-out forwards;
+  }
+  @keyframes rise-fade {
+    0% {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    15% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-22px);
+    }
+  }
+
   /* Respetar "reducir movimiento" del sistema: el ticker infinito y el parpadeo
      se frenan (el ticker se reubica visible, sin quedar empujado fuera de
      pantalla). Los spinners usan la variante motion-reduce en su markup. */
@@ -283,6 +315,14 @@ body {
     }
     .blink {
       animation: none;
+    }
+    .tile-pop {
+      animation: none;
+    }
+    /* Sin animacion el cartel no tiene fin: directamente no se muestra. */
+    .rise-fade {
+      animation: none;
+      opacity: 0;
     }
   }
 
