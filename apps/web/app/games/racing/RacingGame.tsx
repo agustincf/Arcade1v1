@@ -52,7 +52,7 @@ export function RacingGame({
   function enqueue(a: RaceAction) {
     if (engineRef.current!.over) return;
     pending.current.push(a);
-    sfx.move();
+    if (a !== "j") sfx.move(); // el salto suena recién al despegar de verdad
   }
 
   useEffect(() => {
@@ -63,6 +63,47 @@ export function RacingGame({
     let last = performance.now();
     let acc = 0;
     let lastScore = -1;
+
+    // --- Estado visual (fuera del motor: no toca el replay ni la colision) ---
+    // El motor cambia de carril de golpe (regla discreta, justa para el
+    // benchmark); el auto DIBUJADO lo persigue con un resorte: se desliza con
+    // inercia y se inclina al doblar. La fisica jugable no cambia.
+    let visualLane = engineRef.current!.carLane;
+    let laneVel = 0;
+    const particles: {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      life: number;
+      max: number;
+      size: number;
+      color: string;
+    }[] = [];
+    const popups: { x: number; y: number; txt: string; life: number; color: string }[] = [];
+    let flash = 0;
+    let shake = 0;
+    let deathWait = -1;
+    let speedLineOff = 0;
+    let prevLvl = 0;
+
+    function burst(x: number, y: number, colors: string[], n: number, force = 1) {
+      for (let i = 0; i < n; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const v = (0.8 + Math.random() * 2.2) * force;
+        const life = 20 + Math.floor(Math.random() * 18);
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(ang) * v,
+          vy: Math.sin(ang) * v - 0.8,
+          life,
+          max: life,
+          size: Math.random() < 0.35 ? 4 : 3,
+          color: colors[Math.floor(Math.random() * colors.length)],
+        });
+      }
+    }
 
     // --- Proyeccion en perspectiva (pseudo-3D) ---
     const roadWidthAt = (y: number) => {
@@ -92,7 +133,15 @@ export function RacingGame({
       body: string,
       player = false,
       jumpArc = 0,
+      tilt = 0,
     ) {
+      ctx.save();
+      if (tilt) {
+        // inclinacion al doblar (alrededor del centro del auto)
+        ctx.translate(cx, cy);
+        ctx.rotate(tilt);
+        ctx.translate(-cx, -cy);
+      }
       const lift = 26 * jumpArc * scale; // el cuerpo sube; la sombra NO
       const s = scale * (1 + 0.3 * jumpArc);
       const w = 42 * s;
@@ -143,10 +192,17 @@ export function RacingGame({
       ctx.fillStyle = player ? "#ff3b3b" : "#fff3a0";
       ctx.fillRect(x + 4 * s, y + h - 5 * s, 8 * s, 3 * s);
       ctx.fillRect(x + w - 12 * s, y + h - 5 * s, 8 * s, 3 * s);
+      ctx.restore();
     }
 
     const draw = () => {
       const eng = engineRef.current!;
+
+      ctx.save();
+      if (shake > 0) {
+        ctx.translate((Math.random() - 0.5) * shake * 0.8, (Math.random() - 0.5) * shake * 0.8);
+        shake -= 1;
+      }
 
       // --- Cielo atardecer ---
       const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
@@ -155,6 +211,13 @@ export function RacingGame({
       sky.addColorStop(1, "#ff7a4d");
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, WIDTH, HORIZON);
+      // estrellas en lo alto
+      ctx.fillStyle = "rgba(255,255,255,0.45)";
+      for (let i = 0; i < 14; i++) {
+        const sx = (i * 89) % WIDTH;
+        const sy = (i * 31) % 55;
+        ctx.fillRect(sx, sy, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 2 : 1);
+      }
       // sol
       ctx.fillStyle = "#ffd23d";
       ctx.beginPath();
@@ -272,10 +335,87 @@ export function RacingGame({
         ctx.fill();
         ctx.shadowBlur = 0;
       }
-      // auto del jugador (con arco de salto)
+      // auto del jugador: sigue el carril con resorte (inercia + inclinacion)
       const psy = projY(eng.carY);
       const jumpArc = Math.sin(Math.PI * eng.jumpProgress());
-      drawCar(laneCenterAt(eng.carLane, psy), psy, depthScale(psy), "#39ff7a", true, jumpArc);
+      const px = laneCenterAt(visualLane, psy);
+      const tilt = Math.max(-0.3, Math.min(0.3, laneVel * 1.5));
+      // chispas de derrape mientras el auto se desliza por el piso
+      if (!eng.airborne && !eng.over && Math.abs(laneVel) > 0.035) {
+        const side = laneVel > 0 ? -1 : 1;
+        particles.push({
+          x: px + side * 16,
+          y: psy + 16,
+          vx: side * (0.5 + Math.random()),
+          vy: 0.6 + Math.random() * 0.8,
+          life: 12 + Math.floor(Math.random() * 8),
+          max: 18,
+          size: 2,
+          color: Math.random() < 0.5 ? "#ffffff" : "#27e8ff",
+        });
+      }
+      drawCar(px, psy, depthScale(psy), "#39ff7a", true, jumpArc, tilt);
+
+      // lineas de velocidad cuando la cosa se pone rapida
+      const spd = eng.speed();
+      if (spd > 330) {
+        const a = Math.min(1, (spd - 330) / 150) * 0.3;
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        speedLineOff = (speedLineOff + spd * 0.004) % 60;
+        for (let i = 0; i < 5; i++) {
+          const ly = HORIZON + 20 + ((i * 73 + speedLineOff * 9) % (HEIGHT - HORIZON - 40));
+          const len = 16 + (i % 3) * 8;
+          ctx.fillRect(8 + (i % 2) * 10, ly, 2, len);
+          ctx.fillRect(WIDTH - 10 - (i % 2) * 10, ly, 2, len);
+        }
+      }
+
+      // particulas
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.08;
+        p.life -= 1;
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        ctx.globalAlpha = p.life / p.max;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      }
+      ctx.globalAlpha = 1;
+
+      // carteles flotantes (+1 moneda, SPEED UP)
+      ctx.textAlign = "center";
+      for (let i = popups.length - 1; i >= 0; i--) {
+        const p = popups[i];
+        p.y -= 0.5;
+        p.life -= 1;
+        if (p.life <= 0) {
+          popups.splice(i, 1);
+          continue;
+        }
+        ctx.globalAlpha = Math.min(1, p.life / 18);
+        ctx.font = p.txt.startsWith("+")
+          ? "bold 14px ui-sans-serif, system-ui"
+          : "bold 20px ui-sans-serif, system-ui";
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 10;
+        ctx.fillText(p.txt, p.x, p.y);
+        ctx.shadowBlur = 0;
+      }
+      ctx.globalAlpha = 1;
+
+      // destello del choque
+      if (flash > 0) {
+        ctx.fillStyle = `rgba(255,120,60,${(flash / 8) * 0.35})`;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        flash -= 1;
+      }
+      ctx.restore();
 
       // --- HUD puntaje (en la esquina, fuera de la pista) ---
       ctx.textAlign = "left";
@@ -295,29 +435,94 @@ export function RacingGame({
       last = t;
       const eng = engineRef.current!;
       // Paso fijo determinístico: aplica los cambios de carril y avanza por ticks.
-      acc += dt;
-      while (acc >= STEP) {
-        while (pending.current.length) {
-          const a = pending.current.shift()!;
-          if (a === "l") eng.moveLeft();
-          else if (a === "r") eng.moveRight();
-          else eng.jump();
-          inputs.current.push({ t: tickRef.current, a });
+      if (!eng.over) {
+        acc += dt;
+        while (acc >= STEP) {
+          // Foto previa para detectar eventos del tick (despegue, aterrizaje,
+          // monedas, subida de velocidad) sin tocar el motor.
+          const prevAir = eng.airborne;
+          const prevScore = eng.score;
+          const prevPassed = eng.passedCount;
+          while (pending.current.length) {
+            const a = pending.current.shift()!;
+            if (a === "l") eng.moveLeft();
+            else if (a === "r") eng.moveRight();
+            else eng.jump();
+            inputs.current.push({ t: tickRef.current, a });
+          }
+          eng.update(RACING_DT);
+          tickRef.current += 1;
+          acc -= STEP;
+
+          if (!prevAir && eng.airborne) sfx.jump();
+          if (prevAir && !eng.airborne && !eng.over) {
+            sfx.land();
+            const psy = projY(eng.carY);
+            burst(laneCenterAt(visualLane, psy), psy + 14, ["#ffffff", "#8a97a6"], 8, 0.7);
+          }
+          // monedas del tick: puntos que no vienen de obstaculos superados
+          const coinsTaken = eng.score - prevScore - (eng.passedCount - prevPassed);
+          if (coinsTaken > 0) {
+            sfx.point();
+            const psy = projY(eng.carY);
+            const cxp = laneCenterAt(visualLane, psy);
+            burst(cxp, psy - 20, ["#ffd23d", "#fff3a0"], 10, 0.9);
+            popups.push({
+              x: cxp,
+              y: psy - 46,
+              txt: `+${coinsTaken}`,
+              life: 45,
+              color: "#ffd23d",
+            });
+          }
+          const lvl = Math.floor(eng.elapsedMs / 8000);
+          if (lvl > prevLvl) {
+            prevLvl = lvl;
+            sfx.levelUp();
+            popups.push({
+              x: WIDTH / 2,
+              y: HEIGHT / 2 - 40,
+              txt: "SPEED UP!",
+              life: 60,
+              color: "#27e8ff",
+            });
+          }
+
+          if (eng.over) break;
         }
-        eng.update(RACING_DT);
-        tickRef.current += 1;
-        acc -= STEP;
-        if (eng.over) break;
       }
+
+      // Resorte del carril visual (por frame): inercia + leve rebote.
+      const targetLane = eng.carLane;
+      laneVel = laneVel * 0.68 + (targetLane - visualLane) * 0.18;
+      visualLane += laneVel;
+      if (Math.abs(targetLane - visualLane) < 0.002 && Math.abs(laneVel) < 0.002) {
+        visualLane = targetLane;
+        laneVel = 0;
+      }
+
       if (eng.score !== lastScore) {
         lastScore = eng.score;
         setScore(eng.score);
       }
       draw();
       if (eng.over) {
-        sfx.crash();
-        setOver(true);
-        return;
+        // Choque: explosion, sacudida y un respiro antes del cartel de fin.
+        if (deathWait < 0) {
+          const psy = projY(eng.carY);
+          const cxp = laneCenterAt(visualLane, psy);
+          burst(cxp, psy, ["#ff7a3d", "#ffd23d", "#ff4d6d"], 26, 1.6);
+          burst(cxp, psy, ["#ffffff", "#8a97a6"], 12, 1.1);
+          flash = 8;
+          shake = 14;
+          deathWait = 45;
+          sfx.crash();
+        }
+        deathWait -= 1;
+        if (deathWait <= 0) {
+          setOver(true);
+          return;
+        }
       }
       raf = requestAnimationFrame(loop);
     };

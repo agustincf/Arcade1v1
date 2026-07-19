@@ -8,6 +8,27 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.5.4] — 2026-07-18
+
+**Racing se siente natural: el auto se desliza en vez de teletransportarse.**
+Solo visual y sonoro: el motor sigue decidiendo por carril discreto (la regla
+del benchmark no cambia) y los replays quedan intactos.
+
+### Cambiado
+
+- **Movimiento con física visual:** el auto dibujado persigue el carril real
+  con un resorte — se desliza con inercia, se inclina al doblar y suelta
+  chispas de derrape. Antes saltaba de carril en un cuadro y se veía "mocho".
+- **Salto con sonido:** whoosh al despegar y golpe seco con polvo al
+  aterrizar (solo suena cuando el salto despega de verdad).
+- **Monedas que festejan:** ding, destello dorado y "+1" flotante al
+  recogerlas.
+- **Choque digno:** explosión de fuego y chispas, destello, sacudida de
+  pantalla y un respiro antes del cartel de fin.
+- **Velocidad que se siente:** cartel "SPEED UP!" con su sonido en cada
+  subida de nivel y líneas de velocidad en los bordes cuando la carrera se
+  pone rápida; estrellas en lo alto del atardecer.
+
 ## [3.5.3] — 2026-07-18
 
 **2048 completa la tanda de pulido.** Solo visual y sonoro: motor, reglas y

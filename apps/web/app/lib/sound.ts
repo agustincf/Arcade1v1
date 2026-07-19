@@ -108,6 +108,9 @@ export const sfx = {
     setTimeout(() => tone(784, 0.08, "square", 0.2), 75);
     setTimeout(() => tone(1047, 0.14, "square", 0.22), 150);
   },
+  // Racing
+  jump: () => slide(280, 660, 0.14, "triangle", 0.18), // despegue
+  land: () => tone(130, 0.07, "triangle", 0.18), // aterrizaje
 };
 
 export function setMuted(m: boolean) {
