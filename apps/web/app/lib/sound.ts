@@ -82,6 +82,20 @@ export const sfx = {
   hitPlayer: () => slide(220, 55, 0.3, "sawtooth", 0.22), // perder una vida
   beat: (n: number) => tone(n ? 98 : 82, 0.09, "triangle", 0.09), // latido de la formacion
   ufoBlip: () => tone(1040, 0.04, "sine", 0.05), // zumbido del OVNI
+  // Flappy / Tetris
+  point: () => {
+    // ding de punto (dos notas cortas)
+    tone(1175, 0.06, "square", 0.14);
+    setTimeout(() => tone(1568, 0.09, "square", 0.14), 55);
+  },
+  tetris: () => {
+    // fanfarria: 4 lineas de una
+    tone(523, 0.09, "square", 0.2);
+    setTimeout(() => tone(659, 0.09, "square", 0.2), 80);
+    setTimeout(() => tone(784, 0.09, "square", 0.2), 160);
+    setTimeout(() => tone(1047, 0.16, "square", 0.22), 240);
+  },
+  levelUp: () => slide(392, 1046, 0.22, "square", 0.16), // subida de nivel
 };
 
 export function setMuted(m: boolean) {

@@ -47,6 +47,16 @@ export function TetrisGame({
   const inputs = useRef<{ t: number; a: TetrisAction }[]>([]);
   const tickRef = useRef(0);
 
+  // Efectos visuales (flash de lineas, cartel de puntos, sacudida). Viven fuera
+  // del motor: el replay no cambia. El componente ya re-renderiza cada frame.
+  const fx = useRef<{
+    flashRows: number[];
+    flashT0: number;
+    popup: { txt: string; sub?: string; t0: number } | null;
+    shakeT0: number;
+    shakeMag: number;
+  }>({ flashRows: [], flashT0: 0, popup: null, shakeT0: 0, shakeMag: 0 });
+
   const engine = engineRef.current;
 
   function enqueue(a: TetrisAction) {
@@ -54,6 +64,7 @@ export function TetrisGame({
     pending.current.push(a);
     if (a === "cw" || a === "ccw") sfx.rotate();
     else if (a === "h") sfx.drop();
+    else if (a === "l" || a === "r") sfx.move();
   }
 
   // Reloj de PASO FIJO: cada tick aplica las teclas encoladas y avanza gravedad.
@@ -70,6 +81,14 @@ export function TetrisGame({
       if (!eng.over && !pausedRef.current) {
         acc += dt;
         while (acc >= STEP) {
+          // Foto previa para detectar eventos (lineas, nivel) y saber DONDE
+          // aterrizo la pieza (las lineas limpiadas tocan filas del fantasma).
+          const prevLines = eng.lines;
+          const prevScore = eng.score;
+          const prevLevel = eng.level;
+          const ghostRows = [...new Set((eng.ghost()?.cells ?? []).map(([r]) => r))].sort(
+            (a, b) => b - a,
+          );
           while (pending.current.length) {
             const a = pending.current.shift()!;
             eng.apply(a);
@@ -78,6 +97,24 @@ export function TetrisGame({
           eng.tick();
           tickRef.current += 1;
           acc -= STEP;
+
+          const cleared = eng.lines - prevLines;
+          if (cleared > 0) {
+            const now = performance.now();
+            fx.current.flashRows = ghostRows.slice(0, cleared);
+            fx.current.flashT0 = now;
+            fx.current.popup = {
+              txt: `+${eng.score - prevScore}`,
+              sub: cleared === 4 ? "TETRIS!" : undefined,
+              t0: now,
+            };
+            fx.current.shakeT0 = now;
+            fx.current.shakeMag = cleared === 4 ? 5 : 2;
+            if (cleared === 4) sfx.tetris();
+            else sfx.clear();
+          }
+          if (eng.level > prevLevel) sfx.levelUp();
+
           if (eng.over) break;
         }
         force();
@@ -139,6 +176,18 @@ export function TetrisGame({
   const ghost = engine.ghost();
   const ghostSet = new Set(ghost?.cells.map(([r, c]) => `${r},${c}`) ?? []);
 
+  // Animaciones de los efectos (el componente re-renderiza cada frame).
+  const now = performance.now();
+  const flashAlpha = Math.max(0, 1 - (now - fx.current.flashT0) / 320);
+  const popupT = fx.current.popup ? (now - fx.current.popup.t0) / 800 : 1;
+  const popupAlpha = popupT >= 1 ? 0 : Math.min(1, (1 - popupT) * 2.5);
+  const shakeLeft = Math.max(0, 1 - (now - fx.current.shakeT0) / 260);
+  const shakeMag = shakeLeft * fx.current.shakeMag;
+  const shakeStyle =
+    shakeMag > 0.2
+      ? `translate(${(Math.random() - 0.5) * shakeMag}px, ${(Math.random() - 0.5) * shakeMag}px)`
+      : undefined;
+
   return (
     <div className="flex flex-col items-center gap-4">
       {/* HUD: puntaje / lineas / nivel + proxima pieza */}
@@ -160,6 +209,7 @@ export function TetrisGame({
           style={{
             width: "min(86vw, 260px)",
             gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+            transform: shakeStyle,
           }}
         >
           {grid.map((row, r) =>
@@ -176,6 +226,44 @@ export function TetrisGame({
             )),
           )}
         </div>
+
+        {/* FX: destello de las lineas limpiadas */}
+        {flashAlpha > 0 &&
+          fx.current.flashRows.map((r) => (
+            <div
+              key={r}
+              className="pointer-events-none absolute left-1 right-1 rounded-sm bg-white"
+              style={{
+                top: `calc(${(r / grid.length) * 100}% + 1px)`,
+                height: `${100 / grid.length}%`,
+                opacity: flashAlpha,
+                boxShadow: "0 0 14px #ffffff",
+              }}
+            />
+          ))}
+
+        {/* FX: cartel de puntos (y TETRIS! con 4 lineas) */}
+        {popupAlpha > 0 && fx.current.popup && (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-1/3 text-center"
+            style={{ opacity: popupAlpha, transform: `translateY(-${popupT * 18}px)` }}
+          >
+            {fx.current.popup.sub && (
+              <div
+                className="font-pixel text-xl text-(--color-gold)"
+                style={{ textShadow: "0 0 12px #ffd23d" }}
+              >
+                {fx.current.popup.sub}
+              </div>
+            )}
+            <div
+              className="font-pixel text-lg text-white"
+              style={{ textShadow: "0 0 8px #ffffff" }}
+            >
+              {fx.current.popup.txt}
+            </div>
+          </div>
+        )}
 
         {/* Pantalla: antes de empezar */}
         {!started && (

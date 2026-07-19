@@ -77,6 +77,39 @@ export function FlappyGame({
     let frameNow = performance.now();
     let carMorphStart: number | null = null;
 
+    // Efectos visuales (fuera del motor: no tocan el replay).
+    const particles: {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      life: number;
+      max: number;
+      size: number;
+      color: string;
+    }[] = [];
+    const popups: { x: number; y: number; txt: string; life: number }[] = [];
+    let flash = 0; // destello blanco al chocar
+    let deathWait = -1; // frames que se ve la explosion antes del game over
+
+    function burst(x: number, y: number, colors: string[], n: number) {
+      for (let i = 0; i < n; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const v = 1 + Math.random() * 2.6;
+        const life = 26 + Math.floor(Math.random() * 22);
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(ang) * v,
+          vy: Math.sin(ang) * v - 1.2,
+          life,
+          max: life,
+          size: Math.random() < 0.4 ? 4 : 3,
+          color: colors[Math.floor(Math.random() * colors.length)],
+        });
+      }
+    }
+
     function drawPipe(x: number, gapY: number) {
       const topH = gapY - GAP / 2;
       const botY = gapY + GAP / 2;
@@ -219,11 +252,26 @@ export function FlappyGame({
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, WIDTH, GROUND_Y);
 
-      // Sol
-      ctx.fillStyle = "rgba(255,210,61,0.9)";
+      // Estrellas tenues en lo alto
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      for (let i = 0; i < 16; i++) {
+        const sx = (i * 83) % WIDTH;
+        const sy = (i * 37) % 85;
+        ctx.fillRect(sx, sy, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 2 : 1);
+      }
+
+      // Sol retro con rayas
+      ctx.save();
       ctx.beginPath();
       ctx.arc(WIDTH / 2, GROUND_Y - 40, 46, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.clip();
+      ctx.fillStyle = "rgba(255,210,61,0.9)";
+      ctx.fillRect(WIDTH / 2 - 46, GROUND_Y - 86, 92, 92);
+      ctx.fillStyle = "rgba(122,31,143,0.65)";
+      for (let i = 0; i < 5; i++) {
+        ctx.fillRect(WIDTH / 2 - 46, GROUND_Y - 30 + i * 10, 92, 3 + i);
+      }
+      ctx.restore();
 
       // Nubes (parallax)
       if (eng.started && !eng.over) {
@@ -291,6 +339,44 @@ export function FlappyGame({
         ctx.globalAlpha = 1;
       }
 
+      // Particulas (plumas del choque)
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.12;
+        p.vx *= 0.99;
+        p.life -= 1;
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        ctx.globalAlpha = p.life / p.max;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      }
+      ctx.globalAlpha = 1;
+
+      // Carteles "+1"
+      ctx.font = "bold 16px ui-sans-serif, system-ui";
+      ctx.textAlign = "center";
+      for (let i = popups.length - 1; i >= 0; i--) {
+        const p = popups[i];
+        p.y -= 0.6;
+        p.life -= 1;
+        if (p.life <= 0) {
+          popups.splice(i, 1);
+          continue;
+        }
+        ctx.globalAlpha = Math.min(1, p.life / 15);
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = "#0a0518";
+        ctx.lineWidth = 3;
+        ctx.strokeText(p.txt, p.x, p.y);
+        ctx.fillText(p.txt, p.x, p.y);
+      }
+      ctx.globalAlpha = 1;
+
       // Puntaje
       ctx.fillStyle = "#ffffff";
       ctx.strokeStyle = "#0a0518";
@@ -299,6 +385,13 @@ export function FlappyGame({
       ctx.textAlign = "center";
       ctx.strokeText(String(eng.score), WIDTH / 2, 64);
       ctx.fillText(String(eng.score), WIDTH / 2, 64);
+
+      // Destello del choque
+      if (flash > 0) {
+        ctx.fillStyle = `rgba(255,255,255,${(flash / 8) * 0.5})`;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        flash -= 1;
+      }
 
       if (!eng.started) {
         ctx.fillStyle = "#ffffff";
@@ -313,26 +406,43 @@ export function FlappyGame({
       last = t;
       const eng = engineRef.current!;
       // Paso fijo determinístico: cada tick aplica el aleteo (si lo hubo) y avanza.
-      acc += dt;
-      while (acc >= STEP) {
-        if (pendingFlap.current) {
-          eng.flap();
-          flaps.current.push(tickRef.current);
-          pendingFlap.current = false;
+      if (!eng.over) {
+        acc += dt;
+        while (acc >= STEP) {
+          if (pendingFlap.current) {
+            eng.flap();
+            flaps.current.push(tickRef.current);
+            pendingFlap.current = false;
+          }
+          eng.update(FLAPPY_DT);
+          tickRef.current += 1;
+          acc -= STEP;
+          if (eng.over) break;
         }
-        eng.update(FLAPPY_DT);
-        tickRef.current += 1;
-        acc -= STEP;
-        if (eng.over) break;
       }
       if (eng.score !== lastScore) {
+        // Punto ganado: ding + "+1" flotando sobre el pajaro
+        if (lastScore >= 0 && eng.score > lastScore && !eng.over) {
+          sfx.point();
+          popups.push({ x: BIRD_X + 26, y: eng.birdY - 24, txt: "+1", life: 50 });
+        }
         lastScore = eng.score;
         setScore(eng.score);
       }
       draw();
       if (eng.over) {
-        setOver(true);
-        return;
+        // Explosion de plumas y un respiro antes del cartel de fin
+        if (deathWait < 0) {
+          burst(BIRD_X, eng.birdY, ["#ffd23d", "#ffae00", "#ffffff"], 26);
+          flash = 8;
+          deathWait = 45;
+          sfx.crash();
+        }
+        deathWait -= 1;
+        if (deathWait <= 0) {
+          setOver(true);
+          return;
+        }
       }
       raf = requestAnimationFrame(loop);
     };

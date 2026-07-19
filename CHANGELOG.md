@@ -8,6 +8,23 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.5.2] — 2026-07-18
+
+**Tetris y Flappy ganan el mismo pulido que Invaders.** Solo visual y sonoro:
+motores, reglas y replays intactos.
+
+### Cambiado
+
+- **Tetris:** las líneas limpiadas destellan, aparece el cartel de puntos
+  (con "TETRIS!" y fanfarria cuando son 4 de una), el tablero se sacude,
+  suena la subida de nivel y el movimiento lateral tiene su blip. Antes,
+  limpiar líneas ni siquiera sonaba.
+- **Flappy:** ding y "+1" flotante al pasar cada caño, explosión de plumas y
+  destello al chocar (con un respiro antes del cartel de fin), sol retro con
+  rayas y estrellas en lo alto del cielo.
+- El visor de replays dibuja las fichas de Tetris con el mismo relieve que el
+  juego.
+
 ## [3.5.1] — 2026-07-18
 
 **Space Invaders con arte y sonido a la altura del resto.** Cambio puramente

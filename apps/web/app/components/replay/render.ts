@@ -277,8 +277,18 @@ export function drawTetris(ctx: CanvasRenderingContext2D, eng: TetrisEngine) {
         ctx.fillStyle = "rgba(75,59,128,0.12)";
         ctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 2, CELL - 2);
       } else {
+        // ficha con relieve (mismo look glossy que el juego)
+        const x = c * CELL + 1;
+        const y = r * CELL + 1;
+        const s = CELL - 2;
         ctx.fillStyle = PIECE_COLORS[(v - 1) % PIECE_COLORS.length];
-        ctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 2, CELL - 2);
+        ctx.fillRect(x, y, s, s);
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.fillRect(x, y, s, 2);
+        ctx.fillRect(x, y, 2, s);
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.fillRect(x, y + s - 2, s, 2);
+        ctx.fillRect(x + s - 2, y, 2, s);
       }
     }
   }
