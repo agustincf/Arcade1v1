@@ -542,7 +542,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     setPlaying(false);
   }
 
-  const gameProps = { onStarted: () => setPlaying(true) };
+  // `strict` = mesa de plata. Ahí no hay pausa y la simulación se pone al día
+  // después de un alt-tab, así que irse de la pestaña deja de ser gratis.
+  // Solo en mesas de plata porque son las únicas que exigen depósito on-chain:
+  // el cliente es siempre este navegador, nunca un agente headless.
+  const gameProps = { onStarted: () => setPlaying(true), strict: needsDeposit };
 
   // ¿Hay un premio ganado que TODAVÍA no se cobró? Mientras lo haya, "Cobrar" es
   // la única acción destacada del modal: "Revancha"/"Inicio" bajan a enlaces

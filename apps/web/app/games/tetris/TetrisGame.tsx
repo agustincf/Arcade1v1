@@ -12,6 +12,7 @@ import { StartScreen, GameOverScreen, GameOverlay } from "@/app/games/_shared/ui
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
+import { dtCap } from "@/app/games/_shared/strict";
 
 const STEP = 1000 / 60; // un tick cada 1/60 de segundo (paso fijo, determinístico)
 
@@ -26,15 +27,21 @@ export function TetrisGame({
   seed,
   onFinish,
   onStarted,
+  strict,
 }: {
   seed: number;
   onFinish: (result: TetrisResult) => void;
   onStarted?: () => void;
+  /** Mesa de plata: sin pausa y con puesta al día tras un alt-tab. */
+  strict?: boolean;
 }) {
   const engineRef = useRef<TetrisEngine | null>(null);
   if (engineRef.current === null) engineRef.current = new TetrisEngine(seed);
 
   const { t } = useT();
+  // El bucle lee el modo por ref: cambiar de prop no debe reiniciar la partida.
+  const strictRef = useRef(!!strict);
+  strictRef.current = !!strict;
   const [, force] = useReducer((x) => x + 1, 0);
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
@@ -75,7 +82,7 @@ export function TetrisGame({
     let last = performance.now();
     let acc = 0;
     const loop = (tnow: number) => {
-      const dt = Math.min(tnow - last, 100); // tope si la pestaña estuvo en 2do plano
+      const dt = Math.min(tnow - last, dtCap(strictRef.current));
       last = tnow;
       const eng = engineRef.current!;
       if (!eng.over && !pausedRef.current) {
@@ -163,7 +170,10 @@ export function TetrisGame({
           break;
         case "p":
         case "P":
-          setPaused((p) => !p);
+          // En una mesa de plata no hay pausa: era la misma trampa que el
+          // alt-tab, pero con una tecla dedicada — congelabas la gravedad,
+          // pensabas la pieza con calma y seguías.
+          if (!strictRef.current) setPaused((p) => !p);
           break;
       }
     }

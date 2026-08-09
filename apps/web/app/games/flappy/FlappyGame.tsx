@@ -11,6 +11,7 @@ import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
+import { dtCap } from "@/app/games/_shared/strict";
 
 const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
 const GROUND_Y = HEIGHT - GROUND_H;
@@ -39,16 +40,22 @@ export function FlappyGame({
   seed,
   onFinish,
   onStarted,
+  strict,
 }: {
   seed: number;
   onFinish: (result: FlappyResult) => void;
   onStarted?: () => void;
+  /** Mesa de plata: sin pausa y con puesta al día tras un alt-tab. */
+  strict?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<FlappyEngine | null>(null);
   if (engineRef.current === null) engineRef.current = new FlappyEngine(seed);
 
   const { t } = useT();
+  // El bucle lee el modo por ref: cambiar de prop no debe reiniciar la partida.
+  const strictRef = useRef(!!strict);
+  strictRef.current = !!strict;
   // La instrucción táctil se dibuja DENTRO del canvas, así que no puede salir
   // del JSX: estaba hardcodeada en español y se la mostraba igual a los cuatro
   // idiomas. Va por ref para que el loop la lea sin reiniciarse al cambiar de
@@ -408,7 +415,7 @@ export function FlappyGame({
 
     const loop = (t: number) => {
       frameNow = t;
-      const dt = Math.min(t - last, 100);
+      const dt = Math.min(t - last, dtCap(strictRef.current));
       last = t;
       const eng = engineRef.current!;
       // Paso fijo determinístico: cada tick aplica el aleteo (si lo hubo) y avanza.
