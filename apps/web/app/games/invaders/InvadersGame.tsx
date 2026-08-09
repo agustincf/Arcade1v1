@@ -12,6 +12,7 @@ import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
+import { dtCap } from "@/app/games/_shared/strict";
 import {
   ROW_COLOR,
   drawAlien,
@@ -61,16 +62,22 @@ export function InvadersGame({
   seed,
   onFinish,
   onStarted,
+  strict,
 }: {
   seed: number;
   onFinish: (result: InvadersResult) => void;
   onStarted?: () => void;
+  /** Mesa de plata: sin pausa y con puesta al día tras un alt-tab. */
+  strict?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<InvadersEngine | null>(null);
   if (engineRef.current === null) engineRef.current = new InvadersEngine(seed);
 
   const { t } = useT();
+  // El bucle lee el modo por ref: cambiar de prop no debe reiniciar la partida.
+  const strictRef = useRef(!!strict);
+  strictRef.current = !!strict;
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
@@ -359,7 +366,7 @@ export function InvadersGame({
     };
 
     const loop = (tnow: number) => {
-      const dt = Math.min(tnow - last, 100);
+      const dt = Math.min(tnow - last, dtCap(strictRef.current));
       last = tnow;
       const eng = engineRef.current!;
       acc += dt;

@@ -13,6 +13,7 @@ import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
+import { dtCap } from "@/app/games/_shared/strict";
 
 const { WIDTH, HEIGHT } = RACING_CONST;
 const HORIZON = 150; // linea del horizonte (donde "nace" la ruta)
@@ -29,16 +30,22 @@ export function RacingGame({
   seed,
   onFinish,
   onStarted,
+  strict,
 }: {
   seed: number;
   onFinish: (result: RacingResult) => void;
   onStarted?: () => void;
+  /** Mesa de plata: sin pausa y con puesta al día tras un alt-tab. */
+  strict?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<RacingEngine | null>(null);
   if (engineRef.current === null) engineRef.current = new RacingEngine(seed);
 
   const { t } = useT();
+  // El bucle lee el modo por ref: cambiar de prop no debe reiniciar la partida.
+  const strictRef = useRef(!!strict);
+  strictRef.current = !!strict;
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
@@ -431,7 +438,7 @@ export function RacingGame({
     };
 
     const loop = (t: number) => {
-      const dt = Math.min(t - last, 100);
+      const dt = Math.min(t - last, dtCap(strictRef.current));
       last = t;
       const eng = engineRef.current!;
       // Paso fijo determinístico: aplica los cambios de carril y avanza por ticks.
