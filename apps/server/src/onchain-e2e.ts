@@ -141,6 +141,7 @@ async function main() {
   console.log("\nCICLO ASINCRONICO (open/join, con el backend) VERIFICADO ✅");
 
   await drawScenario();
+  await ghostScenario();
 }
 
 /** Empate: los dos juegan IGUAL -> el arbitro cancela on-chain y se reembolsa. */
@@ -189,6 +190,60 @@ async function drawScenario() {
     process.exit(1);
   }
   console.log("\nREEMBOLSO ON-CHAIN EN EMPATE VERIFICADO ✅");
+}
+
+/** FANTASMA: emparejar en una mesa de plata NO alcanza — hay que depositar.
+ *
+ *  El árbitro no leía la cadena, así que un atacante podía encolar wallets
+ *  recién generadas en las mesas de plata (solo cuesta una firma), no depositar
+ *  nunca, y dejar trabada la plata de cada humano que sí depositó hasta que
+ *  venciera el plazo. Acá se comprueba contra una cadena de verdad que el envío
+ *  del fantasma se rechaza. */
+async function ghostScenario() {
+  console.log("\n--- Fantasma (empareja pero no deposita) ---");
+  const stake = 1_000_000n;
+  await send(owner, ESCROW, escrowAbi, "setAllowedStake", [stake, true]);
+
+  // El fantasma empareja y juega, pero NUNCA llama a open/join.
+  const m = await matchmake("2048", 1, P1);
+  const run = play2048(m.seed, 120);
+
+  let rechazado = false;
+  let motivo = "";
+  try {
+    await submitScore(m.matchId, P1, run.score, run.replay);
+  } catch (e) {
+    rechazado = true;
+    motivo = (e as Error).message;
+  }
+  console.log("✓ envío sin depósito RECHAZADO:", rechazado, motivo ? `(${motivo})` : "");
+  if (!rechazado || !/no on-chain deposit/.test(motivo)) {
+    console.log("\n❌ El fantasma pudo enviar puntaje en una mesa de plata");
+    process.exit(1);
+  }
+
+  // Y el control: el mismo jugador, DESPUÉS de depositar, sí puede enviar.
+  await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
+  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  const m2 = await matchmake("2048", 1, P2); // se empareja con la de P1
+  const [fund, play] = deadlines();
+  if (!m.seatSig) throw new Error("matchmake no emitió el asiento");
+  await send(p1, ESCROW, escrowAbi, "open", [
+    m.matchId as Hex,
+    stake,
+    fund,
+    play,
+    m.seatSig as Hex,
+  ]);
+  const run2 = play2048(m.seed, 120);
+  await submitScore(m.matchId, P1, run2.score, run2.replay);
+  console.log(
+    "✓ el mismo jugador, ya depositado, SÍ envía:",
+    true,
+    `(rival ${m2.matchId === m.matchId ? "emparejado" : "?"})`,
+  );
+
+  console.log("\nGUARDA DE DEPÓSITO ON-CHAIN VERIFICADA ✅");
 }
 
 main().catch((e) => {

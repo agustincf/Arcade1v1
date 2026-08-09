@@ -17,7 +17,12 @@ import {
   matchmakeAuthMessage,
   MATCHMAKE_AUTH_TTL_MS,
 } from "@arcade1v1/game-sdk/auth";
-import { onchainEnabled, cancelMatchOnchain } from "./onchain.js";
+import {
+  onchainEnabled,
+  cancelMatchOnchain,
+  readMatchOnchain,
+  razonRechazoDeposito,
+} from "./onchain.js";
 import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
 import { jsonStore } from "./persist.js";
 import { recordMatchCreated, recordMatchSettled, recordVerificationRejected } from "./stats.js";
@@ -62,6 +67,11 @@ export const MAX_REPLAY_EVENTS = 200_000;
  *  tiempo. Para eso hace falta la cota inferior de reloj real en `submitScore`
  *  (medir contra `pairedAt`), que va aparte. */
 export const MAX_EVENTS_PER_TICK = 8;
+
+/** Cuántas verificaciones FALLIDAS aguanta un jugador en una partida antes de
+ *  quedarse sin intento. Un replay honesto verifica a la primera; tres deja
+ *  margen para un reintento de red y corta el reenvío infinito. */
+export const MAX_FAILED_VERIFICATIONS = 3;
 
 /** ¿El replay pide más trabajo del razonable para re-jugarlo, o declara más
  *  acciones de las que entran en su propio reloj? (corta el DoS y la trampa). */
@@ -130,6 +140,12 @@ interface Match {
   outcome?: "p1" | "p2" | "draw";
   signature?: Hex;
   isBot?: boolean;
+  /** Verificaciones FALLIDAS por jugador. El candado de "un intento" solo se
+   *  armaba cuando la verificación salía BIEN, así que un replay que no
+   *  verificaba se podía reenviar infinitas veces: cada intento re-simulaba el
+   *  juego entero (~95 ms de JS sincrónico, en el único hilo de Node) y moría en
+   *  "score mismatch" sin dejar rastro ni consumir el intento. */
+  failedAttempts?: Record<string, number>;
   refundPromise?: Promise<void>; // cancelacion/reembolso on-chain en empate
   eloUpdate?: { p1: RatingUpdate; p2: RatingUpdate }; // cambio de rating al liquidar
 }
@@ -424,6 +440,40 @@ export async function submitScore(
   // (ventaja desleal: el rival, al enviar, cierra la partida y no puede repetir).
   if (m.scores[address] !== undefined) throw new Error("score already submitted");
 
+  // ANTI-FLOOD: el candado de arriba solo se arma cuando la verificación sale
+  // BIEN, así que un replay que NO verifica se podía reenviar para siempre —
+  // cada intento re-simula el juego entero y bloquea el hilo de Node. Tres
+  // fallidas y este jugador se quedó sin intento en esta partida.
+  const fallidas = m.failedAttempts?.[address] ?? 0;
+  if (fallidas >= MAX_FAILED_VERIFICATIONS) {
+    throw new Error("too many failed verifications for this match");
+  }
+
+  // ¿DEPOSITÓ DE VERDAD? El árbitro nunca miraba la cadena: emparejaba, aceptaba
+  // puntajes y firmaba resultados sin saber si había plata de por medio. Un
+  // atacante encolaba wallets recién generadas en las mesas de plata (solo
+  // cuesta una firma), no depositaba nunca, y cada humano que sí depositó
+  // quedaba con la plata trabada hasta que venciera el plazo.
+  //
+  // Se chequea que la dirección figure como p1 o p2 EN EL CONTRATO: solo se
+  // llega a serlo depositando (open/join transfieren la apuesta). No se exige
+  // status Funded porque el modelo es asincrónico — el primero juega y envía su
+  // puntaje antes de que exista rival, con la partida todavía en Open.
+  if (m.stake > 0 && onchainEnabled()) {
+    let enCadena;
+    try {
+      enCadena = await readMatchOnchain(m.id);
+    } catch (e) {
+      // El nodo no respondió. No aceptamos a ciegas un puntaje con plata en
+      // juego: se pide reintentar, que es recuperable, en vez de firmar algo
+      // que no pudimos verificar.
+      console.error("[onchain] no se pudo leer la partida:", (e as Error).message);
+      throw new Error("could not verify your deposit on-chain — retry in a moment", { cause: e });
+    }
+    const motivo = razonRechazoDeposito(enCadena, address);
+    if (motivo) throw new Error(motivo);
+  }
+
   let finalScore = Math.max(0, Math.floor(score));
 
   // ANTI-TRAMPA (default-deny): TODO juego debe tener verificador. Re-jugamos el
@@ -465,6 +515,9 @@ export async function submitScore(
     finalScore = verified;
   } catch (e) {
     recordVerificationRejected();
+    m.failedAttempts ??= {};
+    m.failedAttempts[address] = (m.failedAttempts[address] ?? 0) + 1;
+    persist();
     throw e;
   }
 
