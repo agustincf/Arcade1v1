@@ -35,7 +35,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: freq,
     priority,
     alternates: {
-      languages: Object.fromEntries(LANGS.map((l) => [l, abs(localePath(l, path))])),
+      languages: {
+        ...Object.fromEntries(LANGS.map((l) => [l, abs(localePath(l, path))])),
+        // El comentario de arriba decía "URL inglesa = x-default", pero el
+        // x-default nunca se emitía: el sitemap salía con 4 hreflang por URL y
+        // ninguno declaraba a quién servirle a un visitante cuyo idioma no
+        // tenemos. Verificado con curl contra producción el 2026-08-09.
+        "x-default": abs(path),
+      },
     },
   }));
 }

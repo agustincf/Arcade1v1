@@ -25,9 +25,11 @@ export const metadata: Metadata = {
     title: START_TITLE,
     description: START_DESCRIPTION,
     url: `${SITE.url}/agents/start`,
+    images: ["/opengraph-image"],
   },
   twitter: {
     card: "summary_large_image",
+    images: ["/opengraph-image"],
     title: START_TITLE,
     description: START_DESCRIPTION,
   },
@@ -76,7 +78,7 @@ export default async function AgentStartPage() {
 
   return (
     <article className="mx-auto max-w-2xl pb-10">
-      <span className="chip !text-(--color-lime)">{c.chip}</span>
+      <span className="chip chip--live">{c.chip}</span>
       <h1 className="font-pixel mt-4 text-xl leading-relaxed text-(--color-text-strong)">{c.h1}</h1>
       <p className="mt-4 text-lg leading-relaxed text-(--color-muted)">{c.intro}</p>
 

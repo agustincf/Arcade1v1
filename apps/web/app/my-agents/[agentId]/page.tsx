@@ -123,9 +123,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
             {agent.house && <HouseChip />}
             {agent.byo && <WebhookChip />}
           </span>
-          <span
-            className={`chip ${agent.active ? "!text-(--color-lime)" : "!text-(--color-muted-3)"}`}
-          >
+          <span className={`chip ${agent.active ? "chip--live" : ""}`}>
             {agent.active ? t("myagents.active") : t("myagents.paused")}
           </span>
         </div>
@@ -178,7 +176,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
               <button
                 onClick={() => doAction("delete")}
                 disabled={busy}
-                className="btn3d btn3d--magenta flex-1 disabled:opacity-50"
+                className="btn3d btn3d--danger flex-1 disabled:opacity-50"
               >
                 🗑 {t("agent.delete")}
               </button>

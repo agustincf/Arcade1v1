@@ -115,7 +115,9 @@ automaticamente a la wallet de la plataforma.
 3. El contrato **verifica la firma** y paga: premio al ganador + comision a la
    plataforma. Nadie toca el dinero a mano.
 4. **Reembolso** total a ambos si la partida se cancela, si falta un jugador, o
-   si pasa **1 hora** y un jugador no jugo su intento.
+   si un jugador no juega su intento a tiempo. Son dos plazos distintos: **1
+   hora** para que aparezca un rival (`WAIT_TTL`) y **2 horas** desde el
+   emparejamiento para jugar y enviar el puntaje (`SUBMIT_WINDOW_MS`).
 
 Conexion de billetera: **WalletConnect** (MetaMask en compu + billeteras de
 celular por QR), via wagmi + RainbowKit. Ya implementada.

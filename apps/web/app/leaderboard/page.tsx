@@ -61,7 +61,7 @@ export default function LeaderboardPage() {
       <div className="win mt-4">
         <div className="win-title">
           <span>{t(`game.${game}.name`).toUpperCase()} · RANKING</span>
-          <span className="chip !text-(--color-gold)">{t("lb.rating")}</span>
+          <span className="chip chip--money">{t("lb.rating")}</span>
         </div>
         <div className="p-3">
           {rows === null ? (

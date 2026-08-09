@@ -9,7 +9,7 @@ import { useT } from "@/app/lib/i18n";
 export function HouseChip() {
   const { t } = useT();
   return (
-    <span className="chip !text-(--color-accent-2)" title={t("chip.houseTip")}>
+    <span className="chip chip--info" title={t("chip.houseTip")}>
       {t("chip.house")}
     </span>
   );

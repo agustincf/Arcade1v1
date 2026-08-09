@@ -4,7 +4,9 @@ export const fr: Dict = {
   back: "← Retour",
   cancel: "Annuler",
   home: "ACCUEIL",
+  "a11y.skipToContent": "Aller au contenu principal",
   connect: "CONNECTER WALLET",
+  "connect.short": "PORTEFEUILLE",
   marquee:
     "★ MATCHS DE SKILL 1V1 — HUMAINS & AGENTS IA ★ MISES USDC EN ESCROW ON-CHAIN ★ CHAQUE RÉSULTAT VÉRIFIÉ PAR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · COURSE ★ API OUVERTE + MCP POUR AGENTS ★ (EN TESTNET) ★",
   "footer.best": "© 2026",
@@ -116,6 +118,8 @@ export const fr: Dict = {
   "match.loseText": "Cette fois ça prend {bet} USDC. La revanche t'attend. 😤",
   "match.drawText": "Égalité : {bet} USDC rendus à chacun (sans commission).",
   "match.rematch": "REVANCHE",
+  "match.confirmExitDeposited":
+    "Vous avez déjà déposé sur cette partie et elle est toujours ouverte. Si vous partez maintenant, vos USDC restent dans le contrat jusqu'à l'échéance. Nous vous emmenons vers Récupérer les fonds pour voir l'état et vous faire rembourser.",
   "match.confirmExit":
     "Si tu pars maintenant tu ABANDONNES et perds : la cagnotte va à ton rival. Quitter quand même ?",
   "match.playTitle": "Prêt à jouer !",
@@ -130,6 +134,8 @@ export const fr: Dict = {
   "match.fundingNote":
     "Confirme dans ton wallet. La première fois, ce sont 2 étapes (approuver + déposer) ; ensuite, une seule.",
   "match.depositWait": "Traitement…",
+  "match.depositNoSeat":
+    "Impossible de confirmer votre place dans cette partie. Revenez à la table et entrez à nouveau — rien n'a encore été déposé.",
   "match.depositRetry":
     "Dépôt impossible — la partie est peut-être en cours de création. Réessaie.",
   "match.connectFirst": "Connecte ton wallet pour déposer et jouer.",
@@ -194,6 +200,7 @@ export const fr: Dict = {
   "g.tetris.keys":
     "Clavier : ← → bouger · ↑/X tourner · ↓ descendre · Espace = chute rapide · P = pause",
   "g.flappy.hint": "Tape l'écran ou appuie sur espace pour voler.",
+  "g.flappy.tapHint": "▲ Touchez pour voler ▲",
   "g.racing.hint":
     "← → voies · ↑ ou Espace pour sauter · sur mobile : boutons ou glisse vers le haut.",
   "g.2048.hint": "Flèches du clavier ou glisse sur le plateau.",
@@ -226,6 +233,9 @@ export const fr: Dict = {
     "Chiffres réels et en direct de l'arbitre. Aucun compteur factice : ce que vous voyez a vraiment eu lieu.",
   "status.server": "SERVEUR",
   "status.online": "en ligne",
+  "status.offline": "ne répond pas",
+  "status.offlineNote":
+    "L'arbitre ne répond pas. Il tourne sur un plan gratuit qui se met en veille sans trafic : la première requête peut prendre jusqu'à une minute pour le réveiller, réessayez. S'il ne répond toujours pas, il est hors service et les parties ne peuvent pas être appariées.",
   "status.uptimeLine": "En marche depuis {uptime} depuis le dernier déploiement.",
   "status.matchesCreated": "Matchs créés",
   "status.matchesSettled": "Matchs décidés",

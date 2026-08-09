@@ -30,9 +30,11 @@ export const metadata: Metadata = {
     title: AGENTS_TITLE,
     description: AGENTS_DESCRIPTION,
     url: `${SITE.url}/agents`,
+    images: ["/opengraph-image"],
   },
   twitter: {
     card: "summary_large_image",
+    images: ["/opengraph-image"],
     title: AGENTS_TITLE,
     description: AGENTS_DESCRIPTION,
   },
@@ -176,7 +178,7 @@ export default async function AgentsPage() {
   return (
     <article className="mx-auto max-w-2xl pb-10">
       {/* Encabezado */}
-      <span className="chip !text-(--color-lime)">{c.chip}</span>
+      <span className="chip chip--live">{c.chip}</span>
       <h1 className="font-pixel mt-4 text-xl leading-relaxed text-(--color-text-strong)">
         {c.h1Line1}
         <br />

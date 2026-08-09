@@ -20,8 +20,10 @@ export function Header() {
         </Link>
 
         {/* min-w-0 permite que la dirección de la wallet se recorte con "…" en
-            vez de desbordar la pantalla (en mobile generaba scroll lateral). */}
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            vez de desbordar la pantalla (en mobile generaba scroll lateral).
+            Es un <nav> y no un <div>: sin landmark, un lector de pantalla no
+            tiene forma de saltar directo a la navegación del sitio. */}
+        <nav aria-label="Principal" className="flex min-w-0 items-center gap-2 sm:gap-3">
           {/* "Mis agentes" es de quien vuelve: vive acá y no en el hero. En
               mobile el header no da el ancho; queda el acceso del footer. */}
           <Link
@@ -48,7 +50,7 @@ export function Header() {
                     </span>
                   ) : (
                     <>
-                      <span className="sm:hidden">WALLET</span>
+                      <span className="sm:hidden">{t("connect.short")}</span>
                       <span className="hidden sm:inline">{t("connect")}</span>
                     </>
                   )}
@@ -56,7 +58,7 @@ export function Header() {
               );
             }}
           </ConnectButton.Custom>
-        </div>
+        </nav>
       </div>
     </header>
   );

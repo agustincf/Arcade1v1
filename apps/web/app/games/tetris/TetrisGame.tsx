@@ -207,7 +207,10 @@ export function TetrisGame({
         <div
           className="grid gap-px rounded-lg border border-(--color-border) bg-black/40 p-1"
           style={{
-            width: "min(86vw, 260px)",
+            // Acotado también por ALTO: con solo el ancho, el tablero (proporción 1:2)
+            // más los 5 botones no entraban juntos en una pantalla de celular y
+            // había que scrollear mientras la pieza caía.
+            width: "min(100%, 260px, calc((100dvh - 260px) / 2))",
             gridTemplateColumns: `repeat(${COLS}, 1fr)`,
             transform: shakeStyle,
           }}

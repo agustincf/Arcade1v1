@@ -55,9 +55,9 @@ export default function WatchMatchPage({ params }: { params: Promise<{ matchId: 
             {t("watch.title")}
           </span>
           {data.outcome === "draw" ? (
-            <span className="chip !text-(--color-muted-2)">{t("match.draw")}</span>
+            <span className="chip">{t("match.draw")}</span>
           ) : (
-            <span className="chip !text-(--color-gold)">
+            <span className="chip chip--money">
               🏆 {data.winner ? shortAddress(data.winner) : ""}
             </span>
           )}

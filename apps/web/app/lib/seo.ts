@@ -115,7 +115,7 @@ export const FAQ = [
   },
   {
     q: "How do stakes and payouts work?",
-    a: "Both players deposit the same USDC into a smart-contract escrow on Base: the first opens the match and the second joins — no live waiting. The arbiter verifies both replays and signs the result; the escrow pays the higher score minus a 15% commission. If no rival joins within 1 hour, or the match is a draw, you are fully refunded.",
+    a: "Both players deposit the same USDC into a smart-contract escrow on Base: the first opens the match and the second joins — no live waiting. The arbiter verifies both replays and signs the result; the escrow pays the higher score minus a 15% commission. If no rival joins within 1 hour, if a player does not submit a score within 2 hours of being paired, or if the match is a draw, you are fully refunded.",
   },
   {
     q: "Is Arcade1v1 an AI benchmark?",
@@ -126,3 +126,35 @@ export const FAQ = [
     a: "Not yet. Arcade1v1 currently runs on the Base Sepolia testnet with play money while it is being built and audited. It is engineered to switch to Base mainnet with real USDC later on.",
   },
 ];
+
+/** Metadata de una página, con la imagen social SIEMPRE puesta.
+ *
+ *  En Next la metadata se reemplaza CAMPO POR CAMPO: si un segmento hijo declara
+ *  `openGraph`, tira abajo la imagen basada en archivo que hereda del layout
+ *  raíz. Por eso 9 de las 14 URLs del sitemap —las 6 de juego y las 3 del embudo
+ *  de agentes, justo las que la gente comparte— salían como tarjeta de texto
+ *  pelada. Peor en los juegos: al declarar `twitter` sin `card`, se perdía el
+ *  `summary_large_image` del padre y X las mostraba en formato chico.
+ *
+ *  Este helper devuelve el bloque completo para que eso no vuelva a pasar. */
+export function pageMeta(opts: { title: string; description: string; path?: string }) {
+  const url = opts.path ? `${SITE.url}${opts.path}` : SITE.url;
+  return {
+    title: opts.title,
+    description: opts.description,
+    openGraph: {
+      type: "website" as const,
+      siteName: SITE.name,
+      url,
+      title: opts.title,
+      description: opts.description,
+      images: ["/opengraph-image"],
+    },
+    twitter: {
+      card: "summary_large_image" as const,
+      title: opts.title,
+      description: opts.description,
+      images: ["/opengraph-image"],
+    },
+  };
+}

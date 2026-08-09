@@ -17,16 +17,26 @@ const BLOCKED = (process.env.BLOCKED_COUNTRIES || "")
 const LOCALES = ["es", "hi", "fr"] as const; // inglés = sin prefijo
 type Prefixed = (typeof LOCALES)[number];
 
-function detectLang(req: NextRequest): "en" | Prefixed {
-  const cookie = req.cookies.get("arcade.lang")?.value;
+/** Elige el idioma a servir. Pura (cookie + header) para poder testearla: acá
+ *  vivía un bug que nadie tenía cómo agarrar. */
+export function pickLang(
+  cookie: string | undefined,
+  acceptLanguage: string | null,
+): "en" | Prefixed {
+  // El inglés no lleva prefijo, así que NO está en LOCALES — y por eso la cookie
+  // "en" no se reconocía: caía al Accept-Language del navegador y devolvía un
+  // 307 a /es|/fr|/hi. Resultado: desde un navegador en español, francés o hindi
+  // era IMPOSIBLE dejar la web en inglés; cada link volvía al idioma local.
+  // La elección explícita del usuario siempre le gana al header del navegador.
+  if (cookie === "en") return "en";
   if (cookie && (LOCALES as readonly string[]).includes(cookie)) return cookie as Prefixed;
-  const first = (req.headers.get("accept-language") ?? "")
-    .split(",")[0]
-    ?.trim()
-    .slice(0, 2)
-    .toLowerCase();
+  const first = (acceptLanguage ?? "").split(",")[0]?.trim().slice(0, 2).toLowerCase();
   if (first && (LOCALES as readonly string[]).includes(first)) return first as Prefixed;
   return "en";
+}
+
+function detectLang(req: NextRequest): "en" | Prefixed {
+  return pickLang(req.cookies.get("arcade.lang")?.value, req.headers.get("accept-language"));
 }
 
 /** Reescribe a la ruta real (sin prefijo) seteando los headers que ve el render. */

@@ -4,7 +4,9 @@ export const es: Dict = {
   back: "← Volver",
   cancel: "Cancelar",
   home: "INICIO",
+  "a11y.skipToContent": "Saltar al contenido",
   connect: "CONECTAR WALLET",
+  "connect.short": "BILLETERA",
   marquee:
     "★ PARTIDAS 1V1 DE HABILIDAD — HUMANOS Y AGENTES DE IA ★ STAKES EN USDC EN ESCROW ON-CHAIN ★ CADA RESULTADO VERIFICADO POR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · CARRERA ★ API ABIERTA + MCP PARA AGENTES ★ (CORRIENDO EN TESTNET) ★",
   "footer.best": "© 2026",
@@ -115,6 +117,8 @@ export const es: Dict = {
   "match.loseText": "Esta vez se llevó {bet} USDC. La revancha te espera. 😤",
   "match.drawText": "Empate: se devuelve {bet} USDC a cada uno (sin comisión).",
   "match.rematch": "REVANCHA",
+  "match.confirmExitDeposited":
+    "Ya depositaste en esta partida y sigue abierta. Si salís ahora, tu USDC queda en el contrato hasta que venza el plazo. Te llevamos a Recuperar fondos para que veas el estado y puedas reembolsarte.",
   "match.confirmExit":
     "Si salís ahora ABANDONÁS la partida y perdés: el pozo va para tu rival. ¿Salir igual?",
   "match.playTitle": "¡Listo para jugar!",
@@ -128,6 +132,8 @@ export const es: Dict = {
   "match.fundingNote":
     "Confirmá en tu wallet. La primera vez son 2 pasos (aprobar + depositar); después, uno solo.",
   "match.depositWait": "Procesando…",
+  "match.depositNoSeat":
+    "No se pudo confirmar tu lugar en esta partida. Volvé a la mesa y entrá de nuevo — todavía no depositaste nada.",
   "match.depositRetry": "No se pudo depositar — la partida puede estar creándose. Probá de nuevo.",
   "match.connectFirst": "Conectá tu wallet para depositar y jugar.",
   "match.connectFirstFree": "Conectá tu wallet para jugar rankeado (gratis, sin depósito).",
@@ -190,6 +196,7 @@ export const es: Dict = {
   "g.next": "Sigue",
   "g.tetris.keys": "Teclado: ← → mover · ↑/X rotar · ↓ bajar · Espacio = caída rápida · P = pausa",
   "g.flappy.hint": "Tocá la pantalla o la barra espaciadora para aletear.",
+  "g.flappy.tapHint": "▲ Tocá para aletear ▲",
   "g.racing.hint":
     "← → carril · ↑ o Espacio para saltar · en el celu: botones o deslizá hacia arriba.",
   "g.2048.hint": "Flechas del teclado o deslizá en el tablero.",
@@ -222,6 +229,9 @@ export const es: Dict = {
     "Números reales y en vivo del árbitro. Sin contadores inventados: lo que ves es lo que pasó.",
   "status.server": "SERVIDOR",
   "status.online": "en línea",
+  "status.offline": "no responde",
+  "status.offlineNote":
+    "El árbitro no está respondiendo. Corre en un plan gratuito que se duerme sin tráfico, así que el primer pedido puede tardar hasta un minuto en despertarlo: probá de nuevo. Si sigue sin responder, está caído y las partidas no se pueden emparejar.",
   "status.uptimeLine": "Prendido hace {uptime} desde el último deploy.",
   "status.matchesCreated": "Partidas creadas",
   "status.matchesSettled": "Partidas decididas",

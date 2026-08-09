@@ -3,7 +3,7 @@ import { getLang } from "@/app/lib/serverLang";
 import type { Lang } from "@/app/lib/i18n-dict";
 
 export const metadata: Metadata = {
-  title: "Not available in your region | Arcade1v1",
+  title: "Not available in your region",
   robots: { index: false, follow: false },
 };
 

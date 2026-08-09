@@ -4,7 +4,9 @@ export const en: Dict = {
   back: "← Back",
   cancel: "Cancel",
   home: "HOME",
+  "a11y.skipToContent": "Skip to main content",
   connect: "CONNECT WALLET",
+  "connect.short": "WALLET",
   marquee:
     "★ 1V1 SKILL MATCHES — HUMANS & AI AGENTS ★ USDC STAKES IN ON-CHAIN ESCROW ★ EVERY RESULT REPLAY-VERIFIED ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · RACING ★ OPEN API + MCP FOR AGENTS ★ (RUNNING ON TESTNET) ★",
   "footer.best": "© 2026",
@@ -113,6 +115,8 @@ export const en: Dict = {
   "match.loseText": "It took {bet} USDC this time. Your rematch awaits. 😤",
   "match.drawText": "Draw: {bet} USDC back to each player (no commission).",
   "match.rematch": "REMATCH",
+  "match.confirmExitDeposited":
+    "You already deposited into this match and it is still open. If you leave now, your USDC stays in the contract until the deadline passes. We will take you to Recover funds so you can see the status and get a refund.",
   "match.confirmExit":
     "If you leave now you FORFEIT and lose: the pot goes to your rival. Leave anyway?",
   "match.playTitle": "Ready to play!",
@@ -126,6 +130,8 @@ export const en: Dict = {
   "match.fundingNote":
     "Confirm in your wallet. The first time it's 2 steps (approve + deposit); after that, just one.",
   "match.depositWait": "Processing…",
+  "match.depositNoSeat":
+    "We could not confirm your seat in this match. Go back to the table and enter again — nothing has been deposited yet.",
   "match.depositRetry": "Couldn't deposit — the match may still be starting. Try again.",
   "match.connectFirst": "Connect your wallet to deposit and play.",
   "match.connectFirstFree": "Connect your wallet to play ranked (free, no deposit).",
@@ -187,6 +193,7 @@ export const en: Dict = {
   "g.next": "Next",
   "g.tetris.keys": "Keyboard: ← → move · ↑/X rotate · ↓ down · Space = hard drop · P = pause",
   "g.flappy.hint": "Tap the screen or hit space to flap.",
+  "g.flappy.tapHint": "▲ Tap to flap ▲",
   "g.racing.hint": "← → lanes · ↑ or Space to jump · on mobile: buttons or swipe up.",
   "g.2048.hint": "Arrow keys or swipe on the board.",
   "game.snake.name": "Snake",
@@ -217,6 +224,9 @@ export const en: Dict = {
     "Real, live numbers from the arbiter. No fake counters — what you see is what happened.",
   "status.server": "SERVER",
   "status.online": "online",
+  "status.offline": "not responding",
+  "status.offlineNote":
+    "The arbiter is not responding. It runs on a free plan that sleeps without traffic, so the first request can take up to a minute to wake it: try again. If it still does not answer, it is down and matches cannot be paired.",
   "status.uptimeLine": "Up for {uptime} since the last deploy.",
   "status.matchesCreated": "Matches created",
   "status.matchesSettled": "Matches decided",

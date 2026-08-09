@@ -66,11 +66,22 @@ export function StatusClient() {
       <p className="mt-2 text-base text-(--color-muted)">{t("status.subtitle")}</p>
 
       {error ? (
-        <div className="win mt-6 p-6 text-center">
-          <p className="text-base text-(--color-muted)">{t("status.error")}</p>
-          <button onClick={() => setReload((n) => n + 1)} className="btn3d btn3d--cyan mt-4">
-            {t("status.retry")}
-          </button>
+        // La página cuyo ÚNICO propósito es responder "¿esto está funcionando?"
+        // solo sabía decir "en línea", o mostrar un error de carga genérico que
+        // parecía un problema del visitante. Si el árbitro no contesta, el
+        // estado del árbitro ES "no responde", y hay que decirlo con todas las
+        // letras — incluida la explicación honesta de por qué puede pasar.
+        <div className="win mt-6">
+          <div className="win-title">
+            <span>{t("status.server")}</span>
+            <span className="chip chip--danger">● {t("status.offline")}</span>
+          </div>
+          <div className="p-6 text-center">
+            <p className="text-base text-(--color-muted)">{t("status.offlineNote")}</p>
+            <button onClick={() => setReload((n) => n + 1)} className="btn3d btn3d--cyan mt-4">
+              {t("status.retry")}
+            </button>
+          </div>
         </div>
       ) : !stats ? (
         <p className="py-10 text-center text-base text-(--color-accent-2)">{t("status.loading")}</p>
@@ -80,7 +91,7 @@ export function StatusClient() {
           <div className="win mt-6">
             <div className="win-title">
               <span>{t("status.server")}</span>
-              <span className="chip !text-(--color-lime)">● {t("status.online")}</span>
+              <span className="chip chip--live">● {t("status.online")}</span>
             </div>
             <div className="p-4 text-base text-(--color-muted)">
               {t("status.uptimeLine", { uptime: fmtUptime(stats.uptimeSeconds) })}
@@ -181,9 +192,7 @@ export function StatusClient() {
             <div className="win mt-4">
               <div className="win-title">
                 <span>{t("status.gas")}</span>
-                <span
-                  className={`chip ${stats.gas.low ? "!text-(--color-lose)" : "!text-(--color-lime)"}`}
-                >
+                <span className={`chip ${stats.gas.low ? "chip--danger" : "chip--live"}`}>
                   {stats.gas.low ? `⚠ ${t("status.gasLow")}` : `● ${t("status.gasOk")}`}
                 </span>
               </div>

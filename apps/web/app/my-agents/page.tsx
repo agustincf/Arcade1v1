@@ -85,7 +85,7 @@ export default function MyAgentsPage() {
       <div className="win mt-3">
         <div className="win-title">
           <span>{t("myagents.title")}</span>
-          <span className="chip !text-(--color-lime)">{agents?.length ?? "…"}</span>
+          <span className="chip chip--live">{agents?.length ?? "…"}</span>
         </div>
         <div className="p-5">
           {!address ? (
@@ -136,9 +136,7 @@ export default function MyAgentsPage() {
                         </span>
                       </div>
                     </div>
-                    <span
-                      className={`chip ${a.active ? "!text-(--color-lime)" : "!text-(--color-muted-3)"}`}
-                    >
+                    <span className={`chip ${a.active ? "chip--live" : ""}`}>
                       {a.active ? t("myagents.active") : t("myagents.paused")}
                     </span>
                     <button

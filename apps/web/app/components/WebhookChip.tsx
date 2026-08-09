@@ -9,7 +9,7 @@ import { useT } from "@/app/lib/i18n";
 export function WebhookChip() {
   const { t } = useT();
   return (
-    <span className="chip !text-(--color-lime)" title={t("chip.webhookTip")}>
+    <span className="chip chip--live" title={t("chip.webhookTip")}>
       {t("chip.webhook")}
     </span>
   );

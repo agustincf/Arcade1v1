@@ -554,7 +554,7 @@ export function RacingGame({
     <div className="flex flex-col items-center gap-3">
       <div
         className="relative overflow-hidden rounded-lg border-2 border-(--color-ink)"
-        style={{ width: "min(86vw, 320px)" }}
+        style={{ width: "min(100%, 320px)" }}
         onPointerDown={(e) => (touch.current = { x: e.clientX, y: e.clientY })}
         onPointerUp={(e) => {
           if (!touch.current) return;

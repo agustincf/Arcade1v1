@@ -7,6 +7,20 @@ export const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}
 /** El pago on-chain esta activo solo si hay direcciones configuradas. */
 export const onchainEnabled = Boolean(ESCROW_ADDRESS && USDC_ADDRESS);
 
+/** Gracia antes de que `refundExpired` sea llamable, en segundos.
+ *
+ *  Tiene que coincidir con `REFUND_GRACE` de `packages/contracts/src/Escrow1v1.sol`
+ *  (30 minutos). v3.4.0 la agregó al contrato para cerrar el front-run del
+ *  perdedor y la web nunca se enteró: `/recover` ofrecía "recuperá tu depósito"
+ *  media hora ANTES de que el contrato lo permitiera, con un botón que revertía
+ *  siempre y una fecha equivocada en pantalla.
+ *
+ *  Es la misma causa de fondo que el drift de la documentación: no hay una
+ *  fuente única de verdad de los parámetros del contrato y cada capa los
+ *  re-declara a mano. Lo correcto a futuro es leerla de la cadena
+ *  (`REFUND_GRACE()` es pública); mientras tanto, queda declarada UNA vez acá. */
+export const REFUND_GRACE_SEC = 30 * 60;
+
 /** USDC tiene 6 decimales: convierte un monto (ej. 5) a unidades del token. */
 export function toUsdcUnits(amount: number): bigint {
   return BigInt(Math.round(amount * 1_000_000));

@@ -40,7 +40,7 @@ export function BetQuickPlay() {
       </div>
       {picking && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-(--color-scrim) p-4"
           onClick={() => setPicking(false)}
         >
           <div className="win w-full max-w-sm" onClick={(e) => e.stopPropagation()}>

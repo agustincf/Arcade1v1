@@ -9,7 +9,7 @@ import { useT } from "@/app/lib/i18n";
 
 export function GameOverlay({ children }: { children: React.ReactNode }) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 p-4 text-center">
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-(--color-scrim) p-4 text-center">
       {children}
     </div>
   );

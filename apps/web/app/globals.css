@@ -30,8 +30,11 @@
   /* Tono más tenue. Subido de #7c7568 (≈4.08:1 sobre --color-bg, por debajo de
      AA) a #8a8375 (≈4.95:1): justo este gris se usa en los avisos legales
      ("juego responsable", "demo/testnet") y en notas al pie, el texto prudente
-     que más importa que se lea, sobre todo en celular a plena luz. */
-  --color-muted-3: #8a8375;
+     que más importa que se lea, sobre todo en celular a plena luz.
+     2026-08: subido otra vez a #948d7e. El 4,95:1 se midió contra --color-bg,
+     pero el mismo gris se usa sobre --color-surface-2 (las filas del ranking),
+     donde caía a 4,06:1. Ahora da 4,7:1 sobre surface-2 y 5,6:1 sobre bg. */
+  --color-muted-3: #948d7e;
 
   /* Bloques "paper" (lectura clara, contraste de secciones) */
   --color-paper: #f0eee6;
@@ -39,7 +42,21 @@
   --color-paper-border: #d8d2c2;
   --color-paper-ink: #221d26;
   --color-paper-muted: #5c554d;
-  --color-paper-muted-2: #837b70;
+  /* Subido de #837b70 (3,9:1 sobre paper, bajo AA) a #6b6459 (≈4,9:1). Este es
+     el gris de la nota que explica la comisión del 15%: el texto que MENOS se
+     puede dar el lujo de no leerse. */
+  --color-paper-muted-2: #6b6459;
+
+  /* Foco: había UNO solo, calibrado contra el fondo oscuro (7:1, bien). Sobre
+     los paneles claros ese mismo coral daba 2,29:1 — por debajo del 3:1 que
+     pide WCAG 2.4.11 — y ahí vive lo importante: el CTA de "Crear agente", el
+     FAQ, toda la doc de /agents. Ahora hay uno por fondo. */
+  --color-focus: #e8845e;
+  --color-focus-on-paper: #8f3a1c;
+
+  /* Velo de los modales. Antes había cuatro opacidades distintas de negro puro
+     conviviendo, ignorando el token que esta misma hoja llama "negro oficial". */
+  --color-scrim: color-mix(in srgb, var(--color-ink) 88%, transparent);
 
   /* Tipografía — tamaño pixel chico (antes text-[10px] suelto) */
   --text-px10: 10px;
@@ -52,6 +69,10 @@ body {
   /* Nunca scroll horizontal de página: en mobile, cualquier elemento que se
      pase de ancho (p. ej. la dirección de la wallet) rompía la navegación. */
   overflow-x: clip;
+  /* Sin esto, un swipe hacia abajo en pleno partido dispara el pull-to-refresh
+     del navegador: se recarga la página, se pierde la corrida y —si ya habías
+     depositado— el USDC queda trabado en el contrato hasta que venza el plazo. */
+  overscroll-behavior-y: contain;
 }
 
 /* Los botones son controles, no texto: en mobile un toque sostenido abría el
@@ -67,25 +88,64 @@ button {
 /* Fondo: sólido con grilla única ultra-sutil (sin radiales ni scanlines) */
 body {
   font-family:
-    Inter,
+    var(--font-inter),
     -apple-system,
     "Segoe UI",
     Roboto,
+    var(--font-devanagari),
     sans-serif;
+}
+
+/* La grilla vive en un pseudo-elemento fijo, FUERA del flujo.
+   Antes era `background-attachment: fixed` sobre el body, que obliga al
+   navegador a repintar el fondo en cada cuadro del scroll (y en móviles es de
+   los peores costos que hay). Un elemento propio con `position: fixed` lo
+   resuelve en la capa de composición, sin repintar nada. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background-image:
     linear-gradient(rgba(240, 236, 225, 0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(240, 236, 225, 0.025) 1px, transparent 1px);
   background-size:
     36px 36px,
     36px 36px;
-  background-attachment: fixed;
 }
 
-/* Foco visible en todo el sitio (accesibilidad) */
+/* Saltar al contenido: sin esto, quien navega con teclado o lector de pantalla
+   tiene que recorrer el header y el ticker en CADA página antes de llegar a lo
+   que vino a hacer. Invisible hasta que recibe foco. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+}
+.skip-link:focus {
+  left: 8px;
+  top: 8px;
+  padding: 10px 16px;
+  background: var(--color-accent);
+  color: var(--color-ink-2);
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+/* Foco visible en todo el sitio (accesibilidad).
+   Sin `border-radius`: fijarlo acá le cuadraba las esquinas a TODOS los
+   componentes al recibir foco (una .win de radio 10 se volvía de radio 4).
+   El outline ya sigue el radio propio de cada elemento. */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
-  border-radius: 4px;
+}
+/* Dentro de un panel claro, el coral no llega al 3:1 que pide WCAG para el
+   indicador de foco. Ahí se usa la versión oscura del mismo coral. */
+.paper :focus-visible {
+  outline-color: var(--color-focus-on-paper);
 }
 
 ::selection {
@@ -96,17 +156,18 @@ body {
 /* --- Tipografías --- */
 @layer components {
   .font-pixel {
-    font-family: "Press Start 2P", "Courier New", monospace;
+    font-family: var(--font-pixel), var(--font-devanagari), "Courier New", monospace;
     letter-spacing: 0.5px;
     line-height: 1.6;
   }
   /* Antes VT323; ahora el cuerpo legible del sitio (mismo nombre para no tocar markup) */
   .font-screen {
     font-family:
-      Inter,
+      var(--font-inter),
       -apple-system,
       "Segoe UI",
       Roboto,
+      var(--font-devanagari),
       sans-serif;
     letter-spacing: 0;
   }
@@ -126,7 +187,7 @@ body {
     justify-content: space-between;
     gap: 8px;
     padding: 9px 12px;
-    font-family: "Press Start 2P", monospace;
+    font-family: var(--font-pixel), var(--font-devanagari), monospace;
     font-size: 10px;
     letter-spacing: 0.5px;
     color: var(--color-muted-bright);
@@ -162,7 +223,7 @@ body {
 
   /* --- Botón pixel "apretable" (plano + una sombra dura) --- */
   .btn3d {
-    font-family: "Press Start 2P", monospace;
+    font-family: var(--font-pixel), var(--font-devanagari), monospace;
     font-size: 11px;
     line-height: 1.4;
     color: var(--color-ink-2);
@@ -211,6 +272,17 @@ body {
   .btn3d--cyan:active {
     box-shadow: 0 0 0 rgba(0, 0, 0, 0);
   }
+  /* Destructiva. Faltaba, y por eso "🗑 Borrar agente" usaba la MISMA variante
+     coral que el CTA principal del sitio: en la ficha de un agente el botón
+     visualmente más importante era el que destruye tu trabajo. */
+  .btn3d--danger {
+    color: var(--color-ink-2);
+    background: var(--color-lose);
+    box-shadow: 0 3px 0 #8f3230;
+  }
+  .btn3d--danger:active {
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
   /* Compacta (para filas de montos u opciones secundarias). */
   .btn3d--sm {
     font-size: 10px;
@@ -224,12 +296,18 @@ body {
     }
   }
 
-  /* Chip / etiqueta */
+  /* Chip / etiqueta.
+     El color base era `--color-lime`, y eso rompía dos cosas. Una: obligaba a
+     cada chip que NO fuera "estado vivo" a pisarlo con `!important` (22 de los
+     23 del repo lo hacían). Dos, peor: en el builder el chip seleccionado se
+     marcaba pintándolo de lime… que ya era el color base, así que seleccionado
+     y no seleccionado quedaban idénticos píxel por píxel. Ahora el base es
+     neutro y cada rol tiene su variante. */
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-family: Inter, sans-serif;
+    font-family: var(--font-inter), var(--font-devanagari), sans-serif;
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -237,7 +315,34 @@ body {
     border: 1px solid var(--color-border);
     border-radius: 999px;
     background: var(--color-ink);
+    color: var(--color-muted-2);
+  }
+  .chip--live {
     color: var(--color-lime);
+  }
+  .chip--money {
+    color: var(--color-gold);
+  }
+  .chip--info {
+    color: var(--color-accent-2);
+  }
+  .chip--danger {
+    color: var(--color-lose);
+  }
+  /* Seleccionado: no alcanza con cambiar el texto — se llena el chip, que es lo
+     único que se lee de un vistazo cuando hay cinco opciones en fila. */
+  .chip--on {
+    background: var(--color-accent);
+    border-color: var(--color-ink);
+    color: var(--color-ink-2);
+  }
+  /* En celular un chip de 3px de padding queda MUY por debajo de los 44px de
+     zona táctil. Solo cuando es un control (button), no una etiqueta. */
+  @media (max-width: 640px) {
+    button.chip {
+      min-height: 44px;
+      padding-inline: 14px;
+    }
   }
 
   /* Ticker (fino y discreto) */
@@ -251,7 +356,7 @@ body {
     display: inline-block;
     padding: 5px 0 5px 100%;
     animation: marquee 30s linear infinite;
-    font-family: Inter, sans-serif;
+    font-family: var(--font-inter), var(--font-devanagari), sans-serif;
     font-size: 13px;
     font-weight: 500;
     letter-spacing: 0.04em;
@@ -341,7 +446,7 @@ body {
     justify-content: space-between;
     gap: 8px;
     padding: 9px 12px;
-    font-family: "Press Start 2P", monospace;
+    font-family: var(--font-pixel), var(--font-devanagari), monospace;
     font-size: 10px;
     letter-spacing: 0.5px;
     color: var(--color-paper-ink);

@@ -83,6 +83,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
                 <button
                   key={bet}
                   onClick={() => setSelected(bet)}
+                  aria-pressed={active}
                   className={`win relative p-3 pb-4 text-center transition ${
                     active
                       ? "-translate-y-1 !border-(--color-accent) shadow-[0_0_0_1px_var(--color-accent)]"

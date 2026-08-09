@@ -7,7 +7,7 @@ import { TERMS_CONTENT } from "./content";
 // licencia correspondientes (KYC/AML, edad, países, juego responsable).
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Arcade1v1",
+  title: "Terms of Service",
   description:
     "Arcade1v1 terms of service: eligibility, age requirement, fair play, fees, payouts, restricted jurisdictions and responsible gaming.",
 };

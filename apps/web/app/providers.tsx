@@ -31,6 +31,15 @@ function ReconnectOnFocus() {
 }
 
 // Envoltorio que da soporte de billetera real a toda la app.
+// Idioma del sitio -> locale de RainbowKit. No tiene hindi, así que ese caso
+// cae a inglés (su default) en el punto de uso.
+const RAINBOWKIT_LOCALE: Record<string, "en-US" | "es-419" | "fr-FR"> = {
+  en: "en-US",
+  es: "es-419",
+  fr: "fr-FR",
+  hi: "en-US",
+};
+
 export function Providers({
   lang,
   dict,
@@ -46,8 +55,17 @@ export function Providers({
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
+          // El modal de la wallet trae sus traducciones y no se las estábamos
+          // pasando: en /es, /fr y /hi el paso más delicado del flujo —conectar
+          // y firmar— aparecía entero en inglés. RainbowKit no tiene hindi, así
+          // que ese idioma cae a inglés (su default) igual que antes.
+          locale={RAINBOWKIT_LOCALE[lang] ?? "en-US"}
           theme={darkTheme({
-            accentColor: "#6d5efc",
+            // Era #6d5efc, un violeta que no existe en la paleta del sitio: el
+            // momento de la plata se veía de otra marca. Ahora es el coral de
+            // acción (--color-accent) sobre la tinta oscura (--color-ink-2).
+            accentColor: "#e8845e",
+            accentColorForeground: "#2a1a10",
             borderRadius: "medium",
           })}
         >

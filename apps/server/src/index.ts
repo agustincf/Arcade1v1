@@ -36,6 +36,31 @@ if (cfgErrors.length) {
   process.exit(1);
 }
 
+/** Responde el error de un endpoint y —esto es lo nuevo— DEJA RASTRO.
+ *
+ *  Antes todo terminaba en `res.status(400).json({ error: e.message })`, sin un
+ *  solo log: daba igual que fuera un pedido mal formado del cliente (400 real)
+ *  o que el árbitro se hubiera roto por dentro (500). Con los logs de Render
+ *  como única ventana, un incidente de producción era literalmente invisible —
+ *  no quedaba ni la línea para saber que había pasado algo.
+ *
+ *  Los errores esperables (validación, partida vencida, mesa no permitida) son
+ *  400 y no se loguean: son ruido. Cualquier otro es 500 y SÍ se loguea con su
+ *  stack, la ruta y el método. */
+const ERRORES_ESPERABLES =
+  /not found|already|invalid|required|expired|too long|mismatch|not allowed|not open|unknown game|bad |missing |limit|forbidden|disabled/i;
+
+function responderError(req: express.Request, res: express.Response, e: unknown): void {
+  const err = e as Error;
+  const msg = err?.message ?? String(e);
+  if (ERRORES_ESPERABLES.test(msg)) {
+    res.status(400).json({ error: msg });
+    return;
+  }
+  console.error(`[error] ${req.method} ${req.path}:`, err?.stack ?? msg);
+  res.status(500).json({ error: "internal error" });
+}
+
 const app = express();
 
 // Detrás de un reverse proxy (típico en producción), confiar en X-Forwarded-For
@@ -177,7 +202,7 @@ app.post("/matchmake", async (req, res) => {
     const auth = signature ? { signature: String(signature), ts: Number(ts) } : undefined;
     res.json(await matchmake(String(game), Number(stake), String(address), auth));
   } catch (e) {
-    res.status(400).json({ error: (e as Error).message });
+    responderError(req, res, e);
   }
 });
 
@@ -195,7 +220,7 @@ app.post("/match/:id/score", strictLimit, async (req, res) => {
     );
     res.json(out);
   } catch (e) {
-    res.status(400).json({ error: (e as Error).message });
+    responderError(req, res, e);
   }
 });
 
@@ -208,7 +233,7 @@ app.post("/match/:id/bot", async (req, res) => {
   try {
     res.json(await addBot(req.params.id));
   } catch (e) {
-    res.status(400).json({ error: (e as Error).message });
+    responderError(req, res, e);
   }
 });
 

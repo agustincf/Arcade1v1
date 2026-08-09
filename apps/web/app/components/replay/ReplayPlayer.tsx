@@ -309,7 +309,7 @@ export function ReplayPlayer({
       >
         <canvas ref={canvasRef} width={size.w} height={size.h} className="block h-auto w-full" />
         {ended && (
-          <div className="absolute inset-x-0 bottom-0 bg-black/70 py-2 text-center">
+          <div className="absolute inset-x-0 bottom-0 bg-(--color-scrim) py-2 text-center">
             <span className="font-pixel text-xs text-(--color-gold)">
               {t("replay.final")}: {score}
             </span>

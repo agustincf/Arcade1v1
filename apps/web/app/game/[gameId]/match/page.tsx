@@ -12,6 +12,7 @@ import { useEscrow } from "@/app/lib/useEscrow";
 import { onchainEnabled } from "@/app/lib/escrow";
 import { moneyTableBlocked } from "@/app/lib/config-guard";
 import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
+import { failureText } from "@/app/lib/errors";
 import { useSignMessage } from "wagmi";
 import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
@@ -98,7 +99,13 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [seatSig, setSeatSig] = useState<string | null>(null);
   const [deposited, setDeposited] = useState(false);
   const [funding, setFunding] = useState<"" | "approving" | "depositing">("");
-  const [depositErr, setDepositErr] = useState(false);
+  // El motivo REAL del fallo, no un booleano: cancelaste la firma, estás en la
+  // red equivocada, no tenés gas o no tenés USDC eran las cuatro la misma frase
+  // ("la partida puede estar creándose"), que encima apunta al lado equivocado.
+  const [depositErr, setDepositErr] = useState<null | {
+    key: string;
+    vars?: Record<string, string | number>;
+  }>(null);
   const [submitting, setSubmitting] = useState(false); // enviando puntaje (firma + envío)
   const [winnerSig, setWinnerSig] = useState<string | null>(null);
   const [winnerAddr, setWinnerAddr] = useState<string | null>(null);
@@ -219,20 +226,42 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   }, [playing, outcome, free]);
 
   // Mientras esperamos que el rival juegue, consultamos el resultado.
+  //
+  // Era un setInterval de 2,5 s que NO esperaba al pedido anterior, y el cliente
+  // del árbitro tiene 75 s de timeout (el hosting gratuito duerme): con el
+  // servidor lento se acumulaban decenas de pedidos en vuelo por el mismo dato.
+  // Ahora cada consulta agenda la siguiente recién cuando termina, y se frena
+  // mientras la pestaña está oculta — nadie necesita poletear en segundo plano.
   useEffect(() => {
     if (!waiting || !matchId) return;
-    const iv = setInterval(async () => {
+    let vivo = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const consultar = async () => {
+      if (!vivo) return;
+      if (document.visibilityState === "hidden") {
+        timer = setTimeout(consultar, 2500);
+        return;
+      }
       try {
         const v = await getMatch(matchId, pidRef.current);
+        if (!vivo) return;
         if (v.status === "settled" || v.status === "draw") {
           applyResult(v);
           setWaiting(false);
+          return;
         }
       } catch {
-        /* reintenta */
+        /* reintenta en la próxima vuelta */
       }
-    }, 2500);
-    return () => clearInterval(iv);
+      if (vivo) timer = setTimeout(consultar, 2500);
+    };
+
+    timer = setTimeout(consultar, 2500);
+    return () => {
+      vivo = false;
+      clearTimeout(timer);
+    };
   }, [waiting, matchId]);
 
   if (!game) return null;
@@ -296,12 +325,12 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // (p2) depositando. Así el jugador no pasa por dos pantallas separadas.
   async function doFund() {
     if (!matchId || !address) return;
-    setDepositErr(false);
+    setDepositErr(null);
     const mid = matchId as `0x${string}`;
     // Sin el asiento del árbitro no se puede depositar (el contrato lo exige).
     // No debería faltar en una mesa de plata; si falta, avisamos y no seguimos.
     if (!seatSig) {
-      setDepositErr(true);
+      setDepositErr({ key: "match.depositNoSeat" });
       return;
     }
     const seat = seatSig as `0x${string}`;
@@ -347,8 +376,8 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
         await escrow.open(mid, bet, seat);
       }
       setDeposited(true);
-    } catch {
-      setDepositErr(true);
+    } catch (e) {
+      setDepositErr(failureText("sign", e));
     } finally {
       setFunding("");
     }
@@ -471,6 +500,17 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   }
 
   function handleExit() {
+    // ANTES DE IRSE, EL CASO QUE COSTABA PLATA: `playing` recién se enciende
+    // cuando el jugador toca EMPEZAR dentro del juego, así que entre el depósito
+    // exitoso y el primer click el flag es false y esta función se iba al home
+    // en silencio — con el USDC ya comprometido en el contrato y sin que nadie
+    // le dijera que /recover existe. Era el único punto del producto donde se
+    // compromete dinero sin confirmación.
+    if (deposited && outcome === null && !playing) {
+      if (!window.confirm(t("match.confirmExitDeposited"))) return;
+      router.push(lp("/recover"));
+      return;
+    }
     if (free || !playing || outcome !== null) {
       router.push(lp("/"));
       return;
@@ -528,11 +568,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
             {free ? t("match.modeFree") : rankedFree ? t("match.freeLadder") : `${bet} USDC`}
           </span>
           {free ? (
-            <span className="chip !text-(--color-lime)">{t("match.gratis")}</span>
+            <span className="chip chip--live">{t("match.gratis")}</span>
           ) : rankedFree ? (
-            <span className="chip !text-(--color-lime)">{t("match.rankedChip")}</span>
+            <span className="chip chip--live">{t("match.rankedChip")}</span>
           ) : (
-            <span className="chip !text-(--color-gold)">{t("match.pot", { n: payout.pot })}</span>
+            <span className="chip chip--money">{t("match.pot", { n: payout.pot })}</span>
           )}
         </div>
         {!free && (
@@ -633,7 +673,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                 <p className="mt-3 text-sm text-(--color-muted-2)">{t("match.fundingNote")}</p>
               ) : depositErr ? (
                 <>
-                  <p className="mt-3 text-sm text-(--color-lose)">{t("match.depositRetry")}</p>
+                  <p className="mt-3 text-sm text-(--color-lose)">
+                    {t(depositErr.key, depositErr.vars)}
+                  </p>
                   {/* Causa típica del fallo en testnet: sin fichas de prueba. Atajo al faucet. */}
                   {!IS_MAINNET && (
                     <p className="mt-2 text-sm">
@@ -944,9 +986,23 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
 }
 
 function Modal({ title, children }: { title: string; children: React.ReactNode }) {
+  // El contenedor era `flex items-center` SIN scroll: cuando el contenido pasaba
+  // el alto de la pantalla se desbordaba para arriba Y para abajo, y nada de eso
+  // era alcanzable. El modal de victoria (emoji + marcador + rating + tarjeta de
+  // pozo + COBRAR + revancha) pasa los 600px: en un celular chico no había forma
+  // de llegar al botón de cobrar el premio.
+  //
+  // `items-start` + `my-auto` centra cuando entra y deja scrollear cuando no.
+  // No se cierra por Escape ni por backdrop a propósito: acá se muestra el
+  // resultado de una partida con plata y la salida tiene que ser explícita.
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-4">
-      <div role="dialog" aria-modal="true" aria-label={title} className="win w-full max-w-sm">
+    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto overscroll-contain bg-(--color-scrim) p-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="win my-auto w-full max-w-sm"
+      >
         <div className="win-title">
           <span>{title}</span>
           <span className="win-dots" aria-hidden="true">

@@ -37,7 +37,7 @@ export default function WatchPage() {
       <div className="win mt-3">
         <div className="win-title">
           <span>{t("watch.title")}</span>
-          <span className="chip !text-(--color-lime)">LIVE</span>
+          <span className="chip chip--live">LIVE</span>
         </div>
         <div className="p-5">
           <p className="text-base leading-relaxed text-(--color-muted)">{t("watch.intro")}</p>
@@ -83,9 +83,9 @@ export default function WatchPage() {
                         {playerLabel(p2.address, p2.name, p2.avatar, agentTag(p2, t))}
                       </span>
                       {m.outcome === "draw" ? (
-                        <span className="chip !text-(--color-muted-2)">{t("match.draw")}</span>
+                        <span className="chip">{t("match.draw")}</span>
                       ) : (
-                        <span className="chip !text-(--color-lime)">
+                        <span className="chip chip--live">
                           {m.stake > 0 ? `${m.stake} USDC` : t("match.rankedChip")}
                         </span>
                       )}

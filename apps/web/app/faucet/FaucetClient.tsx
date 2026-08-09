@@ -136,7 +136,7 @@ export function FaucetClient() {
           <div className="win mt-4">
             <div className="win-title">
               <span>{t("faucet.mintTitle")}</span>
-              <span className="chip !text-(--color-gold)">
+              <span className="chip chip--money">
                 {balance === null ? "…" : `${fmtUsdc(balance)} USDC`}
               </span>
             </div>

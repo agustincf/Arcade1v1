@@ -209,7 +209,7 @@ export default function BuildPage() {
       <div className="win mt-3">
         <div className="win-title">
           <span>{t("build.title")}</span>
-          <span className="chip !text-(--color-lime)">
+          <span className="chip chip--live">
             {t("build.step", { n: step, total: TOTAL_STEPS })}
           </span>
         </div>
@@ -523,7 +523,8 @@ function ChoiceControl({
           <button
             key={opt}
             onClick={() => onChange(opt)}
-            className={`chip transition ${value === opt ? "!text-(--color-lime)" : ""}`}
+            aria-pressed={value === opt}
+            className={`chip transition ${value === opt ? "chip--on" : ""}`}
           >
             {t(`strat.opt.${opt}`)}
           </button>

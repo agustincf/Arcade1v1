@@ -18,9 +18,11 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
     url: `${SITE.url}/build`,
+    images: ["/opengraph-image"],
   },
   twitter: {
     card: "summary_large_image",
+    images: ["/opengraph-image"],
     title: TITLE,
     description: DESCRIPTION,
   },

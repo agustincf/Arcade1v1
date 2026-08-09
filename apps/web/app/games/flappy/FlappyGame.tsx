@@ -49,6 +49,12 @@ export function FlappyGame({
   if (engineRef.current === null) engineRef.current = new FlappyEngine(seed);
 
   const { t } = useT();
+  // La instrucción táctil se dibuja DENTRO del canvas, así que no puede salir
+  // del JSX: estaba hardcodeada en español y se la mostraba igual a los cuatro
+  // idiomas. Va por ref para que el loop la lea sin reiniciarse al cambiar de
+  // idioma (meter `t` en las deps del efecto cortaría la partida en curso).
+  const tapHintRef = useRef(t("g.flappy.tapHint"));
+  tapHintRef.current = t("g.flappy.tapHint");
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
@@ -396,7 +402,7 @@ export function FlappyGame({
       if (!eng.started) {
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 15px ui-sans-serif, system-ui";
-        ctx.fillText("▲ Tocá para aletear ▲", WIDTH / 2, HEIGHT / 2 + 70);
+        ctx.fillText(tapHintRef.current, WIDTH / 2, HEIGHT / 2 + 70);
       }
     };
 
@@ -477,7 +483,7 @@ export function FlappyGame({
     <div className="flex flex-col items-center gap-3">
       <div
         className="relative overflow-hidden rounded-lg border-2 border-(--color-ink)"
-        style={{ width: "min(86vw, 320px)" }}
+        style={{ width: "min(100%, 320px)" }}
         onPointerDown={started && !over ? handleTap : undefined}
       >
         <canvas

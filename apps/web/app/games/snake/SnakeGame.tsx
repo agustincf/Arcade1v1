@@ -182,7 +182,7 @@ export function SnakeGame({
     <div className="flex flex-col items-center gap-3">
       <div
         className="relative overflow-hidden rounded-lg border-2 border-(--color-ink)"
-        style={{ width: "min(86vw, 340px)" }}
+        style={{ width: "min(100%, 340px)" }}
         onPointerDown={onDown}
         onPointerUp={onUp}
       >

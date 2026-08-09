@@ -15,7 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useT } from "@/app/lib/i18n";
 import { useWallet, shortAddress } from "@/app/lib/wallet";
 import { useEscrow } from "@/app/lib/useEscrow";
-import { onchainEnabled, MatchStatus } from "@/app/lib/escrow";
+import { onchainEnabled, MatchStatus, REFUND_GRACE_SEC } from "@/app/lib/escrow";
 import { listMatches, forgetMatch, type OpenMatch } from "@/app/lib/openMatches";
 import { getMatch } from "@/app/lib/arbiter";
 import { getPayout } from "@/app/lib/config";
@@ -73,9 +73,14 @@ function classify(
       : { kind: "openWaiting", deadline: fundDeadline };
   }
   if (status === MatchStatus.Funded) {
-    return nowSec > playDeadline
-      ? { kind: "fundedRefund", deadline: playDeadline }
-      : { kind: "fundedWaiting", deadline: playDeadline };
+    // El contrato exige `block.timestamp > playDeadline + REFUND_GRACE`, así que
+    // el reembolso recién se puede pedir media hora DESPUÉS del plazo de juego.
+    // Sin sumar la gracia, la página ofrecía el botón 30 minutos antes de tiempo
+    // (revertía siempre con "not expired") y mostraba una fecha que no era.
+    const refundableAt = playDeadline + REFUND_GRACE_SEC;
+    return nowSec > refundableAt
+      ? { kind: "fundedRefund", deadline: refundableAt }
+      : { kind: "fundedWaiting", deadline: refundableAt };
   }
   if (status === MatchStatus.Settled) return { kind: "settled", deadline: 0 };
   if (status === MatchStatus.Refunded) return { kind: "refunded", deadline: 0 };
@@ -262,7 +267,7 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
           {game ? t(`game.${game.id}.name`).toUpperCase() : row.game.toUpperCase()} · {row.bet} USDC
         </span>
         <span
-          className={`chip ${claimable ? "!text-(--color-win)" : refundable ? "!text-(--color-gold)" : resolved ? "!text-(--color-muted-2)" : "!text-(--color-accent-2)"}`}
+          className={`chip ${claimable ? "chip--live" : refundable ? "chip--money" : resolved ? "" : "chip--info"}`}
         >
           {row.role === "p1" ? t("recover.role.p1") : t("recover.role.p2")}
         </span>

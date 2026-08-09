@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Inter, Press_Start_2P, Noto_Sans_Devanagari } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 import { Header } from "@/app/components/Header";
@@ -108,26 +109,51 @@ function StructuredData() {
   );
 }
 
+// FUENTES AUTO-HOSPEDADAS. Antes se pedían a Google Fonts con un <link> en el
+// <head>: un pedido a un tercero que BLOQUEA el primer render, más el salto de
+// layout cuando llega. next/font las sirve desde nuestro propio dominio, con el
+// tamaño ya reservado.
+//
+// El devanagari es nuevo: los 394 strings del hindi caían a la fuente del
+// sistema porque ni Press Start 2P ni Inter lo cubren.
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-inter",
+});
+const pressStart = Press_Start_2P({
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+  variable: "--font-pixel",
+});
+const devanagari = Noto_Sans_Devanagari({
+  subsets: ["devanagari"],
+  weight: ["400", "700"],
+  display: "swap",
+  variable: "--font-devanagari",
+});
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = await getLang();
   const dict = getDict(lang);
   return (
-    <html lang={lang}>
+    <html lang={lang} className={`${inter.variable} ${pressStart.variable} ${devanagari.variable}`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet"
-        />
         <StructuredData />
         <SeoAlternates />
       </head>
       <body>
         <Providers lang={lang} dict={dict}>
+          <a href="#contenido" className="skip-link">
+            {dict["a11y.skipToContent"] ?? "Skip to main content"}
+          </a>
           <Header />
           <Marquee />
-          <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+          <main id="contenido" className="mx-auto max-w-5xl px-4 py-8">
+            {children}
+          </main>
           <SiteFooter />
         </Providers>
         {/* Medición mínima (v4.1): páginas vistas y referrers, sin cookies.
