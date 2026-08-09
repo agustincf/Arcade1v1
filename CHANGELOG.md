@@ -8,6 +8,73 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.6.0] — 2026-08-09
+
+**Auditoría exhaustiva y sus dos primeras tandas de arreglos.** 31 agentes
+recorrieron el repo en paralelo con verificación adversarial de cada hallazgo:
+168 confirmados con archivo y línea, 3 descartados por falsos.
+
+### Corregido — lo que la documentación decía mal
+
+- **v3.4.0 NO estaba pendiente: está desplegada desde el 2026-07-15.** El
+  README, el ROADMAP y SECURITY.md decían lo contrario. Verificado contra la
+  cadena (`REFUND_GRACE()` devuelve 1800 y `seatDigest` responde: las dos
+  funciones solo existen en la versión nueva). Correr el instructivo otra vez
+  habría desplegado un tercer contrato. `docs/REDEPLOY-v3.4.0.md` queda
+  encabezado como EJECUTADO.
+- El README confundía los dos plazos: 1 hora es para que aparezca un rival, 2
+  horas para jugar el intento.
+- `docs/ARCHITECTURE.md` documentaba el ABI del escrow sin `seatSig`, y
+  AGENTS.md no mencionaba `rulesV` — justo lo que rompe a los agentes externos
+  sin decirles cómo arreglarlo.
+
+### Seguridad
+
+- **Una partida entera entraba en un solo tick.** `ticks` no acotaba la
+  cantidad de acciones: un replay de Tetris con `ticks: 1` y 109 acciones
+  pasaba la verificación, y sin gravedad no hay dificultad. Ahora hay dos
+  capas, con topes medidos sobre 540 corridas de la estrategia oficial (techo
+  real: 9 acciones en un mismo tick).
+- **Las mesas de plata se jugaban sin depósito si faltaba una variable de
+  entorno**, con la pantalla diciendo "5 USDC" igual. La web no tenía guarda de
+  configuración; ahora la mesa no se juega y lo dice.
+- `npm audit fix` cierra los 9 advisories de Next (16.2.9 → 16.3.0).
+- Los errores internos del árbitro dejan rastro: antes todo era 400 sin log y
+  un incidente era invisible.
+
+### Cambiado — visual y accesibilidad
+
+- El chip seleccionado del builder era idéntico al no seleccionado (un no-op de
+  CSS). El `.chip` base pasa a neutro y gana variantes reales; se borran los 22
+  overrides `!important` del repo.
+- `.btn3d--danger`: "Borrar agente" usaba la misma variante coral que el CTA
+  principal del sitio.
+- Foco visible sobre paneles claros (daba 2,29:1) y tres colores de texto que
+  no llegaban a AA, incluida la nota que explica la comisión.
+- Los modales de la partida ahora scrollean: en un celular chico el botón
+  COBRAR quedaba fuera de pantalla.
+- Enlace de "saltar al contenido", `<nav>` en el header y `aria-pressed` en la
+  mesa de apuestas y el builder.
+
+### Cambiado — plata, i18n y descubribilidad
+
+- "← Salir" avisa si ya depositaste y te lleva a Recuperar fondos.
+- Los errores del depósito dicen el motivo real (firma cancelada, red
+  equivocada, saldo) en vez de una sola frase para todo.
+- `/recover` sumaba mal el plazo: ofrecía el reembolso 30 minutos antes de que
+  el contrato lo permitiera.
+- **Ya se puede dejar la web en inglés** desde un navegador en otro idioma (la
+  cookie explícita se ignoraba). Con el test de ruteo que no existía.
+- El modal de la wallet, la instrucción táctil de Flappy y la pantalla de error
+  de último recurso pasan a estar traducidos.
+- Imagen social en las 9 URLs que salían sin ella, títulos propios para
+  `/leaderboard` y `/watch`, `x-default` en el sitemap.
+- Fuentes auto-hospedadas con next/font (antes un `<link>` bloqueante a Google)
+  y devanagari para el hindi.
+- El keep-alive del árbitro fallaba 96 de cada 100 corridas: el timeout era más
+  corto que el arranque en frío de Render (medido: 42,4 s).
+- `next build` entra al CI, donde nunca corría.
+
 ## [3.5.4] — 2026-07-18
 
 **Racing se siente natural: el auto se desliza en vez de teletransportarse.**
