@@ -302,6 +302,10 @@ export const hi: Dict = {
   close: "बंद करें",
   "match.freeLadder": "फ्री लैडर",
   "match.rankedChip": "रैंक्ड · मुफ़्त",
+  "match.tableUnavailable": "टेबल उपलब्ध नहीं",
+  "match.tableUnavailableBody":
+    "यह USDC टेबल अभी बंद है: ऑन-चेन भुगतान चालू नहीं है। न कोई जमा करेगा, न किसी को भुगतान मिलेगा। आप मुफ़्त रैंक्ड मैच खेल सकते हैं — वही लैडर।",
+  "match.playFreeInstead": "मुफ़्त रैंक्ड खेलें",
   "match.freeRankedNote":
     "मुफ़्त रैंक्ड मैच: पैसा दांव पर नहीं, लेकिन आपके ELO में गिना जाता है। और चाहिए? होम से USDC पर खेलें।",
   "match.watchRival": "प्रतिद्वंद्वी की चाल देखें",

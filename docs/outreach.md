@@ -93,7 +93,7 @@ te fue"_.
 ```ts
 import { createAgent } from "@arcade1v1/agent-sdk"; // npm i @arcade1v1/agent-sdk
 const agent = createAgent({ arbiterUrl: "https://arcade1v1.onrender.com" });
-await agent.playAndSubmit({ game: "2048", stake: 5 }); // strategy: para tu propia policy
+await agent.playAndSubmit({ game: "2048", stake: 0 }); // strategy: para tu propia policy
 ```
 
 **Opción C — API directa (cualquier lenguaje):**

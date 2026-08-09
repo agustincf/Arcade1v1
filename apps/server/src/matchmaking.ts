@@ -46,14 +46,37 @@ const hasTicks = (r: any) => hasSeed(r) && typeof r.ticks === "number";
 export const MAX_REPLAY_TICKS = 200_000;
 export const MAX_REPLAY_EVENTS = 200_000;
 
-/** ¿El replay pide más trabajo del razonable para re-jugarlo? (corta el DoS). */
+/** ANTI-TRAMPA: cuántas acciones puede declarar un replay POR TICK, en promedio.
+ *
+ *  `MAX_REPLAY_EVENTS` acota el total y `MAX_REPLAY_TICKS` acota el reloj, pero
+ *  hasta acá nada los cruzaba: un replay con `ticks: 1` y 14.000 acciones pasaba
+ *  los dos topes. Sin gravedad no hay dificultad, así que era una partida entera
+ *  jugada con tiempo infinito por pieza.
+ *
+ *  El tope sale de medir, no de suponer: la estrategia oficial de Tetris —el
+ *  juego más denso en acciones— llega a 4,65 acciones por tick en el peor de 540
+ *  casos (60 semillas × 9 combinaciones de parámetros). 8 deja 1,7× de aire.
+ *  Los otros juegos no pasan de 0,04.
+ *
+ *  Ojo: esto saca el caso degenerado, no cierra del todo la compresión de
+ *  tiempo. Para eso hace falta la cota inferior de reloj real en `submitScore`
+ *  (medir contra `pairedAt`), que va aparte. */
+export const MAX_EVENTS_PER_TICK = 8;
+
+/** ¿El replay pide más trabajo del razonable para re-jugarlo, o declara más
+ *  acciones de las que entran en su propio reloj? (corta el DoS y la trampa). */
 export function replayTooLong(replay: unknown): boolean {
   const r = replay as { ticks?: unknown; moves?: unknown; inputs?: unknown; flaps?: unknown };
-  if (typeof r.ticks === "number" && (!Number.isFinite(r.ticks) || r.ticks > MAX_REPLAY_TICKS)) {
+  const ticks = typeof r.ticks === "number" ? r.ticks : undefined;
+  if (ticks !== undefined && (!Number.isFinite(ticks) || ticks > MAX_REPLAY_TICKS)) {
     return true;
   }
   for (const arr of [r.moves, r.inputs, r.flaps]) {
-    if (Array.isArray(arr) && arr.length > MAX_REPLAY_EVENTS) return true;
+    if (!Array.isArray(arr)) continue;
+    if (arr.length > MAX_REPLAY_EVENTS) return true;
+    // Cota cruzada: las acciones tienen que entrar en los ticks declarados.
+    // (Los juegos por turnos —2048— no declaran `ticks` y quedan fuera.)
+    if (ticks !== undefined && arr.length > ticks * MAX_EVENTS_PER_TICK) return true;
   }
   return false;
 }

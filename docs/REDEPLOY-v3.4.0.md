@@ -1,5 +1,18 @@
 # Redeploy v3.4.0 — atar al rival on-chain + gracia del reembolso
 
+> ## ✅ EJECUTADO el 2026-07-15 — no volver a correrlo
+>
+> Este instructivo **ya se ejecutó**. El escrow vivo en Base Sepolia es
+> `0xF6B4bd37d4571B23a707A3C128fcA1a4714BeecB` (árbitro
+> `0xf0476b020921e373bC9d1aBfFe0D83331291c5F2`, USDC de prueba
+> `0xBE3A57a90548b336F5EBF997E6DA6d3DC64EE137`). Verificable on-chain:
+> `cast call <escrow> "REFUND_GRACE()(uint64)"` devuelve `1800` y `seatDigest`
+> responde — las dos funciones solo existen en v3.4.0.
+>
+> **Correrlo de nuevo desplegaría un tercer contrato y partiría el flujo de
+> plata en testnet.** Queda como registro histórico del procedimiento; sirve de
+> guía si alguna vez hay que volver a cambiar el contrato.
+
 Esta versión **cambia el contrato** (`Escrow1v1`): `open` y `join` ahora reciben
 un "asiento" firmado por el árbitro. El contrato desplegado es inmutable, así que
 hay que **desplegar uno nuevo** y apuntar web + servidor a su dirección.

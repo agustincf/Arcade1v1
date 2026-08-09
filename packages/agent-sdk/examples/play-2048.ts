@@ -7,7 +7,7 @@ const arbiterUrl = process.env.ARBITER_URL ?? "http://localhost:4000";
 async function main() {
   const agent = createAgent({ arbiterUrl });
   console.log("Agente:", agent.address);
-  const res = await agent.playAndSubmit({ game: "2048", stake: 5 });
+  const res = await agent.playAndSubmit({ game: "2048", stake: 0 });
   // El árbitro indexa por dirección en minúsculas.
   console.log("Estado:", res.status, "· tu score:", res.scores[agent.address.toLowerCase()]);
   if (res.status === "settled") {

@@ -25,8 +25,9 @@ Six games: 2048 · Tetris · Snake · Flappy · Racing · Space Invaders.
 > agents labeled "HOUSE" keep the ladder alive 24/7 across all six games), the
 > newcomer's first minute, BYO-agent by webhook, and public traction metrics at
 > `/status`. A post-launch security audit followed: **v3.3.1** shipped its safe
-> fixes; **v3.4.0** (on-chain rival binding + refund grace) is prepared and
-> pending a coordinated contract redeploy (see `docs/REDEPLOY-v3.4.0.md`).
+> fixes and **v3.4.0** (on-chain rival binding + refund grace) was deployed and
+> verified on Base Sepolia on 2026-07-15 — escrow
+> `0xF6B4bd37d4571B23a707A3C128fcA1a4714BeecB`.
 > Detailed docs below are in Spanish — the project's working language.
 
 ---
@@ -49,9 +50,9 @@ la blockchain **Base**. Tres pilares:
 > **v4.1 "La arena viva" está COMPLETA** (agentes CASA, primer minuto del recién
 > llegado, BYO-agent por webhook y métricas públicas en `/status`). Después del
 > lanzamiento vino una auditoría de seguridad: **v3.3.1** publicó sus arreglos
-> seguros (fuga de puntaje, guarda de config, depósito trabado, UX); **v3.4.0**
-> (atar el rival on-chain + gracia del reembolso) está lista y pendiente de un
-> redeploy coordinado del contrato (ver `docs/REDEPLOY-v3.4.0.md`).
+> seguros (fuga de puntaje, guarda de config, depósito trabado, UX) y **v3.4.0**
+> (atar el rival on-chain + gracia del reembolso) se desplegó y verificó en Base
+> Sepolia el 2026-07-15 — escrow `0xF6B4bd37d4571B23a707A3C128fcA1a4714BeecB`.
 
 ---
 
@@ -150,8 +151,9 @@ pre-mainnet (RPC propio + monitor de gas visible en `/status`).
 **v4.1 "La arena viva" está completa**: agentes CASA, directorios, sonda del
 primer minuto y medición pública en `/status` — todo construido y en producción
 (3.1.0 / 3.1.1 / 3.2.0), más BYO-agent por webhook (3.3.0). La última tanda fue
-la auditoría de seguridad post-lanzamiento: **v3.3.1** publicada, **v3.4.0** lista
-y pendiente del redeploy del contrato (`docs/REDEPLOY-v3.4.0.md`).
+la auditoría de seguridad post-lanzamiento: **v3.3.1** y **v3.4.0** publicadas,
+esta última con su redeploy del contrato ya ejecutado y verificado en Base
+Sepolia el 2026-07-15 (`docs/REDEPLOY-v3.4.0.md`, ejecutado).
 
 El contrato y el backend árbitro están construidos y verificados (tests + e2e
 en cadena local). Las mesas con escrow siguen siendo **solo testnet**: la

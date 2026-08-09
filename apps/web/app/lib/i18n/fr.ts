@@ -314,6 +314,10 @@ export const fr: Dict = {
   close: "Fermer",
   "match.freeLadder": "LADDER GRATUIT",
   "match.rankedChip": "CLASSÉE · GRATUIT",
+  "match.tableUnavailable": "TABLE INDISPONIBLE",
+  "match.tableUnavailableBody":
+    "Cette table en USDC est hors service : le paiement on-chain n'est pas actif pour le moment. Personne ne dépose ni n'encaisse. Vous pouvez jouer le match classé gratuit — même classement.",
+  "match.playFreeInstead": "JOUER EN CLASSÉ GRATUIT",
   "match.freeRankedNote":
     "Match classé gratuit : pas d'argent en jeu, mais il compte pour votre ELO. Envie de plus ? Jouez en USDC depuis l'accueil.",
   "match.watchRival": "Voir la partie du rival",

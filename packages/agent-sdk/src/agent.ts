@@ -21,8 +21,22 @@ export function createAgent(opts: {
     : randomWallet();
   const client = opts.client ?? new ArbiterClient(opts.arbiterUrl ?? "http://localhost:4000");
 
+  // La wallet del SDK SOLO firma mensajes: no manda transacciones on-chain, así
+  // que no puede depositar en una mesa de plata. Dejar pasar stake > 0 crea una
+  // partida fantasma que nunca se fondea, y el humano que se empareja del otro
+  // lado quema gas contra un contrato que revierte. Mejor fallar acá, claro.
+  function assertFreeTable(stake: number): void {
+    if (stake > 0) {
+      throw new Error(
+        `el SDK no deposita on-chain, así que no puede jugar la mesa de ${stake} USDC: ` +
+          `usá stake 0 (la ladder rankeada gratis, mismo ELO) o el flujo web para mesas de plata`,
+      );
+    }
+  }
+
   // Emparejar FIRMADO (el árbitro en producción lo exige: anti-suplantación).
   async function matchmake(game: string, stake: number): Promise<MatchView> {
+    assertFreeTable(stake);
     const auth = await signMatchmake({
       game,
       stake,

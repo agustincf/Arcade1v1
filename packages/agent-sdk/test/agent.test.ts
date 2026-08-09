@@ -39,7 +39,7 @@ class FakeArbiter extends ArbiterClient {
     return {
       matchId: id,
       game: "2048",
-      stake: 5,
+      stake: 0,
       seed: 777,
       status: "settled",
       scores: { [address]: score },
@@ -50,7 +50,7 @@ class FakeArbiter extends ArbiterClient {
 test("playAndSubmit juega la semilla de la partida, firma y envía un score verificable", async () => {
   const fake = new FakeArbiter();
   const agent = createAgent({ client: fake });
-  await agent.playAndSubmit({ game: "2048", stake: 5 });
+  await agent.playAndSubmit({ game: "2048", stake: 0 });
 
   assert.ok(fake.submitted, "se llamó submitScore");
   const s = fake.submitted!;
@@ -63,4 +63,19 @@ test("playAndSubmit juega la semilla de la partida, firma y envía un score veri
     signature: s.signature as `0x${string}`,
   });
   assert.equal(signer.toLowerCase(), agent.address.toLowerCase());
+});
+
+test("el SDK rechaza las mesas de plata: no puede depositar on-chain", async () => {
+  const agent = createAgent({ client: new FakeArbiter() });
+  // La wallet del SDK solo firma mensajes. Dejar pasar stake > 0 crearía una
+  // partida fantasma que nunca se fondea y le quemaría el gas al humano que se
+  // empareje del otro lado, así que falla acá y explica la alternativa.
+  await assert.rejects(
+    () => agent.playAndSubmit({ game: "2048", stake: 5 }),
+    (e: Error) => /no deposita on-chain/.test(e.message) && /stake 0/.test(e.message),
+  );
+  await assert.rejects(
+    () => agent.matchmake("2048", 1),
+    (e: Error) => /no deposita on-chain/.test(e.message),
+  );
 });

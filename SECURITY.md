@@ -21,6 +21,25 @@ preparación mainnet, ver abajo) · Estado actualizado: **v3.0.1 en testnet**
 > hallazgo de los listados abajo (ninguno trataba mensajes de error engañosos
 > ni el cambio de red como vulnerabilidad); el modelo de amenazas y los
 > hallazgos de esta ronda siguen vigentes sin cambios.
+>
+> Nota de mantenimiento (2026-08-09): **el contrato SÍ cambió desde esta ronda.**
+> La cuarta ronda (2026-07-15) publicó **v3.3.1** y **v3.4.0**; esta última
+> **cambió `Escrow1v1` y su redeploy ya se ejecutó y verificó** en Base Sepolia
+> — escrow `0xF6B4bd37d4571B23a707A3C128fcA1a4714BeecB`. Agregó el **asiento
+> firmado por el árbitro** (`Seat(matchId,player)`, que `open`/`join` exigen: ata
+> al rival sin gasto de gas del árbitro) y la **gracia de 30 minutos** antes de
+> `refundExpired` (`REFUND_GRACE = 1800`), que cierra el front-run del perdedor.
+> Donde este documento diga "contrato sin cambios a propósito", leer: sin cambios
+> **hasta v3.3.1**.
+>
+> Una **quinta ronda (2026-08-09)** volvió a auditar todo el repo. Lo que sigue
+> abierto y no está listado abajo, por orden de gravedad: (1) los verificadores
+> de replay no acotan las acciones por tick — una partida entera de Tetris entra
+> en `ticks: 1`; (2) la semilla se entrega antes de que exista rival y el replay
+> no lleva reloj real, así que se puede optimizar la corrida offline; (3) el
+> asiento firmado ata _quién_ entra pero no _con qué condiciones_ (stake y
+> plazos los elige quien abre); (4) el árbitro nunca lee el escrow, así que
+> empareja y firma sin saber si alguien depositó.
 
 ---
 
@@ -95,8 +114,10 @@ modificado) + `next build` de producción. Todo en verde.
 
 ### Sigue pendiente (sin cambios en esta ronda)
 
-- **Contrato sin cambios a propósito** (decisión sostenida: no tocar Solidity sin
-  auditoría humana). La **auditoría externa profesional** sigue pendiente.
+- **Contrato sin cambios a propósito** en esta ronda (decisión sostenida en su
+  momento: no tocar Solidity sin auditoría humana). Se levantó en **v3.4.0**, ya
+  desplegada — ver la nota de mantenimiento del 2026-08-09 arriba. La
+  **auditoría externa profesional** sigue pendiente.
 - **Llave del árbitro** en KMS/HSM y **owner multisig/hardware** — operacional.
 - **Lo legal** (licencias/KYC/edad/geobloqueo) — decisión del dueño del proyecto.
 - **Escala horizontal:** desde v2.1 el árbitro puede persistir en Redis externo

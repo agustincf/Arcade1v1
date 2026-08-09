@@ -40,6 +40,14 @@ jobs:
       - name: Verificación completa
         run: npm run check
 
+      # El build de producción NUNCA corría en CI, así que un error que solo
+      # aparece al compilar la web (un import de servidor en un componente
+      # cliente, una página que no prerenderiza) llegaba a producción sin que
+      # nada avisara. `npm run check` no lo cubre: tsc chequea tipos, no el
+      # build de Next.
+      - name: Build de producción de la web
+        run: npm run build --workspace apps/web
+
   # --------------------------------------------------------------------- #
   #  Foundry: tests del contrato + e2e en cadena local (anvil)            #
   # --------------------------------------------------------------------- #

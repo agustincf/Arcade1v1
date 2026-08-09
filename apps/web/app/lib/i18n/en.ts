@@ -302,6 +302,10 @@ export const en: Dict = {
   close: "Close",
   "match.freeLadder": "FREE LADDER",
   "match.rankedChip": "RANKED · FREE",
+  "match.tableUnavailable": "TABLE UNAVAILABLE",
+  "match.tableUnavailableBody":
+    "This USDC table is out of service: on-chain payment is not active right now. Nobody deposits and nobody gets paid. You can play the free ranked match instead — same ladder.",
+  "match.playFreeInstead": "PLAY RANKED FREE",
   "match.freeRankedNote":
     "Free ranked match: no money at stake, but it counts for your ELO. Want more? Play for USDC from the home page.",
   "match.watchRival": "Watch your rival's run",

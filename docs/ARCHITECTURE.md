@@ -200,12 +200,20 @@ against a different chain or a different escrow contract.
 **Escrow contract mechanics** (`Escrow1v1.sol`, an `Ownable` +
 `ReentrancyGuard` + `EIP712` contract holding USDC):
 
-- `open(id, stake, fundDeadline, playDeadline)` — first player deposits their
-  stake, becomes `p1`, contract state → `Open`. The arbiter does **not**
+- `open(id, stake, fundDeadline, playDeadline, seatSig)` — first player deposits
+  their stake, becomes `p1`, contract state → `Open`. The arbiter does **not**
   create matches or front gas for this — each player deposits their own
   stake (an asynchronous "deposit and walk away" model, so the arbiter has no
   gas-drain attack surface from match creation).
-- `join(id)` — second player deposits, state → `Funded`.
+- `join(id, seatSig)` — second player deposits, state → `Funded`.
+- **`seatSig` (since v3.4.0)** — an EIP-712 `Seat(bytes32 matchId,address player)`
+  signed by the arbiter. Both `open` and `join` require it, so only the two
+  players the arbiter actually paired can take the seats: it closes the slot
+  front-run without costing the arbiter any gas. `seatDigest(matchId, player)`
+  exposes the digest for clients.
+- **`REFUND_GRACE` (since v3.4.0)** — 30 minutes (`1800`) that must elapse past
+  `playDeadline` before `refundExpired` becomes callable, so a loser can't
+  front-run `settle` with a refund.
 - `settle(id, winner, signature)` — verifies the arbiter's signature (above)
   and pays out; state → `Settled`.
 - `refundUnfunded` / `refundExpired` / `cancelMatch` — the three refund paths

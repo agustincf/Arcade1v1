@@ -310,6 +310,10 @@ export const es: Dict = {
   close: "Cerrar",
   "match.freeLadder": "LADDER GRATIS",
   "match.rankedChip": "RANKEADA · GRATIS",
+  "match.tableUnavailable": "MESA NO DISPONIBLE",
+  "match.tableUnavailableBody":
+    "Esta mesa de plata está fuera de servicio: el pago on-chain no está activo en este momento. Nadie deposita ni cobra nada. Podés jugar la partida rankeada gratis, que usa el mismo ranking.",
+  "match.playFreeInstead": "JUGAR RANKEADA GRATIS",
   "match.freeRankedNote":
     "Partida rankeada gratis: sin plata en juego, pero cuenta para tu ELO. ¿Querés más? Jugá por USDC desde el inicio.",
   "match.watchRival": "Ver la corrida del rival",

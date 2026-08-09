@@ -10,6 +10,7 @@ import { useT } from "@/app/lib/i18n";
 import { useWallet, useEnsureChain } from "@/app/lib/wallet";
 import { useEscrow } from "@/app/lib/useEscrow";
 import { onchainEnabled } from "@/app/lib/escrow";
+import { moneyTableBlocked } from "@/app/lib/config-guard";
 import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
 import { useSignMessage } from "wagmi";
 import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
@@ -55,6 +56,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const escrow = useEscrow();
   // Si hay contrato configurado y es partida de plata, hay que depositar antes.
   const needsDeposit = onchainEnabled && !free && bet > 0;
+  // GUARDA DE CONFIGURACIÓN: si la mesa es de plata pero el pago on-chain NO
+  // está activo (falta o está mal la dirección del escrow), la partida NO se
+  // juega. Antes se degradaba sola a gratis con la pantalla diciendo "5 USDC":
+  // los dos jugadores creían estar apostando y no había depósito de por medio.
+  const moneyBlocked = !free && moneyTableBlocked(bet, onchainEnabled);
 
   const [seed, setSeed] = useState<number | null>(free ? rnd() : null);
   const [round, setRound] = useState(0);
@@ -119,6 +125,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // responde o el usuario cancela la firma, mostramos el motivo con REINTENTAR.
   useEffect(() => {
     if (free || matchId || error) return;
+    // Mesa de plata sin escrow configurado: NO emparejar. Encolar acá dejaría a
+    // dos personas jugando por una apuesta que no existe.
+    if (moneyBlocked) return;
     // Modo plata on-chain: con la wallet conectada alcanza para emparejar (orden
     // de llegada). El depósito (approve + open/join) viene después, en un paso.
     if (needsWallet) return;
@@ -227,6 +236,31 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   }, [waiting, matchId]);
 
   if (!game) return null;
+
+  // Mesa de plata con el pago on-chain apagado: pantalla honesta en vez de una
+  // partida "de 5 USDC" que en realidad no cobra ni paga nada.
+  if (moneyBlocked) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-10">
+        <div className="win">
+          <div className="win-title">
+            <span>{t("match.tableUnavailable")}</span>
+          </div>
+          <div className="p-6 text-center">
+            <p className="text-base text-(--color-text)">{t("match.tableUnavailableBody")}</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Link href={`/game/${game.id}?bet=0`} className="btn3d btn3d--magenta">
+                {t("match.playFreeInstead")}
+              </Link>
+              <Link href="/" className="btn3d btn3d--cyan">
+                {t("home")}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   function applyResult(v: MatchView) {
     const opp = v.opponent;

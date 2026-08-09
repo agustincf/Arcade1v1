@@ -8,13 +8,14 @@ on-chain reputation). Dates are intentionally absent: this is a direction, not
 a promise. Detailed sections below are in Spanish — the project's working
 language.
 
-> Estado actual: **v3 completa (3.0.0) en testnet** (Base Sepolia, dinero de
-> juego), con el parche **3.0.1** ya aplicado (tres arreglos de firma y deploy
-> de agentes encontrados con wallets reales). Las 7 fases de v3 publicadas y
-> verificadas: faucet, estado público, perfiles, duelos, estilos alternativos,
-> i18n servido por idioma con URLs propias, y operación pre-mainnet (RPC
-> propio + gas monitoreado). El próximo acto, **v4.1 "La arena viva"**, está
-> **diseñado pero todavía no construido** (spec aprobado el 2026-07-12).
+> Estado actual: **3.5.4 en testnet** (Base Sepolia, dinero de juego). v3 quedó
+> completa (7 fases + parche 3.0.1) y **v4.1 "La arena viva" también está
+> construida y en producción** (3.1.0 → 3.2.0): agentes CASA, primer minuto del
+> recién llegado, métricas públicas en `/status`; después llegaron BYO-agent por
+> webhook (3.3.0), la auditoría de seguridad post-lanzamiento (**3.3.1** y
+> **3.4.0**, esta última con su redeploy de contrato **ya ejecutado y verificado
+> el 2026-07-15**), los juegos v2 con versión de reglas (3.5.0) y la tanda de
+> arte y sonido de los seis juegos (3.5.1 → 3.5.4).
 > Historial en [CHANGELOG.md](../CHANGELOG.md).
 
 Los tres pilares del proyecto ordenan cada versión:

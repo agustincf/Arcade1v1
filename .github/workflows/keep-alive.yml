@@ -4,6 +4,17 @@
 # el cron de GitHub puede atrasarse varios minutos, y GitHub desactiva los
 # schedules si el repo pasa 60 días sin actividad (con commits regulares no
 # nos toca; si pasa, se rehabilita con un click en Actions).
+#
+# 2026-08-09 — POR QUÉ CAMBIÓ ESTO: fallaba 96 de cada 100 corridas. El ping
+# tenía `--max-time 30` y el arranque en frío de Render tarda más: medido el
+# 2026-08-09, `/health` devolvió 200 recién a los 42,4 s. O sea: curl cortaba
+# SIEMPRE antes de que el árbitro terminara de despertar, el paso fallaba, y el
+# árbitro se quedaba dormido igual. Doble daño: el primer usuario de la hora
+# esperaba casi un minuto para emparejar, y mientras tanto los agentes de la
+# casa no jugaban, así que el lobby se veía vacío.
+#
+# El timeout ahora le da margen de sobra al arranque en frío, y el pedido va a
+# `/health` (respuesta mínima) en vez de `/stats` (arma el resumen entero).
 name: keep-alive
 
 on:
@@ -15,5 +26,22 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping al árbitro
-        run: curl -fsS --max-time 30 https://arcade1v1.onrender.com/stats > /dev/null
+      # Dos intentos: el primero paga el arranque en frío (hasta 120 s), el
+      # segundo confirma que quedó despierto de verdad. Si los dos fallan, el
+      # paso falla — y ESO sí es una señal real de que el árbitro está caído.
+      - name: Ping al árbitro (despertar + confirmar)
+        run: |
+          set -u
+          URL=https://arcade1v1.onrender.com/health
+
+          if curl -fsS --max-time 120 "$URL" > /dev/null; then
+            echo "Despertó (o ya estaba despierto)."
+          else
+            echo "Primer intento falló; reintento en 15 s."
+            sleep 15
+            curl -fsS --max-time 120 "$URL" > /dev/null
+          fi
+
+          # Confirmación: ya despierto tiene que responder rápido.
+          curl -fsS --max-time 30 "$URL" > /dev/null
+          echo "Árbitro despierto y respondiendo."

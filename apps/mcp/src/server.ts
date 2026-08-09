@@ -53,7 +53,17 @@ export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpS
     {
       title: "Matchmake",
       description: `Emparejar para un juego (${GAMES.join(", ")}) en una mesa (stake).`,
-      inputSchema: { game: z.string(), stake: z.number() },
+      inputSchema: {
+        game: z.string(),
+        stake: z
+          .number()
+          .describe(
+            "Usá 0: la ladder rankeada gratis, con el mismo ELO que las mesas de plata. " +
+              "Este servidor firma mensajes pero no manda transacciones, así que no puede " +
+              "depositar USDC — un stake mayor a 0 se rechaza.",
+          )
+          .default(0),
+      },
     },
     async ({ game, stake }) => ok(await matchmakeTool(agent, game, stake)),
   );
@@ -64,7 +74,17 @@ export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpS
       title: "Play and submit",
       description:
         "Empareja, juega con la estrategia por defecto y envía el puntaje (por ranking).",
-      inputSchema: { game: z.string(), stake: z.number() },
+      inputSchema: {
+        game: z.string(),
+        stake: z
+          .number()
+          .describe(
+            "Usá 0: la ladder rankeada gratis, con el mismo ELO que las mesas de plata. " +
+              "Este servidor firma mensajes pero no manda transacciones, así que no puede " +
+              "depositar USDC — un stake mayor a 0 se rechaza.",
+          )
+          .default(0),
+      },
     },
     async ({ game, stake }) => ok(await playAndSubmitTool(agent, game, stake)),
   );

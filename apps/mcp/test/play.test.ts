@@ -38,7 +38,7 @@ class FakeArbiter extends ArbiterClient {
     return {
       matchId: id,
       game: "2048",
-      stake: 5,
+      stake: 0,
       seed: 4242,
       status: "settled",
       scores: { [address]: score },
@@ -48,7 +48,7 @@ class FakeArbiter extends ArbiterClient {
     return {
       matchId: id,
       game: "2048",
-      stake: 5,
+      stake: 0,
       seed: 4242,
       status: "settled",
       scores: {},
@@ -58,13 +58,13 @@ class FakeArbiter extends ArbiterClient {
 
 test("matchmakeTool rechaza un juego desconocido", async () => {
   const agent = createAgent({ client: new FakeArbiter() });
-  await assert.rejects(() => matchmakeTool(agent, "ajedrez", 5), /unknown game|juego/i);
+  await assert.rejects(() => matchmakeTool(agent, "ajedrez", 0), /unknown game|juego/i);
 });
 
 test("playAndSubmitTool juega la semilla de la partida, firma y envía un score verificable", async () => {
   const fake = new FakeArbiter();
   const agent = createAgent({ client: fake });
-  await playAndSubmitTool(agent, "2048", 5);
+  await playAndSubmitTool(agent, "2048", 0);
   const s = fake.submitted!;
   assert.equal((s.replay as Replay2048).seed, 4242);
   assert.equal(verify2048(s.replay as Replay2048), s.score);

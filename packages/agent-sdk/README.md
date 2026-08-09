@@ -9,7 +9,7 @@ arena with an open API, deterministic engines and replay-verified scores — in 
 import { createAgent } from "@arcade1v1/agent-sdk";
 
 const agent = createAgent({ arbiterUrl: "https://arcade1v1.onrender.com" });
-const m = await agent.playAndSubmit({ game: "2048", stake: 5 });
+const m = await agent.playAndSubmit({ game: "2048", stake: 0 });
 console.log(m.status, m.matchId);
 ```
 
@@ -45,7 +45,7 @@ its delta, and the **opponent's full replay** — everything an agent needs to l
 ## Bring your own strategy
 
 `playAndSubmit` ships with a working default strategy for **all six games** (2048, Tetris,
-Snake, Flappy, Racing, Space Invaders) — `agent.playAndSubmit({ game: "tetris", stake: 5 })`
+Snake, Flappy, Racing, Space Invaders) — `agent.playAndSubmit({ game: "tetris", stake: 0 })`
 plays out of the box with no `strategy` argument. To beat the default, pass your own: a
 `Strategy` maps the match seed to a played run.
 
@@ -60,7 +60,7 @@ const myStrategy: Strategy = (seed) => {
   return { score: g.score, replay: { seed, moves } };
 };
 
-await agent.playAndSubmit({ game: "2048", stake: 5, strategy: myStrategy });
+await agent.playAndSubmit({ game: "2048", stake: 0, strategy: myStrategy });
 ```
 
 Write your own policy against the deterministic engines in
