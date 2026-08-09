@@ -79,23 +79,71 @@ export async function readMatchOnchain(matchId: Hex): Promise<OnchainMatch | nul
   return { p1: r[0], p2: r[1], stake: r[2], status: Number(r[7]) };
 }
 
+// COLA DE ESCRITURAS ON-CHAIN. Todas las transacciones del árbitro salen de
+// esta misma wallet, así que comparten el nonce. El barrendero disparaba N
+// `cancelMatchOnchain` EN PARALELO, en el mismo tick sincrónico: las N pedían el
+// nonce pendiente antes de que se minara ninguna, así que TODAS salían con el
+// mismo. Entraba una sola; el resto revertía en el RPC ("already known" /
+// "replacement underpriced"), el error iba a un console.error que nadie mira y
+// nadie reintentaba. Resultado concreto: cuando vencían varias mesas juntas, se
+// reembolsaba una y los demás jugadores tenían que descubrir /recover por su
+// cuenta para sacar su plata del contrato.
+//
+// Encadenar las escrituras (mismo patrón que usa persist.ts para las
+// escrituras a disco) hace que cada una lea el nonce recién cuando la anterior
+// ya se minó.
+let colaEscrituras: Promise<unknown> = Promise.resolve();
+
+export function enCola<T>(tarea: () => Promise<T>): Promise<T> {
+  const siguiente = colaEscrituras.then(tarea, tarea);
+  // La cola nunca se corta por un fallo: se absorbe acá para que la próxima
+  // tarea igual arranque (el error se propaga al llamador por `siguiente`).
+  colaEscrituras = siguiente.catch(() => {});
+  return siguiente;
+}
+
+const REINTENTOS = 3;
+const ESPERA_REINTENTO_MS = 2_000;
+
 /** En empate/disputa: el arbitro cancela y el contrato reembolsa a ambos.
  *  Se SIMULA primero: si la partida no existe on-chain o no es cancelable
  *  (nadie depositó, ya liquidada/reembolsada), no se manda la transacción y no
- *  se quema gas del árbitro en un revert seguro. */
+ *  se quema gas del árbitro en un revert seguro.
+ *
+ *  Va por la cola y con reintento: es plata de jugadores que, si esta llamada
+ *  se pierde en silencio, queda trabada en el contrato hasta que alguien
+ *  descubra /recover. */
 export async function cancelMatchOnchain(matchId: Hex) {
   if (!onchainEnabled()) return;
-  const { wallet: w, pub: p } = clients();
-  const { request } = await p.simulateContract({
-    address: ESCROW,
-    abi: escrowAbi,
-    functionName: "cancelMatch",
-    args: [matchId],
-    account: w.account!,
-    chain: chain(),
+  return enCola(async () => {
+    let ultimo: unknown;
+    for (let intento = 1; intento <= REINTENTOS; intento++) {
+      try {
+        const { wallet: w, pub: p } = clients();
+        const { request } = await p.simulateContract({
+          address: ESCROW,
+          abi: escrowAbi,
+          functionName: "cancelMatch",
+          args: [matchId],
+          account: w.account!,
+          chain: chain(),
+        });
+        const hash = await w.writeContract(request);
+        await p.waitForTransactionReceipt({ hash });
+        return;
+      } catch (e) {
+        ultimo = e;
+        const msg = (e as Error)?.message ?? "";
+        // Si el contrato dice que ya no se puede cancelar (ya liquidada,
+        // reembolsada o inexistente), reintentar no cambia nada.
+        if (/not cancelable|already|not found|reverted/i.test(msg)) throw e;
+        if (intento < REINTENTOS) {
+          await new Promise((r) => setTimeout(r, ESPERA_REINTENTO_MS * intento));
+        }
+      }
+    }
+    throw ultimo;
   });
-  const hash = await w.writeContract(request);
-  await p.waitForTransactionReceipt({ hash });
 }
 
 /** ¿Esta dirección puede enviar puntaje en esta partida, según la cadena?

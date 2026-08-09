@@ -826,6 +826,22 @@ export function sweepMatches(now = Date.now()) {
       if (now - m.createdAt > ttl) {
         const k = qkey(m.game, m.stake);
         if (queue.get(k) === m.id) queue.delete(k);
+        // ABRISTE LA MESA Y NADIE APARECIÓ. Antes esto solo borraba la partida
+        // de la memoria del árbitro: el USDC quedaba en el contrato y el
+        // reembolso pasaba a ser manual, desde /recover —un link perdido entre
+        // once del footer que la pantalla de la partida nunca menciona—, y
+        // pagando gas. Encima, después `getMatch` devolvía 404, así que ni
+        // rastro quedaba. Es EXACTAMENTE el caso del recién llegado en una
+        // testnet vacía, y la copy le promete que "el escrow te devuelve todo".
+        //
+        // El contrato acepta cancelar en estado Open (Escrow1v1.sol) y el
+        // árbitro ya paga ese gas en el caso del empate: no hay motivo para no
+        // hacerlo también acá.
+        if (m.stake > 0 && onchainEnabled()) {
+          m.refundPromise = cancelMatchOnchain(m.id).catch((e) =>
+            console.error("cancelMatch (sin rival) onchain:", (e as Error).message),
+          );
+        }
         matches.delete(m.id);
         dirty = true;
       }
