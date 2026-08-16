@@ -8,7 +8,7 @@ import {
   type TetrisAction,
   type ReplayTetris,
 } from "@arcade1v1/game-sdk/tetris";
-import { StartScreen, GameOverScreen, GameOverlay } from "@/app/games/_shared/ui";
+import { StartScreen, GameOverScreen, GameOverlay, Arrow } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
@@ -424,7 +424,7 @@ function TouchBtn({ onClick, label }: { onClick: () => void; label: string }) {
       aria-label={TETRIS_LABEL[label] ?? label}
       className="select-none rounded-xl border border-(--color-border) bg-(--color-surface) py-4 text-xl font-bold active:bg-(--color-surface-2)"
     >
-      <span aria-hidden="true">{label}</span>
+      <Arrow glyph={label} />
     </button>
   );
 }

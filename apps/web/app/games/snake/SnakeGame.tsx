@@ -9,7 +9,7 @@ import {
   type SnakeAction,
   type ReplaySnake,
 } from "@arcade1v1/game-sdk/snake";
-import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
+import { StartScreen, GameOverScreen, Arrow } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
@@ -258,7 +258,7 @@ function DirBtn({ onClick, label }: { onClick: () => void; label: string }) {
       aria-label={DIR_LABEL[label] ?? label}
       className="btn3d btn3d--cyan !py-3 !text-xl"
     >
-      <span aria-hidden="true">{label}</span>
+      <Arrow glyph={label} />
     </button>
   );
 }
