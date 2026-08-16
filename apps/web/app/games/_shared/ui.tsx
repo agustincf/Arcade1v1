@@ -7,6 +7,33 @@ import { useT } from "@/app/lib/i18n";
 // Piezas visuales COMPARTIDAS por todos los juegos, para que tengan el mismo
 // lenguaje: misma caja de overlay, mismos botones, misma pantalla de fin.
 
+const ARROW_DIR: Record<string, "up" | "down" | "left" | "right"> = {
+  "▲": "up",
+  "▼": "down",
+  "◀": "left",
+  "▶": "right",
+};
+
+// Los glifos de triángulo (▲◀▼▶) no rinden parejos en la fuente pixel del
+// sitio: ▲▼ salían visiblemente más grandes y gruesos que ◀▶ en el mismo
+// D-pad. Se dibuja el triángulo con CSS (bordes) para que las 4 direcciones
+// midan exactamente lo mismo sin depender del glifo de ninguna fuente.
+export function Arrow({ glyph }: { glyph: string }) {
+  const dir = ARROW_DIR[glyph];
+  if (!dir) return <span aria-hidden="true">{glyph}</span>;
+  const cross = "7px solid transparent";
+  const point = "11px solid currentColor";
+  const style: React.CSSProperties =
+    dir === "up"
+      ? { borderLeft: cross, borderRight: cross, borderBottom: point }
+      : dir === "down"
+        ? { borderLeft: cross, borderRight: cross, borderTop: point }
+        : dir === "left"
+          ? { borderTop: cross, borderBottom: cross, borderRight: point }
+          : { borderTop: cross, borderBottom: cross, borderLeft: point };
+  return <span aria-hidden="true" className="inline-block h-0 w-0" style={style} />;
+}
+
 export function GameOverlay({ children }: { children: React.ReactNode }) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-(--color-scrim) p-4 text-center">
