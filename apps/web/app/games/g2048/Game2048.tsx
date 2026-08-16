@@ -122,11 +122,10 @@ export function Game2048Component({
         </span>
       </div>
 
-      <div className="relative">
+      <div className="relative" style={{ width: "min(100%, 320px)" }}>
         <div
           className="grid touch-none gap-2 rounded-lg border-2 border-(--color-ink) bg-(--color-ink) p-2"
           style={{
-            width: "min(100%, 320px)",
             gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
           }}
           onPointerDown={onPointerDown}
