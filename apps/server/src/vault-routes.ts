@@ -56,13 +56,22 @@ vaultRouter.get("/vault/recent", (req, res) => {
   res.json({ rooms: recentVaultRooms(limit) });
 });
 
-// Vista de una sala: con ?address= es la vista de ESE asiento (sin autenticar,
-// pero solo expone lo que ese asiento puede saber: su fragmento y sus
-// privados; nunca decisiones ajenas ni la semilla antes del cierre).
-vaultRouter.get("/vault/:id", (req, res) => {
-  const v = getVaultRoom(String(req.params.id), req.query.address as string | undefined);
-  if (!v) return res.status(404).json({ error: "room not found" });
-  res.json({ ...v, seats: withDisplay(v.seats) });
+// Vista de una sala. Con ?address= + un PASE DE VISTA válido (?signature=&ts=
+// sobre vaultViewAuthMessage(roomId, address, ts)) devuelve la vista de ESE
+// asiento: su fragmento, sus susurros, si ya decidió. Sin pase válido, la
+// vista pública: nunca decisiones ajenas ni la semilla antes del cierre.
+vaultRouter.get("/vault/:id", async (req, res) => {
+  const { address, signature, ts } = req.query as Record<string, string | undefined>;
+  try {
+    const v = await getVaultRoom(String(req.params.id), address, undefined, {
+      signature,
+      ts: ts === undefined ? undefined : Number(ts),
+    });
+    if (!v) return res.status(404).json({ error: "room not found" });
+    res.json({ ...v, seats: withDisplay(v.seats) });
+  } catch (e) {
+    fail(res, e);
+  }
 });
 
 // Una acción firmada: { address, stage, phase, action, signature, ts }.

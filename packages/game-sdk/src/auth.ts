@@ -99,3 +99,16 @@ export function vaultActionAuthMessage(
     `ts: ${ts}`,
   ].join("\n");
 }
+
+/** Mensaje a firmar para pedir la VISTA PRIVADA de tu asiento en una sala de
+ *  La Bóveda (el "pase de vista"). Ata: sala + jugador + momento (ts, válido
+ *  MATCHMAKE_AUTH_TTL_MS). Sin esto, cualquiera leería con un `?address=`
+ *  ajeno el fragmento de la Cerradura y los susurros privados de ese asiento. */
+export function vaultViewAuthMessage(roomId: string, address: string, ts: number): string {
+  return [
+    "Arcade1v1: miro mi sala",
+    `room: ${roomId.toLowerCase()}`,
+    `player: ${address.toLowerCase()}`,
+    `ts: ${ts}`,
+  ].join("\n");
+}

@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { actionLine, validateAction, VAULT_RULES, VAULT_RULES_V } from "@arcade1v1/game-sdk/vault";
-import { vaultActionAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { vaultActionAuthMessage, vaultViewAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 
 const ADDR = "0xABCDef0000000000000000000000000000000001";
@@ -66,6 +66,19 @@ test("vaultActionAuthMessage: formato estable, room en minúsculas", () => {
       "stage: 3",
       "phase: decide",
       "action: vote:0xabc",
+      "ts: 1730000000000",
+    ].join("\n"),
+  );
+});
+
+test("vaultViewAuthMessage: formato estable, room y player en minúsculas", () => {
+  const room = "0xAB" + "cd".repeat(31);
+  assert.equal(
+    vaultViewAuthMessage(room, ADDR, 1730000000000),
+    [
+      "Arcade1v1: miro mi sala",
+      `room: ${room.toLowerCase()}`,
+      `player: ${ADDR.toLowerCase()}`,
       "ts: 1730000000000",
     ].join("\n"),
   );

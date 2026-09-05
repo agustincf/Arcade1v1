@@ -35,6 +35,7 @@ import {
 import {
   matchmakeAuthMessage,
   vaultActionAuthMessage,
+  vaultViewAuthMessage,
   MATCHMAKE_AUTH_TTL_MS,
 } from "@arcade1v1/game-sdk/auth";
 import { AUTH_REQUIRED } from "./matchmaking.js";
@@ -189,6 +190,33 @@ function liveCount(): number {
   return n;
 }
 
+/** El patrón de TODA firma de La Bóveda, en un solo lugar: `ts` fresco, la
+ *  firma recupera a la propia address, y sin firma solo se pasa fuera de
+ *  producción. El `message` lo arma quien llama (con ese mismo `ts`). */
+async function verifySigned(
+  message: string,
+  signature: string | undefined,
+  ts: unknown,
+  address: string,
+  now: number,
+): Promise<void> {
+  if (!signature) {
+    if (AUTH_REQUIRED) throw new VaultError("signature required");
+    return;
+  }
+  const t = Number(ts);
+  if (!Number.isFinite(t) || Math.abs(now - t) > MATCHMAKE_AUTH_TTL_MS) {
+    throw new VaultError("auth expired");
+  }
+  let signer: string;
+  try {
+    signer = await recoverMessageAddress({ message, signature: signature as Hex });
+  } catch {
+    throw new VaultError("bad signature");
+  }
+  if (signer.toLowerCase() !== address) throw new VaultError("bad signature");
+}
+
 /** Firma del asiento: mismo mensaje que cualquier emparejamiento, con game "vault". */
 async function verifySeatAuth(
   stake: number,
@@ -196,24 +224,13 @@ async function verifySeatAuth(
   auth: VaultAuth | undefined,
   now: number,
 ): Promise<void> {
-  if (auth?.signature) {
-    const ts = Number(auth.ts);
-    if (!Number.isFinite(ts) || Math.abs(now - ts) > MATCHMAKE_AUTH_TTL_MS) {
-      throw new VaultError("auth expired");
-    }
-    let signer: string;
-    try {
-      signer = await recoverMessageAddress({
-        message: matchmakeAuthMessage("vault", stake, address, ts),
-        signature: auth.signature as Hex,
-      });
-    } catch {
-      throw new VaultError("bad signature");
-    }
-    if (signer.toLowerCase() !== address) throw new VaultError("bad signature");
-  } else if (AUTH_REQUIRED) {
-    throw new VaultError("signature required");
-  }
+  await verifySigned(
+    matchmakeAuthMessage("vault", stake, address, Number(auth?.ts)),
+    auth?.signature,
+    auth?.ts,
+    address,
+    now,
+  );
 }
 
 /** Pedir asiento. Idempotente: si ya estás en una sala viva, la devuelve. */
@@ -375,24 +392,13 @@ export async function actVault(
     throw new VaultError((e as Error).message);
   }
   const line = actionLine(action);
-  if (body.signature) {
-    const ts = Number(body.ts);
-    if (!Number.isFinite(ts) || Math.abs(now - ts) > MATCHMAKE_AUTH_TTL_MS) {
-      throw new VaultError("auth expired");
-    }
-    let signer: string;
-    try {
-      signer = await recoverMessageAddress({
-        message: vaultActionAuthMessage(room.id, stage, body.phase, line, ts),
-        signature: body.signature as Hex,
-      });
-    } catch {
-      throw new VaultError("bad signature");
-    }
-    if (signer.toLowerCase() !== address) throw new VaultError("bad signature");
-  } else if (AUTH_REQUIRED) {
-    throw new VaultError("signature required");
-  }
+  await verifySigned(
+    vaultActionAuthMessage(room.id, stage, body.phase, line, Number(body.ts)),
+    body.signature,
+    body.ts,
+    address,
+    now,
+  );
   // Después del await el estado pudo cambiar (otra acción cerró la fase): se
   // aplica sobre el estado ACTUAL. Si la etapa/fase ya no coinciden, el motor
   // lo rechaza con "stage or phase mismatch" y el agente refresca su vista.
@@ -522,14 +528,38 @@ export function roomView(room: VaultRoom, address?: string): VaultRoomView {
   return out;
 }
 
-export function getVaultRoom(
+/** Vista de una sala. La vista PRIVADA de un asiento (su fragmento de la
+ *  Cerradura, sus susurros, si ya decidió) exige un PASE DE VISTA: la firma de
+ *  `vaultViewAuthMessage(roomId, address, ts)` por esa misma address, fresca
+ *  por MATCHMAKE_AUTH_TTL_MS. Sin pase válido se devuelve la vista PÚBLICA, sin
+ *  lanzar: pedir de más no es un error del cliente, es simplemente no ver lo
+ *  privado. Excepción para dev/tests: con AUTH_REQUIRED en false y SIN firma se
+ *  devuelve la privada (los tests in-process leen así). Una firma presente pero
+ *  inválida da la pública SIEMPRE, también en dev. */
+export async function getVaultRoom(
   roomId: string,
   address?: string,
   now = Date.now(),
-): VaultRoomView | null {
+  auth?: { signature?: string; ts?: number },
+): Promise<VaultRoomView | null> {
   settleDue(now);
   const room = rooms.get(roomId);
-  return room ? roomView(room, address) : null;
+  if (!room) return null;
+  if (!address) return roomView(room);
+  const seat = normAddr(address);
+  if (!auth?.signature) return roomView(room, AUTH_REQUIRED ? undefined : seat);
+  try {
+    await verifySigned(
+      vaultViewAuthMessage(room.id, seat, Number(auth.ts)),
+      auth.signature,
+      auth.ts,
+      seat,
+      now,
+    );
+  } catch {
+    return roomView(room, undefined);
+  }
+  return roomView(room, seat);
 }
 
 export function listVaultLobbies(now = Date.now()): LobbySummary[] {

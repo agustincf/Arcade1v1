@@ -9,9 +9,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { keccak256, recoverMessageAddress, type Hex } from "viem";
-import { vaultActionAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { vaultActionAuthMessage, vaultViewAuthMessage } from "@arcade1v1/game-sdk/auth";
 import {
   actionLine,
+  createVault,
   replayVault,
   type VaultAction,
   type VaultEvent,
@@ -50,7 +51,7 @@ async function startRoom(accs: PrivateKeyAccount[], now = Date.now()) {
   let v;
   for (const a of accs) v = await V.joinVault(0, low(a), undefined, born);
   V.settleDue(now);
-  const started = V.getVaultRoom(v!.roomId, low(accs[0]), now)!;
+  const started = (await V.getVaultRoom(v!.roomId, low(accs[0]), now))!;
   assert.equal(started.status, "playing");
   return started.roomId;
 }
@@ -79,10 +80,10 @@ function policy(v: V.VaultRoomView, me: string): VaultAction {
 async function playOut(roomId: string, accs: PrivateKeyAccount[]): Promise<V.VaultRoomView> {
   let said = false;
   for (let guard = 0; guard < 400; guard++) {
-    const pub = V.getVaultRoom(roomId)!;
+    const pub = (await V.getVaultRoom(roomId))!;
     if (pub.status === "settled") return pub;
     for (const acc of accs) {
-      const v = V.getVaultRoom(roomId, low(acc))!;
+      const v = (await V.getVaultRoom(roomId, low(acc)))!;
       if (v.status !== "playing" || v.you!.status !== "alive" || v.you!.decided || v.you!.ready)
         continue;
       const { index, phase } = v.stage!;
@@ -113,7 +114,7 @@ test("sala completa: 4 agentes firmando hasta settled; pagos, ELO, semilla revel
 
   // ELO propio de vault, aplicado a los 4, y visible en la vista de cada asiento.
   for (const a of accs) {
-    const mine = V.getVaultRoom(roomId, low(a))!;
+    const mine = (await V.getVaultRoom(roomId, low(a)))!;
     assert.ok(mine.rating, "rating en la vista del asiento");
     assert.equal(mine.rating!.after, getRating(low(a), "vault"));
   }
@@ -206,14 +207,14 @@ test("plazos: las fases vencen con el reloj del árbitro, los ausentes deciden p
   const roomId = await startRoom(accs, S);
   const me = low(accs[0]);
   assert.throws(() => V.vaultLog(roomId, S), /not settled/);
-  assert.equal(V.getVaultRoom(roomId, me, S + V.VAULT_PHASE_MS - 1)!.stage!.index, 0);
-  const after = V.getVaultRoom(roomId, me, S + V.VAULT_PHASE_MS)!;
+  assert.equal((await V.getVaultRoom(roomId, me, S + V.VAULT_PHASE_MS - 1))!.stage!.index, 0);
+  const after = (await V.getVaultRoom(roomId, me, S + V.VAULT_PHASE_MS))!;
   assert.equal(after.stage!.index, 1);
   assert.deepEqual(after.results![0].contributed, accs.map(low));
   assert.equal(after.results![0].kept!.length, 0);
   assert.equal(after.deadline, S + 2 * V.VAULT_PHASE_MS);
   // Nadie juega nunca: al cabo de muchas fases todos abandonan y la caja se reparte.
-  const end = V.getVaultRoom(roomId, me, S + 100 * V.VAULT_PHASE_MS)!;
+  const end = (await V.getVaultRoom(roomId, me, S + 100 * V.VAULT_PHASE_MS))!;
   assert.equal(end.status, "settled");
   for (const a of accs) assert.equal(end.payouts![low(a)], 1000);
   const log = V.vaultLog(roomId, S + 100 * V.VAULT_PHASE_MS);
@@ -251,7 +252,7 @@ test("persistencia a mitad de sala: serializar, restaurar y seguir hasta el fina
   const raw = V.serializeVault();
   V.__resetVaultForTest();
   V.restoreVaultFrom(raw);
-  const back = V.getVaultRoom(roomId, low(accs[0]))!;
+  const back = (await V.getVaultRoom(roomId, low(accs[0])))!;
   assert.equal(back.you!.decided, true);
   assert.equal(back.messages!.length, 1);
   const done = await playOut(roomId, accs);
@@ -260,6 +261,55 @@ test("persistencia a mitad de sala: serializar, restaurar y seguir hasta el fina
     Object.values(done.payouts!).reduce((a, b) => a + b, 0),
     4000,
   );
+});
+
+test("pase de vista: en la Cerradura, un pase ajeno no muestra el fragmento del asiento", async () => {
+  V.__resetVaultForTest();
+  const accs = accounts(4);
+  const seats = accs.map(low);
+  // Semilla ELEGIDA para que la primera carta del mazo sea la Cerradura: al
+  // cerrar el Reparto inicial la sala entra en Cerradura sin depender del sorteo.
+  let secretSeed = "";
+  for (let i = 1; i < 5000 && !secretSeed; i++) {
+    const cand = "0x" + i.toString(16).padStart(8, "0") + "0".repeat(56);
+    if (createVault(cand, seats).deck[0] === "lock") secretSeed = cand;
+  }
+  assert.ok(secretSeed, "no se encontró semilla con la Cerradura al tope del mazo");
+  const roomId = "0x" + "1".repeat(64);
+  V.restoreVaultFrom(
+    JSON.stringify([
+      {
+        id: roomId,
+        stake: 0,
+        status: "playing",
+        seats,
+        createdAt: T0,
+        startedAt: T0,
+        commit: keccak256(secretSeed as Hex),
+        secretSeed,
+        events: [],
+        phaseDeadline: T0 + V.VAULT_PHASE_MS,
+      },
+    ]),
+  );
+  const now = T0 + V.VAULT_PHASE_MS; // vence el Reparto: entra la Cerradura
+  // Sin firma y con AUTH_REQUIRED apagado (este archivo corre así) sigue
+  // valiendo la vista privada: es el atajo documentado para dev y tests.
+  const mine = (await V.getVaultRoom(roomId, seats[0], now))!;
+  assert.equal(mine.stage!.kind, "lock");
+  assert.ok(mine.you!.fragment, "el propio asiento ve su fragmento");
+  // Un pase firmado por OTRA wallet no abre la vista privada de ese asiento.
+  const intruso = accounts(1)[0];
+  const signature = await intruso.signMessage({
+    message: vaultViewAuthMessage(roomId, seats[0], now),
+  });
+  const spied = (await V.getVaultRoom(roomId, seats[0], now, { signature, ts: now }))!;
+  assert.equal(spied.you, undefined, "un pase ajeno no abre la vista privada");
+  assert.ok(!JSON.stringify(spied).includes("fragment"));
+  // El propio asiento, con su pase, sí.
+  const own = await accs[0].signMessage({ message: vaultViewAuthMessage(roomId, seats[0], now) });
+  const ok = (await V.getVaultRoom(roomId, seats[0], now, { signature: own, ts: now }))!;
+  assert.ok(ok.you!.fragment, "con su propio pase, el asiento ve su fragmento");
 });
 
 test("scripts/vault-verify: da OK con el registro real y detecta una tabla adulterada", async () => {

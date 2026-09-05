@@ -280,17 +280,25 @@ mecanismo, porque no hay un replay individual sino una partida compartida.
    sobre `vaultActionAuthMessage(roomId, stage, phase, line, ts)`, con `ts`
    válido 10 minutos. El registro guarda la firma: nadie puede decir "yo no
    voté eso".
-3. **Registro público al terminar.** `GET /vault/:id/log` devuelve
+3. **Pase de vista.** Leer la vista PRIVADA de un asiento también va firmado:
+   `vaultViewAuthMessage(roomId, address, ts)`, con `ts` válido 10 minutos
+   (`MATCHMAKE_AUTH_TTL_MS`). Se manda como `?signature=&ts=` junto al
+   `?address=`. Sin pase válido, `GET /vault/:id` devuelve la **vista
+   pública** (sin `you`, sin fragmento, sin susurros) en vez de un error: una
+   `address` en el query no prueba nada por sí sola. Las respuestas de
+   `POST /vault/join` y `POST /vault/:id/act` ya vienen firmadas, así que
+   devuelven la vista privada sin pase aparte.
+4. **Registro público al terminar.** `GET /vault/:id/log` devuelve
    `secretSeed`, `commit`, los asientos, todos los eventos (acciones firmadas
    y cierres de fase con su motivo) y la tabla de pagos.
-4. **Re-simulación.** `replayVault(secretSeed, seats, events)` del `game-sdk`
+5. **Re-simulación.** `replayVault(secretSeed, seats, events)` del `game-sdk`
    es determinística y pura. Cualquiera la corre sobre el registro y tiene que
    obtener la misma tabla que publicó el árbitro; `keccak256(secretSeed)` tiene
    que dar `commit`; cada firma tiene que recuperar su address. El repo trae
    `scripts/vault-verify.mjs` que hace las tres cosas contra una sala
    (`node --import tsx scripts/vault-verify.mjs <arbiterUrl> <roomId>`, mismo
    patrón que `gap-check.mjs`).
-5. **Lo que sigue siendo confianza**, y se documenta como tal: el árbitro ve
+6. **Lo que sigue siendo confianza**, y se documenta como tal: el árbitro ve
    los secretos durante la sala (igual que hoy ve los puntajes antes de
    decidir) y es quien decide cuándo cierra cada fase (los cierres quedan en el
    registro con su motivo y su hora; un cierre anticipado sin que todos
@@ -405,14 +413,14 @@ interface VaultRoom {
 Endpoints (todos JSON; los POST bajo el `strictLimit` existente porque
 recuperan firma):
 
-| Método y ruta              | Qué hace                                                             |
-| -------------------------- | -------------------------------------------------------------------- |
-| `POST /vault/join`         | `{stake, address, signature, ts}` → vista propia del lobby o la sala |
-| `GET /vault/lobbies`       | lobbies abiertos: `{roomId, stake, seats, min, max, closesAt}`       |
-| `GET /vault/recent?limit=` | salas terminadas recientes (resumen para la web)                     |
-| `GET /vault/:id?address=`  | vista de la sala; sin `address`, la vista pública (sin secretos)     |
-| `POST /vault/:id/act`      | `{address, action, signature, ts}` → vista propia actualizada        |
-| `GET /vault/:id/log`       | registro completo y semilla; antes de `settled`, `400 "not settled"` |
+| Método y ruta                            | Qué hace                                                                                                                               |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /vault/join`                       | `{stake, address, signature, ts}` → vista propia del lobby o la sala                                                                   |
+| `GET /vault/lobbies`                     | lobbies abiertos: `{roomId, stake, seats, min, max, closesAt}`                                                                         |
+| `GET /vault/recent?limit=`               | salas terminadas recientes (resumen para la web)                                                                                       |
+| `GET /vault/:id?address=&signature=&ts=` | vista de la sala; con un pase de vista válido (firma de `vaultViewAuthMessage`), la vista privada de ese asiento; sin pase, la pública |
+| `POST /vault/:id/act`                    | `{address, action, signature, ts}` → vista propia actualizada                                                                          |
+| `GET /vault/:id/log`                     | registro completo y semilla; antes de `settled`, `400 "not settled"`                                                                   |
 
 La raíz `/` (discovery) lista las rutas nuevas y el requisito de `rulesV`.
 
@@ -434,6 +442,10 @@ pot, box, cardsLeft, stage {index, kind, phase, deadline, acted[]}`.
 Nunca: fragmentos ajenos, votos o decisiones pendientes de otros, el orden
 del mazo, la semilla antes del cierre, mensajes privados entre terceros. La
 vista pública (sin `address`) es lo mismo sin `you` ni privados.
+
+Cómo se obtiene: pidiéndola con el **pase de vista** firmado
+(`vaultViewAuthMessage(roomId, address, ts)`, válido 10 minutos, como
+`?signature=&ts=`); sin pase, la vista pública.
 
 ### Firma de acciones
 
@@ -523,9 +535,11 @@ SECURITY.md (addendum al modelo de confianza), CHANGELOG **3.7.0**, ROADMAP
 
 - **Suplantación**: sentarse y actuar van firmados; `ts` fresco; una acción
   por decisión; mensajes con tope. Igual que el 1v1.
-- **Espionaje**: la vista filtra por asiento; los pendientes de una fase no se
-  revelan hasta el `phase_end`; los fragmentos ajenos nunca; la semilla recién
-  al cierre. Test dedicado (patrón `anti-espionage.test.ts`).
+- **Espionaje**: la vista filtra por asiento y la **privada exige el pase de
+  vista firmado** (una `address` suelta en el query no alcanza: sin pase se
+  devuelve la vista pública); los pendientes de una fase no se revelan hasta el
+  `phase_end`; los fragmentos ajenos nunca; la semilla recién al cierre. Test
+  dedicado (patrón `anti-espionage.test.ts`).
 - **Árbitro deshonesto**: acotado por compromiso de semilla + registro público
   - re-simulación. Lo que ve durante la sala queda documentado como confianza
     residual (SECURITY.md).

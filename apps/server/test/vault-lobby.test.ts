@@ -32,8 +32,8 @@ test("un lobby por mesa, idempotente por address; arranca al vencer con ≥4", a
     [[v1.roomId, 4]],
   );
   // No vence antes de tiempo.
-  assert.equal(V.getVaultRoom(v1.roomId, a1, T0 + V.VAULT_LOBBY_MS - 1)!.status, "lobby");
-  const started = V.getVaultRoom(v1.roomId, a1, T0 + V.VAULT_LOBBY_MS)!;
+  assert.equal((await V.getVaultRoom(v1.roomId, a1, T0 + V.VAULT_LOBBY_MS - 1))!.status, "lobby");
+  const started = (await V.getVaultRoom(v1.roomId, a1, T0 + V.VAULT_LOBBY_MS))!;
   assert.equal(started.status, "playing");
   assert.match(String(started.commit), /^0x[0-9a-f]{64}$/);
   assert.equal(started.secretSeed, undefined, "la semilla no se revela hasta el final");
@@ -54,7 +54,7 @@ test("con menos de 4 al vencer, el lobby se disuelve y el próximo pedido crea o
   const a1 = addr();
   const v1 = await V.joinVault(0, a1, undefined, T0);
   await V.joinVault(0, addr(), undefined, T0);
-  const gone = V.getVaultRoom(v1.roomId, a1, T0 + V.VAULT_LOBBY_MS)!;
+  const gone = (await V.getVaultRoom(v1.roomId, a1, T0 + V.VAULT_LOBBY_MS))!;
   assert.equal(gone.status, "dissolved");
   const v2 = await V.joinVault(0, a1, undefined, T0 + V.VAULT_LOBBY_MS + 1);
   assert.notEqual(v2.roomId, v1.roomId);
@@ -113,9 +113,9 @@ test("persistencia: serializar y restaurar conserva el lobby abierto y una sala 
 
   const raw = V.serializeVault();
   V.__resetVaultForTest();
-  assert.equal(V.getVaultRoom(roomId, a1, T0 + 2), null);
+  assert.equal(await V.getVaultRoom(roomId, a1, T0 + 2), null);
   V.restoreVaultFrom(raw);
-  const back = V.getVaultRoom(roomId, a1, T0 + 2)!;
+  const back = (await V.getVaultRoom(roomId, a1, T0 + 2))!;
   assert.equal(back.status, "playing");
   assert.equal(back.stage!.kind, "share");
   assert.equal(back.commit, playing!.commit);

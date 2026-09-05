@@ -7,7 +7,11 @@ import assert from "node:assert/strict";
 import express from "express";
 import type { AddressInfo } from "node:net";
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { matchmakeAuthMessage, vaultActionAuthMessage } from "@arcade1v1/game-sdk/auth";
+import {
+  matchmakeAuthMessage,
+  vaultActionAuthMessage,
+  vaultViewAuthMessage,
+} from "@arcade1v1/game-sdk/auth";
 import { actionLine, type VaultAction } from "@arcade1v1/game-sdk/vault";
 
 process.env.REQUIRE_AUTH = "true";
@@ -41,6 +45,15 @@ async function join(acc: PrivateKeyAccount, signer = acc) {
     message: matchmakeAuthMessage("vault", 0, low(acc), ts),
   });
   return post("/vault/join", { stake: 0, address: low(acc), signature, ts });
+}
+
+/** Pase de vista: query firmado que habilita la vista PRIVADA del asiento. */
+async function viewPass(roomId: string, acc: PrivateKeyAccount, signer = acc) {
+  const ts = Date.now();
+  const signature = await signer.signMessage({
+    message: vaultViewAuthMessage(roomId, low(acc), ts),
+  });
+  return `address=${low(acc)}&signature=${signature}&ts=${ts}`;
 }
 
 async function act(
@@ -132,10 +145,34 @@ test("act: con 8 asientos arranca; la acción firmada entra; la ajena y la incom
   r = await post(`/vault/${roomId}/act`, { address: low(accs[1]), action: { type: "keep" } });
   assert.equal(r.status, 400);
   assert.match(String(r.body.error), /faltan/);
+  // Un susurro privado de accs[0] a accs[1], para probar que no se filtra.
+  r = await act(roomId, accs[0], 0, "decide", {
+    type: "whisper",
+    to: low(accs[1]),
+    text: "mi digito es 7",
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  // (a) SIN pase de vista, `?address=` ajeno solo trae la vista PÚBLICA.
   r = await get(`/vault/${roomId}?address=${low(accs[1])}`);
   assert.equal(r.status, 200);
-  assert.equal(r.body.you.decided, false);
+  assert.equal(r.body.you, undefined, "sin pase no hay vista privada");
   assert.deepEqual(r.body.stage.acted, [low(accs[0])]);
+  assert.ok(
+    !(r.body.messages as { to?: string }[]).some((m) => m.to),
+    "sin pase no se ven susurros",
+  );
+  assert.ok(!JSON.stringify(r.body).includes("fragment"), "sin pase no hay fragmento");
+  // (b) CON pase firmado por el propio asiento, la vista privada.
+  r = await get(`/vault/${roomId}?${await viewPass(roomId, accs[1])}`);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.you.decided, false);
+  assert.equal(r.body.messages.length, 1);
+  assert.equal(r.body.messages[0].to, low(accs[1]));
+  // (c) CON pase firmado por OTRA wallet, vuelve a ser la vista pública.
+  r = await get(`/vault/${roomId}?${await viewPass(roomId, accs[1], accs[2])}`);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.you, undefined, "un pase ajeno no abre la vista privada");
+  assert.ok(!(r.body.messages as { to?: string }[]).some((m) => m.to));
   r = await get("/vault/recent");
   assert.equal(r.status, 200);
   assert.deepEqual(r.body.rooms, []);

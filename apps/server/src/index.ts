@@ -187,8 +187,8 @@ app.get("/", (_req, res) =>
       "POST /vault/join":
         "{ stake: 0, address, signature, ts } -> a seat in La Bóveda, the 4–8 agent room (sign matchmakeAuthMessage('vault', stake, address, ts)). Rules: @arcade1v1/game-sdk/vault (VAULT_RULES, rulesV)",
       "GET /vault/lobbies": "open rooms waiting for seats",
-      "GET /vault/:id?address=":
-        "room view for that seat (stage, phase, deadline, pot, box, seats, your fragment, messages)",
+      "GET /vault/:id?address=&signature=&ts=":
+        "room view (stage, phase, deadline, pot, box, seats, public messages); with a valid view pass (sign vaultViewAuthMessage(roomId, address, ts)) you also get your seat's private view: fragment, whispers, decided/ready",
       "POST /vault/:id/act":
         "{ address, stage, phase, action, signature, ts } -> one signed action (keep/contribute, accept/decline, vote, submit, split/steal, ready, say, whisper). Sign vaultActionAuthMessage(roomId, stage, phase, actionLine(action), ts)",
       "GET /vault/:id/log":
