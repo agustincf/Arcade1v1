@@ -562,3 +562,101 @@ function finish(s: VaultState): void {
   s.payouts = payouts;
   s.over = true;
 }
+
+// ---------------------------------------------------------------------------
+// VISTA por asiento (filtra secretos) y RE-SIMULACIÓN del registro.
+// ---------------------------------------------------------------------------
+
+export interface VaultView {
+  rulesV: number;
+  over: boolean;
+  pot: number;
+  box: number;
+  potInitial: number;
+  cardsLeft: number;
+  seats: { address: string; status: SeatStatus; pocket: number }[];
+  stage: {
+    index: number;
+    kind: StageKind;
+    phase: Phase;
+    /** Quiénes ya actuaron en esta fase (no QUÉ hicieron). */
+    acted: string[];
+    share?: number;
+    shareBonus?: number;
+    offerBps?: number;
+    offerTotal?: number;
+    codeLength?: number;
+  };
+  results: StageResult[];
+  you?: {
+    status: SeatStatus;
+    pocket: number;
+    absences: number;
+    decided: boolean;
+    ready: boolean;
+    fragment?: Fragment;
+  };
+  /** Públicos de la etapa actual + privados hacia/desde este asiento. Al
+   *  terminar la sala: todos, también los privados (el registro es público). */
+  messages: VaultMessage[];
+  payouts?: Record<string, number>;
+}
+
+/** Lo que ESTE asiento puede saber. Sin `address`: la vista pública. Nunca:
+ *  fragmentos ajenos, decisiones pendientes de otros, el mazo, la semilla,
+ *  privados entre terceros. */
+export function viewFor(s: VaultState, address?: string): VaultView {
+  const me = address ? seatOf(s, address) : undefined;
+  const st = s.stage;
+  const messages = s.messages.filter(
+    (m) =>
+      s.over || (m.stage === st.index && (!m.to || m.to === me?.address || m.from === me?.address)),
+  );
+  const v: VaultView = {
+    rulesV: s.rulesV,
+    over: s.over,
+    pot: s.pot,
+    box: s.box,
+    potInitial: s.potInitial,
+    cardsLeft: s.deck.length,
+    seats: s.seats.map(({ address, status, pocket }) => ({ address, status, pocket })),
+    stage: {
+      index: st.index,
+      kind: st.kind,
+      phase: st.phase,
+      acted: [...Object.keys(st.decisions), ...st.ready],
+      share: st.share,
+      shareBonus: st.shareBonus,
+      offerBps: st.offerBps,
+      offerTotal: st.offerTotal,
+      codeLength: st.codeLength,
+    },
+    results: s.results,
+    messages,
+  };
+  if (me) {
+    v.you = {
+      status: me.status,
+      pocket: me.pocket,
+      absences: me.absences,
+      decided: !!st.decisions[me.address],
+      ready: st.ready.includes(me.address),
+      fragment: st.fragments?.[me.address],
+    };
+  }
+  if (s.payouts) v.payouts = s.payouts;
+  return v;
+}
+
+/** Re-simula una sala desde su registro. Es lo que corre el árbitro para
+ *  operar y lo que corre cualquiera para verificar la tabla de pagos. */
+export function replayVault(
+  seed: string,
+  seats: string[],
+  events: VaultEvent[],
+  opts: { deck?: StageKind[] } = {},
+): VaultState {
+  let s = createVault(seed, seats, opts);
+  for (const ev of events) s = applyEvent(s, ev);
+  return s;
+}
