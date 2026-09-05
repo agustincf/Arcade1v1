@@ -465,4 +465,37 @@ test("scripts/vault-verify: da OK con el registro real y detecta una tabla adult
   assert.ok(
     bad.checks.some((c: { name: string; ok: boolean }) => /re-simulación/.test(c.name) && !c.ok),
   );
+  // Versión de reglas adulterada.
+  const otherRules = await verifyVaultLog({ ...log, rulesV: log.rulesV + 1 });
+  assert.equal(otherRules.ok, false);
+  assert.ok(
+    otherRules.checks.some(
+      (c: { name: string; ok: boolean }) => /versión de reglas/.test(c.name) && !c.ok,
+    ),
+  );
+
+  // Sala jugada SOLO por plazos: los cierres son legítimos con su phaseMs...
+  V.__resetVaultForTest();
+  const idle = accounts(4);
+  const S = T0;
+  const idleRoom = await startRoom(idle, S);
+  V.getVaultRoom(idleRoom, undefined, S + 100 * V.VAULT_PHASE_MS);
+  const byDeadline = JSON.parse(JSON.stringify(V.vaultLog(idleRoom, S + 100 * V.VAULT_PHASE_MS)));
+  const fine = await verifyVaultLog(byDeadline, V.VAULT_PHASE_MS);
+  assert.equal(fine.ok, true, JSON.stringify(fine.checks));
+  // ...y un cierre por plazo disfrazado de cierre anticipado NO lo es (nadie
+  // actuó en esa fase).
+  const faked = {
+    ...byDeadline,
+    events: byDeadline.events.map((e: { type: string }, i: number) =>
+      i === 0 ? { ...e, reason: "all_acted" } : e,
+    ),
+  };
+  const caught = await verifyVaultLog(faked, V.VAULT_PHASE_MS);
+  assert.equal(caught.ok, false);
+  assert.ok(
+    caught.checks.some(
+      (c: { name: string; ok: boolean }) => /cierres de fase/.test(c.name) && !c.ok,
+    ),
+  );
 });

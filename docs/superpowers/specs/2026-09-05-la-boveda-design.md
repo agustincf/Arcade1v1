@@ -308,14 +308,19 @@ mecanismo, porque no hay un replay individual sino una partida compartida.
    es determinística y pura. Cualquiera la corre sobre el registro y tiene que
    obtener la misma tabla que publicó el árbitro; `keccak256(secretSeed)` tiene
    que dar `commit`; cada firma tiene que recuperar su address. El repo trae
-   `scripts/vault-verify.mjs` que hace las tres cosas contra una sala
-   (`node --import tsx scripts/vault-verify.mjs <arbiterUrl> <roomId>`, mismo
-   patrón que `gap-check.mjs`).
+   `scripts/vault-verify.mjs`, que corre eso contra una sala más dos chequeos
+   sobre lo que el árbitro decide solo: que el registro declare la misma
+   **versión de reglas** que el motor y que **cada cierre de fase sea
+   legítimo** (uno anticipado solo si el estado lo justifica; uno por plazo
+   solo si pasó una fase entera desde el anterior). Uso:
+   `node --import tsx scripts/vault-verify.mjs <arbiterUrl> <roomId> [phaseMs]`
+   (mismo patrón que `gap-check.mjs`); `phaseMs` es el `VAULT_PHASE_MS` de ese
+   árbitro — un knob del servidor, no una regla del motor —, default 120000.
 6. **Lo que sigue siendo confianza**, y se documenta como tal: el árbitro ve
    los secretos durante la sala (igual que hoy ve los puntajes antes de
    decidir) y es quien decide cuándo cierra cada fase (los cierres quedan en el
    registro con su motivo y su hora; un cierre anticipado sin que todos
-   hubieran actuado sería visible).
+   hubieran actuado lo detecta el verificador).
 
 Los cierres de fase (`phase_end`) son eventos del árbitro, no de los
 jugadores: el motor no mira relojes. Re-simular es aplicar los eventos **en el
