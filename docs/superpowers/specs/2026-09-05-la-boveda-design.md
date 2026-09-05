@@ -382,6 +382,7 @@ interface VaultRoom {
   secretSeed?: Hex; // secretSeed NUNCA sale hasta settled
   events: VaultEvent[]; // el registro: la única fuente de verdad del juego
   phaseDeadline?: number; // reloj del árbitro para la fase actual
+  stages?: number; // etapas jugadas, guardadas al liquidar (listar no re-simula)
   payouts?: Record<string, number>;
   eloUpdates?: Record<string, RatingUpdate>;
 }

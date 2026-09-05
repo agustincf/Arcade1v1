@@ -149,6 +149,12 @@ test("sala completa: 4 agentes firmando hasta settled; pagos, ELO, semilla revel
   assert.ok(log.events.some((e) => e.type === "action" && e.action.type === "say"));
   assert.equal(V.recentVaultRooms(5)[0].roomId, roomId);
   assert.equal(V.recentVaultRooms(5)[0].stages, done.results!.length);
+  // `stages` queda GUARDADO en la sala: listar no re-simula ni un registro
+  // (tras restaurar, el estado derivado no existe y el número sigue estando).
+  const raw = V.serializeVault();
+  V.__resetVaultForTest();
+  V.restoreVaultFrom(raw);
+  assert.equal(V.recentVaultRooms(5)[0].stages, done.results!.length);
   // Antes de terminar, el registro está cerrado (se prueba en la sala del test de plazos).
 });
 
@@ -310,6 +316,23 @@ test("pase de vista: en la Cerradura, un pase ajeno no muestra el fragmento del 
   const own = await accs[0].signMessage({ message: vaultViewAuthMessage(roomId, seats[0], now) });
   const ok = (await V.getVaultRoom(roomId, seats[0], now, { signature: own, ts: now }))!;
   assert.ok(ok.you!.fragment, "con su propio pase, el asiento ve su fragmento");
+});
+
+test("recentVaultRooms: lee las etapas guardadas, no re-simula el registro", async () => {
+  V.__resetVaultForTest();
+  const accs = accounts(4);
+  const roomId = await startRoom(accs);
+  const done = await playOut(roomId, accs);
+  // Registro adulterado a mano: si listar re-simulara, esto lanzaría. Lo que
+  // se publica es el `stages` que quedó guardado al liquidar.
+  const rooms = JSON.parse(V.serializeVault()) as { id: string; events: unknown[] }[];
+  const room = rooms.find((r) => r.id === roomId)!;
+  room.events = [{ type: "phase_end", stage: 99, phase: "decide", at: 0, reason: "deadline" }];
+  V.__resetVaultForTest();
+  V.restoreVaultFrom(JSON.stringify(rooms));
+  const recent = V.recentVaultRooms(5);
+  assert.equal(recent[0].roomId, roomId);
+  assert.equal(recent[0].stages, done.results!.length);
 });
 
 test("settleDue: una sala rota se disuelve sola y no arrastra a las sanas", async () => {

@@ -90,6 +90,7 @@ export interface VaultRoom {
   secretSeed?: Hex; // NUNCA sale en una vista hasta `settled`
   events: VaultEvent[]; // el registro: única fuente de verdad del juego
   phaseDeadline?: number;
+  stages?: number; // etapas jugadas, guardadas al liquidar (listar no re-simula)
   payouts?: Record<string, number>;
   eloUpdates?: Record<string, RatingUpdate>;
 }
@@ -377,12 +378,17 @@ function settleRoom(room: VaultRoom, s: VaultState, now: number): void {
   room.status = "settled";
   room.settledAt = now;
   room.phaseDeadline = undefined;
+  room.stages = s.results.length;
   room.payouts = s.payouts;
   room.eloUpdates = applyMultiResult(
     "vault",
     room.seats.map((a) => ({ address: a, score: s.payouts![a] })),
   );
   recordMatchSettled(0, now);
+  // La sala ya no cambia: soltamos su estado derivado. Si alguien la mira, se
+  // re-simula bajo demanda y vuelve a cachearse; lo que NO puede pasar es que
+  // listar las últimas 100 re-simule 100 registros de golpe tras un reinicio.
+  states.delete(room.id);
 }
 
 /** Una acción firmada de un asiento. La firma cubre sala + etapa + fase +
@@ -490,7 +496,7 @@ export function recentVaultRooms(limit = 20, now = Date.now()): RecentRoom[] {
       seats: r.seats,
       startedAt: r.startedAt,
       settledAt: r.settledAt,
-      stages: stateOf(r).results.length,
+      stages: r.stages ?? 0,
       payouts: r.payouts,
     }));
 }
