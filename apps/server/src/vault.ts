@@ -19,18 +19,28 @@ import {
   createVault,
   replayVault,
   viewFor,
+  applyEvent,
+  phaseComplete,
+  validateAction,
+  actionLine,
   VAULT_RULES,
   VAULT_RULES_V,
+  type VaultAction,
   type VaultEvent,
   type VaultState,
   type VaultView,
   type SeatStatus,
+  type PhaseEndReason,
 } from "@arcade1v1/game-sdk/vault";
-import { matchmakeAuthMessage, MATCHMAKE_AUTH_TTL_MS } from "@arcade1v1/game-sdk/auth";
+import {
+  matchmakeAuthMessage,
+  vaultActionAuthMessage,
+  MATCHMAKE_AUTH_TTL_MS,
+} from "@arcade1v1/game-sdk/auth";
 import { AUTH_REQUIRED } from "./matchmaking.js";
-import type { RatingUpdate } from "./ratings.js";
+import { applyMultiResult, type RatingUpdate } from "./ratings.js";
 import { jsonStore } from "./persist.js";
-import { recordMatchCreated } from "./stats.js";
+import { recordMatchCreated, recordMatchSettled } from "./stats.js";
 
 /** Error esperable (pedido inválido, sala cerrada, firma mala…): las rutas lo
  *  devuelven como 400. Cualquier otro error es un bug y va como 500 + log. */
@@ -261,14 +271,31 @@ function dissolveRoom(room: VaultRoom, now: number): void {
   if (openLobby.get(room.stake) === room.id) openLobby.delete(room.stake);
 }
 
-/** Vence lobbies (arranca con ≥ mínimo, disuelve si no) y purga salas viejas.
- *  Toda lectura/acción la llama primero con su reloj, así los tests no esperan. */
+/** Vence lobbies (arranca con ≥ mínimo, disuelve si no), vence FASES con el
+ *  reloj del árbitro y purga salas viejas. Toda lectura/acción la llama
+ *  primero con su reloj, así los tests no esperan y el ticker es solo un
+ *  respaldo para salas que nadie consulta. */
 export function settleDue(now = Date.now()): void {
   let dirty = false;
   for (const room of rooms.values()) {
     if (room.status === "lobby" && now - room.createdAt >= VAULT_LOBBY_MS) {
       if (room.seats.length >= VAULT_MIN_SEATS) startRoom(room, now);
       else dissolveRoom(room, now);
+      dirty = true;
+    } else if (
+      room.status === "playing" &&
+      room.phaseDeadline !== undefined &&
+      now >= room.phaseDeadline
+    ) {
+      // Pueden vencer varias fases si el proceso estuvo dormido: cada cierre
+      // lleva la hora de SU plazo (no `now`), así el registro es fiel.
+      while (
+        room.status === "playing" &&
+        room.phaseDeadline !== undefined &&
+        now >= room.phaseDeadline
+      ) {
+        closePhase(room, "deadline", room.phaseDeadline);
+      }
       dirty = true;
     } else if (
       (room.status === "settled" || room.status === "dissolved") &&
@@ -281,6 +308,186 @@ export function settleDue(now = Date.now()): void {
     }
   }
   if (dirty) persist();
+}
+
+// ---- Juego --------------------------------------------------------------------
+
+export interface ActBody {
+  stage: number;
+  phase: string;
+  action: unknown;
+  signature?: string;
+  ts?: number;
+}
+
+/** Cierra la fase actual con el motivo dado; si la sala terminó, la liquida. */
+function closePhase(room: VaultRoom, reason: PhaseEndReason, at: number): void {
+  const s = stateOf(room);
+  const ev: VaultEvent = {
+    type: "phase_end",
+    stage: s.stage.index,
+    phase: s.stage.phase,
+    at,
+    reason,
+  };
+  const next = applyEvent(s, ev);
+  room.events.push(ev);
+  states.set(room.id, next);
+  if (next.over) settleRoom(room, next, at);
+  else room.phaseDeadline = at + VAULT_PHASE_MS;
+}
+
+/** Liquidación: tabla de pagos del motor + ELO multi-jugador + métrica. En la
+ *  etapa 4 acá se firma la tabla para el contrato. */
+function settleRoom(room: VaultRoom, s: VaultState, now: number): void {
+  room.status = "settled";
+  room.settledAt = now;
+  room.phaseDeadline = undefined;
+  room.payouts = s.payouts;
+  room.eloUpdates = applyMultiResult(
+    "vault",
+    room.seats.map((a) => ({ address: a, score: s.payouts![a] })),
+  );
+  recordMatchSettled(0, now);
+}
+
+/** Una acción firmada de un asiento. La firma cubre sala + etapa + fase +
+ *  línea canónica + ts; el motor valida el resto y la rechaza si no vale. */
+export async function actVault(
+  roomId: string,
+  address: string,
+  body: ActBody,
+  now = Date.now(),
+): Promise<VaultRoomView> {
+  settleDue(now);
+  const room = rooms.get(roomId);
+  if (!room) throw new VaultError("room not found");
+  address = normAddr(address);
+  if (!room.seats.includes(address)) throw new VaultError("not a seat of this room");
+  if (room.status !== "playing") throw new VaultError(`room not open (${room.status})`);
+  if (body.phase !== "talk" && body.phase !== "decide") throw new VaultError("invalid phase");
+  const stage = Number(body.stage);
+  if (!Number.isInteger(stage)) throw new VaultError("invalid stage");
+  let action: VaultAction;
+  try {
+    action = validateAction(body.action);
+  } catch (e) {
+    throw new VaultError((e as Error).message);
+  }
+  const line = actionLine(action);
+  if (body.signature) {
+    const ts = Number(body.ts);
+    if (!Number.isFinite(ts) || Math.abs(now - ts) > MATCHMAKE_AUTH_TTL_MS) {
+      throw new VaultError("auth expired");
+    }
+    let signer: string;
+    try {
+      signer = await recoverMessageAddress({
+        message: vaultActionAuthMessage(room.id, stage, body.phase, line, ts),
+        signature: body.signature as Hex,
+      });
+    } catch {
+      throw new VaultError("bad signature");
+    }
+    if (signer.toLowerCase() !== address) throw new VaultError("bad signature");
+  } else if (AUTH_REQUIRED) {
+    throw new VaultError("signature required");
+  }
+  // Después del await el estado pudo cambiar (otra acción cerró la fase): se
+  // aplica sobre el estado ACTUAL. Si la etapa/fase ya no coinciden, el motor
+  // lo rechaza con "stage or phase mismatch" y el agente refresca su vista.
+  const fresh = rooms.get(roomId);
+  if (!fresh || fresh.status !== "playing") throw new VaultError("room not open");
+  const s = stateOf(fresh);
+  const ev: VaultEvent = {
+    type: "action",
+    address,
+    stage,
+    phase: body.phase,
+    action,
+    ts: Number(body.ts ?? now),
+    signature: body.signature,
+  };
+  let next: VaultState;
+  try {
+    next = applyEvent(s, ev);
+  } catch (e) {
+    throw new VaultError((e as Error).message);
+  }
+  fresh.events.push(ev);
+  states.set(fresh.id, next);
+  const done = phaseComplete(next);
+  if (done) closePhase(fresh, done, now);
+  persist();
+  return roomView(fresh, address);
+}
+
+/** Registro completo de una sala TERMINADA: semilla, compromiso, eventos
+ *  firmados y tabla de pagos. Es lo que re-simula cualquier verificador. */
+export function vaultLog(roomId: string, now = Date.now()) {
+  settleDue(now);
+  const room = rooms.get(roomId);
+  if (!room) throw new VaultError("room not found");
+  if (room.status !== "settled") throw new VaultError("room not settled yet");
+  return {
+    roomId: room.id,
+    stake: room.stake,
+    rulesV: VAULT_RULES_V,
+    seats: room.seats,
+    commit: room.commit,
+    secretSeed: room.secretSeed,
+    startedAt: room.startedAt,
+    settledAt: room.settledAt,
+    events: room.events,
+    payouts: room.payouts,
+  };
+}
+
+export interface RecentRoom {
+  roomId: Hex;
+  stake: number;
+  seats: string[];
+  startedAt?: number;
+  settledAt?: number;
+  stages: number;
+  payouts?: Record<string, number>;
+}
+
+/** Salas terminadas recientes (para la web y los agentes curiosos). */
+export function recentVaultRooms(limit = 20, now = Date.now()): RecentRoom[] {
+  settleDue(now);
+  const lim = Number.isFinite(limit) ? Math.max(1, Math.min(100, limit)) : 20;
+  return [...rooms.values()]
+    .filter((r) => r.status === "settled")
+    .sort((a, b) => (b.settledAt ?? 0) - (a.settledAt ?? 0))
+    .slice(0, lim)
+    .map((r) => ({
+      roomId: r.id,
+      stake: r.stake,
+      seats: r.seats,
+      startedAt: r.startedAt,
+      settledAt: r.settledAt,
+      stages: stateOf(r).results.length,
+      payouts: r.payouts,
+    }));
+}
+
+// ---- Ticker -------------------------------------------------------------------
+
+let ticker: NodeJS.Timeout | undefined;
+
+/** Respaldo: vence lobbies y fases aunque nadie consulte la sala. Lo arranca
+ *  index.ts (nunca al importar: los tests usan su propio reloj). */
+export function startVaultTicker(): void {
+  if (ticker || !vaultEnabled()) return;
+  ticker = setInterval(() => {
+    try {
+      settleDue();
+    } catch (e) {
+      console.error("[vault] tick:", (e as Error).message);
+    }
+  }, VAULT_TICK_MS);
+  ticker.unref?.();
 }
 
 // ---- Vistas -------------------------------------------------------------------
