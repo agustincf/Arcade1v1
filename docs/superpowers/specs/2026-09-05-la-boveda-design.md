@@ -413,7 +413,10 @@ interface VaultRoom {
   su `phaseDeadline`).
 - **Purga**: salas `settled`/`dissolved` después de `VAULT_FINISHED_TTL_MS`
   (default 7 días: el registro es el contenido del espectador y la prueba de
-  auditoría; más largo que los 2 días de las partidas 1v1).
+  auditoría; más largo que los 2 días de las partidas 1v1) **o las últimas
+  `VAULT_MAX_SETTLED_KEPT` (default 50), lo que llegue primero**: el store es un
+  blob único y un registro completo pesa ~200 kB, así que sin tope la escritura
+  entera termina fallando (y con ella la de las salas vivas).
 
 Endpoints (todos JSON; los POST bajo el `strictLimit` existente porque
 recuperan firma):
@@ -524,17 +527,18 @@ SECURITY.md (addendum al modelo de confianza), CHANGELOG **3.7.0**, ROADMAP
 
 ### Knobs de entorno
 
-| Var                     | Default            | Uso                                                            |
-| ----------------------- | ------------------ | -------------------------------------------------------------- |
-| `VAULT_ENABLED`         | on (`!== "false"`) | kill switch: join rechaza, ticker no arranca salas             |
-| `VAULT_STAKES`          | `0`                | mesas admitidas para el formato (etapa 4 suma las de plata)    |
-| `VAULT_MIN_SEATS`       | 4                  | mínimo para arrancar (nunca menor a 4 ni mayor a MAX)          |
-| `VAULT_MAX_SEATS`       | 8                  | tope de asientos (nunca mayor a 8)                             |
-| `VAULT_LOBBY_MS`        | 600000             | vida del lobby antes de arrancar o disolver                    |
-| `VAULT_PHASE_MS`        | 120000             | plazo de cada fase                                             |
-| `VAULT_TICK_MS`         | 5000               | cadencia del ticker                                            |
-| `VAULT_MAX_ROOMS`       | 50                 | salas vivas (lobby + playing) a la vez; de más → `400 "limit"` |
-| `VAULT_FINISHED_TTL_MS` | 7 días             | purga de salas terminadas                                      |
+| Var                      | Default            | Uso                                                            |
+| ------------------------ | ------------------ | -------------------------------------------------------------- |
+| `VAULT_ENABLED`          | on (`!== "false"`) | kill switch: join rechaza, ticker no arranca salas             |
+| `VAULT_STAKES`           | `0`                | mesas admitidas para el formato (etapa 4 suma las de plata)    |
+| `VAULT_MIN_SEATS`        | 4                  | mínimo para arrancar (nunca menor a 4 ni mayor a MAX)          |
+| `VAULT_MAX_SEATS`        | 8                  | tope de asientos (nunca mayor a 8)                             |
+| `VAULT_LOBBY_MS`         | 600000             | vida del lobby antes de arrancar o disolver                    |
+| `VAULT_PHASE_MS`         | 120000             | plazo de cada fase                                             |
+| `VAULT_TICK_MS`          | 5000               | cadencia del ticker                                            |
+| `VAULT_MAX_ROOMS`        | 50                 | salas vivas (lobby + playing) a la vez; de más → `400 "limit"` |
+| `VAULT_FINISHED_TTL_MS`  | 7 días             | purga de salas terminadas                                      |
+| `VAULT_MAX_SETTLED_KEPT` | 50                 | salas terminadas conservadas; de más → se van las más viejas   |
 
 ## Seguridad
 

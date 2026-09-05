@@ -70,6 +70,7 @@ export const VAULT_PHASE_MS = envNum("VAULT_PHASE_MS", 2 * 60_000);
 export const VAULT_TICK_MS = envNum("VAULT_TICK_MS", 5_000);
 export const VAULT_MAX_ROOMS = envNum("VAULT_MAX_ROOMS", 50);
 export const VAULT_FINISHED_TTL_MS = envNum("VAULT_FINISHED_TTL_MS", 7 * 24 * 60 * 60_000);
+export const VAULT_MAX_SETTLED_KEPT = envNum("VAULT_MAX_SETTLED_KEPT", 50);
 // Etapa 1: SOLO la mesa gratis. Las mesas de plata llegan con el contrato de N
 // depósitos (etapa 4); hasta entonces aceptar otro stake crearía salas sin escrow.
 const STAKES_ALLOWED = [0];
@@ -320,6 +321,24 @@ function settleRoomDue(room: VaultRoom, now: number): boolean {
   return false;
 }
 
+/** Además del TTL, un TOPE de salas terminadas conservadas. El store es un
+ *  blob único: 200 registros completos (~200 kB cada uno) no entran en una
+ *  escritura de Upstash, y cuando el SET falla solo se loguea — la persistencia
+ *  se corta EN SILENCIO, también para las salas vivas. Se van las más viejas
+ *  por `settledAt`. */
+function purgeExcessFinished(): boolean {
+  const finished = [...rooms.values()].filter(
+    (r) => r.status === "settled" || r.status === "dissolved",
+  );
+  if (finished.length <= VAULT_MAX_SETTLED_KEPT) return false;
+  finished.sort((a, b) => (a.settledAt ?? 0) - (b.settledAt ?? 0));
+  for (const r of finished.slice(0, finished.length - VAULT_MAX_SETTLED_KEPT)) {
+    rooms.delete(r.id);
+    states.delete(r.id);
+  }
+  return true;
+}
+
 /** Vence lobbies (arranca con ≥ mínimo, disuelve si no), vence FASES con el
  *  reloj del árbitro y purga salas viejas. Toda lectura/acción la llama
  *  primero con su reloj, así los tests no esperan y el ticker es solo un
@@ -342,6 +361,7 @@ export function settleDue(now = Date.now()): void {
       dirty = true;
     }
   }
+  if (purgeExcessFinished()) dirty = true;
   if (dirty) persist();
 }
 

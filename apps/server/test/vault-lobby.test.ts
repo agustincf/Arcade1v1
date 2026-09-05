@@ -9,6 +9,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
 
 process.env.VAULT_MAX_ROOMS = "2";
+process.env.VAULT_MAX_SETTLED_KEPT = "2";
 const V = await import("../src/vault.js");
 
 const base = BigInt("0x" + Date.now().toString(16).padStart(12, "0") + "0a00");
@@ -94,6 +95,26 @@ test("validaciones: mesa, address, kill switch y firma", async () => {
     /auth expired/,
   );
   await assert.rejects(() => V.joinVault(0, me, { signature: "0x1234", ts }, T0), /bad signature/);
+});
+
+test("tope de salas terminadas: al pasarse, se purgan las más viejas", async () => {
+  V.__resetVaultForTest();
+  // Tres lobbies que vencen con menos de 4 asientos, uno detrás del otro.
+  const ids: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const at = T0 + i * 2 * V.VAULT_LOBBY_MS;
+    const v = await V.joinVault(0, addr(), undefined, at);
+    ids.push(v.roomId);
+    assert.equal(
+      (await V.getVaultRoom(v.roomId, undefined, at + V.VAULT_LOBBY_MS))!.status,
+      "dissolved",
+    );
+  }
+  const now = T0 + 6 * V.VAULT_LOBBY_MS;
+  assert.equal(V.VAULT_MAX_SETTLED_KEPT, 2);
+  assert.equal(await V.getVaultRoom(ids[0], undefined, now), null, "la más vieja se purga");
+  assert.ok(await V.getVaultRoom(ids[1], undefined, now));
+  assert.ok(await V.getVaultRoom(ids[2], undefined, now));
 });
 
 test("persistencia: serializar y restaurar conserva el lobby abierto y una sala en juego", async () => {
