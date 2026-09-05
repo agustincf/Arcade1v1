@@ -178,3 +178,284 @@ test("charla: ready de todos la cierra; en decide, ready solo vale en la Cerradu
   assert.throws(() => act(s, A(1), { type: "vote", target: A(1) }), /invalid vote target/);
   assert.throws(() => act(s, A(1), { type: "vote", target: A(9) }), /invalid vote target/);
 });
+
+test("Oferta: los que aceptan se van con su parte y, con 2 vivos, viene la Final", () => {
+  let s = createVault(SEED, seats(4), { deck: ["offer", "offer"] });
+  s = allDecide(s, { type: "contribute" }); // pot 3520 → decaimiento 176 → 3344
+  assert.equal(s.stage.kind, "offer");
+  assert.equal(s.pot, 3344);
+  const total = s.stage.offerTotal!;
+  const offerBps = s.stage.offerBps!;
+  assert.ok(offerBps >= 1000 && offerBps <= 2500 && offerBps % 100 === 0, `offerBps=${offerBps}`);
+  assert.equal(total, Math.floor((3344 * offerBps) / 10000));
+  s = act(s, A(1), { type: "accept" });
+  s = act(s, A(2), { type: "accept" });
+  s = act(s, A(3), { type: "decline" });
+  s = end(s); // A4 ausente = rechaza
+  const r = s.results[1];
+  assert.deepEqual(r.accepted, [A(1), A(2)]);
+  assert.equal(r.eachGot, Math.floor(total / 2));
+  assert.equal(seatOf(s, A(1))!.status, "left");
+  assert.equal(seatOf(s, A(1))!.pocket, Math.floor(total / 2));
+  assert.equal(seatOf(s, A(4))!.absences, 1);
+  assertConserved(s);
+  assert.equal(s.stage.kind, "final");
+  assert.equal(s.stage.phase, "talk");
+});
+
+test("Oferta anulada si aceptan todos: nadie se va, se quema 10 %, y con el mazo vacío sigue un Voto", () => {
+  let s = createVault(SEED, seats(4), { deck: ["offer"] });
+  s = allDecide(s, { type: "contribute" });
+  const pot = s.pot;
+  s = allDecide(s, { type: "accept" });
+  const r = s.results[1];
+  assert.equal(r.voided, true);
+  assert.deepEqual(r.accepted, seats(4));
+  assert.equal(aliveSeats(s).length, 4);
+  const burn = Math.floor(pot * 0.1);
+  assert.equal(r.potAfter, pot - burn - Math.floor((pot - burn) * 0.05));
+  assertConserved(s);
+  assert.equal(s.stage.kind, "vote"); // mazo agotado con 4 vivos → Voto
+});
+
+test("Voto: el más votado se va con su bolsillo; ausente = voto en contra propio; se publican conteos, no votantes", () => {
+  let s = createVault(SEED, seats(4), { deck: ["vote"] });
+  s = act(s, A(2), { type: "keep" }); // A2 guarda 160
+  s = end(s);
+  s = skipTalk(s);
+  s = act(s, A(1), { type: "vote", target: A(2) });
+  s = act(s, A(3), { type: "vote", target: A(2) });
+  s = act(s, A(4), { type: "vote", target: A(1) });
+  s = end(s); // A2 ausente → un voto en contra propio → 3
+  const r = s.results[1];
+  assert.deepEqual(r.votes, { [A(1)]: 1, [A(2)]: 3, [A(3)]: 0, [A(4)]: 0 });
+  assert.equal(r.eliminated, A(2));
+  assert.ok(!("voters" in r) && !("decisions" in r));
+  assert.equal(seatOf(s, A(2))!.status, "voted_out");
+  assert.equal(seatOf(s, A(2))!.pocket, 160);
+  assertConserved(s);
+  assert.equal(aliveSeats(s).length, 3);
+});
+
+test("Voto empatado: se va el de bolsillo más grande; después el que acumuló más votos", () => {
+  let s = createVault(SEED, seats(4), { deck: ["vote", "vote", "vote"] });
+  s = act(s, A(1), { type: "keep" });
+  s = end(s);
+  s = skipTalk(s);
+  // 2-2 entre A1 y A2: A1 tiene bolsillo → se va A1.
+  s = act(s, A(1), { type: "vote", target: A(2) });
+  s = act(s, A(2), { type: "vote", target: A(1) });
+  s = act(s, A(3), { type: "vote", target: A(1) });
+  s = act(s, A(4), { type: "vote", target: A(2) });
+  s = end(s);
+  assert.equal(s.results[1].eliminated, A(1));
+  // Quedan A2, A3, A4 con bolsillo 0. A2 acumula 2 votos previos; A3 y A4, 0.
+  s = skipTalk(s);
+  s = act(s, A(2), { type: "vote", target: A(3) });
+  s = act(s, A(3), { type: "vote", target: A(4) });
+  s = act(s, A(4), { type: "vote", target: A(2) });
+  s = end(s); // 1-1-1 → se va el de más votos acumulados: A2
+  assert.equal(s.results[2].eliminated, A(2));
+  assert.equal(s.stage.kind, "final");
+});
+
+test("Voto empatado sin diferencias: decide el orden oculto de la semilla", () => {
+  let s = createVault(SEED, seats(4), { deck: ["vote"] });
+  s = allDecide(s, { type: "contribute" });
+  s = skipTalk(s);
+  s = act(s, A(1), { type: "vote", target: A(2) });
+  s = act(s, A(2), { type: "vote", target: A(1) });
+  s = act(s, A(3), { type: "vote", target: A(4) });
+  s = act(s, A(4), { type: "vote", target: A(3) });
+  s = end(s);
+  assert.equal(s.results[1].eliminated, s.tiebreak[0]);
+});
+
+test("Cerradura: fragmentos secretos por asiento, un intento, pasar con ready, abrir para todos premia de la caja", () => {
+  let s = createVault(SEED, seats(4), { deck: ["lock"] });
+  s = allDecide(s, { type: "contribute" });
+  assert.equal(s.stage.kind, "lock");
+  assert.equal(s.stage.phase, "talk");
+  assert.equal(s.stage.codeLength, 4);
+  const frags = s.stage.fragments!;
+  assert.deepEqual(Object.keys(frags).sort(), seats(4));
+  assert.deepEqual(
+    seats(4).map((a) => frags[a].pos),
+    [0, 1, 2, 3],
+  );
+  const code = seats(4)
+    .map((a) => frags[a].digit)
+    .join("");
+  assert.equal(code, s.stage.code);
+  s = skipTalk(s);
+  assert.throws(
+    () => act(s, A(1), { type: "submit", code: "123", intent: "all" }),
+    /invalid code length/,
+  );
+  s = act(s, A(1), { type: "submit", code, intent: "all" });
+  assert.throws(() => act(s, A(1), { type: "submit", code, intent: "me" }), /already decided/);
+  s = act(s, A(2), { type: "submit", code: code === "0000" ? "0001" : "0000", intent: "all" });
+  s = act(s, A(3), { type: "ready" }); // pasa
+  assert.equal(phaseComplete(s), null);
+  s = act(s, A(4), { type: "ready" });
+  assert.equal(phaseComplete(s), "all_acted");
+  const pot = s.pot;
+  const box = s.box;
+  s = end(s, "all_acted");
+  const r = s.results[1];
+  assert.equal(r.code, code);
+  assert.deepEqual(r.solvers, [A(1)]);
+  assert.deepEqual(r.traitors, []);
+  const bonus = Math.min(box, Math.floor(pot * 0.2));
+  assert.equal(r.bonus, bonus);
+  assert.equal(r.potAfter, pot + bonus - Math.floor((pot + bonus) * 0.05));
+  assert.equal(seatOf(s, A(3))!.absences, 0, "pasar en la Cerradura no es ausencia");
+  assertConserved(s);
+});
+
+test("Cerradura: los traidores se reparten el 10 %; si nadie acierta se quema 10 %", () => {
+  let s = createVault(SEED, seats(4), { deck: ["lock", "lock"] });
+  s = allDecide(s, { type: "contribute" });
+  s = skipTalk(s);
+  const code = s.stage.code!;
+  const pot = s.pot;
+  s = act(s, A(1), { type: "submit", code, intent: "me" });
+  s = act(s, A(2), { type: "submit", code, intent: "me" });
+  s = act(s, A(3), { type: "submit", code, intent: "all" });
+  s = end(s);
+  let r = s.results[1];
+  assert.deepEqual(r.solvers, [A(1), A(2), A(3)]);
+  assert.deepEqual(r.traitors, [A(1), A(2)]);
+  assert.equal(r.bonus, undefined);
+  const each = Math.floor(Math.floor(pot * 0.1) / 2);
+  assert.equal(r.eachGot, each);
+  assert.equal(seatOf(s, A(1))!.pocket, each);
+  assert.equal(seatOf(s, A(3))!.pocket, 0);
+  assertConserved(s);
+  // Segunda Cerradura: nadie intenta (vence el plazo).
+  s = skipTalk(s);
+  const pot2 = s.pot;
+  s = end(s);
+  r = s.results[2];
+  assert.equal(r.failed, true);
+  const burned = Math.floor(pot2 * 0.1);
+  assert.equal(r.potAfter, pot2 - burned - Math.floor((pot2 - burned) * 0.05));
+  assertConserved(s);
+});
+
+test("Final: dividir/dividir, robar/dividir (ausente divide), robar/robar; sin decaimiento; tabla suma el total", () => {
+  const setup = () => {
+    let s = createVault(SEED, seats(4), { deck: ["offer"] });
+    s = allDecide(s, { type: "contribute" });
+    s = act(s, A(3), { type: "accept" });
+    s = act(s, A(4), { type: "accept" });
+    s = end(s); // quedan A1 y A2 → Final
+    assert.equal(s.stage.kind, "final");
+    return skipTalk(s);
+  };
+  let s = setup();
+  const pot = s.pot;
+  const box = s.box;
+  s = act(s, A(1), { type: "split" });
+  s = act(s, A(2), { type: "split" });
+  s = end(s);
+  assert.equal(s.over, true);
+  assert.equal(s.pot, 0);
+  assert.equal(seatOf(s, A(1))!.pocket, Math.floor(pot / 2));
+  assert.equal(seatOf(s, A(1))!.status, "finished");
+  assert.equal(s.results[s.results.length - 1].decay, undefined);
+  assertConserved(s);
+  assert.equal(
+    Object.values(s.payouts!).reduce((a, b) => a + b, 0),
+    4000,
+  );
+  assert.throws(() => act(s, A(1), { type: "say", text: "hola" }), /room already over/);
+
+  s = setup();
+  s = act(s, A(1), { type: "steal" });
+  s = end(s); // A2 ausente → divide → A1 se lleva todo
+  assert.equal(seatOf(s, A(1))!.pocket, pot);
+  assert.equal(seatOf(s, A(2))!.pocket, 0);
+  assert.deepEqual(s.results[s.results.length - 1].choices, { [A(1)]: "steal", [A(2)]: "split" });
+
+  s = setup();
+  s = act(s, A(1), { type: "steal" });
+  s = act(s, A(2), { type: "steal" });
+  s = end(s);
+  assert.equal(s.box, box + pot);
+  assert.equal(seatOf(s, A(1))!.pocket, 0);
+  const each = Math.floor((box + pot) / 4);
+  assert.equal(s.payouts![A(1)], each);
+  assert.equal(
+    Object.values(s.payouts!).reduce((a, b) => a + b, 0),
+    4000,
+  );
+});
+
+test("director: un solo vivo se lleva el pozo; sin vivos, el pozo va a la caja y se reparte", () => {
+  let s = createVault(SEED, seats(4), { deck: ["offer"] });
+  s = allDecide(s, { type: "contribute" });
+  const pot = s.pot;
+  const total = s.stage.offerTotal!;
+  for (const a of [A(1), A(2), A(3)]) s = act(s, a, { type: "accept" });
+  s = end(s);
+  assert.equal(s.over, true);
+  // Orden del director: efecto de la etapa → abandono → decaimiento → ¿vivos?
+  // El sobreviviente cobra el pozo YA decaído (spec, "El director", pasos 1-4).
+  const potLeft = pot - Math.floor(total / 3) * 3;
+  const decay = Math.floor(potLeft * 0.05);
+  assert.equal(s.results[1].decay, decay);
+  assert.equal(seatOf(s, A(4))!.pocket, potLeft - decay);
+  assert.equal(seatOf(s, A(4))!.status, "finished");
+  assertConserved(s);
+
+  s = createVault(SEED, seats(4), { deck: ["offer"] });
+  s = end(s); // Reparto: todos ausentes (aportan; ausencia 1)
+  s = end(s); // Oferta: todos ausentes (rechazan; ausencia 2) → abandonan todos
+  assert.equal(s.over, true);
+  assert.equal(s.pot, 0);
+  assert.deepEqual(s.results[1].abandoned, seats(4));
+  assert.equal(s.payouts![A(1)], 1000);
+  assert.equal(
+    Object.values(s.payouts!).reduce((a, b) => a + b, 0),
+    4000,
+  );
+});
+
+test("abandono: dos ausencias seguidas eliminan (bolsillo al pozo); decidir corta la racha; en la Final no se evalúa", () => {
+  let s = createVault(SEED, seats(4), { deck: ["vote", "offer"] });
+  // Reparto: A1 guarda; A2 y A3 aportan; A4 ausente (1).
+  s = act(s, A(1), { type: "keep" });
+  s = act(s, A(2), { type: "contribute" });
+  s = act(s, A(3), { type: "contribute" });
+  s = end(s);
+  // Voto: A1 ausente (1); A4 vota (corta su racha). Sale A2.
+  s = skipTalk(s);
+  s = act(s, A(2), { type: "vote", target: A(3) });
+  s = act(s, A(3), { type: "vote", target: A(2) });
+  s = act(s, A(4), { type: "vote", target: A(2) });
+  s = end(s);
+  assert.equal(s.results[1].eliminated, A(2));
+  assert.equal(seatOf(s, A(4))!.absences, 0);
+  assert.equal(seatOf(s, A(1))!.absences, 1);
+  // Oferta: A1 ausente (2) → abandona; A3 rechaza; A4 ausente (1).
+  const potBefore = s.pot;
+  s = act(s, A(3), { type: "decline" });
+  s = end(s);
+  const r = s.results[2];
+  assert.deepEqual(r.abandoned, [A(1)]);
+  assert.equal(seatOf(s, A(1))!.status, "abandoned");
+  assert.equal(seatOf(s, A(1))!.pocket, 0);
+  assert.equal(r.potAfter, potBefore + 160 - Math.floor((potBefore + 160) * 0.05));
+  assert.equal(seatOf(s, A(4))!.absences, 1);
+  assert.equal(seatOf(s, A(4))!.status, "alive");
+  assertConserved(s);
+  // Quedan A3 y A4 → Final. A3 ausente: divide por defecto y NO abandona.
+  assert.equal(s.stage.kind, "final");
+  s = skipTalk(s);
+  s = act(s, A(4), { type: "split" });
+  s = end(s);
+  assert.equal(s.over, true);
+  assert.equal(seatOf(s, A(3))!.status, "finished");
+  assertConserved(s);
+});
