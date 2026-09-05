@@ -2254,8 +2254,17 @@ test("persistencia: serializar y restaurar conserva el lobby abierto y una sala 
   assert.equal(back.status, "playing");
   assert.equal(back.stage!.kind, "share");
   assert.equal(back.commit, playing!.commit);
-  const backLobby = await V.joinVault(0, seats8[7], undefined, T0 + 3);
-  assert.equal(backLobby.roomId, lobby2.roomId);
+  // El lobby restaurado vuelve a ser EL lobby abierto de la mesa: una address
+  // NUEVA cae ahí (no crea otro lobby) y el asiento original sigue sentado.
+  // (Re-unir a seats8[7] no probaría nada: la idempotencia por address lo
+  // encuentra por pertenencia a la sala, sin pasar por el mapa de lobbies.)
+  const newcomer = await V.joinVault(0, addr(), undefined, T0 + 3);
+  assert.equal(newcomer.roomId, lobby2.roomId);
+  assert.equal(newcomer.seats.length, 2);
+  assert.deepEqual(
+    V.listVaultLobbies(T0 + 4).map((l) => [l.roomId, l.seats]),
+    [[lobby2.roomId, 2]],
+  );
   assert.ok(!raw.includes('"states"'), "el estado no se persiste: se re-simula");
 });
 ```
