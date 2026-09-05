@@ -125,8 +125,10 @@ function shuffle<T>(arr: T[], rnd: () => number): T[] {
 }
 
 /** La bolsa: 2 Ofertas, 1 Cerradura, 1 Reparto y (N − 2) Votos, barajada.
- *  Regla de sanidad: nunca dos Ofertas seguidas (la segunda se mueve a la
- *  primera posición no adyacente a la primera Oferta). */
+ *  Regla de sanidad: nunca dos Ofertas seguidas. Si el sorteo las deja juntas,
+ *  la segunda se intercambia con la PRIMERA carta no-Oferta que no quede
+ *  adyacente a la primera (puede caer antes o después); determinístico. Es la
+ *  regla tal cual la describe el spec, sección "El mazo". */
 export function buildDeck(n: number, rnd: () => number): StageKind[] {
   const bag: StageKind[] = ["offer", "offer", "lock", "share"];
   for (let i = 0; i < n - 2; i++) bag.push("vote");

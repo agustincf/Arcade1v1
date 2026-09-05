@@ -107,8 +107,12 @@ abajo (`floor(pot × bps / 10000)`).
 - La primera etapa es **siempre Reparto**.
 - Después se baraja con la semilla secreta una bolsa con: **2 Ofertas, 1
   Cerradura, 1 Reparto y (N − 2) Votos**. Regla de sanidad: **nunca dos
-  Ofertas seguidas** (si el sorteo las deja juntas, la segunda se intercambia
-  con la siguiente carta que no sea Oferta; determinístico).
+  Ofertas seguidas**: si el sorteo las deja juntas, la segunda se intercambia
+  con la **primera carta de la bolsa que no sea Oferta y no quede adyacente a
+  la primera Oferta** (puede quedar antes o después de ella); determinístico.
+  Que pueda quedar _antes_ no es un descuido: cuando las dos Ofertas salen al
+  final del mazo no hay ninguna carta después, y la regla tiene que resolver
+  igual.
 - El mazo restante es **secreto** para los jugadores; solo se ve cuántas cartas
   quedan.
 - La **Final** no está en el mazo: entra sola cuando quedan 2 vivos.
