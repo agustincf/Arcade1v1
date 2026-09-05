@@ -203,6 +203,9 @@ a la caja. La sala termina.
   todos los vivos mandaron `ready`.
 - **Ausencia** = no decidir en una fase `decide` de Reparto, Oferta, Voto o
   Final. Decidir cualquier cosa corta la racha. Los mensajes no cuentan.
+- La **Cerradura no toca la racha en ningún sentido**: ni enviar un código ni
+  pasar (`ready`) cuenta como ausencia, y tampoco la corta. Es la única
+  decisión opcional del juego, así que no puede castigar ni salvar a nadie.
 - **Dos ausencias seguidas** → `abandoned` al cerrar esa etapa (salvo en la
   Final): fuera de la sala, bolsillo al pozo.
 - Duración: 4 asientos ≈ 8 etapas y 12 fases (hasta ~25 min si todas las fases
@@ -460,7 +463,7 @@ Cómo se obtiene: pidiéndola con el **pase de vista** firmado
 En `packages/game-sdk/src/auth.ts`, junto a los demás mensajes canónicos:
 
 ```
-Arcade1v1: actúo en La Bóveda
+Arcade1v1: actúo en la sala
 room: <roomId>
 stage: <n>
 phase: <talk|decide>
