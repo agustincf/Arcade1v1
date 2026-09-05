@@ -19,7 +19,14 @@ import {
   type VaultEvent,
 } from "@arcade1v1/game-sdk/vault";
 import { getRating } from "../src/ratings.js";
-import * as V from "../src/vault.js";
+import type { VaultRoomView } from "../src/vault.js";
+
+// Fase de UNA HORA para este archivo: la sala se juega con el reloj real y no
+// tiene por qué terminar dentro de los 2 minutos del default. El knob se lee al
+// importar, así que va antes del import dinámico. Las aserciones de plazo usan
+// `V.VAULT_PHASE_MS` simbólicamente y siguen valiendo.
+process.env.VAULT_PHASE_MS = String(60 * 60_000);
+const V = await import("../src/vault.js");
 
 const T0 = 1_800_000_000_000;
 const accounts = (n: number) =>
@@ -90,7 +97,7 @@ function seededRoom(kind: StageKind, accs: PrivateKeyAccount[], id: string): str
 /** Política guionada y determinística: el primer vivo guarda, el resto aporta;
  *  nadie acepta ofertas; todos votan al primer vivo que no sean ellos; nadie
  *  intenta la Cerradura; en la Final dividen. */
-function policy(v: V.VaultRoomView, me: string): VaultAction {
+function policy(v: VaultRoomView, me: string): VaultAction {
   const st = v.stage!;
   if (st.phase === "talk") return { type: "ready" };
   const alive = v.seats.filter((s) => s.status === "alive");
@@ -108,7 +115,7 @@ function policy(v: V.VaultRoomView, me: string): VaultAction {
   }
 }
 
-async function playOut(roomId: string, accs: PrivateKeyAccount[]): Promise<V.VaultRoomView> {
+async function playOut(roomId: string, accs: PrivateKeyAccount[]): Promise<VaultRoomView> {
   let said = false;
   for (let guard = 0; guard < 400; guard++) {
     const pub = (await V.getVaultRoom(roomId))!;
@@ -177,6 +184,10 @@ test("sala completa: 4 agentes firmando hasta settled; pagos, ELO, semilla revel
   });
   assert.equal(signer.toLowerCase(), first.address);
   assert.ok(log.events.some((e) => e.type === "phase_end" && e.reason === "all_acted"));
+  assert.ok(
+    log.events.some((e) => e.type === "phase_end" && e.reason === "all_ready"),
+    "una charla cerrada porque todos mandaron ready queda en el registro",
+  );
   assert.ok(log.events.some((e) => e.type === "action" && e.action.type === "say"));
   assert.equal(V.recentVaultRooms(5)[0].roomId, roomId);
   assert.equal(V.recentVaultRooms(5)[0].stages, done.results!.length);
