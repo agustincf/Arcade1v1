@@ -312,6 +312,61 @@ test("pase de vista: en la Cerradura, un pase ajeno no muestra el fragmento del 
   assert.ok(ok.you!.fragment, "con su propio pase, el asiento ve su fragmento");
 });
 
+test("settleDue: una sala rota se disuelve sola y no arrastra a las sanas", async () => {
+  V.__resetVaultForTest();
+  const seats = accounts(4).map(low);
+  const sane = accounts(4).map(low);
+  const seed = "0x" + "7".repeat(64);
+  const room = (id: string, addrs: string[], events: unknown[]) => ({
+    id,
+    stake: 0,
+    status: "playing",
+    seats: addrs,
+    createdAt: T0,
+    startedAt: T0,
+    commit: keccak256(seed as Hex),
+    secretSeed: seed,
+    events,
+    phaseDeadline: T0 + V.VAULT_PHASE_MS,
+  });
+  const brokenId = "0x" + "b".repeat(64);
+  const saneId = "0x" + "5".repeat(64);
+  // La rota va PRIMERA: sin aislamiento, su excepción se lleva puesta a la sana.
+  V.restoreVaultFrom(
+    JSON.stringify([
+      // Evento imposible de re-simular: actúa una address que no es asiento.
+      room(brokenId, seats, [
+        {
+          type: "action",
+          address: "0x" + "9".repeat(40),
+          stage: 0,
+          phase: "decide",
+          action: { type: "keep" },
+          ts: T0,
+        },
+      ]),
+      room(saneId, sane, []),
+    ]),
+  );
+  const logged: string[] = [];
+  const realError = console.error;
+  console.error = (...args: unknown[]) => void logged.push(args.map(String).join(" "));
+  const now = T0 + V.VAULT_PHASE_MS;
+  try {
+    assert.doesNotThrow(() => V.settleDue(now));
+  } finally {
+    console.error = realError;
+  }
+  assert.equal(logged.length, 1, "la sala rota se loguea UNA vez");
+  assert.match(logged[0], /sala rota/);
+  const broken = (await V.getVaultRoom(brokenId, undefined, now))!;
+  assert.equal(broken.status, "dissolved");
+  assert.equal(broken.settledAt, now);
+  const ok = (await V.getVaultRoom(saneId, undefined, now))!;
+  assert.equal(ok.status, "playing", "la sala sana siguió su curso");
+  assert.equal(ok.stage!.index, 1, "y cerró su fase por plazo");
+});
+
 test("scripts/vault-verify: da OK con el registro real y detecta una tabla adulterada", async () => {
   const { verifyVaultLog } = await import("../../../scripts/vault-verify.mjs");
   V.__resetVaultForTest();

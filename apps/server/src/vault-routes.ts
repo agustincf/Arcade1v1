@@ -47,13 +47,21 @@ vaultRouter.post("/vault/join", async (req, res) => {
 
 // Lobbies abiertos (para que un agente sepa que hay mesa esperando).
 vaultRouter.get("/vault/lobbies", (_req, res) => {
-  res.json({ lobbies: listVaultLobbies() });
+  try {
+    res.json({ lobbies: listVaultLobbies() });
+  } catch (e) {
+    fail(res, e);
+  }
 });
 
 // Salas terminadas recientes (espectador).
 vaultRouter.get("/vault/recent", (req, res) => {
-  const limit = Number(req.query.limit ?? 20);
-  res.json({ rooms: recentVaultRooms(limit) });
+  try {
+    const limit = Number(req.query.limit ?? 20);
+    res.json({ rooms: recentVaultRooms(limit) });
+  } catch (e) {
+    fail(res, e);
+  }
 });
 
 // Vista de una sala. Con ?address= + un PASE DE VISTA válido (?signature=&ts=

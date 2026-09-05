@@ -288,38 +288,55 @@ function dissolveRoom(room: VaultRoom, now: number): void {
   if (openLobby.get(room.stake) === room.id) openLobby.delete(room.stake);
 }
 
-/** Vence lobbies (arranca con ≥ mínimo, disuelve si no), vence FASES con el
- *  reloj del árbitro y purga salas viejas. Toda lectura/acción la llama
- *  primero con su reloj, así los tests no esperan y el ticker es solo un
- *  respaldo para salas que nadie consulta. */
-export function settleDue(now = Date.now()): void {
-  let dirty = false;
-  for (const room of rooms.values()) {
-    if (room.status === "lobby" && now - room.createdAt >= VAULT_LOBBY_MS) {
-      if (room.seats.length >= VAULT_MIN_SEATS) startRoom(room, now);
-      else dissolveRoom(room, now);
-      dirty = true;
-    } else if (
+/** Lo que le toca a UNA sala cuando pasa el reloj. Devuelve si cambió algo. */
+function settleRoomDue(room: VaultRoom, now: number): boolean {
+  if (room.status === "lobby" && now - room.createdAt >= VAULT_LOBBY_MS) {
+    if (room.seats.length >= VAULT_MIN_SEATS) startRoom(room, now);
+    else dissolveRoom(room, now);
+    return true;
+  }
+  if (room.status === "playing" && room.phaseDeadline !== undefined && now >= room.phaseDeadline) {
+    // Pueden vencer varias fases si el proceso estuvo dormido: cada cierre
+    // lleva la hora de SU plazo (no `now`), así el registro es fiel.
+    while (
       room.status === "playing" &&
       room.phaseDeadline !== undefined &&
       now >= room.phaseDeadline
     ) {
-      // Pueden vencer varias fases si el proceso estuvo dormido: cada cierre
-      // lleva la hora de SU plazo (no `now`), así el registro es fiel.
-      while (
-        room.status === "playing" &&
-        room.phaseDeadline !== undefined &&
-        now >= room.phaseDeadline
-      ) {
-        closePhase(room, "deadline", room.phaseDeadline);
-      }
-      dirty = true;
-    } else if (
-      (room.status === "settled" || room.status === "dissolved") &&
-      room.settledAt !== undefined &&
-      now - room.settledAt > VAULT_FINISHED_TTL_MS
-    ) {
-      rooms.delete(room.id);
+      closePhase(room, "deadline", room.phaseDeadline);
+    }
+    return true;
+  }
+  if (
+    (room.status === "settled" || room.status === "dissolved") &&
+    room.settledAt !== undefined &&
+    now - room.settledAt > VAULT_FINISHED_TTL_MS
+  ) {
+    rooms.delete(room.id);
+    states.delete(room.id);
+    return true;
+  }
+  return false;
+}
+
+/** Vence lobbies (arranca con ≥ mínimo, disuelve si no), vence FASES con el
+ *  reloj del árbitro y purga salas viejas. Toda lectura/acción la llama
+ *  primero con su reloj, así los tests no esperan y el ticker es solo un
+ *  respaldo para salas que nadie consulta.
+ *
+ *  Cada sala va AISLADA: un registro que ya no re-simula (dato corrupto del
+ *  store, caso borde del motor) rompería si no TODAS las rutas de /vault y el
+ *  ticker la loguearía cada 5 s. La sala rota se disuelve y seguimos con las
+ *  demás; en la mesa gratis disolver no toca dinero (la etapa 4, con plata de
+ *  verdad, tendrá que revisar esta política). */
+export function settleDue(now = Date.now()): void {
+  let dirty = false;
+  for (const room of rooms.values()) {
+    try {
+      if (settleRoomDue(room, now)) dirty = true;
+    } catch (e) {
+      console.error("[vault] sala rota, se disuelve:", room.id, (e as Error).message);
+      dissolveRoom(room, now);
       states.delete(room.id);
       dirty = true;
     }
