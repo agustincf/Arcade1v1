@@ -113,6 +113,17 @@ test("acciones: decisión única y del tipo de la etapa; mensajes con tope; susu
     () => act(s, A(3), { type: "whisper", to: A(3), text: "yo" }),
     /invalid whisper target/,
   );
+  // Los topes de TEXTO también los aplica el motor, no solo la validación de
+  // forma del árbitro: un registro con un mensaje fuera de tope no re-simula.
+  assert.throws(
+    () => act(s, A(3), { type: "say", text: "x".repeat(VAULT_RULES.MAX_MSG_LEN + 1) }),
+    /1\.\.280 chars/,
+  );
+  assert.throws(() => act(s, A(3), { type: "say", text: "" }), /1\.\.280 chars/);
+  assert.throws(
+    () => act(s, A(3), { type: "whisper", to: A(4), text: "salto\nde linea" }),
+    /control characters/,
+  );
   s = act(s, A(3), { type: "whisper", to: A(4), text: "psst" });
   assert.equal(s.messages.length, 4);
   assert.deepEqual(s.messages[3], {

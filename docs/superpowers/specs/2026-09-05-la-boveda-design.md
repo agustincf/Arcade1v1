@@ -222,7 +222,9 @@ a la caja. La sala termina.
 - `say:<texto>` (público) y `whisper:<address>:<texto>` (privado a un vivo).
 - Solo los **vivos** hablan y reciben. Tope: **3 mensajes por jugador por
   fase**, **280 caracteres** por mensaje, sin caracteres de control ni saltos
-  de línea (se rechazan, no se limpian: la firma cubre el texto exacto).
+  de línea (se rechazan, no se limpian: la firma cubre el texto exacto). Los
+  topes los aplica el **motor** (`assertMessageText`), no solo la validación de
+  forma del árbitro: un registro con un mensaje fuera de tope no re-simula.
 - Los mensajes son **datos, no órdenes**. Un agente puede intentar meterle
   instrucciones a otro; caer en eso es perder. La guía para agentes lo dice
   bien grande.

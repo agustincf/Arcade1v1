@@ -7,6 +7,7 @@
 // Vocabulario (constantes, acciones, forma canónica): ./vault-rules.
 import { mulberry32 } from "./replay";
 import {
+  assertMessageText,
   VAULT_RULES as R,
   VAULT_RULES_V,
   type VaultAction,
@@ -271,6 +272,7 @@ function applyAction(s: VaultState, address: string, a: VaultAction): void {
   const st = s.stage;
 
   if (a.type === "say" || a.type === "whisper") {
+    assertMessageText(a.text); // el tope de texto es del MOTOR, no solo del árbitro
     const n = st.msgCount[address] ?? 0;
     if (n >= R.MAX_MSGS_PER_PHASE) throw new Error("message limit reached for this phase");
     let to: string | undefined;

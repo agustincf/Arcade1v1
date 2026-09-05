@@ -80,12 +80,21 @@ export function actionLine(a: VaultAction): string {
   }
 }
 
-function text(v: unknown): string {
+/** Topes de un mensaje: 1..MAX_MSG_LEN caracteres y sin caracteres de control
+ *  (saltos de línea incluidos: la firma cubre el texto EXACTO, no se limpia).
+ *  Lo usan la validación de forma del árbitro (`validateAction`) y también el
+ *  MOTOR al aplicar la acción, así un registro con un mensaje fuera de tope no
+ *  re-simula en ningún verificador. */
+export function assertMessageText(v: unknown): void {
   if (typeof v !== "string" || v.length < 1 || v.length > VAULT_RULES.MAX_MSG_LEN) {
     throw new Error(`invalid action: text must be 1..${VAULT_RULES.MAX_MSG_LEN} chars`);
   }
   if (CONTROL_RE.test(v)) throw new Error("invalid action: text has control characters");
-  return v;
+}
+
+function text(v: unknown): string {
+  assertMessageText(v);
+  return v as string;
 }
 
 function address(v: unknown): string {
