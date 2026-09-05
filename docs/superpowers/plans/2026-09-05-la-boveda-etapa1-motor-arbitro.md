@@ -1556,7 +1556,12 @@ test("director: un solo vivo se lleva el pozo; sin vivos, el pozo va a la caja y
   for (const a of [A(1), A(2), A(3)]) s = act(s, a, { type: "accept" });
   s = end(s);
   assert.equal(s.over, true);
-  assert.equal(seatOf(s, A(4))!.pocket, pot - Math.floor(total / 3) * 3);
+  // Orden del director: efecto de la etapa → abandono → decaimiento → ¿vivos?
+  // El sobreviviente cobra el pozo YA decaído (spec, "El director", pasos 1-4).
+  const potLeft = pot - Math.floor(total / 3) * 3;
+  const decay = Math.floor(potLeft * 0.05);
+  assert.equal(s.results[1].decay, decay);
+  assert.equal(seatOf(s, A(4))!.pocket, potLeft - decay);
   assert.equal(seatOf(s, A(4))!.status, "finished");
   assertConserved(s);
 
