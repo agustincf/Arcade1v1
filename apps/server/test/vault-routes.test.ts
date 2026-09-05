@@ -68,6 +68,14 @@ test("join: exige firma propia; lobby visible; vista pública; log cerrado; act 
   r = await join(a, b);
   assert.equal(r.status, 400);
   assert.match(String(r.body.error), /bad signature/);
+  // join sin ts
+  const ts_join = Date.now();
+  const sig_join = await a.signMessage({
+    message: matchmakeAuthMessage("vault", 0, low(a), ts_join),
+  });
+  r = await post("/vault/join", { stake: 0, address: low(a), signature: sig_join });
+  assert.equal(r.status, 400);
+  assert.match(String(r.body.error), /falta ts/);
   r = await post("/vault/join", { address: low(a) });
   assert.equal(r.status, 400);
   r = await join(a);
@@ -107,6 +115,20 @@ test("act: con 8 asientos arranca; la acción firmada entra; la ajena y la incom
   r = await act(roomId, accs[1], 0, "decide", { type: "keep" }, accs[2]);
   assert.equal(r.status, 400);
   assert.match(String(r.body.error), /bad signature/);
+  // act sin ts
+  const ts_act = Date.now();
+  const sig_act = await accs[1].signMessage({
+    message: vaultActionAuthMessage(roomId, 0, "decide", actionLine({ type: "keep" }), ts_act),
+  });
+  r = await post(`/vault/${roomId}/act`, {
+    address: low(accs[1]),
+    stage: 0,
+    phase: "decide",
+    action: { type: "keep" },
+    signature: sig_act,
+  });
+  assert.equal(r.status, 400);
+  assert.match(String(r.body.error), /falta ts/);
   r = await post(`/vault/${roomId}/act`, { address: low(accs[1]), action: { type: "keep" } });
   assert.equal(r.status, 400);
   assert.match(String(r.body.error), /faltan/);

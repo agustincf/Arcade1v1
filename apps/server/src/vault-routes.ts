@@ -33,6 +33,9 @@ vaultRouter.post("/vault/join", async (req, res) => {
   if (stake === undefined || stake === null || !address) {
     return res.status(400).json({ error: "faltan stake o address" });
   }
+  if (signature && (ts === undefined || ts === null)) {
+    return res.status(400).json({ error: "falta ts (junto con signature)" });
+  }
   try {
     const auth = signature ? { signature: String(signature), ts: Number(ts) } : undefined;
     const v = await joinVault(Number(stake), String(address), auth);
@@ -67,6 +70,9 @@ vaultRouter.post("/vault/:id/act", async (req, res) => {
   const { address, stage, phase, action, signature, ts } = req.body ?? {};
   if (!address || stage === undefined || stage === null || !phase || !action) {
     return res.status(400).json({ error: "faltan address, stage, phase o action" });
+  }
+  if (signature && (ts === undefined || ts === null)) {
+    return res.status(400).json({ error: "falta ts (junto con signature)" });
   }
   try {
     const v = await actVault(String(req.params.id), String(address), {
