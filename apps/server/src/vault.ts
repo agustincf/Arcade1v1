@@ -179,9 +179,26 @@ export function stateOf(room: VaultRoom): VaultState {
 
 // ---- Lobby ------------------------------------------------------------------
 
+/** ¿Ese asiento sigue vivo en esa sala? Una sala que no re-simula cuenta como
+ *  "no lo tiene" (se disolverá en su próximo plazo; mientras tanto no puede
+ *  dejar a nadie encerrado). */
+function seatAlive(room: VaultRoom, address: string): boolean {
+  try {
+    return stateOf(room).seats.some((x) => x.address === address && x.status === "alive");
+  } catch {
+    return false;
+  }
+}
+
+/** La sala que OCUPA a esa address. Un lobby la ocupa siempre; una sala en
+ *  juego, solo mientras el asiento siga vivo: el que se fue con una Oferta, el
+ *  votado y el que abandonó pueden sentarse en otro lobby sin esperar a que su
+ *  sala termine. */
 function liveRoomOf(address: string): VaultRoom | undefined {
   for (const r of rooms.values()) {
-    if ((r.status === "lobby" || r.status === "playing") && r.seats.includes(address)) return r;
+    if (!r.seats.includes(address)) continue;
+    if (r.status === "lobby") return r;
+    if (r.status === "playing" && seatAlive(r, address)) return r;
   }
   return undefined;
 }

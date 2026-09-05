@@ -14,6 +14,7 @@ import {
   actionLine,
   createVault,
   replayVault,
+  type StageKind,
   type VaultAction,
   type VaultEvent,
 } from "@arcade1v1/game-sdk/vault";
@@ -54,6 +55,36 @@ async function startRoom(accs: PrivateKeyAccount[], now = Date.now()) {
   const started = (await V.getVaultRoom(v!.roomId, low(accs[0]), now))!;
   assert.equal(started.status, "playing");
   return started.roomId;
+}
+
+/** Sala en juego restaurada a mano, con una semilla ELEGIDA para que la
+ *  SEGUNDA etapa sea `kind`: al vencer el Reparto inicial la sala entra en esa
+ *  etapa sin depender del sorteo. Plazo de la primera fase: T0 + VAULT_PHASE_MS. */
+function seededRoom(kind: StageKind, accs: PrivateKeyAccount[], id: string): string {
+  const seats = accs.map(low);
+  let secretSeed = "";
+  for (let i = 1; i < 5000 && !secretSeed; i++) {
+    const cand = "0x" + i.toString(16).padStart(8, "0") + "0".repeat(56);
+    if (createVault(cand, seats).deck[0] === kind) secretSeed = cand;
+  }
+  assert.ok(secretSeed, `no se encontró semilla con ${kind} al tope del mazo`);
+  V.restoreVaultFrom(
+    JSON.stringify([
+      {
+        id,
+        stake: 0,
+        status: "playing",
+        seats,
+        createdAt: T0,
+        startedAt: T0,
+        commit: keccak256(secretSeed as Hex),
+        secretSeed,
+        events: [],
+        phaseDeadline: T0 + V.VAULT_PHASE_MS,
+      },
+    ]),
+  );
+  return id;
 }
 
 /** Política guionada y determinística: el primer vivo guarda, el resto aporta;
@@ -273,31 +304,7 @@ test("pase de vista: en la Cerradura, un pase ajeno no muestra el fragmento del 
   V.__resetVaultForTest();
   const accs = accounts(4);
   const seats = accs.map(low);
-  // Semilla ELEGIDA para que la primera carta del mazo sea la Cerradura: al
-  // cerrar el Reparto inicial la sala entra en Cerradura sin depender del sorteo.
-  let secretSeed = "";
-  for (let i = 1; i < 5000 && !secretSeed; i++) {
-    const cand = "0x" + i.toString(16).padStart(8, "0") + "0".repeat(56);
-    if (createVault(cand, seats).deck[0] === "lock") secretSeed = cand;
-  }
-  assert.ok(secretSeed, "no se encontró semilla con la Cerradura al tope del mazo");
-  const roomId = "0x" + "1".repeat(64);
-  V.restoreVaultFrom(
-    JSON.stringify([
-      {
-        id: roomId,
-        stake: 0,
-        status: "playing",
-        seats,
-        createdAt: T0,
-        startedAt: T0,
-        commit: keccak256(secretSeed as Hex),
-        secretSeed,
-        events: [],
-        phaseDeadline: T0 + V.VAULT_PHASE_MS,
-      },
-    ]),
-  );
+  const roomId = seededRoom("lock", accs, "0x" + "1".repeat(64));
   const now = T0 + V.VAULT_PHASE_MS; // vence el Reparto: entra la Cerradura
   // Sin firma y con AUTH_REQUIRED apagado (este archivo corre así) sigue
   // valiendo la vista privada: es el atajo documentado para dev y tests.
@@ -316,6 +323,29 @@ test("pase de vista: en la Cerradura, un pase ajeno no muestra el fragmento del 
   const own = await accs[0].signMessage({ message: vaultViewAuthMessage(roomId, seats[0], now) });
   const ok = (await V.getVaultRoom(roomId, seats[0], now, { signature: own, ts: now }))!;
   assert.ok(ok.you!.fragment, "con su propio pase, el asiento ve su fragmento");
+});
+
+test("un asiento eliminado puede sentarse en otro lobby sin esperar a su sala", async () => {
+  V.__resetVaultForTest();
+  const accs = accounts(4);
+  const roomId = seededRoom("offer", accs, "0x" + "2".repeat(64));
+  const now = T0 + V.VAULT_PHASE_MS; // vence el Reparto: entra la Oferta
+  assert.equal((await V.getVaultRoom(roomId, undefined, now))!.stage!.kind, "offer");
+  // Uno acepta (se va con su parte) y los otros tres declinan.
+  await actSigned(roomId, accs[0], 1, "decide", { type: "accept" }, { now, ts: now });
+  for (const a of accs.slice(1)) {
+    await actSigned(roomId, a, 1, "decide", { type: "decline" }, { now, ts: now });
+  }
+  const after = (await V.getVaultRoom(roomId, undefined, now))!;
+  assert.equal(after.status, "playing", "la sala sigue con los tres que quedaron");
+  assert.equal(after.seats.find((x) => x.address === low(accs[0]))!.status, "left");
+  // El que se fue pide mesa y consigue un lobby NUEVO en el acto.
+  const fresh = await V.joinVault(0, low(accs[0]), undefined, now);
+  assert.notEqual(fresh.roomId, roomId);
+  assert.equal(fresh.status, "lobby");
+  // Los que siguen vivos, no: su sala sigue siendo la de siempre.
+  const still = await V.joinVault(0, low(accs[1]), undefined, now);
+  assert.equal(still.roomId, roomId);
 });
 
 test("recentVaultRooms: lee las etapas guardadas, no re-simula el registro", async () => {

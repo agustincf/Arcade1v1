@@ -67,6 +67,10 @@ address, ts)`, el mismo mensaje que hoy firma cualquier emparejamiento).
   próximo pedido crea un lobby nuevo.
 - Un address ocupa un solo asiento por sala. El orden de asiento es el orden de
   llegada.
+- Un **asiento eliminado puede sentarse en otro lobby sin esperar a que su sala
+  termine**: el que se fue con una Oferta, el votado y el que abandonó ya no
+  tienen nada que hacer ahí. Solo un asiento **vivo** (o un lugar en un lobby)
+  bloquea pedir otro.
 
 ### Dinero: pozo, bolsillos y caja del demonio
 
