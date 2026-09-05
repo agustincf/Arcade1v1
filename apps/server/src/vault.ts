@@ -293,7 +293,10 @@ function dissolveRoom(room: VaultRoom, now: number): void {
 /** Lo que le toca a UNA sala cuando pasa el reloj. Devuelve si cambió algo. */
 function settleRoomDue(room: VaultRoom, now: number): boolean {
   if (room.status === "lobby" && now - room.createdAt >= VAULT_LOBBY_MS) {
-    if (room.seats.length >= VAULT_MIN_SEATS) startRoom(room, now);
+    // Con el kill switch apagado NUNCA arranca una sala nueva, tenga los
+    // asientos que tenga: el lobby que vence se disuelve. Las salas ya en
+    // curso siguen cerrando fases por plazo hasta liquidarse.
+    if (room.seats.length >= VAULT_MIN_SEATS && vaultEnabled()) startRoom(room, now);
     else dissolveRoom(room, now);
     return true;
   }
@@ -526,9 +529,11 @@ export function recentVaultRooms(limit = 20, now = Date.now()): RecentRoom[] {
 let ticker: NodeJS.Timeout | undefined;
 
 /** Respaldo: vence lobbies y fases aunque nadie consulte la sala. Lo arranca
- *  index.ts (nunca al importar: los tests usan su propio reloj). */
+ *  index.ts (nunca al importar: los tests usan su propio reloj). Arranca SIEMPRE:
+ *  el kill switch gobierna las entradas nuevas, no el reloj — sin ticker, una
+ *  sala en curso que nadie consulta no se liquidaría nunca. */
 export function startVaultTicker(): void {
-  if (ticker || !vaultEnabled()) return;
+  if (ticker) return;
   ticker = setInterval(() => {
     try {
       settleDue();

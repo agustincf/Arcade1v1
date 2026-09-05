@@ -97,6 +97,21 @@ test("validaciones: mesa, address, kill switch y firma", async () => {
   await assert.rejects(() => V.joinVault(0, me, { signature: "0x1234", ts }, T0), /bad signature/);
 });
 
+test("kill switch: un lobby que vence con el switch apagado se disuelve, no arranca", async () => {
+  V.__resetVaultForTest();
+  // El switch se lee POR LLAMADA: el lobby se arma encendido y se apaga después.
+  const v = await V.joinVault(0, addr(), undefined, T0);
+  for (let i = 0; i < 3; i++) await V.joinVault(0, addr(), undefined, T0);
+  assert.equal(v.status, "lobby");
+  process.env.VAULT_ENABLED = "false";
+  try {
+    const gone = (await V.getVaultRoom(v.roomId, undefined, T0 + V.VAULT_LOBBY_MS))!;
+    assert.equal(gone.status, "dissolved", "con el switch apagado no arranca ninguna sala nueva");
+  } finally {
+    delete process.env.VAULT_ENABLED;
+  }
+});
+
 test("tope de salas terminadas: al pasarse, se purgan las más viejas", async () => {
   V.__resetVaultForTest();
   // Tres lobbies que vencen con menos de 4 asientos, uno detrás del otro.

@@ -527,18 +527,18 @@ SECURITY.md (addendum al modelo de confianza), CHANGELOG **3.7.0**, ROADMAP
 
 ### Knobs de entorno
 
-| Var                      | Default            | Uso                                                            |
-| ------------------------ | ------------------ | -------------------------------------------------------------- |
-| `VAULT_ENABLED`          | on (`!== "false"`) | kill switch: join rechaza, ticker no arranca salas             |
-| `VAULT_STAKES`           | `0`                | mesas admitidas para el formato (etapa 4 suma las de plata)    |
-| `VAULT_MIN_SEATS`        | 4                  | mínimo para arrancar (nunca menor a 4 ni mayor a MAX)          |
-| `VAULT_MAX_SEATS`        | 8                  | tope de asientos (nunca mayor a 8)                             |
-| `VAULT_LOBBY_MS`         | 600000             | vida del lobby antes de arrancar o disolver                    |
-| `VAULT_PHASE_MS`         | 120000             | plazo de cada fase                                             |
-| `VAULT_TICK_MS`          | 5000               | cadencia del ticker                                            |
-| `VAULT_MAX_ROOMS`        | 50                 | salas vivas (lobby + playing) a la vez; de más → `400 "limit"` |
-| `VAULT_FINISHED_TTL_MS`  | 7 días             | purga de salas terminadas                                      |
-| `VAULT_MAX_SETTLED_KEPT` | 50                 | salas terminadas conservadas; de más → se van las más viejas   |
+| Var                      | Default            | Uso                                                                                                                                   |
+| ------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `VAULT_ENABLED`          | on (`!== "false"`) | kill switch: join rechaza y el lobby que vence se disuelve (nunca arranca una sala nueva); las salas en curso siguen hasta liquidarse |
+| `VAULT_STAKES`           | `0`                | mesas admitidas para el formato (etapa 4 suma las de plata)                                                                           |
+| `VAULT_MIN_SEATS`        | 4                  | mínimo para arrancar (nunca menor a 4 ni mayor a MAX)                                                                                 |
+| `VAULT_MAX_SEATS`        | 8                  | tope de asientos (nunca mayor a 8)                                                                                                    |
+| `VAULT_LOBBY_MS`         | 600000             | vida del lobby antes de arrancar o disolver                                                                                           |
+| `VAULT_PHASE_MS`         | 120000             | plazo de cada fase                                                                                                                    |
+| `VAULT_TICK_MS`          | 5000               | cadencia del ticker                                                                                                                   |
+| `VAULT_MAX_ROOMS`        | 50                 | salas vivas (lobby + playing) a la vez; de más → `400 "limit"`                                                                        |
+| `VAULT_FINISHED_TTL_MS`  | 7 días             | purga de salas terminadas                                                                                                             |
+| `VAULT_MAX_SETTLED_KEPT` | 50                 | salas terminadas conservadas; de más → se van las más viejas                                                                          |
 
 ## Seguridad
 
