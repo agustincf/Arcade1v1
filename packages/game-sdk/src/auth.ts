@@ -78,3 +78,24 @@ export function matchmakeAuthMessage(
     `ts: ${ts}`,
   ].join("\n");
 }
+
+/** Mensaje a firmar por cada ACCIÓN en una sala de La Bóveda (formato
+ *  multi-agente). Ata: sala + etapa + fase + la línea canónica de la acción
+ *  (`actionLine` del subpath /vault) + momento (ts, válido MATCHMAKE_AUTH_TTL_MS).
+ *  Sin esto, cualquiera votaría o hablaría a nombre de otro asiento. */
+export function vaultActionAuthMessage(
+  roomId: string,
+  stage: number,
+  phase: string,
+  line: string,
+  ts: number,
+): string {
+  return [
+    "Arcade1v1: actúo en la sala",
+    `room: ${roomId.toLowerCase()}`,
+    `stage: ${stage}`,
+    `phase: ${phase}`,
+    `action: ${line}`,
+    `ts: ${ts}`,
+  ].join("\n");
+}

@@ -24,6 +24,7 @@ const ENTRIES = {
     "invaders",
     "auth",
     "rules",
+    "vault",
   ],
   "agent-sdk": ["index", "client", "sign", "strategies"],
   // Dependencia del agent-sdk: si no está en npm, el agent-sdk publicado es

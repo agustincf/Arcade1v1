@@ -31,7 +31,8 @@
     "./snake": "./src/snake.ts",
     "./invaders": "./src/invaders.ts",
     "./auth": "./src/auth.ts",
-    "./rules": "./src/rules.ts"
+    "./rules": "./src/rules.ts",
+    "./vault": "./src/vault.ts"
   },
   "scripts": {
     "release": "node ../../scripts/publish-sdk.mjs game-sdk"
