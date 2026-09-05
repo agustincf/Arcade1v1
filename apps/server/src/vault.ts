@@ -467,6 +467,15 @@ export async function actVault(
   // lo rechaza con "stage or phase mismatch" y el agente refresca su vista.
   const fresh = rooms.get(roomId);
   if (!fresh || fresh.status !== "playing") throw new VaultError("room not open");
+  // Anti-replay: el mismo cuerpo firmado no entra dos veces (reenviarlo
+  // publicaba el mismo `say` dos veces). La firma ata sala + etapa + fase +
+  // línea + ts, así que repetirla es siempre un reenvío.
+  if (
+    body.signature &&
+    fresh.events.some((e) => e.type === "action" && e.signature === body.signature)
+  ) {
+    throw new VaultError("duplicate action");
+  }
   const s = stateOf(fresh);
   const ev: VaultEvent = {
     type: "action",

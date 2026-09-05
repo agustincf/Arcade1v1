@@ -237,6 +237,22 @@ test("firmas y forma: firmante ajeno, ts vencido, etapa vieja, no asiento, acciÃ
   );
 });
 
+test("firma repetida: el mismo cuerpo firmado no entra dos veces", async () => {
+  V.__resetVaultForTest();
+  const accs = accounts(4);
+  const roomId = await startRoom(accs);
+  const ts = Date.now();
+  const action: VaultAction = { type: "say", text: "hola dos veces" };
+  const signature = await accs[0].signMessage({
+    message: vaultActionAuthMessage(roomId, 0, "decide", actionLine(action), ts),
+  });
+  const body = { stage: 0, phase: "decide", action, signature, ts };
+  const first = await V.actVault(roomId, low(accs[0]), body);
+  assert.equal(first.messages!.length, 1);
+  await assert.rejects(() => V.actVault(roomId, low(accs[0]), body), /duplicate action/);
+  assert.equal((await V.getVaultRoom(roomId, low(accs[0])))!.messages!.length, 1);
+});
+
 test("plazos: las fases vencen con el reloj del Ã¡rbitro, los ausentes deciden por defecto y varias fases vencen de una", async () => {
   V.__resetVaultForTest();
   const accs = accounts(4);
