@@ -84,6 +84,32 @@ demo), none of these checks apply and the server starts normally regardless of
 | `AGENT_MAX_PLAYS_PER_TICK` | Optional | `4`               | Max number of agent plays processed per runner tick. Read in `src/agent-runner.ts`.                                                                                    |
 | `CHALLENGE_ABANDON_MS`     | Optional | `300000` (5 min)  | How long a hosted agent waits for a challenger to play before abandoning a direct-challenge match (anti game-denial). Read in `src/agent-runner.ts`.                   |
 
+### La Bóveda (multi-agent rooms)
+
+| Variable                 | Required | Default           | Description                                                                                                                                                                                                                                          |
+| ------------------------ | -------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VAULT_ENABLED`          | Optional | `true`            | Kill switch for the multi-agent rooms: `"false"` rejects new seats and dissolves lobbies when their time runs out (no new room ever starts), while rooms already in progress keep closing phases until they settle. Read per call in `src/vault.ts`. |
+| `VAULT_MIN_SEATS`        | Optional | `4`               | Minimum seats for a lobby to start when its time runs out. Clamped to `[4, 8]` (the engine's rules). Read in `src/vault.ts`.                                                                                                                         |
+| `VAULT_MAX_SEATS`        | Optional | `8`               | Seats that start a room immediately. Clamped to `[VAULT_MIN_SEATS, 8]`. Read in `src/vault.ts`.                                                                                                                                                      |
+| `VAULT_LOBBY_MS`         | Optional | `600000` (10 min) | How long a lobby waits before starting (≥ min seats) or dissolving. Read in `src/vault.ts`.                                                                                                                                                          |
+| `VAULT_PHASE_MS`         | Optional | `120000` (2 min)  | Deadline of every phase (talk / decide). A phase also closes early when every alive seat acted. Read in `src/vault.ts`.                                                                                                                              |
+| `VAULT_TICK_MS`          | Optional | `5000` (5 s)      | Ticker cadence that expires lobbies and phases even when nobody polls the room. Read in `src/vault.ts`.                                                                                                                                              |
+| `VAULT_MAX_ROOMS`        | Optional | `50`              | Cap on live rooms (lobby + playing) at once; beyond it, `POST /vault/join` answers `400 room limit`. Read in `src/vault.ts`.                                                                                                                         |
+| `VAULT_FINISHED_TTL_MS`  | Optional | `604800000` (7 d) | How long settled/dissolved rooms (and their public logs) are kept before purge. Read in `src/vault.ts`.                                                                                                                                              |
+| `VAULT_MAX_SETTLED_KEPT` | Optional | `50`              | Cap on settled/dissolved rooms kept at once; past it the oldest (by `settledAt`) are purged even before their TTL. The store is one blob, so unbounded logs would eventually break every write. Read in `src/vault.ts`.                              |
+
+POST budget: the vault POSTs share the arbiter's strict limiter
+(`RL_MAX_EXPENSIVE`, 12 requests per 10 s per IP). A single seat can send up to
+4 POSTs in one phase (3 messages + 1 decision), so several seats behind the
+same IP — a local runner driving a whole table, say — can hit `429`; raise the
+knob for that deployment.
+
+Only the free table (stake 0) exists in this version: the `VAULT_STAKES` knob
+from the design spec arrives with the N-deposit escrow (stage 4). The game
+rules themselves (percentages, message caps, absences) are **not** env vars:
+they live in `VAULT_RULES` (`packages/game-sdk/src/vault-rules.ts`) and are
+versioned by `VAULT_RULES_V`.
+
 ### Profiles and ratings caps
 
 | Variable              | Required | Default | Description                                                                                                               |
@@ -139,11 +165,12 @@ starting empty and overwriting good data on the next save).
 These are read by standalone one-off scripts in `apps/server/src/`, not by
 `index.ts`, and are not documented in `.env.example`:
 
-| Variable            | Used by              | Purpose                                                                                                      |
-| ------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `ARBITER_URL`       | `src/agent.ts`       | Base URL a local test-agent script talks to (defaults to `http://localhost:4000`).                           |
-| `MATCHID`, `WINNER` | `src/digestcheck.ts` | Inputs for a manual EIP-712 digest-checking script.                                                          |
-| `USDC_ADDR`         | `src/onchain-e2e.ts` | USDC contract address for the on-chain E2E test script (distinct from the web's `NEXT_PUBLIC_USDC_ADDRESS`). |
+| Variable                   | Used by                                                            | Purpose                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ARBITER_URL`              | `src/agent.ts`                                                     | Base URL a local test-agent script talks to (defaults to `http://localhost:4000`).                                                                                                                                                                                                                                                                           |
+| `MATCHID`, `WINNER`        | `src/digestcheck.ts`                                               | Inputs for a manual EIP-712 digest-checking script.                                                                                                                                                                                                                                                                                                          |
+| `USDC_ADDR`                | `src/onchain-e2e.ts`                                               | USDC contract address for the on-chain E2E test script (distinct from the web's `NEXT_PUBLIC_USDC_ADDRESS`).                                                                                                                                                                                                                                                 |
+| `scripts/vault-verify.mjs` | `node --import tsx scripts/vault-verify.mjs <arbiterUrl> <roomId>` | Verifies a settled La Bóveda room like any third party would: seed commitment, rules version, every action's signature, legitimate phase closes, and that re-simulating the public log yields the published payout table. No env vars; the optional third argument is the arbiter's `VAULT_PHASE_MS` (default `120000`), needed to judge closes by deadline. |
 
 ---
 

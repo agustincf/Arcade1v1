@@ -94,6 +94,39 @@ export function applyResult(
   };
 }
 
+/** ELO de N jugadores (La Bóveda): cada par (i, j) se compara por `score`
+ *  (más = gana; igual = empate) con las expectativas calculadas sobre los
+ *  ratings PREVIOS de todos, y K se divide por (N − 1) para que una sala mueva
+ *  tanto rating como una partida 1v1. Una sola actualización por jugador. */
+export function applyMultiResult(
+  game: string,
+  entries: { address: string; score: number }[],
+): Record<string, RatingUpdate> {
+  const n = entries.length;
+  if (n < 2) return {};
+  const k = K / (n - 1);
+  const before: Record<string, number> = {};
+  for (const e of entries) before[e.address] = getRating(e.address, game);
+  const out: Record<string, RatingUpdate> = {};
+  for (const a of entries) {
+    let sum = 0;
+    for (const b of entries) {
+      if (a.address === b.address) continue;
+      const expected = 1 / (1 + Math.pow(10, (before[b.address] - before[a.address]) / 400));
+      const actual = a.score > b.score ? 1 : a.score < b.score ? 0 : 0.5;
+      sum += actual - expected;
+    }
+    const after = Math.round(before[a.address] + k * sum);
+    out[a.address] = { before: before[a.address], after, delta: after - before[a.address] };
+  }
+  for (const [address, u] of Object.entries(out)) {
+    set(address, game, u.after);
+    touch(address);
+  }
+  save();
+  return out;
+}
+
 /** Tabla de posiciones de un juego (mayor rating primero). */
 export function leaderboard(game: string, limit = 20): { address: string; rating: number }[] {
   // Un limit no numérico (?limit=abc -> NaN) cae al default, no a una tabla vacía.
