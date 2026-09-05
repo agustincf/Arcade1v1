@@ -261,3 +261,23 @@ test("persistencia a mitad de sala: serializar, restaurar y seguir hasta el fina
     4000,
   );
 });
+
+test("scripts/vault-verify: da OK con el registro real y detecta una tabla adulterada", async () => {
+  const { verifyVaultLog } = await import("../../../scripts/vault-verify.mjs");
+  V.__resetVaultForTest();
+  const accs = accounts(4);
+  const roomId = await startRoom(accs);
+  await playOut(roomId, accs);
+  const log = JSON.parse(JSON.stringify(V.vaultLog(roomId))); // como llega por HTTP
+  const good = await verifyVaultLog(log);
+  assert.equal(good.ok, true, JSON.stringify(good.checks));
+  const forged = {
+    ...log,
+    payouts: { ...log.payouts, [log.seats[0]]: log.payouts[log.seats[0]] + 1 },
+  };
+  const bad = await verifyVaultLog(forged);
+  assert.equal(bad.ok, false);
+  assert.ok(
+    bad.checks.some((c: { name: string; ok: boolean }) => /re-simulación/.test(c.name) && !c.ok),
+  );
+});

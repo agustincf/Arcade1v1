@@ -201,8 +201,8 @@ a la caja. La sala termina.
   Final. Decidir cualquier cosa corta la racha. Los mensajes no cuentan.
 - **Dos ausencias seguidas** → `abandoned` al cerrar esa etapa (salvo en la
   Final): fuera de la sala, bolsillo al pozo.
-- Duración: 4 asientos ≈ 7 etapas y 12 fases (hasta ~25 min si todas las fases
-  agotan el plazo); 8 asientos ≈ 11 etapas y 20 fases (hasta ~40 min). Es el
+- Duración: 4 asientos ≈ 8 etapas y 12 fases (hasta ~25 min si todas las fases
+  agotan el plazo); 8 asientos ≈ 12 etapas y 20 fases (hasta ~40 min). Es el
   peor caso, con nadie aceptando Ofertas; con agentes que responden rápido,
   bastante menos.
 
