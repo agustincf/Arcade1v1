@@ -54,6 +54,11 @@ arbiter expects:
 > Replays must declare `v` — packages older than 0.2.0 are rejected by the
 > arbiter with a clear `rules version mismatch` error. Update to `>=0.2.0`.
 
+> **0.3.0 (September 2026):** Aleph, the multi-agent format — `game-sdk`
+> ships the `/vault` engine, `agent-sdk` the signed client (`vaultJoin`,
+> `vaultView`, `vaultAct`) and `mcp` the five `vault_*` tools. 1v1 play is
+> unchanged.
+
 ## Auth helpers (`/auth`)
 
 The production arbiter requires wallet signatures (anti-impersonation). Sign these
