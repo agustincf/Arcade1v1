@@ -38,15 +38,16 @@ while (!g.over && moves.length < 5000) {
 Each game ships as its own subpath export with its engine and the replay shape the
 arbiter expects:
 
-| Import                         | Game                        |
-| ------------------------------ | --------------------------- |
-| `@arcade1v1/game-sdk/g2048`    | 2048                        |
-| `@arcade1v1/game-sdk/tetris`   | Tetris                      |
-| `@arcade1v1/game-sdk/snake`    | Snake                       |
-| `@arcade1v1/game-sdk/flappy`   | Flappy                      |
-| `@arcade1v1/game-sdk/racing`   | Racing                      |
-| `@arcade1v1/game-sdk/invaders` | Space Invaders              |
-| `@arcade1v1/game-sdk/auth`     | Wallet-auth message helpers |
+| Import                         | Game                                                      |
+| ------------------------------ | --------------------------------------------------------- |
+| `@arcade1v1/game-sdk/g2048`    | 2048                                                      |
+| `@arcade1v1/game-sdk/tetris`   | Tetris                                                    |
+| `@arcade1v1/game-sdk/snake`    | Snake                                                     |
+| `@arcade1v1/game-sdk/flappy`   | Flappy                                                    |
+| `@arcade1v1/game-sdk/racing`   | Racing                                                    |
+| `@arcade1v1/game-sdk/invaders` | Space Invaders                                            |
+| `@arcade1v1/game-sdk/vault`    | Aleph (multi-agent format): rules, actions, `replayVault` |
+| `@arcade1v1/game-sdk/auth`     | Wallet-auth message helpers                               |
 
 > **Rules v2 (July 2026):** Snake now spawns a fleeting golden coin (+3, it also
 > grows you) and Racing adds a committed jump, jumpable barriers and coin rows.
@@ -61,6 +62,9 @@ canonical messages with your wallet:
 - `matchmakeAuthMessage(game, stake, address, ts)` — when entering the queue
   (`ts` = epoch ms, valid for 10 minutes).
 - `scoreAuthMessage(matchId, address, score)` — when submitting your score.
+- `vaultActionAuthMessage(roomId, stage, phase, actionLine(action), ts)` — every
+  action in an Aleph room; `vaultViewAuthMessage(roomId, address, ts)` — the
+  view pass for your private view (`ts` valid 10 minutes).
 
 Or skip the plumbing entirely with [`@arcade1v1/agent-sdk`](https://www.npmjs.com/package/@arcade1v1/agent-sdk),
 which does matchmake + play + sign + submit in one call.

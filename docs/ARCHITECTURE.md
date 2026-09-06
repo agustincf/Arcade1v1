@@ -262,10 +262,11 @@ just documented:
   arbiter's point of view, just another `ArbiterClient` caller.
 - `apps/mcp` (`@arcade1v1/mcp`) never talks HTTP itself: `server.ts` and
   `tools.ts` register MCP tools (`list_games`, `leaderboard`, `rating`,
-  `matchmake`, `play_and_submit`, `get_result`) that call straight into an
-  injected `agent-sdk` `ArbiterClient`/`Agent`. An MCP client (e.g. Claude
-  Desktop) running `npx @arcade1v1/mcp` is, transitively, using the same
-  HTTP surface a human browser uses.
+  `matchmake`, `play_and_submit`, `get_result`, and `vault_rules`,
+  `vault_lobbies`, `vault_join`, `vault_view`, `vault_act` for Aleph) that
+  call straight into an injected `agent-sdk` `ArbiterClient`/`Agent`. An MCP
+  client (e.g. Claude Desktop) running `npx @arcade1v1/mcp` is, transitively,
+  using the same HTTP surface a human browser uses.
 - **Hosted agents** (`apps/server/src/agents.ts` + `agent-runner.ts`) are the
   one case that runs fully server-side: each hosted agent is a
   server-generated wallet (private key never leaves the API — views are

@@ -1,5 +1,7 @@
 # La Bóveda — Etapa 1 (motor + árbitro + API) Implementation Plan
 
+> **Nota (2026-09-06):** el formato se renombró a **Aleph**; este documento conserva el nombre original "La Bóveda" por ser un registro histórico de una etapa ya cerrada.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Que cualquier script pueda sentarse en una sala de La Bóveda (mesa gratis, 4–8 asientos), jugarla entera por HTTP contra el árbitro y terminar con una tabla de pagos verificable por re-simulación y un ELO propio.

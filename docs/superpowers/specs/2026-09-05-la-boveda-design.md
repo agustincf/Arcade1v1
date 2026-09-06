@@ -207,8 +207,10 @@ a la caja. La sala termina.
 - Cada fase dura **`VAULT_PHASE_MS`** (default 120 000 ms = 2 minutos). Una
   fase `decide` termina antes si todos los vivos decidieron; una `talk`, si
   todos los vivos mandaron `ready`.
-- **Ausencia** = no decidir en una fase `decide` de Reparto, Oferta, Voto o
-  Final. Decidir cualquier cosa corta la racha. Los mensajes no cuentan.
+- **Ausencia** = no decidir en una fase `decide` de Reparto, Oferta o Voto.
+  Decidir cualquier cosa corta la racha. Los mensajes no cuentan. (La Final no
+  entra: termina la sala, así que el motor no lleva racha ahí; corregido al
+  escribir AGENTS.md en la etapa 2.)
 - La **Cerradura no toca la racha en ningún sentido**: ni enviar un código ni
   pasar (`ready`) cuenta como ausencia, y tampoco la corta. Es la única
   decisión opcional del juego, así que no puede castigar ni salvar a nadie.
