@@ -25,6 +25,7 @@ import {
 import {
   defaultAction,
   describeVaultView,
+  isFatalBrainError,
   parseBrainReply,
   playVaultRoom,
   type Brain,
@@ -38,8 +39,15 @@ class FakeVaultArbiter extends ArbiterClient {
   seats: string[] = [];
   state?: VaultState;
   acts = 0;
-  constructor() {
+  /** Intentos de mensaje que LLEGARON al árbitro (los filtrados no cuentan). */
+  msgAttempts = 0;
+  whisperAttempts = 0;
+  /** El plazo de la fase. Inyectable: los tests del guard de plazo necesitan
+   *  uno corto (o atado a un reloj falso), y el árbitro real da ~2 minutos. */
+  private readonly deadlineAt: () => number;
+  constructor(opts: { deadline?: () => number } = {}) {
     super("http://fake");
+    this.deadlineAt = opts.deadline ?? (() => Date.now() + 120_000);
   }
   private room(address?: string): VaultRoomView {
     const base = {
@@ -61,7 +69,7 @@ class FakeVaultArbiter extends ArbiterClient {
     return {
       ...base,
       status: this.state.over ? "settled" : "playing",
-      deadline: Date.now() + 120_000,
+      deadline: this.deadlineAt(),
       ...v,
     };
   }
@@ -85,6 +93,8 @@ class FakeVaultArbiter extends ArbiterClient {
   }
   async vaultAct(_roomId: string, address: string, body: VaultActBody) {
     const a = address.toLowerCase();
+    if (body.action.type === "say" || body.action.type === "whisper") this.msgAttempts++;
+    if (body.action.type === "whisper") this.whisperAttempts++;
     let s = applyEvent(this.state!, {
       type: "action",
       address: a,
@@ -195,6 +205,144 @@ test("playVaultRoom: `wait` en la charla vuelve a consultar y cae a ready al ago
   );
   assert.ok(results.every((r) => r.status === "settled"));
   assert.ok(waits >= 8, "cada charla consultó al menos dos veces por asiento");
+});
+
+test("playVaultRoom: un error de credenciales aborta la sala en vez de jugarla a ciegas", async () => {
+  const fake = new FakeVaultArbiter();
+  const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
+  let calls = 0;
+  // El texto exacto del SDK de Anthropic cuando no hay ANTHROPIC_API_KEY (la
+  // resolución de credenciales pasa por PEDIDO, no en el constructor: el fallo
+  // aparece recién acá, ya sentados).
+  const noKey: Brain = async () => {
+    calls++;
+    throw new Error("Could not resolve authentication method. Expected either apiKey or authToken");
+  };
+  const settled = await Promise.allSettled([
+    playVaultRoom(agents[0], noKey, FAST),
+    ...agents.slice(1).map((a) => playVaultRoom(a, scripted, { ...FAST, maxPolls: 40 })),
+  ]);
+  assert.equal(settled[0].status, "rejected");
+  assert.match((settled[0] as PromiseRejectedResult).reason.message, /authentication/);
+  assert.equal(calls, 1, "no gasta la sala entera reintentando contra una key que no existe");
+});
+
+test("playVaultRoom: una racha de fallos del modelo corta en vez de jugar de defaults", async () => {
+  const fake = new FakeVaultArbiter();
+  const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
+  let calls = 0;
+  // Un 529 suelto se aguanta; una racha es el mismo daño que no tener key.
+  const overloaded: Brain = async () => {
+    calls++;
+    throw Object.assign(new Error("overloaded_error"), { status: 529 });
+  };
+  const settled = await Promise.allSettled([
+    playVaultRoom(agents[0], overloaded, { ...FAST, maxBrainFails: 3 }),
+    ...agents.slice(1).map((a) => playVaultRoom(a, scripted, { ...FAST, maxPolls: 40 })),
+  ]);
+  assert.equal(settled[0].status, "rejected");
+  assert.match((settled[0] as PromiseRejectedResult).reason.message, /3 veces seguidas/);
+  assert.equal(calls, 3, "tolera fallos sueltos y corta a los 3 seguidos");
+});
+
+test("isFatalBrainError: credenciales y cuota son irrecuperables; 429 y 529 no", () => {
+  assert.equal(isFatalBrainError(new Error("Could not resolve authentication method")), true);
+  assert.equal(isFatalBrainError(Object.assign(new Error("nope"), { status: 401 })), true);
+  assert.equal(isFatalBrainError(Object.assign(new Error("nope"), { status: 403 })), true);
+  assert.equal(isFatalBrainError(new Error("invalid x-api-key")), true);
+  assert.equal(isFatalBrainError(new Error("Your credit balance is too low")), true);
+  assert.equal(
+    isFatalBrainError(Object.assign(new Error("rate_limit_error"), { status: 429 })),
+    false,
+  );
+  assert.equal(
+    isFatalBrainError(Object.assign(new Error("overloaded_error"), { status: 529 })),
+    false,
+  );
+  assert.equal(isFatalBrainError(new Error("fetch failed")), false);
+});
+
+test("playVaultRoom: con el plazo encima no se consulta al modelo", async () => {
+  // Menos que el margen de 20 s: una respuesta que llega con la fase cerrada
+  // vale lo mismo que una ausencia, así que ni se pide.
+  const fake = new FakeVaultArbiter({ deadline: () => Date.now() + 5_000 });
+  const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
+  let calls = 0;
+  const counted: Brain = async (p, v, me) => {
+    calls++;
+    return scripted(p, v, me);
+  };
+  const results = await Promise.all(agents.map((a) => playVaultRoom(a, counted, FAST)));
+  assert.ok(results.every((r) => r.status === "settled"));
+  assert.equal(calls, 0, "no se gasta una llamada al modelo que no va a llegar a tiempo");
+  assert.equal(fake.msgAttempts, 0);
+});
+
+test("playVaultRoom: una respuesta lenta no se postea con la vista vieja", async () => {
+  // Reloj falso: el plazo va siempre 60 s por delante y el cerebro tarda 60 s
+  // en pensar, así que TODA respuesta llega con el plazo encima.
+  let t = 1_800_000_000_000;
+  const fake = new FakeVaultArbiter({ deadline: () => t + 60_000 });
+  const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
+  const slow: Brain = async (p, v, me) => {
+    t += 60_000;
+    return scripted(p, v, me);
+  };
+  const lines: string[] = [];
+  const results = await Promise.all(
+    agents.map((a) => playVaultRoom(a, slow, { ...FAST, now: () => t, log: (l) => lines.push(l) })),
+  );
+  assert.ok(results.every((r) => r.status === "settled"));
+  assert.ok(
+    lines.some((l) => /refresco la vista/.test(l)),
+    "detectó que la respuesta llegó tarde y refrescó antes de decidir",
+  );
+  assert.equal(fake.msgAttempts, 0, "con el plazo encima se resigna la charla, no la decisión");
+  assert.ok(
+    fake.state!.results.some((r: StageResult) => r.kind === "share" && r.kept!.length === 1),
+    "la decisión del cerebro llegó igual (uno guardó en el Reparto)",
+  );
+});
+
+test("playVaultRoom: un mensaje rechazado no se lleva puesta la decisión de la etapa", async () => {
+  // El árbitro rechaza TODO mensaje (como el rate limit de 12 POST/10 s) y
+  // acepta las decisiones: la sala tiene que terminar igual.
+  class NoMessagesArbiter extends FakeVaultArbiter {
+    async vaultAct(roomId: string, address: string, body: VaultActBody) {
+      if (body.action.type === "say" || body.action.type === "whisper") {
+        this.msgAttempts++;
+        throw new Error("HTTP 429: rate limited");
+      }
+      return super.vaultAct(roomId, address, body);
+    }
+  }
+  const fake = new NoMessagesArbiter();
+  const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
+  const results = await Promise.all(agents.map((a) => playVaultRoom(a, scripted, FAST)));
+  assert.ok(results.every((r) => r.status === "settled"));
+  assert.ok(fake.msgAttempts > 0, "hubo mensajes rechazados de verdad");
+  assert.equal(fake.state!.messages.length, 0);
+  assert.ok(
+    fake.state!.results.some((r: StageResult) => r.kind === "share" && r.kept!.length === 1),
+    "la decisión se mandó igual (uno guardó en el Reparto)",
+  );
+});
+
+test("playVaultRoom: un susurro a un asiento que no está vivo se filtra antes de mandarlo", async () => {
+  const fake = new FakeVaultArbiter();
+  const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
+  const stray = "0x" + "de".repeat(20); // nadie de esta mesa: el motor tiraría "invalid whisper target"
+  const strayWhisper: Brain = async (p, v, me) => {
+    const j = JSON.parse(await scripted(p, v, me));
+    return JSON.stringify({ ...j, whisper: { to: stray, text: "psst" } });
+  };
+  const results = await Promise.all(agents.map((a) => playVaultRoom(a, strayWhisper, FAST)));
+  assert.ok(results.every((r) => r.status === "settled"));
+  assert.equal(fake.whisperAttempts, 0, "el susurro imposible ni se intentó");
+  assert.ok(
+    fake.state!.messages.some((m) => !m.to && m.text === "hello table"),
+    "los mensajes públicos siguieron saliendo",
+  );
 });
 
 test("parseBrainReply: JSON con ruido alrededor, wait, mensajes fuera de tope y basura", () => {

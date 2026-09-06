@@ -210,6 +210,37 @@ export function defaultAction(v: VaultRoomView, me: string): VaultAction {
 
 // --- El loop ----------------------------------------------------------------------
 
+/** Margen contra el plazo de la fase: con menos que esto no se consulta al
+ *  modelo, y una consulta que ya estaba en vuelo pierde lo accesorio (los
+ *  mensajes). Una respuesta que llega con la fase cerrada vale lo mismo que una
+ *  ausencia, y dos ausencias seguidas dejan el asiento `abandoned`. */
+const DEADLINE_MARGIN_MS = 20_000;
+
+/** Un error del cliente del modelo que NO se arregla reintentando: sin
+ *  credenciales, key vencida o sin permiso, cuota agotada. Importa porque el
+ *  SDK de Anthropic resuelve las credenciales por PEDIDO (no en el
+ *  constructor): el fallo aparece recién en la primera consulta, ya sentados a
+ *  la mesa, y ahí tragárselo significa jugar la sala entera a ciegas. */
+export function isFatalBrainError(e: unknown): boolean {
+  const status = (e as { status?: number } | null | undefined)?.status;
+  if (status === 401 || status === 403) return true;
+  const msg = (e as Error | undefined)?.message ?? String(e);
+  return /authentication|api[_ -]?key|permission|credit balance/i.test(msg);
+}
+
+/** Un mensaje: lo único que se manda aparte de la decisión de la etapa. */
+type VaultMessage = Extract<VaultAction, { type: "say" } | { type: "whisper" }>;
+
+/** Un susurro solo llega si el destino es OTRO asiento VIVO. `validateAction`
+ *  valida la FORMA de la address, no el estado de la mesa (lo dice su propio
+ *  comentario), así que un susurro al asiento recién eliminado —que sigue
+ *  listado en `seats`— hace que el motor tire "invalid whisper target". Ese 400
+ *  se filtra acá porque no puede costarnos la decisión de la etapa. */
+function canWhisperTo(v: VaultRoomView, me: string, to: string): boolean {
+  const t = to.toLowerCase();
+  return t !== me && v.seats.some((s) => s.address.toLowerCase() === t && s.status === "alive");
+}
+
 export interface PlayOptions {
   /** Cadencia de sondeo (default 5000 ms, como el ticker del árbitro). */
   pollMs?: number;
@@ -221,6 +252,8 @@ export interface PlayOptions {
   rePromptMs?: number;
   /** Tope de llamadas al modelo por sala; después, acciones por defecto (default 60). */
   maxBrainCalls?: number;
+  /** Fallos SEGUIDOS del cliente del modelo tolerados antes de abandonar la sala (default 3). */
+  maxBrainFails?: number;
   now?: () => number;
   log?: (line: string) => void;
 }
@@ -238,6 +271,7 @@ export async function playVaultRoom(
   const maxTalkTurns = opts.maxTalkTurns ?? 2;
   const rePromptMs = opts.rePromptMs ?? 30_000;
   const maxBrainCalls = opts.maxBrainCalls ?? 60;
+  const maxBrainFails = opts.maxBrainFails ?? 3;
   const now = opts.now ?? Date.now;
   const log = opts.log ?? (() => {});
   const me = agent.address.toLowerCase();
@@ -251,6 +285,8 @@ export async function playVaultRoom(
   let sent = 0; // mensajes enviados en esta fase (tope del motor: MAX_MSGS_PER_PHASE)
   let lastAsk = { at: -Infinity, fingerprint: "" };
   let brainCalls = 0;
+  let brainFails = 0; // fallos SEGUIDOS del cliente del modelo (se resetea al responder)
+  let budgetLogged = false;
 
   for (let i = 0; i < maxPolls; i++) {
     if (v.status === "settled" || v.status === "dissolved") return v;
@@ -263,56 +299,129 @@ export async function playVaultRoom(
         sent = 0;
         lastAsk = { at: -Infinity, fingerprint: "" };
       }
-      const legal = legalActions(v);
+      let legal = legalActions(v);
       const pending = legal.some((t) => t !== "say" && t !== "whisper");
       // Solo se vuelve a consultar al cerebro si la mesa cambió (mensajes o
       // actuados nuevos) o pasó rePromptMs: sondear cada 5 s no puede ser una
       // llamada al modelo cada 5 s.
       const fingerprint = `${v.messages?.length ?? 0}/${st.acted.length}`;
-      const nearDeadline = v.deadline !== undefined && v.deadline - now() < 20_000;
+      // Se mide contra la vista vigente en cada momento: el plazo que valía
+      // antes de pensar puede no valer después.
+      const timeLeft = () => (v.deadline === undefined ? Infinity : v.deadline - now());
+      const nearDeadline = timeLeft() < DEADLINE_MARGIN_MS;
       const askAgain = fingerprint !== lastAsk.fingerprint || now() - lastAsk.at >= rePromptMs;
       if (pending && (askAgain || nearDeadline)) {
         let reply: BrainReply | null = null;
-        if (brainCalls < maxBrainCalls && !nearDeadline) {
+        if (nearDeadline) {
+          log("el plazo está encima: decido sin consultar al modelo");
+        } else if (brainCalls >= maxBrainCalls) {
+          // Pasar a modo automático en silencio hace parecer al modelo tonto:
+          // que quede dicho una vez.
+          if (!budgetLogged) {
+            budgetLogged = true;
+            log(`agotadas las ${maxBrainCalls} consultas al modelo: sigo con acciones por defecto`);
+          }
+        } else {
           brainCalls++;
           lastAsk = { at: now(), fingerprint };
           try {
             reply = parseBrainReply(await brain(describeVaultView(v, me, now()), v, me));
+            brainFails = 0;
           } catch (e) {
-            log(`el cerebro falló: ${(e as Error).message}`);
+            // Sin credenciales (o con la key vencida) NUNCA va a haber
+            // respuesta: seguir jugando 40 minutos de acciones por defecto
+            // ocupa un asiento real de una mesa de 4 a 8, arrastra a los otros
+            // y se lleva un update de ELO jugando a ciegas. Se corta acá, y
+            // main() imprime el remedio.
+            if (isFatalBrainError(e)) {
+              log(`el cerebro no puede responder (credenciales o cuota): abandono ${roomId}`);
+              throw e;
+            }
+            brainFails++;
+            log(`el cerebro falló (${brainFails}/${maxBrainFails}): ${(e as Error).message}`);
+            // Un 429 o un 529 sueltos se aguantan; una racha es el mismo daño
+            // que la falta de credenciales, solo que más lento.
+            if (brainFails >= maxBrainFails) {
+              throw new Error(
+                `el cerebro falló ${brainFails} veces seguidas en la sala ${roomId}: ${(e as Error).message}`,
+                { cause: e },
+              );
+            }
           }
+        }
+        // El cerebro pudo tardar MÁS de lo que quedaba de fase: `nearDeadline`
+        // se midió ANTES de pensar. Si el plazo se vino encima mientras tanto,
+        // la vista (y con ella el `at`) puede estar vieja: postear así devuelve
+        // "stage or phase mismatch" y deja la etapa sin decidir, o sea UNA
+        // AUSENCIA. Se refresca antes de decidir y se resigna lo accesorio.
+        if (reply && !nearDeadline && timeLeft() < DEADLINE_MARGIN_MS) {
+          log("la respuesta llegó con el plazo encima: refresco la vista antes de decidir");
+          v = await agent.vaultView(roomId);
+          const fresh = v.stage;
+          if (
+            v.status !== "playing" ||
+            !fresh ||
+            v.you?.status !== "alive" ||
+            fresh.index !== st.index ||
+            fresh.phase !== st.phase
+          ) {
+            continue; // otra fase (o la sala terminó): se reevalúa desde arriba, sin dormir
+          }
+          legal = legalActions(v);
+          // Ya no hay tiempo para charlar, y `wait` sería la ausencia misma.
+          reply = { action: reply.action.type === "wait" ? defaultAction(v, me) : reply.action };
         }
         if (!reply) reply = { action: defaultAction(v, me) };
         const at = { stage: st.index, phase: st.phase };
-        try {
-          if (reply.say && sent < VAULT_RULES.MAX_MSGS_PER_PHASE) {
-            v = await agent.vaultAct(roomId, { type: "say", text: reply.say }, at);
-            sent++;
-            log(`digo: ${reply.say}`);
-          }
-          if (reply.whisper && sent < VAULT_RULES.MAX_MSGS_PER_PHASE) {
-            v = await agent.vaultAct(roomId, { type: "whisper", ...reply.whisper }, at);
-            sent++;
-            log(`susurro a ${reply.whisper.to}: ${reply.whisper.text}`);
-          }
-          let action: VaultAction | null = null;
-          if (reply.action.type === "wait") {
-            waits++;
-            if (waits > maxTalkTurns || nearDeadline) action = defaultAction(v, me);
+        let postFailed = false;
+        // Los mensajes van en su PROPIO try, uno por uno: un susurro rechazado
+        // (destino recién eliminado, o el tope de 12 POST/10 s del árbitro) no
+        // puede llevarse puesta la DECISIÓN de la etapa, que es lo único que
+        // evita la ausencia.
+        const msgs: VaultMessage[] = [];
+        if (reply.say) msgs.push({ type: "say", text: reply.say });
+        if (reply.whisper) {
+          if (canWhisperTo(v, me, reply.whisper.to)) {
+            msgs.push({ type: "whisper", to: reply.whisper.to, text: reply.whisper.text });
           } else {
-            action = legal.includes(reply.action.type) ? reply.action : defaultAction(v, me);
+            log(`susurro descartado: ${reply.whisper.to} no es otro asiento vivo`);
           }
-          if (action) {
+        }
+        for (const m of msgs) {
+          if (sent >= VAULT_RULES.MAX_MSGS_PER_PHASE) break;
+          try {
+            v = await agent.vaultAct(roomId, m, at);
+            sent++;
+            log(m.type === "say" ? `digo: ${m.text}` : `susurro a ${m.to}: ${m.text}`);
+          } catch (e) {
+            postFailed = true;
+            log(`mensaje rechazado: ${(e as Error).message}`);
+          }
+        }
+        let action: VaultAction | null = null;
+        if (reply.action.type === "wait") {
+          waits++;
+          if (waits > maxTalkTurns) action = defaultAction(v, me);
+        } else {
+          action = legal.includes(reply.action.type) ? reply.action : defaultAction(v, me);
+        }
+        if (action) {
+          try {
             v = await agent.vaultAct(roomId, action, at);
             log(`acción: ${action.type}`);
             continue; // la respuesta ya es la vista fresca: sin dormir
+          } catch (e) {
+            // "stage or phase mismatch" (la fase cerró abajo nuestro), un 429 del
+            // rate limit o la red: se refresca la vista y se reintenta en el
+            // próximo sondeo.
+            postFailed = true;
+            log(`acción rechazada: ${(e as Error).message}`);
           }
-        } catch (e) {
-          // "stage or phase mismatch" (la fase cerró abajo nuestro), un 429 del
-          // rate limit o la red: se refresca la vista y se reintenta en el
-          // próximo sondeo. No se vuelve a consultar al cerebro por esto.
-          log(`acción rechazada: ${(e as Error).message}`);
         }
+        // Un POST rechazado no puede dejar al asiento mudo hasta rePromptMs: se
+        // borra la marca de la última consulta para reintentar en el próximo
+        // sondeo, aunque nada más haya cambiado en la mesa.
+        if (postFailed) lastAsk = { at: -Infinity, fingerprint: "" };
       }
     }
     await new Promise((r) => setTimeout(r, pollMs));
