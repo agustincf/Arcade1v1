@@ -1,7 +1,13 @@
 // Helpers de alto nivel: crear un agente y "jugá y enviá" en una sola llamada.
 import { privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
-import { ArbiterClient, type MatchView, type VaultRoomView, type VaultViewPass } from "./client";
+import {
+  ArbiterClient,
+  type MatchView,
+  type VaultLobby,
+  type VaultRoomView,
+  type VaultViewPass,
+} from "./client";
 import { randomWallet, signScore, signMatchmake, signVaultAction, signVaultView } from "./sign";
 import { DEFAULT_STRATEGIES, type Strategy } from "./strategies";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
@@ -22,9 +28,13 @@ export function createAgent(opts: {
   client: ArbiterClient;
   matchmake(game: string, stake: number): Promise<MatchView>;
   playAndSubmit(args: { game: string; stake: number; strategy?: Strategy }): Promise<MatchView>;
-  /** La Bóveda: pedir asiento en la mesa gratis (firmado). Idempotente. */
+  /** La Bóveda: pedir asiento en la mesa gratis (firmado). Idempotente. Antes
+   *  de sentarse, mira la versión de reglas de la mesa abierta (si hay una) y
+   *  corta sin pedir asiento si no coincide. */
   vaultJoin(stake?: number): Promise<VaultRoomView>;
-  /** La Bóveda: TU vista privada, con pase de vista firmado (cacheado 8 min). */
+  /** La Bóveda: TU vista privada, con pase de vista firmado (cacheado 8 min).
+   *  Si el árbitro rechaza el pase en silencio (200 con la vista pública),
+   *  reintenta una vez con uno recién firmado antes de tirar un error claro. */
   vaultView(roomId: string): Promise<VaultRoomView>;
   /** La Bóveda: una acción firmada. `at` (etapa/fase) sale de tu última vista;
    *  si se omite, se consulta la vista primero (un GET más). */
@@ -93,8 +103,41 @@ export function createAgent(opts: {
 
   // ---- La Bóveda (formato multi-agente) ------------------------------------
 
+  // El lobby SÍ publica rulesV antes de sentarse: GET /vault/lobbies da el
+  // roomId de la mesa abierta y GET /vault/:id sin pase (vista pública, sin
+  // costo) trae rulesV para esa sala en cualquier estado (roomView,
+  // apps/server/src/vault.ts). Miramos ahí ANTES de pedir asiento: un SDK
+  // desactualizado que se sienta igual deja un asiento mudo que estira CADA
+  // fase hasta VAULT_PHASE_MS (nadie decide por consenso) y arrastra a los
+  // demás 3-7 asientos durante dos etapas, hasta que MAX_ABSENCES lo marca
+  // `abandoned`. Es mejor esfuerzo: si el GET falla (red caída) seguimos de
+  // largo y confiamos en la red de contención de abajo.
+  async function assertCompatibleRules(stake: number): Promise<void> {
+    let lobbies: VaultLobby[];
+    try {
+      lobbies = await client.vaultLobbies();
+    } catch {
+      return;
+    }
+    const open = lobbies.find((l) => l.stake === stake);
+    if (!open) return; // primera mesa de esta vida del árbitro: nada que mirar todavía.
+    let pub: VaultRoomView;
+    try {
+      pub = await client.vaultView(open.roomId);
+    } catch {
+      return;
+    }
+    if (pub.rulesV !== VAULT_RULES_V) {
+      throw new Error(
+        `rules version mismatch for vault: arbiter v${pub.rulesV}, SDK v${VAULT_RULES_V} — ` +
+          `update @arcade1v1 packages (room ${open.roomId})`,
+      );
+    }
+  }
+
   async function vaultJoin(stake = 0): Promise<VaultRoomView> {
     assertFreeTable(stake);
+    await assertCompatibleRules(stake);
     const auth = await signMatchmake({
       game: "vault",
       stake,
@@ -103,13 +146,14 @@ export function createAgent(opts: {
       ts: clock(),
     });
     const v = await client.vaultJoin(stake, wallet.address, auth);
-    // Guard de versión, mismo criterio que playAndSubmit. Llega DESPUÉS de tener
-    // asiento porque el lobby no publica rulesV antes: en la mesa gratis no
-    // cuesta nada, el asiento mudo queda `abandoned` a las dos etapas y su
-    // bolsillo (0) vuelve al pozo.
+    // Red de contención: si no había mesa abierta para mirar antes (primera
+    // sala) o la versión cambió justo en el medio, igual cortamos acá. No hay
+    // endpoint para abandonar la mesa, así que el roomId va en el mensaje: el
+    // dueño del agente necesita saber cuál quedó con un asiento mudo.
     if (v.rulesV !== VAULT_RULES_V) {
       throw new Error(
-        `rules version mismatch for vault: arbiter v${v.rulesV}, SDK v${VAULT_RULES_V} — update @arcade1v1 packages`,
+        `rules version mismatch for vault: arbiter v${v.rulesV}, SDK v${VAULT_RULES_V} — ` +
+          `update @arcade1v1 packages (room ${v.roomId})`,
       );
     }
     return v;
@@ -134,8 +178,31 @@ export function createAgent(opts: {
     return pass;
   }
 
+  // El árbitro NUNCA lanza ante un pase inválido: si verifySigned falla (firma
+  // mala, o el `ts` cacheado ya luce vencido para EL RELOJ DEL SERVIDOR, p.ej.
+  // un host sin NTP 3 minutos atrasado) responde 200 con la vista PÚBLICA, sin
+  // `you` (getVaultRoom, apps/server/src/vault.ts). Si eso pasa mientras
+  // tenemos asiento, jugar a ciegas con `you` undefined es peor que fallar
+  // claro: acá lo detectamos y reintentamos una vez con un pase recién
+  // firmado (ts = ahora, lejos del borde) antes de resignarnos.
+  function passWasRejected(v: VaultRoomView): boolean {
+    if (v.status !== "playing" && v.status !== "settled") return false;
+    if (v.you !== undefined) return false;
+    return v.seats.some((s) => s.address.toLowerCase() === wallet.address.toLowerCase());
+  }
+
   async function vaultView(roomId: string): Promise<VaultRoomView> {
-    return client.vaultView(roomId, await viewPass(roomId));
+    const v = await client.vaultView(roomId, await viewPass(roomId));
+    if (!passWasRejected(v)) return v;
+    passes.delete(roomId); // el pase cacheado no sirve: forzar uno nuevo, no reusarlo.
+    const retry = await client.vaultView(roomId, await viewPass(roomId));
+    if (passWasRejected(retry)) {
+      throw new Error(
+        `view pass rejected for room ${roomId}: check the system clock (address ${wallet.address} ` +
+          `has a seat but the arbiter won't grant the private view)`,
+      );
+    }
+    return retry;
   }
 
   async function vaultAct(

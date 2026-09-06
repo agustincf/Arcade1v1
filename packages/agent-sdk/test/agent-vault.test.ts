@@ -15,6 +15,7 @@ import { actionLine, VAULT_RULES_V, type VaultAction } from "@arcade1v1/game-sdk
 import {
   ArbiterClient,
   type VaultActBody,
+  type VaultLobby,
   type VaultRoomView,
   type VaultViewPass,
 } from "../src/client.ts";
@@ -23,12 +24,15 @@ import { createAgent, VIEW_PASS_MAX_AGE_MS } from "../src/agent.ts";
 const ROOM = "0x" + "ee".repeat(32);
 const T0 = 1_800_000_000_000;
 
-/** Árbitro falso: captura lo que manda el agente y devuelve una vista fija. */
+/** Árbitro falso: captura lo que manda el agente y devuelve una vista fija.
+ *  `lobbies` vacío por default: así los tests que no lo tocan preservan el
+ *  camino viejo (sin mesa abierta para mirar antes de sentarse). */
 class FakeVault extends ArbiterClient {
   joins: { stake: number; address: string; auth?: { signature: string; ts: number } }[] = [];
   views: (VaultViewPass | undefined)[] = [];
   acts: { address: string; body: VaultActBody }[] = [];
   rulesV = VAULT_RULES_V;
+  lobbies: VaultLobby[] = [];
   stage: VaultRoomView["stage"] = { index: 2, kind: "vote", phase: "decide", acted: [] };
   constructor() {
     super("http://fake");
@@ -45,6 +49,9 @@ class FakeVault extends ArbiterClient {
       seats: [],
       stage: this.stage,
     };
+  }
+  async vaultLobbies() {
+    return this.lobbies;
   }
   async vaultJoin(stake: number, address: string, auth?: { signature: string; ts: number }) {
     this.joins.push({ stake, address, auth });
@@ -90,6 +97,30 @@ test("vaultJoin: rechaza mesas de plata sin pedir asiento, y otra versión de re
   );
 });
 
+test("vaultJoin: si hay mesa abierta con otra versión de reglas, corta ANTES de pedir asiento", async () => {
+  const fake = new FakeVault();
+  const agent = createAgent({ client: fake });
+  fake.lobbies = [{ roomId: ROOM, stake: 0, seats: 3, min: 4, max: 8, closesAt: 0 }];
+  fake.rulesV = VAULT_RULES_V + 1;
+  await assert.rejects(
+    () => agent.vaultJoin(0),
+    (e: Error) => /rules version mismatch/.test(e.message) && new RegExp(ROOM).test(e.message),
+  );
+  assert.equal(fake.joins.length, 0, "no ensució la mesa compartida pidiendo asiento");
+  // La vista pública que lo detectó fue SIN pase (nadie tiene asiento todavía).
+  assert.equal(fake.views.length, 1);
+  assert.equal(fake.views[0], undefined);
+});
+
+test("vaultJoin: sin mesa abierta para mirar, sigue de largo (nada que chequear todavía)", async () => {
+  const fake = new FakeVault();
+  const agent = createAgent({ client: fake });
+  fake.lobbies = []; // primera sala de la vida del árbitro
+  const v = await agent.vaultJoin(0);
+  assert.equal(v.roomId, ROOM);
+  assert.equal(fake.joins.length, 1, "sí pidió asiento: no había nada que mirar antes");
+});
+
 test("vaultView: pide la vista privada con un pase firmado, lo reutiliza y lo renueva al envejecer", async () => {
   let now = T0;
   const fake = new FakeVault();
@@ -112,6 +143,58 @@ test("vaultView: pide la vista privada con un pase firmado, lo reutiliza y lo re
   const p3 = fake.views[2]!;
   assert.equal(p3.ts, now);
   assert.notEqual(p3.signature, p1.signature, "el pase viejo se renueva antes de vencer");
+});
+
+/** Árbitro falso que modela el rechazo silencioso del pase de vista: cuando
+ *  `verifySigned` falla (p.ej. reloj del agente desfasado respecto del
+ *  servidor), el árbitro real responde 200 con la vista PÚBLICA en vez de
+ *  lanzar (getVaultRoom, apps/server/src/vault.ts) — acá, sin `you` aunque la
+ *  address SÍ tenga asiento. `grantAt` controla desde qué llamada (1-based)
+ *  el pase "sirve". */
+class FlakyPassVault extends ArbiterClient {
+  address = "";
+  calls = 0;
+  grantAt = 1;
+  constructor() {
+    super("http://fake");
+  }
+  async vaultView(roomId: string): Promise<VaultRoomView> {
+    this.calls++;
+    const granted = this.calls >= this.grantAt;
+    return {
+      roomId,
+      stake: 0,
+      status: "playing",
+      rulesV: VAULT_RULES_V,
+      min: 4,
+      max: 8,
+      createdAt: 0,
+      seats: [{ address: this.address, status: "alive", pocket: 0 }],
+      stage: { index: 1, kind: "vote", phase: "decide", acted: [] },
+      you: granted
+        ? { status: "alive", pocket: 0, absences: 0, decided: false, ready: false }
+        : undefined,
+    };
+  }
+}
+
+test("vaultView: si el árbitro rechaza el pase en silencio (200 sin `you`), reintenta con uno fresco", async () => {
+  const fake = new FlakyPassVault();
+  const agent = createAgent({ client: fake });
+  fake.address = agent.address;
+  fake.grantAt = 2; // la primera vuelta "falla" (reloj desfasado); la segunda sirve.
+  const v = await agent.vaultView(ROOM);
+  assert.equal(fake.calls, 2, "reintentó una vez con un pase recién firmado");
+  assert.ok(v.you, "la segunda vuelta sí trae la vista privada");
+});
+
+test("vaultView: si el pase sigue sin servir tras reintentar, falla claro (no juega a ciegas)", async () => {
+  const fake = new FlakyPassVault();
+  const agent = createAgent({ client: fake });
+  fake.address = agent.address;
+  fake.grantAt = 99; // nunca sirve dentro de este test
+  await assert.rejects(() => agent.vaultView(ROOM), /view pass rejected/);
+  assert.equal(fake.calls, 2, "reintentó exactamente una vez antes de resignarse");
 });
 
 test("vaultAct: firma vaultActionAuthMessage con la etapa/fase dadas; sin `at` las toma de la vista", async () => {
