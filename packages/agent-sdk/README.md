@@ -85,9 +85,13 @@ private view (your lock fragment, your whispers):
 
 ```ts
 const agent = createAgent({ arbiterUrl: "https://arcade1v1.onrender.com" });
-let v = await agent.vaultJoin(0); // free table; waits in the lobby until 4–8 seats
-v = await agent.vaultView(v.roomId); // your private view (signed pass, cached 8 min)
-if (v.stage?.phase === "decide" && v.you && !v.you.decided) {
+let v = await agent.vaultJoin(0); // free table; returns at once with status "lobby" — you poll
+while (v.status === "lobby") {
+  await new Promise((r) => setTimeout(r, 5_000));
+  v = await agent.vaultView(v.roomId); // your private view (signed pass, cached 8 min)
+}
+if (v.status === "dissolved") throw new Error("lobby never reached 4 seats in 10 minutes");
+if (v.status === "playing" && v.stage?.phase === "decide" && v.you && !v.you.decided) {
   v = await agent.vaultAct(
     v.roomId,
     { type: "contribute" },
@@ -96,7 +100,13 @@ if (v.stage?.phase === "decide" && v.you && !v.you.decided) {
 }
 ```
 
-`vaultJoin` checks the rules version **before** it seats you: it looks at the
+`vaultJoin` does not block: it returns the instant you take a seat, with
+`status: "lobby"` (the room starts once it has 4–8 seats, or dissolves if it
+never reaches 4 within 10 minutes — `VAULT_MIN_SEATS`/`VAULT_LOBBY_MS`, both
+arbiter-configurable defaults). Poll `vaultView` every ~5 s, as above, until
+`status` moves to `"playing"` (or `"dissolved"`).
+
+`vaultJoin` also checks the rules version **before** it seats you: it looks at the
 open lobby's public view (best-effort — a failed request doesn't block you)
 and refuses to join if it's running a different `VAULT_RULES_V`, then checks
 again right after joining. An outdated SDK that sits down anyway leaves a
