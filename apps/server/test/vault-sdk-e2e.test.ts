@@ -52,8 +52,26 @@ function policy(v: VaultRoomView, me: string): VaultAction {
 test("cuatro agentes del SDK juegan una sala entera por HTTP firmado; el registro verifica", async () => {
   V.__resetVaultForTest();
   const agents = Array.from({ length: 4 }, () => createAgent({ arbiterUrl: BASE }));
+  // Ancla la premisa del archivo (REQUIRE_AUTH=true, como en producción): sin
+  // firma el árbitro tiene que negar el asiento con el motivo exacto, no un
+  // 200 silencioso. Antes de jugar y sin efecto sobre las salas de abajo:
+  // verifySeatAuth corre antes de tocar cualquier lobby (apps/server/src/vault.ts).
+  await assert.rejects(
+    () => agents[0].client.vaultJoin(0, agents[0].address),
+    /400.*signature required/,
+    "sin firma el árbitro no da asiento",
+  );
   let v!: VaultRoomView;
-  for (const a of agents) v = await a.vaultJoin(0);
+  v = await agents[0].vaultJoin(0);
+  // Ancla el contrato real de GET /vault/lobbies que `assertCompatibleRules`
+  // (dentro de vaultJoin, corrección A) consume en modo mejor-esfuerzo: si el
+  // árbitro cambiara el sobre de {lobbies:[...]} a otra forma, o `stake`
+  // dejara de ser number, el pre-chequeo de rulesV se apagaría en silencio y
+  // este assert es lo único que lo notaría.
+  const lobbies = await agents[0].client.vaultLobbies();
+  assert.equal(lobbies.length, 1, "el SDK ve la mesa abierta");
+  assert.equal(lobbies[0].stake, 0);
+  for (const a of agents.slice(1)) v = await a.vaultJoin(0);
   assert.equal(v.status, "playing", "con 4 asientos (VAULT_MAX_SEATS=4) la sala arranca");
   const roomId = v.roomId;
   assert.ok(v.you, "la respuesta del join ya es la vista privada");
@@ -110,6 +128,13 @@ test("cuatro agentes del SDK juegan una sala entera por HTTP firmado; el registr
   const log = await agents[0].client.vaultLog(roomId);
   const { ok, checks } = await verifyVaultLog(log, V.VAULT_PHASE_MS);
   assert.equal(ok, true, JSON.stringify(checks));
+  // verifyVaultLog da ok=true con badSig===0, que también es cierto para un
+  // registro con CERO firmas (unsigned>0 no lo hace fallar): no alcanza como
+  // respaldo de "firmas obligatorias". Este assert sí lo exige de verdad.
+  assert.ok(
+    log.events.every((e) => e.type !== "action" || e.signature),
+    "todas las acciones del registro van firmadas",
+  );
 });
 
 test("una acción de una fase vieja se rechaza con el motivo del árbitro en el error", async () => {
