@@ -72,10 +72,43 @@ export async function getResultTool(
 
 // ---- La Bóveda (formato multi-agente) ------------------------------------------
 
-/** La vista más las acciones legales AHORA: el modelo no tiene que deducirlas
- *  de `stage.phase`, `you.decided` y `you.ready`. */
-function withLegal(v: VaultRoomView): VaultRoomView & { legal: string[] } {
-  return { ...v, legal: legalActions(v) };
+/** Lo que devuelve cada herramienta de La Bóveda que trae vista: la vista del
+ *  motor más tres cosas que el modelo no puede reconstruir por su cuenta. */
+export type VaultAgentView = VaultRoomView & {
+  /** Acciones legales AHORA: el modelo no tiene que deducirlas de
+   *  `stage.phase`, `you.decided` y `you.ready`. */
+  legal: string[];
+  /** La wallet de ESTE asiento. `you` (viewFor, game-sdk/vault.ts) nunca trae
+   *  `address` — es efímera del proceso y no se publica — así que sin esto el
+   *  modelo no puede distinguir su propio asiento de los otros 3-7 en
+   *  `seats[]` ni sus propios `say` en `messages`: vota o susurra a ciegas,
+   *  a veces a sí mismo (el árbitro lo rechaza, o peor, cuenta como ausencia).
+   *  En minúsculas: `seats[].address` y `stage.acted` ya lo están (normAddr,
+   *  apps/server/src/vault.ts) y así lo compara el propio ejemplo de
+   *  referencia (`const me = agent.address.toLowerCase()`,
+   *  packages/agent-sdk/examples/play-vault-llm.ts) — mandarlo con la
+   *  capitalización checksummed de la wallet rompería una comparación
+   *  ingenua `target !== me` del modelo. */
+  me: string;
+  /** Reloj del servidor MCP en el momento de esta respuesta (epoch ms): con
+   *  qué comparar `deadline`. El host MCP a lo sumo le inyecta al modelo la
+   *  fecha del día, nunca la hora en milisegundos. */
+  now: number;
+  /** Milisegundos que quedan de la fase actual (`deadline - now`, nunca
+   *  negativo), o `undefined` si la sala no tiene fase con plazo (lobby,
+   *  settled). Actuar después de que llega a 0 es una fase que ya cerró. */
+  msLeft?: number;
+};
+
+function withLegal(agent: Agent, v: VaultRoomView): VaultAgentView {
+  const now = Date.now();
+  return {
+    ...v,
+    legal: legalActions(v),
+    me: agent.address.toLowerCase(),
+    now,
+    msLeft: v.deadline === undefined ? undefined : Math.max(0, v.deadline - now),
+  };
 }
 
 export function vaultRulesTool(): { rulesV: number; rules: string } {
@@ -86,27 +119,21 @@ export async function vaultLobbiesTool(client: ArbiterClient): Promise<{ lobbies
   return { lobbies: await client.vaultLobbies() };
 }
 
-export async function vaultJoinTool(
-  agent: Agent,
-  stake = 0,
-): Promise<VaultRoomView & { legal: string[] }> {
-  return withLegal(await agent.vaultJoin(stake));
+export async function vaultJoinTool(agent: Agent, stake = 0): Promise<VaultAgentView> {
+  return withLegal(agent, await agent.vaultJoin(stake));
 }
 
-export async function vaultViewTool(
-  agent: Agent,
-  roomId: string,
-): Promise<VaultRoomView & { legal: string[] }> {
-  return withLegal(await agent.vaultView(roomId));
+export async function vaultViewTool(agent: Agent, roomId: string): Promise<VaultAgentView> {
+  return withLegal(agent, await agent.vaultView(roomId));
 }
 
 export async function vaultActTool(
   agent: Agent,
   roomId: string,
   action: unknown,
-): Promise<VaultRoomView & { legal: string[] }> {
+): Promise<VaultAgentView> {
   // Validar la forma ACÁ da un error claro al modelo sin gastar una firma ni un
   // POST del presupuesto (12 cada 10 s). Lo que depende del estado (¿está vivo
   // el destino?, ¿largo del código?) lo dice el árbitro con su 400.
-  return withLegal(await agent.vaultAct(roomId, validateAction(action)));
+  return withLegal(agent, await agent.vaultAct(roomId, validateAction(action)));
 }
