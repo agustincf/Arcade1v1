@@ -122,3 +122,27 @@ test("errores: el motivo que da el árbitro (400) viaja en el mensaje, también 
   );
   await assert.rejects(() => client.vaultLog(ROOM), /400.*stage or phase mismatch/);
 });
+
+test("vaultView: si falla, el error NO filtra el pase de vista (address/signature/ts) del query", async () => {
+  const cap: Captured = {};
+  const client = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: fakeFetch(cap, { error: "room not found" }, 502),
+  });
+  const pass = { address: ADDR, signature: "0x" + "aa".repeat(65), ts: 1757000000000 };
+  await assert.rejects(
+    () => client.vaultView(ROOM, pass),
+    (err: unknown) => {
+      assert.ok(err instanceof Error);
+      // El motivo del árbitro sigue viajando: es lo único que el agente necesita.
+      assert.match(err.message, /502.*room not found/);
+      // La firma es una credencial portadora replayable durante la ventana de
+      // MATCHMAKE_AUTH_TTL_MS (verifySigned no la consume): no puede aparecer en
+      // un mensaje que cualquier logger/runner de agente puede terminar exponiendo.
+      assert.doesNotMatch(err.message, /signature=/);
+      assert.doesNotMatch(err.message, new RegExp(pass.signature));
+      assert.doesNotMatch(err.message, /ts=1757000000000/);
+      assert.equal(err.message, `arbiter /vault/${ROOM} 502: {"error":"room not found"}`);
+      return true;
+    },
+  );
+});

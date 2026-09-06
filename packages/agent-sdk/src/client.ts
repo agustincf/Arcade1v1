@@ -156,10 +156,18 @@ export class ArbiterClient {
 
   /** GET con el motivo del árbitro en el error: un 400 de La Bóveda ("room not
    *  settled yet", "stage or phase mismatch") le sirve al agente para decidir
-   *  qué hacer, no solo el código. */
+   *  qué hacer, no solo el código. El mensaje NUNCA lleva el query string: en
+   *  `vaultView` ahí viaja el pase de vista completo (address+signature+ts), una
+   *  credencial portadora que `verifySigned` no consume ni marca como usada
+   *  (apps/server/src/vault.ts) — sigue siendo válida y repetible durante los
+   *  MATCHMAKE_AUTH_TTL_MS de la firma. Filtrarla en un error de log expondría
+   *  la vista PRIVADA de ese asiento a cualquiera que lo lea. */
   private async get<T>(path: string): Promise<T> {
     const r = await this.fetchImpl(`${this.base}${path}`);
-    if (!r.ok) throw new Error(`arbiter ${path} ${r.status}: ${await r.text()}`);
+    if (!r.ok) {
+      const label = path.split("?")[0];
+      throw new Error(`arbiter ${label} ${r.status}: ${await r.text()}`);
+    }
     return (await r.json()) as T;
   }
 
