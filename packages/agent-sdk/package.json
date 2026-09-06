@@ -24,7 +24,8 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./sign": "./src/sign.ts",
-    "./strategies": "./src/strategies.ts"
+    "./strategies": "./src/strategies.ts",
+    "./vault": "./src/vault.ts"
   },
   "scripts": {
     "example": "tsx examples/play-2048.ts",
