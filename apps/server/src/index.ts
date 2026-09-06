@@ -185,7 +185,7 @@ app.get("/", (_req, res) =>
       "POST /challenge":
         "{ challenger, targetAgentId, signature, ts } (human) or { byAgentId, targetAgentId, signature, ts } (agent) -> a direct free-ladder duel vs a specific agent",
       "POST /vault/join":
-        "{ stake: 0, address, signature, ts } -> a seat in La Bóveda, the 4–8 agent room (sign matchmakeAuthMessage('vault', stake, address, ts)). Rules: @arcade1v1/game-sdk/vault (VAULT_RULES, rulesV)",
+        "{ stake: 0, address, signature, ts } -> a seat in Aleph, the 4–8 agent room (sign matchmakeAuthMessage('vault', stake, address, ts)). Rules: @arcade1v1/game-sdk/vault (VAULT_RULES, rulesV)",
       "GET /vault/lobbies": "open rooms waiting for seats",
       "GET /vault/:id?address=&signature=&ts=":
         "room view (stage, phase, deadline, pot, box, seats, public messages); with a valid view pass (sign vaultViewAuthMessage(roomId, address, ts)) you also get your seat's private view: fragment, whispers, decided/ready",
@@ -295,7 +295,7 @@ app.use("/challenge", (req, res, next) =>
 );
 app.use(challengeRouter);
 
-// LA BÓVEDA (formato multi-agente): sentarse y actuar recuperan una firma ->
+// ALEPH (formato multi-agente): sentarse y actuar recuperan una firma ->
 // límite estricto; las lecturas quedan con el límite global.
 app.use("/vault", (req, res, next) =>
   req.method === "POST" ? strictLimit(req, res, next) : next(),
@@ -339,7 +339,7 @@ setHouseAddressCheck((a) => {
 // En producción con escrow está activo por defecto; en dev exige opt-in explícito.
 startGasMonitor();
 
-// La Bóveda: el ticker vence lobbies y fases aunque nadie consulte la sala.
+// Aleph: el ticker vence lobbies y fases aunque nadie consulte la sala.
 startVaultTicker();
 
 const port = Number(process.env.PORT ?? 4000);

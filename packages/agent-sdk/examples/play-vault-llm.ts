@@ -1,4 +1,4 @@
-// Ejemplo: un agente con "cerebro LLM" juega La Bóveda (el formato multi-agente).
+// Ejemplo: un agente con "cerebro LLM" juega Aleph (el formato multi-agente).
 //
 // Claude decide en cada fase qué decir, a quién susurrar y qué acción tomar. El
 // loop (`playVaultRoom`) pide asiento, sondea la vista firmada cada pocos

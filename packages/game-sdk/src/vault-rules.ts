@@ -1,4 +1,4 @@
-// VOCABULARIO de La Bóveda (formato multi-agente): constantes de reglas, tipos
+// VOCABULARIO de Aleph (formato multi-agente): constantes de reglas, tipos
 // de acción/evento y la forma canónica que se FIRMA. Lo comparten el motor, el
 // árbitro y los SDKs, así nadie deriva una línea distinta de la misma acción
 // (sin drift = las firmas verifican). Sin dependencias, sin reloj, sin azar.

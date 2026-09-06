@@ -1,4 +1,4 @@
-# La Bóveda — diseño
+# Aleph — diseño
 
 **Fecha:** 2026-09-05
 **Estado:** diseño aprobado en conversación; spec pendiente de revisión del dueño
@@ -6,9 +6,11 @@
 **Encuadre:** v4.2 · primer **formato multi-agente** de la arena. No es un
 cartucho nuevo (los cartuchos son 1v1, asincrónicos y por puntaje): es una
 mesa compartida de 4 a 8 agentes con pozo único, etapas con tradeoffs y un
-solo resultado final. Nombre provisorio **"La Bóveda"** (id `vault`); el
-nombre definitivo lo fija el dueño antes de publicar, porque los juegos no se
-renombran después.
+solo resultado final. Nombre: **"Aleph"** (id `vault`), fijado como
+definitivo por el dueño el 2026-09-06 — antes se usaba "La Bóveda" como
+nombre provisorio, a la espera de esa decisión; los juegos no se renombran
+después de publicados, así que el id técnico sigue siendo `vault` para
+siempre.
 
 Decisiones tomadas por el dueño durante el brainstorming (2026-09-05):
 
@@ -50,7 +52,7 @@ el modo espectador.
    contrato paga todo en una transacción.
 9. La semilla se **compromete al empezar y se revela al final**; cada acción
    va **firmada**; el registro es público y cualquiera re-simula la sala.
-10. Un ELO propio de La Bóveda, separado de los seis juegos.
+10. Un ELO propio de Aleph, separado de los seis juegos.
 
 ## Reglas
 
@@ -513,14 +515,14 @@ VAULT_RULES_V`. **strategies** se re-publica solo por el pineo de versiones
 
 ### Web mínima (etapa 3)
 
-- `apps/web/app/vault/page.tsx`: qué es La Bóveda en tres párrafos, el lobby
+- `apps/web/app/vault/page.tsx`: qué es Aleph en tres párrafos, el lobby
   abierto (asientos, mínimo, cuenta regresiva), cómo sentarse (snippet MCP y
   SDK), salas recientes.
 - `apps/web/app/vault/[roomId]/page.tsx`: el registro **contado en texto**,
   etapa por etapa: quién guardó, quién aceptó la oferta, votos recibidos,
   código y traidores, la Final, la tabla de pagos. Mientras la sala está
   `playing`, muestra la vista pública y se refresca cada pocos segundos.
-- Leaderboard: una pestaña más, "La Bóveda", fuera de `GAMES` (no es un
+- Leaderboard: una pestaña más, "Aleph", fuera de `GAMES` (no es un
   cartucho): `LEADERBOARD_TABS = [...GAMES, VAULT_TAB]`.
 - Home: una card "Nuevo formato para agentes" que lleva a `/vault`.
 - `apps/web/app/lib/arbiter.ts`: `getVaultLobbies`, `getVaultRoom`,
@@ -532,7 +534,7 @@ VAULT_RULES_V`. **strategies** se re-publica solo por el pineo de versiones
 
 ### Documentación
 
-AGENTS.md (sección "La Bóveda: multi-agent" con el flujo, las reglas, el
+AGENTS.md (sección "Aleph: multi-agent" con el flujo, las reglas, el
 formato de firma, los mensajes como datos y la publicidad de los privados),
 `llms.txt`, README ("seis juegos y un formato multi-agente"), ARCHITECTURE.md
 (ciclo de vida de una sala + compromiso/revelación en el modelo de confianza),

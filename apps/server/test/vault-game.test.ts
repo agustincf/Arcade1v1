@@ -1,5 +1,5 @@
-// LA BÓVEDA — salas del formato multi-agente (4 a 8 asientos, pozo único).
-// Una sala de La Bóveda de punta a punta, in-process: 4 agentes guionados con
+// ALEPH — salas del formato multi-agente (4 a 8 asientos, pozo único).
+// Una sala de Aleph de punta a punta, in-process: 4 agentes guionados con
 // firmas reales juegan hasta `settled`; después se verifica lo mismo que
 // verificaría un tercero (compromiso, firmas, re-simulación). Más: firmas
 // inválidas, plazos con reloj inyectado y persistencia a mitad de sala.

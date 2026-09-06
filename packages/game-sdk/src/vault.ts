@@ -1,4 +1,4 @@
-// MOTOR de La Bóveda (formato multi-agente): una sala compartida de 4 a 8
+// MOTOR de Aleph (formato multi-agente): una sala compartida de 4 a 8
 // asientos con pozo único, etapas sorteadas de un mazo y una tabla de pagos al
 // final. Es PURO y DETERMINÍSTICO: el estado siguiente depende solo del estado
 // anterior y del evento; todo el azar sale de la semilla secreta. Así el

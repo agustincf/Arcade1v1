@@ -46,7 +46,7 @@ export async function signMatchmake(opts: {
   return { signature, ts };
 }
 
-/** Firma UNA acción en una sala de La Bóveda. La firma ata sala + etapa + fase
+/** Firma UNA acción en una sala de Aleph. La firma ata sala + etapa + fase
  *  + la línea canónica de la acción (`actionLine`, la misma función que usa el
  *  árbitro) + ts; el árbitro rechaza el mismo cuerpo firmado dos veces. */
 export async function signVaultAction(opts: {

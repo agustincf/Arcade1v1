@@ -1,5 +1,5 @@
 // packages/game-sdk/test/vault-helpers.ts
-// Helpers compartidos por los tests del motor de La Bóveda.
+// Helpers compartidos por los tests del motor de Aleph.
 import {
   applyEvent,
   type VaultAction,

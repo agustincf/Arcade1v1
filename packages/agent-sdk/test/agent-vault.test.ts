@@ -1,5 +1,5 @@
 // packages/agent-sdk/test/agent-vault.test.ts
-// createAgent en La Bóveda: firma con su wallet lo que el árbitro exige, no pide
+// createAgent en Aleph: firma con su wallet lo que el árbitro exige, no pide
 // mesas de plata, corta ante otra versión de reglas y reutiliza el pase de
 // vista mientras sirve (renovándolo antes de que venza).
 // Correr: node --import tsx --test packages/agent-sdk/test/agent-vault.test.ts

@@ -44,7 +44,7 @@ export interface LeaderRow {
   rating: number;
 }
 
-// ---- La Bóveda (formato multi-agente) ------------------------------------------
+// ---- Aleph (formato multi-agente) ------------------------------------------
 
 export type VaultRoomStatus = "lobby" | "playing" | "settled" | "dissolved";
 
@@ -154,7 +154,7 @@ export class ArbiterClient {
     return (await r.json()) as T;
   }
 
-  /** GET con el motivo del árbitro en el error: un 400 de La Bóveda ("room not
+  /** GET con el motivo del árbitro en el error: un 400 de Aleph ("room not
    *  settled yet", "stage or phase mismatch") le sirve al agente para decidir
    *  qué hacer, no solo el código. El mensaje NUNCA lleva el query string: en
    *  `vaultView` ahí viaja el pase de vista completo (address+signature+ts), una
@@ -213,7 +213,7 @@ export class ArbiterClient {
     return j.ratings ?? {};
   }
 
-  // ---- La Bóveda ------------------------------------------------------------
+  // ---- Aleph ------------------------------------------------------------
 
   async vaultLobbies(): Promise<VaultLobby[]> {
     const j = await this.get<{ lobbies?: VaultLobby[] }>("/vault/lobbies");

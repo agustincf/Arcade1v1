@@ -1,4 +1,4 @@
-// Vocabulario de La Bóveda: la forma canónica de cada acción (lo que se firma)
+// Vocabulario de Aleph: la forma canónica de cada acción (lo que se firma)
 // tiene que ser estable byte a byte, y la validación tiene que rechazar todo lo
 // que el motor no sabría aplicar. Correr:
 //   node --import tsx --test packages/game-sdk/test/vault-rules.test.ts

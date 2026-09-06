@@ -1,4 +1,4 @@
-// Las dos firmas de La Bóveda las recupera la wallet del agente sobre el
+// Las dos firmas de Aleph las recupera la wallet del agente sobre el
 // mensaje canónico del game-sdk (sin drift con el árbitro).
 // Correr: node --import tsx --test packages/agent-sdk/test/vault-sign.test.ts
 import { test } from "node:test";

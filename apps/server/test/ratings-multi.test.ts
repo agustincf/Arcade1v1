@@ -1,4 +1,4 @@
-// ELO de N jugadores (La Bóveda): cada par se compara por lo cobrado y el
+// ELO de N jugadores (Aleph): cada par se compara por lo cobrado y el
 // factor K se divide por (N − 1), así una sala mueve tanto rating como una
 // partida 1v1. Correr: node --import tsx --test apps/server/test/ratings-multi.test.ts
 import "../src/offline-env.js";

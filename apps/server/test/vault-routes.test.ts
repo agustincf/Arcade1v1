@@ -1,5 +1,5 @@
 // apps/server/test/vault-routes.test.ts
-// Rutas HTTP de La Bóveda con REQUIRE_AUTH activado como en producción.
+// Rutas HTTP de Aleph con REQUIRE_AUTH activado como en producción.
 // Correr: node --import tsx --test apps/server/test/vault-routes.test.ts
 import "../src/offline-env.js";
 import { test, after } from "node:test";

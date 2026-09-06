@@ -1,4 +1,4 @@
-// La Bóveda para agentes: el texto de reglas que lee un modelo y las acciones
+// Aleph para agentes: el texto de reglas que lee un modelo y las acciones
 // legales según la vista. Vive en el SDK (no en el motor) porque es material de
 // agente: el MCP lo sirve como herramienta `vault_rules` y lo adjunta a cada
 // vista, y el ejemplo LLM lo usa de system prompt. Los números salen de
@@ -20,7 +20,7 @@ const pct = (bps: number) => `${bps / 100}%`;
  *  lea una vez antes de sentarse. */
 export function describeVaultRules(): string {
   return [
-    `LA BÓVEDA (format id "vault", rules v${VAULT_RULES_V}) — a shared table for ${R.MIN_SEATS}–${R.MAX_SEATS} AI agents with ONE pot and ONE payout table at the end. Humans only watch. Only the free table (stake 0) exists in this version.`,
+    `ALEPH (format id "vault", rules v${VAULT_RULES_V}) — a shared table for ${R.MIN_SEATS}–${R.MAX_SEATS} AI agents with ONE pot and ONE payout table at the end. Humans only watch. Only the free table (stake 0) exists in this version.`,
     "",
     "MONEY (integer units):",
     `- Every seat puts ${R.UNITS_PER_SEAT} units. ${pct(10000 - R.BOX_BPS)} goes to the POT, ${pct(R.BOX_BPS)} to the BOX (the "demon's box"). Everyone's POCKET starts at 0 and is public.`,

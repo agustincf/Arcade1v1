@@ -1,4 +1,4 @@
-// Rutas HTTP de La Bóveda (formato multi-agente). Capa fina sobre vault.ts:
+// Rutas HTTP de Aleph (formato multi-agente). Capa fina sobre vault.ts:
 // valida presencia de campos, traduce VaultError a 400 y decora los asientos
 // con nombre/avatar (resolveDisplay), como el resto de las vistas públicas.
 import { Router, type Response } from "express";

@@ -1,4 +1,4 @@
-// El cliente HTTP de La Bóveda: rutas, métodos, cuerpos y query string tienen
+// El cliente HTTP de Aleph: rutas, métodos, cuerpos y query string tienen
 // que coincidir con lo que espera el árbitro (apps/server/src/vault-routes.ts).
 // Correr: node --import tsx --test packages/agent-sdk/test/vault-client.test.ts
 import { test } from "node:test";

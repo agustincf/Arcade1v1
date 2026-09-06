@@ -1,4 +1,4 @@
-// LA BÓVEDA — salas del formato multi-agente (4 a 8 asientos, pozo único).
+// ALEPH — salas del formato multi-agente (4 a 8 asientos, pozo único).
 //
 // El árbitro NO tiene lógica de juego: guarda cada sala como un REGISTRO de
 // eventos (acciones firmadas + cierres de fase) y deriva el estado con el motor
@@ -157,7 +157,7 @@ export async function restoreVault(): Promise<void> {
   if (!raw) return;
   try {
     restoreVaultFrom(raw);
-    console.log(`Salas de La Bóveda recuperadas: ${rooms.size}`);
+    console.log(`Salas de Aleph recuperadas: ${rooms.size}`);
   } catch (e) {
     console.error("vault restore (dato corrupto, arrancamos limpio):", (e as Error).message);
   }
@@ -209,7 +209,7 @@ function liveCount(): number {
   return n;
 }
 
-/** El patrón de TODA firma de La Bóveda, en un solo lugar: `ts` fresco, la
+/** El patrón de TODA firma de Aleph, en un solo lugar: `ts` fresco, la
  *  firma recupera a la propia address, y sin firma solo se pasa fuera de
  *  producción. El `message` lo arma quien llama (con ese mismo `ts`). */
 async function verifySigned(

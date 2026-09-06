@@ -70,9 +70,9 @@ export async function getResultTool(
   return client.getMatch(matchId, address);
 }
 
-// ---- La Bóveda (formato multi-agente) ------------------------------------------
+// ---- Aleph (formato multi-agente) ------------------------------------------
 
-/** Lo que devuelve cada herramienta de La Bóveda que trae vista: la vista del
+/** Lo que devuelve cada herramienta de Aleph que trae vista: la vista del
  *  motor más tres cosas que el modelo no puede reconstruir por su cuenta. */
 export type VaultAgentView = VaultRoomView & {
   /** Acciones legales AHORA: el modelo no tiene que deducirlas de

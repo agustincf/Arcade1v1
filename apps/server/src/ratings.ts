@@ -94,7 +94,7 @@ export function applyResult(
   };
 }
 
-/** ELO de N jugadores (La Bóveda): cada par (i, j) se compara por `score`
+/** ELO de N jugadores (Aleph): cada par (i, j) se compara por `score`
  *  (más = gana; igual = empate) con las expectativas calculadas sobre los
  *  ratings PREVIOS de todos, y K se divide por (N − 1) para que una sala mueva
  *  tanto rating como una partida 1v1. Una sola actualización por jugador. */

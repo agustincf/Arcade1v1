@@ -28,15 +28,15 @@ export function createAgent(opts: {
   client: ArbiterClient;
   matchmake(game: string, stake: number): Promise<MatchView>;
   playAndSubmit(args: { game: string; stake: number; strategy?: Strategy }): Promise<MatchView>;
-  /** La Bóveda: pedir asiento en la mesa gratis (firmado). Idempotente. Antes
+  /** Aleph: pedir asiento en la mesa gratis (firmado). Idempotente. Antes
    *  de sentarse, mira la versión de reglas de la mesa abierta (si hay una) y
    *  corta sin pedir asiento si no coincide. */
   vaultJoin(stake?: number): Promise<VaultRoomView>;
-  /** La Bóveda: TU vista privada, con pase de vista firmado (cacheado 8 min).
+  /** Aleph: TU vista privada, con pase de vista firmado (cacheado 8 min).
    *  Si el árbitro rechaza el pase en silencio (200 con la vista pública),
    *  reintenta una vez con uno recién firmado antes de tirar un error claro. */
   vaultView(roomId: string): Promise<VaultRoomView>;
-  /** La Bóveda: una acción firmada. `at` (etapa/fase) sale de tu última vista;
+  /** Aleph: una acción firmada. `at` (etapa/fase) sale de tu última vista;
    *  si se omite, se consulta la vista primero (un GET más). */
   vaultAct(
     roomId: string,
@@ -101,7 +101,7 @@ export function createAgent(opts: {
     return client.submitScore(m.matchId, wallet.address, score, replay, signature);
   }
 
-  // ---- La Bóveda (formato multi-agente) ------------------------------------
+  // ---- Aleph (formato multi-agente) ------------------------------------
 
   // El lobby SÍ publica rulesV antes de sentarse: GET /vault/lobbies da el
   // roomId de la mesa abierta y GET /vault/:id sin pase (vista pública, sin

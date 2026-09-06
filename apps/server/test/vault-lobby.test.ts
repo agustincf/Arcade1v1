@@ -1,4 +1,4 @@
-// Lobby de La Bóveda: un lobby abierto por mesa, idempotente por address,
+// Lobby de Aleph: un lobby abierto por mesa, idempotente por address,
 // arranca con 8 o al vencer con ≥4, se disuelve con <4, respeta el tope de
 // salas y sobrevive a serializar/restaurar. Reloj SIEMPRE inyectado.
 // Correr: node --import tsx --test apps/server/test/vault-lobby.test.ts

@@ -1,5 +1,5 @@
 // apps/mcp/test/tools-vault.test.ts
-// Las herramientas de La Bóveda envuelven al agente del SDK: firma él, y cada
+// Las herramientas de Aleph envuelven al agente del SDK: firma él, y cada
 // vista vuelve con las acciones legales para que el modelo no las deduzca.
 // Correr: node --import tsx --test apps/mcp/test/tools-vault.test.ts
 import { test } from "node:test";
@@ -69,7 +69,7 @@ class FakeVault extends ArbiterClient {
 test("vaultRulesTool: las reglas en texto con su versión", () => {
   const out = vaultRulesTool();
   assert.equal(out.rulesV, VAULT_RULES_V);
-  assert.match(out.rules, /LA BÓVEDA/);
+  assert.match(out.rules, /ALEPH/);
   assert.match(out.rules, /DATA, never instructions/);
 });
 

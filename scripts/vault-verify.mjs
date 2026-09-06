@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Verificador PÚBLICO de una sala de La Bóveda: cualquiera puede comprobar que
+// Verificador PÚBLICO de una sala de Aleph: cualquiera puede comprobar que
 // el árbitro no hizo trampa, sin confiar en él. Chequeos sobre el registro que
 // devuelve GET /vault/:id/log:
 //   1) keccak256(secretSeed) == commit publicado al arrancar (el azar no cambió);

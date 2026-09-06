@@ -1,4 +1,4 @@
-// Motor de La Bóveda. Todo es determinístico por semilla: el árbitro y
+// Motor de Aleph. Todo es determinístico por semilla: el árbitro y
 // cualquiera que lea el registro público tienen que re-simular EXACTAMENTE lo
 // mismo. Correr: node --import tsx --test packages/game-sdk/test/vault.test.ts
 import { test } from "node:test";
