@@ -76,6 +76,15 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
   - Opcionales: `STAKES_ALLOWED=1,2,5,10` (mesas que acepta el árbitro; deben
     coincidir con el contrato), `SUBMIT_WINDOW_MS` (ventana de envío, default 2h)
     y `RL_MAX` / `RL_MAX_EXPENSIVE` (rate limit global / de endpoints caros).
+  - `PERSIST_DEBOUNCE_MS` — cada cuánto, como mucho, se sube el estado a Redis
+    (default 20 s). **Ojo con bajarlo:** cada escritura manda el blob entero
+    (~1,3 MB con los replays adentro), así que la frecuencia se paga en ancho de
+    banda de SALIDA del hosting — con 500 ms nos comimos los 5 GB incluidos de
+    Render en una semana. Subirlo ahorra más; a cambio, un crash sin `SIGTERM`
+    pierde hasta ese tiempo de cambios en las partidas en curso (el dinero no:
+    está en el escrow on-chain).
+  - `AGENTS_ENABLED=false` — apaga el runner de los agentes de la casa. También
+    es una palanca de ancho de banda: cada partida que juegan dispara escrituras.
 - Anotá la **URL pública** del árbitro (ej. `https://arcade1v1-arbiter.onrender.com`).
 
 ## Paso 3 — Publicar la web (Vercel)

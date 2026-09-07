@@ -23,7 +23,18 @@ const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
 const USE_REDIS = ENABLED && !!REDIS_URL && !!REDIS_TOKEN;
 
 const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
-const DEBOUNCE_MS = 500; // agrupa escrituras: una por medio segundo como mucho
+// AGRUPADOR DE ESCRITURAS. Cada escritura sube el blob ENTERO del store (~1,3 MB
+// en el caso de las partidas, que llevan los replays adentro), así que la
+// frecuencia se paga en ancho de banda de salida: con 500 ms, una sola partida
+// —que dispara media docena de persist() en pocos segundos— costaba varias
+// subidas del blob completo. Eso fundió los 5 GB incluidos de Render en
+// septiembre de 2026 (8,57 GB consumidos, 100% "Service-Initiated").
+//
+// Con 20 s, una partida entera se agrupa en UNA escritura. Lo que se arriesga a
+// cambio: si el proceso muere de golpe (crash/OOM, no un redeploy —ese manda
+// SIGTERM y dispara el flush de más abajo) se pierden hasta 20 s de cambios en
+// las partidas en curso. El dinero no: vive en el escrow on-chain.
+const DEBOUNCE_MS = Number(process.env.PERSIST_DEBOUNCE_MS ?? 20_000);
 const REDIS_TIMEOUT_MS = 10_000;
 
 export const persistenceBackend: "redis" | "file" | "off" = USE_REDIS
@@ -73,6 +84,8 @@ export function jsonStore(name: string): JsonStore {
 
   let pending: (() => string) | null = null;
   let timer: NodeJS.Timeout | null = null;
+  // Último contenido efectivamente escrito, para no repetir escrituras idénticas.
+  let lastWritten: string | null = null;
   // Las escrituras a Redis se encadenan: si una tarda y llega otra, la nueva
   // espera a la anterior — nunca se persiste estado viejo por completarse
   // fuera de orden (cada SET es el blob entero, gana el último).
@@ -82,10 +95,22 @@ export function jsonStore(name: string): JsonStore {
     const getJson = pending;
     pending = null;
     if (!getJson) return Promise.resolve();
+    const json = getJson();
+    // SIN CAMBIOS, SIN ESCRITURA. Varios caminos llaman persist() aunque no
+    // haya cambiado nada (el barrido, reintentos, endpoints que releen). Cada
+    // una de esas subía el blob entero de nuevo para dejarlo igual que estaba.
+    if (json === lastWritten) return USE_REDIS ? chain : Promise.resolve();
+    lastWritten = json;
     if (USE_REDIS) {
       chain = chain
-        .then(() => redisSet(redisKey, getJson()))
-        .catch((e) => console.error(`persist ${name} (redis):`, (e as Error).message));
+        .then(() => redisSet(redisKey, json))
+        .catch((e) => {
+          // La escritura falló: olvidamos el "último escrito" para que el
+          // próximo intento vuelva a mandar este contenido aunque nadie lo
+          // haya modificado mientras tanto.
+          lastWritten = null;
+          console.error(`persist ${name} (redis):`, (e as Error).message);
+        });
       return chain;
     }
     try {
@@ -93,9 +118,10 @@ export function jsonStore(name: string): JsonStore {
       // Escritura atómica: a un temporal y luego rename, así un corte a mitad
       // de escritura no deja el archivo corrupto.
       const tmp = `${file}.tmp`;
-      writeFileSync(tmp, getJson());
+      writeFileSync(tmp, json);
       renameSync(tmp, file);
     } catch (e) {
+      lastWritten = null; // igual que en Redis: que el próximo intento reescriba
       console.error(`persist ${name} (file):`, (e as Error).message);
     }
     return Promise.resolve();
