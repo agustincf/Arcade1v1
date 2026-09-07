@@ -1,20 +1,20 @@
 // Propiedades del motor: (1) conservación del dinero después de CADA evento y
 // tabla que suma el total; (2) re-simular el registro da EXACTAMENTE el estado
 // vivo (es lo que hace verificable a la sala); (3) la vista no filtra secretos.
-// Correr: node --import tsx --test packages/game-sdk/test/vault-invariants.test.ts
+// Correr: node --import tsx --test packages/game-sdk/test/aleph-invariants.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  createVault,
+  createAleph,
   applyEvent,
-  replayVault,
+  replayAleph,
   viewFor,
   phaseComplete,
   aliveSeats,
-  type VaultAction,
-  type VaultEvent,
-  type VaultState,
-} from "@arcade1v1/game-sdk/vault";
+  type AlephAction,
+  type AlephEvent,
+  type AlephState,
+} from "@arcade1v1/game-sdk/aleph";
 import { mulberry32 } from "../src/replay";
 import {
   SEED,
@@ -26,10 +26,10 @@ import {
   skipTalk,
   allDecide,
   assertConserved,
-} from "./vault-helpers";
+} from "./aleph-helpers";
 
 /** Un agente al azar (reproducible): decide algo válido, a veces falta, a veces habla. */
-function randomAction(s: VaultState, me: string, rnd: () => number): VaultAction | null {
+function randomAction(s: AlephState, me: string, rnd: () => number): AlephAction | null {
   const st = s.stage;
   if (st.phase === "talk") return rnd() < 0.8 ? { type: "ready" } : null;
   const others = aliveSeats(s).filter((x) => x.address !== me);
@@ -52,9 +52,9 @@ function randomAction(s: VaultState, me: string, rnd: () => number): VaultAction
 
 function playRandomRoom(seed: string, n: number, rnd: () => number) {
   const addrs = seats(n);
-  let s = createVault(seed, addrs);
-  const events: VaultEvent[] = [];
-  const push = (ev: VaultEvent) => {
+  let s = createAleph(seed, addrs);
+  const events: AlephEvent[] = [];
+  const push = (ev: AlephEvent) => {
     s = applyEvent(s, ev);
     events.push(ev);
     assertConserved(s);
@@ -107,7 +107,7 @@ test("propiedad: conservación en cada evento, tabla que suma el total y re-simu
       const sum = Object.values(s.payouts!).reduce((a, b) => a + b, 0);
       assert.equal(sum, s.potInitial, `seed ${seed}`);
       assert.equal(Object.keys(s.payouts!).length, n);
-      assert.deepEqual(replayVault(seed, addrs, events), s, `replay distinto para ${seed}`);
+      assert.deepEqual(replayAleph(seed, addrs, events), s, `replay distinto para ${seed}`);
       played++;
     }
   }
@@ -115,7 +115,7 @@ test("propiedad: conservación en cada evento, tabla que suma el total y re-simu
 });
 
 test("peor caso: 8 asientos sin Ofertas aceptadas ni abandonos — cantidad de etapas y fases acotada", () => {
-  const deck0 = createVault(SEED, seats(8)).deck;
+  const deck0 = createAleph(SEED, seats(8)).deck;
   let seen = 0;
   let idx = -1;
   deck0.forEach((c, i) => {
@@ -125,7 +125,7 @@ test("peor caso: 8 asientos sin Ofertas aceptadas ni abandonos — cantidad de e
   const expectedStages = 1 + played.length + 1; // Reparto inicial + cartas hasta el 6.º Voto + Final
   const expectedPhases =
     1 + played.reduce((acc, c) => acc + (c === "share" || c === "offer" ? 1 : 2), 0) + 2;
-  let s = createVault(SEED, seats(8));
+  let s = createAleph(SEED, seats(8));
   let phases = 0;
   while (!s.over) {
     const st = s.stage;
@@ -136,7 +136,7 @@ test("peor caso: 8 asientos sin Ofertas aceptadas ni abandonos — cantidad de e
     }
     const alive = aliveSeats(s);
     for (const seat of alive) {
-      const a: VaultAction =
+      const a: AlephAction =
         st.kind === "share"
           ? { type: "contribute" }
           : st.kind === "offer"
@@ -157,7 +157,7 @@ test("peor caso: 8 asientos sin Ofertas aceptadas ni abandonos — cantidad de e
 });
 
 test("viewFor: sin fragmentos ajenos, decisiones, mazo ni semilla; privados solo para sus partes", () => {
-  let s = createVault(SEED, seats(4), { deck: ["lock"] });
+  let s = createAleph(SEED, seats(4), { deck: ["lock"] });
   s = allDecide(s, { type: "contribute" }); // → Cerradura, charla
   s = act(s, A(1), { type: "whisper", to: A(2), text: "mi dígito es 7" });
   s = act(s, A(3), { type: "say", text: "compartamos" });
@@ -201,7 +201,7 @@ test("viewFor: sin fragmentos ajenos, decisiones, mazo ni semilla; privados solo
 });
 
 test("viewFor al terminar: pagos y TODOS los mensajes (también privados)", () => {
-  let s = createVault(SEED, seats(4), { deck: ["offer"] });
+  let s = createAleph(SEED, seats(4), { deck: ["offer"] });
   s = act(s, A(1), { type: "whisper", to: A(2), text: "secreto" });
   s = allDecide(s, { type: "contribute" });
   for (const a of [A(1), A(2), A(3)]) s = act(s, a, { type: "accept" });

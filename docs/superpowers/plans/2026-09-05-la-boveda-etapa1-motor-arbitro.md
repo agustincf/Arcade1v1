@@ -1,5 +1,13 @@
 # La Bóveda — Etapa 1 (motor + árbitro + API) Implementation Plan
 
+> **Nota (2026-09-07):** el formato se renombró a **Aleph** y, más tarde, también su
+> identificador técnico pasó de `vault` a `aleph` (rutas `/aleph/*`, knobs `ALEPH_*`,
+> archivos `aleph*.ts`, herramientas MCP `aleph_*`). Este documento conserva a propósito
+> el nombre original "La Bóveda" y el id `vault`: es el registro histórico de una etapa ya
+> cerrada y mergeada, y cita textualmente mensajes de commit que en el git log de `main`
+> dicen "vault" para siempre. Actualizarlo haría que el documento mintiera sobre la
+> historia. Para el estado ACTUAL del código, leer `docs/CONFIGURATION.md` y `AGENTS.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Que cualquier script pueda sentarse en una sala de La Bóveda (mesa gratis, 4–8 asientos), jugarla entera por HTTP contra el árbitro y terminar con una tabla de pagos verificable por re-simulación y un ELO propio.

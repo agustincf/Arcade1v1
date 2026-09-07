@@ -1,11 +1,11 @@
-// Vocabulario de La Bóveda: la forma canónica de cada acción (lo que se firma)
+// Vocabulario de Aleph: la forma canónica de cada acción (lo que se firma)
 // tiene que ser estable byte a byte, y la validación tiene que rechazar todo lo
 // que el motor no sabría aplicar. Correr:
-//   node --import tsx --test packages/game-sdk/test/vault-rules.test.ts
+//   node --import tsx --test packages/game-sdk/test/aleph-rules.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { actionLine, validateAction, VAULT_RULES, VAULT_RULES_V } from "@arcade1v1/game-sdk/vault";
-import { vaultActionAuthMessage, vaultViewAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { actionLine, validateAction, ALEPH_RULES, ALEPH_RULES_V } from "@arcade1v1/game-sdk/aleph";
+import { alephActionAuthMessage, alephViewAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 
 const ADDR = "0xABCDef0000000000000000000000000000000001";
@@ -32,9 +32,9 @@ test("validateAction: acepta lo válido y normaliza addresses", () => {
     code: "12345678",
     intent: "all",
   });
-  assert.deepEqual(validateAction({ type: "say", text: "x".repeat(VAULT_RULES.MAX_MSG_LEN) }), {
+  assert.deepEqual(validateAction({ type: "say", text: "x".repeat(ALEPH_RULES.MAX_MSG_LEN) }), {
     type: "say",
-    text: "x".repeat(VAULT_RULES.MAX_MSG_LEN),
+    text: "x".repeat(ALEPH_RULES.MAX_MSG_LEN),
   });
 });
 
@@ -48,7 +48,7 @@ test("validateAction: rechaza forma inválida", () => {
     { type: "submit", code: "123456789", intent: "all" },
     { type: "submit", code: "1234", intent: "maybe" },
     { type: "say", text: "" },
-    { type: "say", text: "x".repeat(VAULT_RULES.MAX_MSG_LEN + 1) },
+    { type: "say", text: "x".repeat(ALEPH_RULES.MAX_MSG_LEN + 1) },
     { type: "say", text: "linea1\nlinea2" },
     { type: "whisper", to: ADDR, text: "tab\tno" },
     { type: "whisper", to: "nope", text: "hola" },
@@ -56,10 +56,10 @@ test("validateAction: rechaza forma inválida", () => {
   for (const b of bad) assert.throws(() => validateAction(b), /invalid action/, JSON.stringify(b));
 });
 
-test("vaultActionAuthMessage: formato estable, room en minúsculas", () => {
+test("alephActionAuthMessage: formato estable, room en minúsculas", () => {
   const room = "0xAB" + "cd".repeat(31);
   assert.equal(
-    vaultActionAuthMessage(room, 3, "decide", "vote:0xabc", 1730000000000),
+    alephActionAuthMessage(room, 3, "decide", "vote:0xabc", 1730000000000),
     [
       "Arcade1v1: actúo en la sala",
       `room: ${room.toLowerCase()}`,
@@ -71,10 +71,10 @@ test("vaultActionAuthMessage: formato estable, room en minúsculas", () => {
   );
 });
 
-test("vaultViewAuthMessage: formato estable, room y player en minúsculas", () => {
+test("alephViewAuthMessage: formato estable, room y player en minúsculas", () => {
   const room = "0xAB" + "cd".repeat(31);
   assert.equal(
-    vaultViewAuthMessage(room, ADDR, 1730000000000),
+    alephViewAuthMessage(room, ADDR, 1730000000000),
     [
       "Arcade1v1: miro mi sala",
       `room: ${room.toLowerCase()}`,
@@ -84,8 +84,8 @@ test("vaultViewAuthMessage: formato estable, room y player en minúsculas", () =
   );
 });
 
-test("RULES_V conoce a vault y coincide con VAULT_RULES_V", () => {
-  assert.equal(RULES_V.vault, VAULT_RULES_V);
-  assert.equal(VAULT_RULES.MIN_SEATS, 4);
-  assert.equal(VAULT_RULES.MAX_SEATS, 8);
+test("RULES_V conoce a aleph y coincide con ALEPH_RULES_V", () => {
+  assert.equal(RULES_V.aleph, ALEPH_RULES_V);
+  assert.equal(ALEPH_RULES.MIN_SEATS, 4);
+  assert.equal(ALEPH_RULES.MAX_SEATS, 8);
 });

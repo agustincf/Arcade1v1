@@ -1,18 +1,18 @@
-// Motor de La Bóveda. Todo es determinístico por semilla: el árbitro y
+// Motor de Aleph. Todo es determinístico por semilla: el árbitro y
 // cualquiera que lea el registro público tienen que re-simular EXACTAMENTE lo
-// mismo. Correr: node --import tsx --test packages/game-sdk/test/vault.test.ts
+// mismo. Correr: node --import tsx --test packages/game-sdk/test/aleph.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildDeck,
-  createVault,
+  createAleph,
   aliveSeats,
   applyEvent,
   phaseComplete,
   seatOf,
-  VAULT_RULES,
+  ALEPH_RULES,
   type StageKind,
-} from "@arcade1v1/game-sdk/vault";
+} from "@arcade1v1/game-sdk/aleph";
 import {
   SEED,
   A,
@@ -23,10 +23,10 @@ import {
   skipTalk,
   allDecide,
   assertConserved,
-} from "./vault-helpers";
+} from "./aleph-helpers";
 
-test("createVault: dinero inicial, primera etapa Reparto y asientos vivos", () => {
-  const s = createVault(SEED, seats(4));
+test("createAleph: dinero inicial, primera etapa Reparto y asientos vivos", () => {
+  const s = createAleph(SEED, seats(4));
   assert.equal(s.potInitial, 4000);
   assert.equal(s.box, 800);
   assert.equal(s.pot, 3200);
@@ -41,18 +41,18 @@ test("createVault: dinero inicial, primera etapa Reparto y asientos vivos", () =
   assert.deepEqual(s.results, []);
 });
 
-test("createVault: rechaza asientos o semilla inválidos", () => {
-  assert.throws(() => createVault(SEED, seats(3)), /invalid seats/);
-  assert.throws(() => createVault(SEED, seats(9)), /invalid seats/);
-  assert.throws(() => createVault(SEED, [A(1), A(1), A(2), A(3)]), /invalid seats/);
-  assert.throws(() => createVault(SEED, ["nope", A(2), A(3), A(4)]), /invalid seats/);
-  assert.throws(() => createVault("0x1234", seats(4)), /invalid seed/);
+test("createAleph: rechaza asientos o semilla inválidos", () => {
+  assert.throws(() => createAleph(SEED, seats(3)), /invalid seats/);
+  assert.throws(() => createAleph(SEED, seats(9)), /invalid seats/);
+  assert.throws(() => createAleph(SEED, [A(1), A(1), A(2), A(3)]), /invalid seats/);
+  assert.throws(() => createAleph(SEED, ["nope", A(2), A(3), A(4)]), /invalid seats/);
+  assert.throws(() => createAleph("0x1234", seats(4)), /invalid seed/);
 });
 
 test("mazo: composición por N, sin dos Ofertas seguidas, determinístico", () => {
   for (const n of [4, 5, 6, 7, 8]) {
     for (let i = 0; i < 60; i++) {
-      const deck = createVault(seedN(i * 8 + n), seats(n)).deck;
+      const deck = createAleph(seedN(i * 8 + n), seats(n)).deck;
       const count = (k: StageKind) => deck.filter((c) => c === k).length;
       assert.equal(deck.length, n + 2, `N=${n} seed=${i}`);
       assert.equal(count("offer"), 2);
@@ -67,10 +67,10 @@ test("mazo: composición por N, sin dos Ofertas seguidas, determinístico", () =
       }
     }
   }
-  assert.deepEqual(createVault(SEED, seats(6)).deck, createVault(SEED, seats(6)).deck);
-  const base = createVault(seedN(1), seats(8)).deck.join(",");
+  assert.deepEqual(createAleph(SEED, seats(6)).deck, createAleph(SEED, seats(6)).deck);
+  const base = createAleph(seedN(1), seats(8)).deck.join(",");
   const others = Array.from({ length: 20 }, (_, i) =>
-    createVault(seedN(i + 2), seats(8)).deck.join(","),
+    createAleph(seedN(i + 2), seats(8)).deck.join(","),
   );
   assert.ok(
     others.some((d) => d !== base),
@@ -91,21 +91,21 @@ test("mazo: la regla de adyacencia intercambia con la primera no-Oferta no adyac
   assert.equal(i, vals.length, "el barajado consume exactamente n-1 números");
 });
 
-test("createVault con mazo forzado (para tests) lo respeta y valida", () => {
-  const s = createVault(SEED, seats(4), { deck: ["offer", "lock"] });
+test("createAleph con mazo forzado (para tests) lo respeta y valida", () => {
+  const s = createAleph(SEED, seats(4), { deck: ["offer", "lock"] });
   assert.deepEqual(s.deck, ["offer", "lock"]);
-  assert.throws(() => createVault(SEED, seats(4), { deck: ["final"] }), /invalid deck/);
+  assert.throws(() => createAleph(SEED, seats(4), { deck: ["final"] }), /invalid deck/);
 });
 
 test("acciones: decisión única y del tipo de la etapa; mensajes con tope; susurro válido", () => {
-  let s = createVault(SEED, seats(4));
+  let s = createAleph(SEED, seats(4));
   s = act(s, A(1), { type: "keep" });
   assert.deepEqual(s.stage.decisions[A(1)], { type: "keep" });
   assert.throws(() => act(s, A(1), { type: "contribute" }), /already decided/);
   assert.throws(() => act(s, A(2), { type: "accept" }), /not allowed now/);
   assert.throws(() => act(s, A(2), { type: "ready" }), /ready not allowed/);
   assert.throws(() => act(s, A(9), { type: "keep" }), /not a seat/);
-  for (let i = 0; i < VAULT_RULES.MAX_MSGS_PER_PHASE; i++) {
+  for (let i = 0; i < ALEPH_RULES.MAX_MSGS_PER_PHASE; i++) {
     s = act(s, A(2), { type: "say", text: `m${i}` });
   }
   assert.throws(() => act(s, A(2), { type: "say", text: "de más" }), /message limit/);
@@ -116,7 +116,7 @@ test("acciones: decisión única y del tipo de la etapa; mensajes con tope; susu
   // Los topes de TEXTO también los aplica el motor, no solo la validación de
   // forma del árbitro: un registro con un mensaje fuera de tope no re-simula.
   assert.throws(
-    () => act(s, A(3), { type: "say", text: "x".repeat(VAULT_RULES.MAX_MSG_LEN + 1) }),
+    () => act(s, A(3), { type: "say", text: "x".repeat(ALEPH_RULES.MAX_MSG_LEN + 1) }),
     /1\.\.280 chars/,
   );
   assert.throws(() => act(s, A(3), { type: "say", text: "" }), /1\.\.280 chars/);
@@ -136,14 +136,14 @@ test("acciones: decisión única y del tipo de la etapa; mensajes con tope; susu
 });
 
 test("applyEvent no muta el estado anterior", () => {
-  const s0 = createVault(SEED, seats(4));
+  const s0 = createAleph(SEED, seats(4));
   const s1 = act(s0, A(1), { type: "keep" });
   assert.deepEqual(s0.stage.decisions, {});
   assert.deepEqual(s1.stage.decisions, { [A(1)]: { type: "keep" } });
 });
 
 test("phaseComplete: decide cierra cuando todos los vivos decidieron", () => {
-  let s = createVault(SEED, seats(4));
+  let s = createAleph(SEED, seats(4));
   assert.equal(phaseComplete(s), null);
   for (const a of seats(4).slice(0, 3)) s = act(s, a, { type: "contribute" });
   assert.equal(phaseComplete(s), null);
@@ -152,7 +152,7 @@ test("phaseComplete: decide cierra cuando todos los vivos decidieron", () => {
 });
 
 test("Reparto: guardar/aportar, ausente aporta, premio de la caja, decaimiento y siguiente etapa", () => {
-  let s = createVault(SEED, seats(4), { deck: ["vote"] });
+  let s = createAleph(SEED, seats(4), { deck: ["vote"] });
   s = act(s, A(1), { type: "keep" });
   s = act(s, A(2), { type: "keep" });
   s = act(s, A(3), { type: "contribute" });
@@ -178,7 +178,7 @@ test("Reparto: guardar/aportar, ausente aporta, premio de la caja, decaimiento y
 });
 
 test("charla: ready de todos la cierra; en decide, ready solo vale en la Cerradura; fase vieja se rechaza", () => {
-  let s = createVault(SEED, seats(4), { deck: ["vote"] });
+  let s = createAleph(SEED, seats(4), { deck: ["vote"] });
   s = allDecide(s, { type: "contribute" }); // → Voto, fase de charla
   assert.throws(() => act(s, A(1), { type: "vote", target: A(2) }), /not allowed now/);
   for (const a of seats(4)) s = act(s, a, { type: "ready" });
@@ -205,7 +205,7 @@ test("charla: ready de todos la cierra; en decide, ready solo vale en la Cerradu
 });
 
 test("Oferta: los que aceptan se van con su parte y, con 2 vivos, viene la Final", () => {
-  let s = createVault(SEED, seats(4), { deck: ["offer", "offer"] });
+  let s = createAleph(SEED, seats(4), { deck: ["offer", "offer"] });
   s = allDecide(s, { type: "contribute" }); // pot 3520 → decaimiento 176 → 3344
   assert.equal(s.stage.kind, "offer");
   assert.equal(s.pot, 3344);
@@ -229,7 +229,7 @@ test("Oferta: los que aceptan se van con su parte y, con 2 vivos, viene la Final
 });
 
 test("Oferta anulada si aceptan todos: nadie se va, se quema 10 %, y con el mazo vacío sigue un Voto", () => {
-  let s = createVault(SEED, seats(4), { deck: ["offer"] });
+  let s = createAleph(SEED, seats(4), { deck: ["offer"] });
   s = allDecide(s, { type: "contribute" });
   const pot = s.pot;
   s = allDecide(s, { type: "accept" });
@@ -244,7 +244,7 @@ test("Oferta anulada si aceptan todos: nadie se va, se quema 10 %, y con el mazo
 });
 
 test("Voto: el más votado se va con su bolsillo; ausente = voto en contra propio; se publican conteos, no votantes", () => {
-  let s = createVault(SEED, seats(4), { deck: ["vote"] });
+  let s = createAleph(SEED, seats(4), { deck: ["vote"] });
   s = act(s, A(2), { type: "keep" }); // A2 guarda 160
   s = end(s);
   s = skipTalk(s);
@@ -263,7 +263,7 @@ test("Voto: el más votado se va con su bolsillo; ausente = voto en contra propi
 });
 
 test("Voto empatado: se va el de bolsillo más grande; después el que acumuló más votos", () => {
-  let s = createVault(SEED, seats(4), { deck: ["vote", "vote", "vote"] });
+  let s = createAleph(SEED, seats(4), { deck: ["vote", "vote", "vote"] });
   s = act(s, A(1), { type: "keep" });
   s = end(s);
   s = skipTalk(s);
@@ -285,7 +285,7 @@ test("Voto empatado: se va el de bolsillo más grande; después el que acumuló 
 });
 
 test("Voto empatado sin diferencias: decide el orden oculto de la semilla", () => {
-  let s = createVault(SEED, seats(4), { deck: ["vote"] });
+  let s = createAleph(SEED, seats(4), { deck: ["vote"] });
   s = allDecide(s, { type: "contribute" });
   s = skipTalk(s);
   s = act(s, A(1), { type: "vote", target: A(2) });
@@ -297,7 +297,7 @@ test("Voto empatado sin diferencias: decide el orden oculto de la semilla", () =
 });
 
 test("Cerradura: fragmentos secretos por asiento, un intento, pasar con ready, abrir para todos premia de la caja", () => {
-  let s = createVault(SEED, seats(4), { deck: ["lock"] });
+  let s = createAleph(SEED, seats(4), { deck: ["lock"] });
   s = allDecide(s, { type: "contribute" });
   assert.equal(s.stage.kind, "lock");
   assert.equal(s.stage.phase, "talk");
@@ -339,7 +339,7 @@ test("Cerradura: fragmentos secretos por asiento, un intento, pasar con ready, a
 });
 
 test("Cerradura: los traidores se reparten el 10 %; si nadie acierta se quema 10 %", () => {
-  let s = createVault(SEED, seats(4), { deck: ["lock", "lock"] });
+  let s = createAleph(SEED, seats(4), { deck: ["lock", "lock"] });
   s = allDecide(s, { type: "contribute" });
   s = skipTalk(s);
   const code = s.stage.code!;
@@ -370,7 +370,7 @@ test("Cerradura: los traidores se reparten el 10 %; si nadie acierta se quema 10
 
 test("Final: dividir/dividir, robar/dividir (ausente divide), robar/robar; sin decaimiento; tabla suma el total", () => {
   const setup = () => {
-    let s = createVault(SEED, seats(4), { deck: ["offer"] });
+    let s = createAleph(SEED, seats(4), { deck: ["offer"] });
     s = allDecide(s, { type: "contribute" });
     s = act(s, A(3), { type: "accept" });
     s = act(s, A(4), { type: "accept" });
@@ -418,7 +418,7 @@ test("Final: dividir/dividir, robar/dividir (ausente divide), robar/robar; sin d
 });
 
 test("director: un solo vivo se lleva el pozo; sin vivos, el pozo va a la caja y se reparte", () => {
-  let s = createVault(SEED, seats(4), { deck: ["offer"] });
+  let s = createAleph(SEED, seats(4), { deck: ["offer"] });
   s = allDecide(s, { type: "contribute" });
   const pot = s.pot;
   const total = s.stage.offerTotal!;
@@ -434,7 +434,7 @@ test("director: un solo vivo se lleva el pozo; sin vivos, el pozo va a la caja y
   assert.equal(seatOf(s, A(4))!.status, "finished");
   assertConserved(s);
 
-  s = createVault(SEED, seats(4), { deck: ["offer"] });
+  s = createAleph(SEED, seats(4), { deck: ["offer"] });
   s = end(s); // Reparto: todos ausentes (aportan; ausencia 1)
   s = end(s); // Oferta: todos ausentes (rechazan; ausencia 2) → abandonan todos
   assert.equal(s.over, true);
@@ -448,7 +448,7 @@ test("director: un solo vivo se lleva el pozo; sin vivos, el pozo va a la caja y
 });
 
 test("abandono: dos ausencias seguidas eliminan (bolsillo al pozo); decidir corta la racha; en la Final no se evalúa", () => {
-  let s = createVault(SEED, seats(4), { deck: ["vote", "offer"] });
+  let s = createAleph(SEED, seats(4), { deck: ["vote", "offer"] });
   // Reparto: A1 guarda; A2 y A3 aportan; A4 ausente (1).
   s = act(s, A(1), { type: "keep" });
   s = act(s, A(2), { type: "contribute" });

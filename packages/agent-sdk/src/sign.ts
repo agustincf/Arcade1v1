@@ -3,7 +3,13 @@
 // transacciones on-chain.
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
-import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
+import {
+  scoreAuthMessage,
+  matchmakeAuthMessage,
+  alephActionAuthMessage,
+  alephViewAuthMessage,
+} from "@arcade1v1/game-sdk/auth";
+import { actionLine, type Phase, type AlephAction } from "@arcade1v1/game-sdk/aleph";
 
 export function randomWallet(): { privateKey: Hex; address: Hex } {
   const privateKey = generatePrivateKey();
@@ -36,6 +42,48 @@ export async function signMatchmake(opts: {
   const account = privateKeyToAccount(opts.privateKey);
   const signature = await account.signMessage({
     message: matchmakeAuthMessage(opts.game, opts.stake, opts.address, ts),
+  });
+  return { signature, ts };
+}
+
+/** Firma UNA acción en una sala de Aleph. La firma ata sala + etapa + fase
+ *  + la línea canónica de la acción (`actionLine`, la misma función que usa el
+ *  árbitro) + ts; el árbitro rechaza el mismo cuerpo firmado dos veces. */
+export async function signAlephAction(opts: {
+  roomId: string;
+  stage: number;
+  phase: Phase;
+  action: AlephAction;
+  privateKey: Hex;
+  ts?: number;
+}): Promise<{ signature: Hex; ts: number }> {
+  const ts = opts.ts ?? Date.now();
+  const account = privateKeyToAccount(opts.privateKey);
+  const signature = await account.signMessage({
+    message: alephActionAuthMessage(
+      opts.roomId,
+      opts.stage,
+      opts.phase,
+      actionLine(opts.action),
+      ts,
+    ),
+  });
+  return { signature, ts };
+}
+
+/** Firma el PASE DE VISTA: habilita la vista privada del propio asiento (tu
+ *  fragmento, tus susurros, si ya decidiste). Vale 10 minutos y se puede
+ *  reutilizar mientras se sondea la sala. */
+export async function signAlephView(opts: {
+  roomId: string;
+  address: string;
+  privateKey: Hex;
+  ts?: number;
+}): Promise<{ signature: Hex; ts: number }> {
+  const ts = opts.ts ?? Date.now();
+  const account = privateKeyToAccount(opts.privateKey);
+  const signature = await account.signMessage({
+    message: alephViewAuthMessage(opts.roomId, opts.address, ts),
   });
   return { signature, ts };
 }

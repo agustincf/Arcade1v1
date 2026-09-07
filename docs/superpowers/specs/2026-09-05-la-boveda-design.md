@@ -1,4 +1,4 @@
-# La Bóveda — diseño
+# Aleph — diseño
 
 **Fecha:** 2026-09-05
 **Estado:** diseño aprobado en conversación; spec pendiente de revisión del dueño
@@ -6,9 +6,11 @@
 **Encuadre:** v4.2 · primer **formato multi-agente** de la arena. No es un
 cartucho nuevo (los cartuchos son 1v1, asincrónicos y por puntaje): es una
 mesa compartida de 4 a 8 agentes con pozo único, etapas con tradeoffs y un
-solo resultado final. Nombre provisorio **"La Bóveda"** (id `vault`); el
-nombre definitivo lo fija el dueño antes de publicar, porque los juegos no se
-renombran después.
+solo resultado final. Nombre: **"Aleph"** (id `aleph`), fijado como
+definitivo por el dueño el 2026-09-06 — antes se usaba "La Bóveda" como
+nombre provisorio, a la espera de esa decisión; los juegos no se renombran
+después de publicados, así que el id técnico sigue siendo `aleph` para
+siempre.
 
 Decisiones tomadas por el dueño durante el brainstorming (2026-09-05):
 
@@ -50,7 +52,7 @@ el modo espectador.
    contrato paga todo en una transacción.
 9. La semilla se **compromete al empezar y se revela al final**; cada acción
    va **firmada**; el registro es público y cualquiera re-simula la sala.
-10. Un ELO propio de La Bóveda, separado de los seis juegos.
+10. Un ELO propio de Aleph, separado de los seis juegos.
 
 ## Reglas
 
@@ -58,7 +60,7 @@ el modo espectador.
 
 - Hay **un lobby abierto por mesa** (stake). En esta versión solo la mesa
   gratis (stake 0).
-- Entrar es pedir asiento con firma (`matchmakeAuthMessage("vault", stake,
+- Entrar es pedir asiento con firma (`matchmakeAuthMessage("aleph", stake,
 address, ts)`, el mismo mensaje que hoy firma cualquier emparejamiento).
   Pedir asiento dos veces devuelve el mismo lobby (idempotente).
 - El lobby **cierra y la sala arranca** al llegar a **8** asientos, o al vencer
@@ -202,11 +204,13 @@ a la caja. La sala termina.
 
 ### Plazos y ausencias
 
-- Cada fase dura **`VAULT_PHASE_MS`** (default 120 000 ms = 2 minutos). Una
+- Cada fase dura **`ALEPH_PHASE_MS`** (default 120 000 ms = 2 minutos). Una
   fase `decide` termina antes si todos los vivos decidieron; una `talk`, si
   todos los vivos mandaron `ready`.
-- **Ausencia** = no decidir en una fase `decide` de Reparto, Oferta, Voto o
-  Final. Decidir cualquier cosa corta la racha. Los mensajes no cuentan.
+- **Ausencia** = no decidir en una fase `decide` de Reparto, Oferta o Voto.
+  Decidir cualquier cosa corta la racha. Los mensajes no cuentan. (La Final no
+  entra: termina la sala, así que el motor no lleva racha ahí; corregido al
+  escribir AGENTS.md en la etapa 2.)
 - La **Cerradura no toca la racha en ningún sentido**: ni enviar un código ni
   pasar (`ready`) cuenta como ausencia, y tampoco la corta. Es la única
   decisión opcional del juego, así que no puede castigar ni salvar a nadie.
@@ -246,8 +250,8 @@ resultado; en la etapa 4 el árbitro la firma para el contrato.
 
 ### Ranking
 
-ELO propio bajo la clave de juego `vault`, en el mismo store y leaderboard que
-los demás (`GET /leaderboard/vault`). Al terminar la sala, cada par de
+ELO propio bajo la clave de juego `aleph`, en el mismo store y leaderboard que
+los demás (`GET /leaderboard/aleph`). Al terminar la sala, cada par de
 asientos se compara por unidades cobradas (más = gana; igual = empate). Para
 que una sala mueva el rating tanto como una partida 1v1, el factor K se divide
 por (N − 1): `new_i = round(r_i + K/(N−1) × Σ_j (s_ij − e_ij))`, con las
@@ -256,8 +260,8 @@ actualización por jugador, sin dependencia del orden).
 
 ### Constantes de reglas
 
-Viven en el motor (`packages/game-sdk/src/vault.ts`), versionadas por
-`VAULT_RULES_V = 1`. **No** son variables de entorno: son reglas, y cambiarlas
+Viven en el motor (`packages/game-sdk/src/aleph.ts`), versionadas por
+`ALEPH_RULES_V = 1`. **No** son variables de entorno: son reglas, y cambiarlas
 es cambiar de versión (mismo criterio que `RULES_V`).
 
 | Constante                 | Valor | Qué es                                                      |
@@ -290,31 +294,31 @@ mecanismo, porque no hay un replay individual sino una partida compartida.
    fragmentos y el orden de desempate. El árbitro no puede cambiar el azar a
    mitad de camino; los agentes no pueden anticipar los secretos.
 2. **Acciones firmadas.** Cada acción va firmada con la wallet del asiento
-   sobre `vaultActionAuthMessage(roomId, stage, phase, line, ts)`, con `ts`
+   sobre `alephActionAuthMessage(roomId, stage, phase, line, ts)`, con `ts`
    válido 10 minutos. El registro guarda la firma: nadie puede decir "yo no
    voté eso".
 3. **Pase de vista.** Leer la vista PRIVADA de un asiento también va firmado:
-   `vaultViewAuthMessage(roomId, address, ts)`, con `ts` válido 10 minutos
+   `alephViewAuthMessage(roomId, address, ts)`, con `ts` válido 10 minutos
    (`MATCHMAKE_AUTH_TTL_MS`). Se manda como `?signature=&ts=` junto al
-   `?address=`. Sin pase válido, `GET /vault/:id` devuelve la **vista
+   `?address=`. Sin pase válido, `GET /aleph/:id` devuelve la **vista
    pública** (sin `you`, sin fragmento, sin susurros) en vez de un error: una
    `address` en el query no prueba nada por sí sola. Las respuestas de
-   `POST /vault/join` y `POST /vault/:id/act` ya vienen firmadas, así que
+   `POST /aleph/join` y `POST /aleph/:id/act` ya vienen firmadas, así que
    devuelven la vista privada sin pase aparte.
-4. **Registro público al terminar.** `GET /vault/:id/log` devuelve
+4. **Registro público al terminar.** `GET /aleph/:id/log` devuelve
    `secretSeed`, `commit`, los asientos, todos los eventos (acciones firmadas
    y cierres de fase con su motivo) y la tabla de pagos.
-5. **Re-simulación.** `replayVault(secretSeed, seats, events)` del `game-sdk`
+5. **Re-simulación.** `replayAleph(secretSeed, seats, events)` del `game-sdk`
    es determinística y pura. Cualquiera la corre sobre el registro y tiene que
    obtener la misma tabla que publicó el árbitro; `keccak256(secretSeed)` tiene
    que dar `commit`; cada firma tiene que recuperar su address. El repo trae
-   `scripts/vault-verify.mjs`, que corre eso contra una sala más dos chequeos
+   `scripts/aleph-verify.mjs`, que corre eso contra una sala más dos chequeos
    sobre lo que el árbitro decide solo: que el registro declare la misma
    **versión de reglas** que el motor y que **cada cierre de fase sea
    legítimo** (uno anticipado solo si el estado lo justifica; uno por plazo
    solo si pasó una fase entera desde el anterior). Uso:
-   `node --import tsx scripts/vault-verify.mjs <arbiterUrl> <roomId> [phaseMs]`
-   (mismo patrón que `gap-check.mjs`); `phaseMs` es el `VAULT_PHASE_MS` de ese
+   `node --import tsx scripts/aleph-verify.mjs <arbiterUrl> <roomId> [phaseMs]`
+   (mismo patrón que `gap-check.mjs`); `phaseMs` es el `ALEPH_PHASE_MS` de ese
    árbitro — un knob del servidor, no una regla del motor —, default 120000.
 6. **Lo que sigue siendo confianza**, y se documenta como tal: el árbitro ve
    los secretos durante la sala (igual que hoy ve los puntajes antes de
@@ -335,7 +339,7 @@ azar es el **último** criterio, después de dos criterios de conducta.
 
 ## Arquitectura
 
-### Motor: `packages/game-sdk/src/vault.ts` (subpath `@arcade1v1/game-sdk/vault`)
+### Motor: `packages/game-sdk/src/aleph.ts` (subpath `@arcade1v1/game-sdk/aleph`)
 
 Puro y determinístico: sin `Date.now`, sin `Math.random`, sin dependencias
 (el `game-sdk` no tiene ninguna; el hash del compromiso lo calcula el árbitro
@@ -343,14 +347,14 @@ con viem). Del `secretSeed` en hex se leen trozos de 32 bits por propósito
 (mazo, ofertas, códigos, desempate) que alimentan `mulberry32` de `replay.ts`.
 
 ```ts
-export const VAULT_RULES_V = 1;
-export const VAULT_RULES = { UNITS_PER_SEAT: 1000, BOX_BPS: 2000, ... } as const;
+export const ALEPH_RULES_V = 1;
+export const ALEPH_RULES = { UNITS_PER_SEAT: 1000, BOX_BPS: 2000, ... } as const;
 
 export type StageKind = "share" | "offer" | "vote" | "lock" | "final";
 export type Phase = "talk" | "decide";
 export type SeatStatus = "alive" | "left" | "voted_out" | "abandoned" | "finished";
 
-export type VaultAction =
+export type AlephAction =
   | { type: "keep" } | { type: "contribute" }
   | { type: "accept" } | { type: "decline" }
   | { type: "vote"; target: string }
@@ -360,18 +364,18 @@ export type VaultAction =
   | { type: "say"; text: string }
   | { type: "whisper"; to: string; text: string };
 
-export type VaultEvent =
-  | { type: "action"; address: string; stage: number; phase: Phase; action: VaultAction; ts: number; signature?: string }
+export type AlephEvent =
+  | { type: "action"; address: string; stage: number; phase: Phase; action: AlephAction; ts: number; signature?: string }
   | { type: "phase_end"; stage: number; phase: Phase; at: number; reason: "deadline" | "all_acted" | "all_ready" };
 
-export interface VaultState { /* asientos, pot, box, potInitial, mazo restante, etapa actual (kind, phase, números, pendientes secretos), historial de etapas resueltas, mensajes, over, payouts */ }
+export interface AlephState { /* asientos, pot, box, potInitial, mazo restante, etapa actual (kind, phase, números, pendientes secretos), historial de etapas resueltas, mensajes, over, payouts */ }
 
-export function createVault(secretSeed: string, seats: string[]): VaultState;
-export function applyEvent(state: VaultState, ev: VaultEvent): VaultState; // lanza si es inválido
-export function replayVault(secretSeed: string, seats: string[], events: VaultEvent[]): VaultState;
-export function viewFor(state: VaultState, address?: string): VaultView;   // filtra secretos
-export function actionLine(a: VaultAction): string;                        // forma canónica que se firma
-export function validateAction(a: unknown): VaultAction;                   // forma + topes de texto
+export function createAleph(secretSeed: string, seats: string[]): AlephState;
+export function applyEvent(state: AlephState, ev: AlephEvent): AlephState; // lanza si es inválido
+export function replayAleph(secretSeed: string, seats: string[], events: AlephEvent[]): AlephState;
+export function viewFor(state: AlephState, address?: string): AlephView;   // filtra secretos
+export function actionLine(a: AlephAction): string;                        // forma canónica que se firma
+export function validateAction(a: unknown): AlephAction;                   // forma + topes de texto
 ```
 
 `applyEvent` valida: sala no terminada, etapa y fase coinciden, el actor está
@@ -379,12 +383,12 @@ vivo, la acción existe en esa fase, no decidió ya, topes de mensajes, destino
 del privado vivo, voto a otro vivo, código con la cantidad justa de dígitos.
 Un `phase_end` resuelve la fase con lo recibido y avanza (director).
 
-### Árbitro: `apps/server/src/vault.ts` + `apps/server/src/vault-routes.ts`
+### Árbitro: `apps/server/src/aleph.ts` + `apps/server/src/aleph-routes.ts`
 
-Modelo `VaultRoom`:
+Modelo `AlephRoom`:
 
 ```ts
-interface VaultRoom {
+interface AlephRoom {
   id: Hex; // "0x" + 32 bytes
   stake: number; // 0 en esta versión
   status: "lobby" | "playing" | "settled" | "dissolved";
@@ -394,7 +398,7 @@ interface VaultRoom {
   settledAt?: number;
   commit?: Hex;
   secretSeed?: Hex; // secretSeed NUNCA sale hasta settled
-  events: VaultEvent[]; // el registro: la única fuente de verdad del juego
+  events: AlephEvent[]; // el registro: la única fuente de verdad del juego
   phaseDeadline?: number; // reloj del árbitro para la fase actual
   stages?: number; // etapas jugadas, guardadas al liquidar (listar no re-simula)
   payouts?: Record<string, number>;
@@ -402,33 +406,33 @@ interface VaultRoom {
 }
 ```
 
-- El **estado del juego no se persiste**: se deriva con `replayVault` a partir
+- El **estado del juego no se persiste**: se deriva con `replayAleph` a partir
   de `events` (cache en memoria por sala). Así el camino de re-simulación es
   el mismo que usa el árbitro para operar: si se rompe, se nota primero acá.
-- **Lobby**: `joinVault(stake, address, auth)`. Un lobby abierto por stake
+- **Lobby**: `joinAleph(stake, address, auth)`. Un lobby abierto por stake
   (mapa `stake → roomId`, como la `queue` de 1v1). Idempotente por address.
-- **Ticker** (`VAULT_TICK_MS`, default 5 s): vence lobbies (arranca o
+- **Ticker** (`ALEPH_TICK_MS`, default 5 s): vence lobbies (arranca o
   disuelve), vence fases (`phase_end` con `reason: "deadline"`), purga salas
   terminadas viejas. Además, toda lectura o acción llama a `settleDue(now)`
   para que los tests corran sin timers, con reloj inyectado.
-- **Acción**: `actVault(roomId, address, action, signature, ts)`: valida
+- **Acción**: `actAleph(roomId, address, action, signature, ts)`: valida
   forma (`validateAction`), frescura de `ts`, firma sobre `actionLine`, y
   aplica el evento al estado derivado; si el motor acepta, se agrega al
   registro y se persiste. Si con esa acción todos decidieron (o todos
   `ready`), se agrega el `phase_end` correspondiente en el mismo paso.
 - **Arranque**: `secretSeed = randomBytes(32)`, `commit = keccak256`,
   `recordMatchCreated()` (una sala cuenta como una partida en las métricas).
-- **Liquidación**: al quedar `over`: tabla de pagos, `applyMultiResult("vault",
+- **Liquidación**: al quedar `over`: tabla de pagos, `applyMultiResult("aleph",
 …)` en `ratings.ts` (función nueva, con `K/(N−1)`), `recordMatchSettled(0)`,
   `status: "settled"`, y la semilla pasa a ser pública.
-- **Persistencia**: `jsonStore("vault")`, mismo patrón que `matches`
-  (serializar salas vivas y recientes; `restoreVault()` antes de escuchar;
+- **Persistencia**: `jsonStore("aleph")`, mismo patrón que `matches`
+  (serializar salas vivas y recientes; `restoreAleph()` antes de escuchar;
   las salas en `lobby` vuelven con su TTL corriendo; las `playing` retoman con
   su `phaseDeadline`).
-- **Purga**: salas `settled`/`dissolved` después de `VAULT_FINISHED_TTL_MS`
+- **Purga**: salas `settled`/`dissolved` después de `ALEPH_FINISHED_TTL_MS`
   (default 7 días: el registro es el contenido del espectador y la prueba de
   auditoría; más largo que los 2 días de las partidas 1v1) **o las últimas
-  `VAULT_MAX_SETTLED_KEPT` (default 50), lo que llegue primero**: el store es un
+  `ALEPH_MAX_SETTLED_KEPT` (default 50), lo que llegue primero**: el store es un
   blob único y un registro completo pesa ~200 kB, así que sin tope la escritura
   entera termina fallando (y con ella la de las salas vivas).
 
@@ -437,12 +441,12 @@ recuperan firma):
 
 | Método y ruta                            | Qué hace                                                                                                                               |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /vault/join`                       | `{stake, address, signature, ts}` → vista propia del lobby o la sala                                                                   |
-| `GET /vault/lobbies`                     | lobbies abiertos: `{roomId, stake, seats, min, max, closesAt}`                                                                         |
-| `GET /vault/recent?limit=`               | salas terminadas recientes (resumen para la web)                                                                                       |
-| `GET /vault/:id?address=&signature=&ts=` | vista de la sala; con un pase de vista válido (firma de `vaultViewAuthMessage`), la vista privada de ese asiento; sin pase, la pública |
-| `POST /vault/:id/act`                    | `{address, action, signature, ts}` → vista propia actualizada                                                                          |
-| `GET /vault/:id/log`                     | registro completo y semilla; antes de `settled`, `400 "not settled"`                                                                   |
+| `POST /aleph/join`                       | `{stake, address, signature, ts}` → vista propia del lobby o la sala                                                                   |
+| `GET /aleph/lobbies`                     | lobbies abiertos: `{roomId, stake, seats, min, max, closesAt}`                                                                         |
+| `GET /aleph/recent?limit=`               | salas terminadas recientes (resumen para la web)                                                                                       |
+| `GET /aleph/:id?address=&signature=&ts=` | vista de la sala; con un pase de vista válido (firma de `alephViewAuthMessage`), la vista privada de ese asiento; sin pase, la pública |
+| `POST /aleph/:id/act`                    | `{address, action, signature, ts}` → vista propia actualizada                                                                          |
+| `GET /aleph/:id/log`                     | registro completo y semilla; antes de `settled`, `400 "not settled"`                                                                   |
 
 La raíz `/` (discovery) lista las rutas nuevas y el requisito de `rulesV`.
 
@@ -466,7 +470,7 @@ del mazo, la semilla antes del cierre, mensajes privados entre terceros. La
 vista pública (sin `address`) es lo mismo sin `you` ni privados.
 
 Cómo se obtiene: pidiéndola con el **pase de vista** firmado
-(`vaultViewAuthMessage(roomId, address, ts)`, válido 10 minutos, como
+(`alephViewAuthMessage(roomId, address, ts)`, válido 10 minutos, como
 `?signature=&ts=`); sin pase, la vista pública.
 
 ### Firma de acciones
@@ -490,49 +494,49 @@ función (sin drift). Reutiliza `MATCHMAKE_AUTH_TTL_MS` (10 min) como ventana.
 
 ### Capa de agentes
 
-- **agent-sdk** (`0.3.0`): `ArbiterClient` suma `vaultJoin`, `vaultView`,
-  `vaultAct`, `vaultLobbies`, `vaultLog`; `sign.ts` suma `signVaultAction`;
-  `createAgent` suma `vaultJoin(stake)` y `vaultAct(roomId, action)` (firman
-  con la wallet del agente). `examples/play-vault-llm.ts`: un agente con
+- **agent-sdk** (`0.3.0`): `ArbiterClient` suma `alephJoin`, `alephView`,
+  `alephAct`, `alephLobbies`, `alephLog`; `sign.ts` suma `signAlephAction`;
+  `createAgent` suma `alephJoin(stake)` y `alephAct(roomId, action)` (firman
+  con la wallet del agente). `examples/play-aleph-llm.ts`: un agente con
   cerebro Claude que se sienta, sondea la vista cada pocos segundos y, cuando
   le toca decidir, arma un prompt con las reglas resumidas, el estado y los
   mensajes, y pide una acción en JSON (más un mensaje opcional). El cerebro se
   inyecta (`Brain`), así el test usa un doble determinístico, como en
   `play-racing-llm.ts`. Modelo por defecto el mismo que ese ejemplo; nota
   honesta de costo en tokens.
-- **MCP** (`0.3.0`): herramientas `vault_rules` (las reglas en texto, para que
-  el modelo las lea cuando quiera), `vault_lobbies`, `vault_join {stake=0}`,
-  `vault_view {roomId}`, `vault_act {roomId, action}`. `list_games` agrega
-  `formats: ["vault"]` sin tocar `GAMES` (las herramientas 1v1 siguen
+- **MCP** (`0.3.0`): herramientas `aleph_rules` (las reglas en texto, para que
+  el modelo las lea cuando quiera), `aleph_lobbies`, `aleph_join {stake=0}`,
+  `aleph_view {roomId}`, `aleph_act {roomId, action}`. `list_games` agrega
+  `formats: ["aleph"]` sin tocar `GAMES` (las herramientas 1v1 siguen
   validando contra los seis cartuchos).
-- **game-sdk** (`0.3.0`): subpath `./vault` nuevo; `RULES_V` suma `vault:
-VAULT_RULES_V`. **strategies** se re-publica solo por el pineo de versiones
+- **game-sdk** (`0.3.0`): subpath `./aleph` nuevo; `RULES_V` suma `aleph:
+ALEPH_RULES_V`. **strategies** se re-publica solo por el pineo de versiones
   del workspace (sin cambios funcionales).
 - Los agentes hosteados de perillas y los BYO por webhook **no** juegan este
   formato (no razonan / el flujo de webhook es 1v1). Documentado.
 
 ### Web mínima (etapa 3)
 
-- `apps/web/app/vault/page.tsx`: qué es La Bóveda en tres párrafos, el lobby
+- `apps/web/app/aleph/page.tsx`: qué es Aleph en tres párrafos, el lobby
   abierto (asientos, mínimo, cuenta regresiva), cómo sentarse (snippet MCP y
   SDK), salas recientes.
-- `apps/web/app/vault/[roomId]/page.tsx`: el registro **contado en texto**,
+- `apps/web/app/aleph/[roomId]/page.tsx`: el registro **contado en texto**,
   etapa por etapa: quién guardó, quién aceptó la oferta, votos recibidos,
   código y traidores, la Final, la tabla de pagos. Mientras la sala está
   `playing`, muestra la vista pública y se refresca cada pocos segundos.
-- Leaderboard: una pestaña más, "La Bóveda", fuera de `GAMES` (no es un
-  cartucho): `LEADERBOARD_TABS = [...GAMES, VAULT_TAB]`.
-- Home: una card "Nuevo formato para agentes" que lleva a `/vault`.
-- `apps/web/app/lib/arbiter.ts`: `getVaultLobbies`, `getVaultRoom`,
-  `getVaultLog`, `getRecentVaultRooms`.
-- i18n en los 4 idiomas (`vault.*`; el test de paridad de claves obliga),
+- Leaderboard: una pestaña más, "Aleph", fuera de `GAMES` (no es un
+  cartucho): `LEADERBOARD_TABS = [...GAMES, ALEPH_TAB]`.
+- Home: una card "Nuevo formato para agentes" que lleva a `/aleph`.
+- `apps/web/app/lib/arbiter.ts`: `getAlephLobbies`, `getAlephRoom`,
+  `getAlephLog`, `getRecentAlephRooms`.
+- i18n en los 4 idiomas (`aleph.*`; el test de paridad de claves obliga),
   `seo.ts`, `llms.txt`, sección en `/agents`. Las rutas nuevas pasan por el
   ruteo por idioma existente (`proxy.ts`); el test `lang-routing` lo cubre.
 - Sin animaciones, sin avatares, sin sonido: eso es la etapa 5.
 
 ### Documentación
 
-AGENTS.md (sección "La Bóveda: multi-agent" con el flujo, las reglas, el
+AGENTS.md (sección "Aleph: multi-agent" con el flujo, las reglas, el
 formato de firma, los mensajes como datos y la publicidad de los privados),
 `llms.txt`, README ("seis juegos y un formato multi-agente"), ARCHITECTURE.md
 (ciclo de vida de una sala + compromiso/revelación en el modelo de confianza),
@@ -543,16 +547,16 @@ SECURITY.md (addendum al modelo de confianza), CHANGELOG **3.7.0**, ROADMAP
 
 | Var                      | Default            | Uso                                                                                                                                   |
 | ------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `VAULT_ENABLED`          | on (`!== "false"`) | kill switch: join rechaza y el lobby que vence se disuelve (nunca arranca una sala nueva); las salas en curso siguen hasta liquidarse |
-| `VAULT_STAKES`           | `0`                | mesas admitidas para el formato (etapa 4 suma las de plata)                                                                           |
-| `VAULT_MIN_SEATS`        | 4                  | mínimo para arrancar (nunca menor a 4 ni mayor a MAX)                                                                                 |
-| `VAULT_MAX_SEATS`        | 8                  | tope de asientos (nunca mayor a 8)                                                                                                    |
-| `VAULT_LOBBY_MS`         | 600000             | vida del lobby antes de arrancar o disolver                                                                                           |
-| `VAULT_PHASE_MS`         | 120000             | plazo de cada fase                                                                                                                    |
-| `VAULT_TICK_MS`          | 5000               | cadencia del ticker                                                                                                                   |
-| `VAULT_MAX_ROOMS`        | 50                 | salas vivas (lobby + playing) a la vez; de más → `400 "limit"`                                                                        |
-| `VAULT_FINISHED_TTL_MS`  | 7 días             | purga de salas terminadas                                                                                                             |
-| `VAULT_MAX_SETTLED_KEPT` | 50                 | salas terminadas conservadas; de más → se van las más viejas                                                                          |
+| `ALEPH_ENABLED`          | on (`!== "false"`) | kill switch: join rechaza y el lobby que vence se disuelve (nunca arranca una sala nueva); las salas en curso siguen hasta liquidarse |
+| `ALEPH_STAKES`           | `0`                | mesas admitidas para el formato (etapa 4 suma las de plata)                                                                           |
+| `ALEPH_MIN_SEATS`        | 4                  | mínimo para arrancar (nunca menor a 4 ni mayor a MAX)                                                                                 |
+| `ALEPH_MAX_SEATS`        | 8                  | tope de asientos (nunca mayor a 8)                                                                                                    |
+| `ALEPH_LOBBY_MS`         | 600000             | vida del lobby antes de arrancar o disolver                                                                                           |
+| `ALEPH_PHASE_MS`         | 120000             | plazo de cada fase                                                                                                                    |
+| `ALEPH_TICK_MS`          | 5000               | cadencia del ticker                                                                                                                   |
+| `ALEPH_MAX_ROOMS`        | 50                 | salas vivas (lobby + playing) a la vez; de más → `400 "limit"`                                                                        |
+| `ALEPH_FINISHED_TTL_MS`  | 7 días             | purga de salas terminadas                                                                                                             |
+| `ALEPH_MAX_SETTLED_KEPT` | 50                 | salas terminadas conservadas; de más → se van las más viejas                                                                          |
 
 ## Seguridad
 
@@ -574,7 +578,7 @@ SECURITY.md (addendum al modelo de confianza), CHANGELOG **3.7.0**, ROADMAP
   como una partida 1v1 (`K/(N−1)`). Se acepta y se documenta; en la etapa 4
   cada asiento cuesta el stake y la colusión es suma cero menos comisión. Queda
   para esa etapa evaluar "una sala por owner conocido" si hace falta.
-- **DoS**: `VAULT_MAX_ROOMS`, un lobby por stake, tope de eventos por sala
+- **DoS**: `ALEPH_MAX_ROOMS`, un lobby por stake, tope de eventos por sala
   (derivado de los topes por fase: nunca más de `(3 + 2) × N` acciones por
   fase), body ya limitado a 256 kb, POSTs bajo `strictLimit`, purga con TTL.
   Aplicar un evento es O(1); re-simular una sala entera es O(eventos), acotado
@@ -588,7 +592,7 @@ SECURITY.md (addendum al modelo de confianza), CHANGELOG **3.7.0**, ROADMAP
 
 ## Tests
 
-- **Motor** (`packages/game-sdk/test/vault.test.ts`): mazo (composición por
+- **Motor** (`packages/game-sdk/test/aleph.test.ts`): mazo (composición por
   N, sin Ofertas seguidas, determinístico por semilla); cada etapa con y sin
   ausentes (defaults), incluidos "aceptan todos", traidores múltiples, nadie
   acierta, empates de voto por los tres criterios, "roban los dos"; director
@@ -596,24 +600,24 @@ SECURITY.md (addendum al modelo de confianza), CHANGELOG **3.7.0**, ROADMAP
   abandono (racha, reset, bolsillo al pozo, no en la Final); **propiedad**:
   sobre secuencias aleatorias de eventos con semilla fija, el invariante de
   conservación se cumple siempre y la tabla suma `1000 × N`;
-  `replayVault(events) ≡` estado vivo; `viewFor` no filtra secretos; topes de
+  `replayAleph(events) ≡` estado vivo; `viewFor` no filtra secretos; topes de
   mensajes; `actionLine` ↔ `validateAction` ida y vuelta.
-- **Árbitro** (`apps/server/test/vault.test.ts`): lobby (idempotencia, 8
-  arranca, TTL con ≥4 arranca, TTL con <4 disuelve, `VAULT_MAX_ROOMS`); firmas
+- **Árbitro** (`apps/server/test/aleph.test.ts`): lobby (idempotencia, 8
+  arranca, TTL con ≥4 arranca, TTL con <4 disuelve, `ALEPH_MAX_ROOMS`); firmas
   (mensaje correcto, `ts` vencido, firmante ajeno); fases con reloj inyectado
   (deadline, cierre anticipado por "todos decidieron" / "todos ready");
   **partida completa in-process** con 4 asientos guionados hasta `settled`,
-  registro coherente (`scripts/vault-verify.mjs` lo verifica), ELO aplicado
+  registro coherente (`scripts/aleph-verify.mjs` lo verifica), ELO aplicado
   con `K/(N−1)` y suma cero aproximada; `/log` cerrado antes de `settled`;
   serializar a mitad de sala y restaurar continúa igual; kill switch.
-- **agent-sdk**: cliente (rutas y cuerpos), `signVaultAction` recuperable,
+- **agent-sdk**: cliente (rutas y cuerpos), `signAlephAction` recuperable,
   ejemplo LLM con cerebro doble juega una sala contra un árbitro falso.
 - **MCP**: cableado de las 5 herramientas con cliente falso.
 - **Web**: paridad de claves i18n ×4 (test existente), ruteo por idioma de las
   rutas nuevas.
 - **Verificación final**: `npm run check` en verde; E2E in-process; tras el
   deploy, smoke en Render con 4 wallets del SDK hasta `settled` y
-  `vault-verify` contra la sala real.
+  `aleph-verify` contra la sala real.
 
 ## Alcance
 
@@ -632,15 +636,15 @@ hosteados de perillas o BYO webhook; rotación de la semilla o pausa de salas.
 Cada etapa es un PR a `main` (que exige PR + los 2 checks de CI) y queda
 usable sola.
 
-1. **Motor y árbitro (mesa gratis).** `game-sdk/vault.ts` con tests; `auth.ts`
-   (`vaultActionAuthMessage`); `rules.ts` (`vault`); `ratings.ts`
-   (`applyMultiResult`); `server/vault.ts` + `vault-routes.ts` + ticker +
-   persistencia + discovery; `scripts/vault-verify.mjs`; tests del árbitro.
+1. **Motor y árbitro (mesa gratis).** `game-sdk/aleph.ts` con tests; `auth.ts`
+   (`alephActionAuthMessage`); `rules.ts` (`aleph`); `ratings.ts`
+   (`applyMultiResult`); `server/aleph.ts` + `aleph-routes.ts` + ticker +
+   persistencia + discovery; `scripts/aleph-verify.mjs`; tests del árbitro.
    Resultado: cualquier script juega por HTTP.
 2. **Capa de agentes.** agent-sdk (cliente, firma, `createAgent`, ejemplo
    LLM), MCP (5 herramientas), AGENTS.md + `llms.txt`, bump 0.3.0 de los
    cuatro paquetes y del manifiesto MCP, publicación (con OK del dueño).
-3. **Web mínima y cierre.** `/vault` y `/vault/[roomId]`, pestaña en el
+3. **Web mínima y cierre.** `/aleph` y `/aleph/[roomId]`, pestaña en el
    leaderboard, card en el home, i18n ×4, SEO, README/ARCHITECTURE/SECURITY/
    ROADMAP, CHANGELOG **3.7.0**. Deploy y smoke en producción.
 
@@ -649,7 +653,7 @@ visual estilo reality) tendrán su propio spec.
 
 ## Pendientes del dueño
 
-- **Nombre definitivo** antes de la etapa 3 (el id `vault` puede quedar aunque
+- **Nombre definitivo** antes de la etapa 3 (el id `aleph` puede quedar aunque
   el nombre cambie; el nombre visible sale del i18n).
 - **OK de publicación** en npm y en el registry MCP (etapa 2) y del deploy
   (etapa 3), como siempre.

@@ -1,23 +1,23 @@
-// MOTOR de La Bóveda (formato multi-agente): una sala compartida de 4 a 8
+// MOTOR de Aleph (formato multi-agente): una sala compartida de 4 a 8
 // asientos con pozo único, etapas sorteadas de un mazo y una tabla de pagos al
 // final. Es PURO y DETERMINÍSTICO: el estado siguiente depende solo del estado
 // anterior y del evento; todo el azar sale de la semilla secreta. Así el
 // árbitro opera re-simulando el registro, y cualquiera puede verificarlo.
 //
-// Vocabulario (constantes, acciones, forma canónica): ./vault-rules.
+// Vocabulario (constantes, acciones, forma canónica): ./aleph-rules.
 import { mulberry32 } from "./replay";
 import {
   assertMessageText,
-  VAULT_RULES as R,
-  VAULT_RULES_V,
-  type VaultAction,
-  type VaultEvent,
+  ALEPH_RULES as R,
+  ALEPH_RULES_V,
+  type AlephAction,
+  type AlephEvent,
   type StageKind,
   type Phase,
   type SeatStatus,
-} from "./vault-rules";
+} from "./aleph-rules";
 
-export * from "./vault-rules";
+export * from "./aleph-rules";
 
 export interface Seat {
   address: string;
@@ -27,7 +27,7 @@ export interface Seat {
   votesReceived: number; // votos acumulados (criterio de desempate)
 }
 
-export interface VaultMessage {
+export interface AlephMessage {
   from: string;
   to?: string; // sin `to` = público
   text: string;
@@ -53,7 +53,7 @@ export interface StageState {
   // secretos (la vista nunca los expone)
   code?: string;
   fragments?: Record<string, Fragment>;
-  decisions: Record<string, VaultAction>; // decisiones pendientes de esta fase
+  decisions: Record<string, AlephAction>; // decisiones pendientes de esta fase
   ready: string[]; // quiénes mandaron `ready` en esta fase
   msgCount: Record<string, number>; // mensajes por asiento en esta fase
 }
@@ -83,7 +83,7 @@ export interface StageResult {
   boxAfter: number;
 }
 
-export interface VaultState {
+export interface AlephState {
   rulesV: number;
   seed: string; // secreta hasta el final (el árbitro la filtra)
   seats: Seat[];
@@ -94,7 +94,7 @@ export interface VaultState {
   tiebreak: string[]; // orden oculto de desempate
   stage: StageState;
   results: StageResult[];
-  messages: VaultMessage[];
+  messages: AlephMessage[];
   over: boolean;
   payouts?: Record<string, number>;
 }
@@ -143,18 +143,18 @@ export function buildDeck(n: number, rnd: () => number): StageKind[] {
   return deck;
 }
 
-export function aliveSeats(s: VaultState): Seat[] {
+export function aliveSeats(s: AlephState): Seat[] {
   return s.seats.filter((x) => x.status === "alive");
 }
 
-export function seatOf(s: VaultState, address: string): Seat | undefined {
+export function seatOf(s: AlephState, address: string): Seat | undefined {
   const a = norm(address);
   return s.seats.find((x) => x.address === a);
 }
 
 /** Arranca una etapa: calcula sus números con la semilla y el índice, y abre
  *  su primera fase (charla si la etapa la tiene, si no directo a decidir). */
-export function beginStage(s: VaultState, kind: StageKind): void {
+export function beginStage(s: AlephState, kind: StageKind): void {
   const index = s.results.length;
   const st: StageState = {
     index,
@@ -193,11 +193,11 @@ export function beginStage(s: VaultState, kind: StageKind): void {
 const DECK_KINDS = new Set<StageKind>(["share", "offer", "vote", "lock"]);
 
 /** Estado inicial de una sala. `opts.deck` fuerza el mazo (solo tests). */
-export function createVault(
+export function createAleph(
   seed: string,
   seats: string[],
   opts: { deck?: StageKind[] } = {},
-): VaultState {
+): AlephState {
   const addrs = seats.map(norm);
   const unique = new Set(addrs).size === addrs.length;
   if (
@@ -211,8 +211,8 @@ export function createVault(
   if (opts.deck && opts.deck.some((k) => !DECK_KINDS.has(k))) throw new Error("invalid deck");
   const potInitial = R.UNITS_PER_SEAT * addrs.length;
   const box = bps(potInitial, R.BOX_BPS);
-  const s: VaultState = {
-    rulesV: VAULT_RULES_V,
+  const s: AlephState = {
+    rulesV: ALEPH_RULES_V,
     seed,
     seats: addrs.map((address) => ({
       address,
@@ -242,7 +242,7 @@ export function createVault(
 /** Aplica un evento y devuelve el estado NUEVO (el anterior no se toca). Lanza
  *  si el evento no vale en este estado: el árbitro lo traduce a un 400 y NO lo
  *  agrega al registro. Re-simular es aplicar el registro en orden. */
-export function applyEvent(prev: VaultState, ev: VaultEvent): VaultState {
+export function applyEvent(prev: AlephState, ev: AlephEvent): AlephState {
   if (prev.over) throw new Error("room already over");
   if (ev.stage !== prev.stage.index || ev.phase !== prev.stage.phase) {
     throw new Error(`stage or phase mismatch (now ${prev.stage.index}/${prev.stage.phase})`);
@@ -254,7 +254,7 @@ export function applyEvent(prev: VaultState, ev: VaultEvent): VaultState {
 }
 
 /** Qué etapa admite cada decisión. */
-const DECIDE_KIND: Partial<Record<VaultAction["type"], StageKind>> = {
+const DECIDE_KIND: Partial<Record<AlephAction["type"], StageKind>> = {
   keep: "share",
   contribute: "share",
   accept: "offer",
@@ -265,7 +265,7 @@ const DECIDE_KIND: Partial<Record<VaultAction["type"], StageKind>> = {
   steal: "final",
 };
 
-function applyAction(s: VaultState, address: string, a: VaultAction): void {
+function applyAction(s: AlephState, address: string, a: AlephAction): void {
   const seat = seatOf(s, address);
   if (!seat) throw new Error("not a seat of this room");
   if (seat.status !== "alive") throw new Error(`seat not alive (${seat.status})`);
@@ -308,7 +308,7 @@ function applyAction(s: VaultState, address: string, a: VaultAction): void {
     throw new Error(`action ${a.type} not allowed now (${st.kind}/${st.phase})`);
   }
   if (st.decisions[address] || st.ready.includes(address)) throw new Error("already decided");
-  let decision: VaultAction = a;
+  let decision: AlephAction = a;
   if (a.type === "vote") {
     const target = seatOf(s, a.target);
     if (!target || target.status !== "alive" || target.address === address) {
@@ -324,7 +324,7 @@ function applyAction(s: VaultState, address: string, a: VaultAction): void {
 
 /** ¿La fase actual ya puede cerrarse antes del plazo? (todos los vivos
  *  decidieron / mandaron ready). El árbitro agrega el `phase_end` con este motivo. */
-export function phaseComplete(s: VaultState): "all_acted" | "all_ready" | null {
+export function phaseComplete(s: AlephState): "all_acted" | "all_ready" | null {
   if (s.over) return null;
   const st = s.stage;
   const alive = aliveSeats(s);
@@ -340,7 +340,7 @@ export function phaseComplete(s: VaultState): "all_acted" | "all_ready" | null {
 // CIERRE DE FASE: charla → decidir; decidir → resolver la etapa + director.
 // ---------------------------------------------------------------------------
 
-function endPhase(s: VaultState): void {
+function endPhase(s: AlephState): void {
   const st = s.stage;
   if (st.phase === "talk") {
     st.phase = "decide";
@@ -395,7 +395,7 @@ function trackAbsence(seat: Seat, decided: boolean): void {
   seat.absences = decided ? 0 : seat.absences + 1;
 }
 
-function resolveShare(s: VaultState, r: StageResult): void {
+function resolveShare(s: AlephState, r: StageResult): void {
   const st = s.stage;
   const share = st.share!;
   const kept: string[] = [];
@@ -419,7 +419,7 @@ function resolveShare(s: VaultState, r: StageResult): void {
   r.bonus = bonus;
 }
 
-function resolveOffer(s: VaultState, r: StageResult): void {
+function resolveOffer(s: AlephState, r: StageResult): void {
   const st = s.stage;
   const alive = aliveSeats(s);
   const accepted: string[] = [];
@@ -449,7 +449,7 @@ function resolveOffer(s: VaultState, r: StageResult): void {
   r.eachGot = each;
 }
 
-function resolveVote(s: VaultState, r: StageResult): void {
+function resolveVote(s: AlephState, r: StageResult): void {
   const st = s.stage;
   const alive = aliveSeats(s);
   const votes: Record<string, number> = {};
@@ -477,7 +477,7 @@ function resolveVote(s: VaultState, r: StageResult): void {
   r.eliminated = out.address;
 }
 
-function resolveLock(s: VaultState, r: StageResult): void {
+function resolveLock(s: AlephState, r: StageResult): void {
   const st = s.stage;
   const solvers: string[] = [];
   const traitors: string[] = [];
@@ -512,7 +512,7 @@ function resolveLock(s: VaultState, r: StageResult): void {
   r.eachGot = each;
 }
 
-function resolveFinal(s: VaultState, r: StageResult): void {
+function resolveFinal(s: AlephState, r: StageResult): void {
   const st = s.stage;
   const alive = aliveSeats(s);
   const choices: Record<string, "split" | "steal"> = {};
@@ -535,7 +535,7 @@ function resolveFinal(s: VaultState, r: StageResult): void {
 }
 
 /** EL DIRECTOR: qué viene después de cada etapa. */
-function direct(s: VaultState): void {
+function direct(s: AlephState): void {
   if (s.stage.kind === "final") return finish(s);
   const alive = aliveSeats(s);
   if (alive.length === 0) {
@@ -555,7 +555,7 @@ function direct(s: VaultState): void {
 
 /** Tabla de pagos: bolsillo + parte igual de la caja; el resto (menos de N
  *  unidades) al bolsillo más grande (empate: menor índice). Suma potInitial. */
-function finish(s: VaultState): void {
+function finish(s: AlephState): void {
   const n = s.seats.length;
   const each = Math.floor(s.box / n);
   const dust = s.box - each * n;
@@ -571,7 +571,7 @@ function finish(s: VaultState): void {
 // VISTA por asiento (filtra secretos) y RE-SIMULACIÓN del registro.
 // ---------------------------------------------------------------------------
 
-export interface VaultView {
+export interface AlephView {
   rulesV: number;
   over: boolean;
   pot: number;
@@ -602,21 +602,21 @@ export interface VaultView {
   };
   /** Públicos de la etapa actual + privados hacia/desde este asiento. Al
    *  terminar la sala: todos, también los privados (el registro es público). */
-  messages: VaultMessage[];
+  messages: AlephMessage[];
   payouts?: Record<string, number>;
 }
 
 /** Lo que ESTE asiento puede saber. Sin `address`: la vista pública. Nunca:
  *  fragmentos ajenos, decisiones pendientes de otros, el mazo, la semilla,
  *  privados entre terceros. */
-export function viewFor(s: VaultState, address?: string): VaultView {
+export function viewFor(s: AlephState, address?: string): AlephView {
   const me = address ? seatOf(s, address) : undefined;
   const st = s.stage;
   const messages = s.messages.filter(
     (m) =>
       s.over || (m.stage === st.index && (!m.to || m.to === me?.address || m.from === me?.address)),
   );
-  const v: VaultView = {
+  const v: AlephView = {
     rulesV: s.rulesV,
     over: s.over,
     pot: s.pot,
@@ -654,13 +654,13 @@ export function viewFor(s: VaultState, address?: string): VaultView {
 
 /** Re-simula una sala desde su registro. Es lo que corre el árbitro para
  *  operar y lo que corre cualquiera para verificar la tabla de pagos. */
-export function replayVault(
+export function replayAleph(
   seed: string,
   seats: string[],
-  events: VaultEvent[],
+  events: AlephEvent[],
   opts: { deck?: StageKind[] } = {},
-): VaultState {
-  let s = createVault(seed, seats, opts);
+): AlephState {
+  let s = createAleph(seed, seats, opts);
   for (const ev of events) s = applyEvent(s, ev);
   return s;
 }

@@ -1,6 +1,14 @@
 // Cliente HTTP portable del árbitro de Arcade1v1 (sin Next.js: sirve en Node,
 // navegador, agentes). Inyectable: se le puede pasar un fetch propio para tests.
 
+import type {
+  Phase,
+  SeatStatus,
+  AlephAction,
+  AlephEvent,
+  AlephView,
+} from "@arcade1v1/game-sdk/aleph";
+
 export interface MatchView {
   matchId: string;
   game: string;
@@ -36,27 +44,209 @@ export interface LeaderRow {
   rating: number;
 }
 
+// ---- Aleph (formato multi-agente) ------------------------------------------
+
+export type AlephRoomStatus = "lobby" | "playing" | "settled" | "dissolved";
+
+/** Un asiento como lo sirve el árbitro: estado y bolsillo del motor más la
+ *  ficha pública que resuelve `resolveDisplay` (nombre/avatar si el dueño los
+ *  cargó; `house`/`byo` si es un agente hosteado). */
+export interface AlephSeatView {
+  address: string;
+  status: SeatStatus;
+  pocket: number;
+  name?: string;
+  avatar?: string;
+  agentId?: string;
+  house?: boolean;
+  byo?: boolean;
+}
+
+/** La vista de una sala tal como la devuelven `GET /aleph/:id`, `POST
+ *  /aleph/join` y `POST /aleph/:id/act`. Espeja `AlephRoomView` de
+ *  apps/server/src/aleph.ts: los campos de sala los pone el árbitro; el resto
+ *  es la vista del motor (`AlephView`) y solo viene con la sala en juego o
+ *  terminada. `you` (tu estado, tu fragmento, si ya decidiste) solo llega con
+ *  un pase de vista válido o en las respuestas de join/act, que ya van firmadas. */
+export type AlephRoomView = {
+  roomId: string;
+  stake: number;
+  status: AlephRoomStatus;
+  rulesV: number;
+  min: number;
+  max: number;
+  createdAt: number;
+  /** lobby/dissolved: cuándo arranca o se disuelve */
+  closesAt?: number;
+  startedAt?: number;
+  settledAt?: number;
+  commit?: string;
+  /** solo `settled` */
+  secretSeed?: string;
+  /** fin de la fase actual (epoch ms) */
+  deadline?: number;
+  /** `settled`, para el asiento que consulta con pase */
+  rating?: { before: number; after: number; delta: number };
+  seats: AlephSeatView[];
+} & Partial<Omit<AlephView, "seats">>;
+
+export interface AlephLobby {
+  roomId: string;
+  stake: number;
+  seats: number;
+  min: number;
+  max: number;
+  closesAt: number;
+}
+
+/** Registro completo de una sala terminada (`GET /aleph/:id/log`): lo que
+ *  re-simula cualquier verificador. */
+export interface AlephLog {
+  roomId: string;
+  stake: number;
+  rulesV: number;
+  seats: string[];
+  commit: string;
+  secretSeed: string;
+  startedAt?: number;
+  settledAt?: number;
+  events: AlephEvent[];
+  payouts: Record<string, number>;
+}
+
+/** Pase de vista: firma de `alephViewAuthMessage(roomId, address, ts)`. */
+export interface AlephViewPass {
+  address: string;
+  signature: string;
+  ts: number;
+}
+
+/** Una acción firmada: firma de `alephActionAuthMessage(roomId, stage, phase,
+ *  actionLine(action), ts)`. `stage` y `phase` salen de la vista. */
+export interface AlephActBody {
+  stage: number;
+  phase: Phase;
+  action: AlephAction;
+  signature: string;
+  ts: number;
+}
+
+/** Cuánto espera cada pedido, ya con el árbitro despierto, antes de darse por
+ *  perdido. Sin tope, una conexión colgada bloquea el `await` hasta el timeout
+ *  por defecto del runtime (minutos), y un agente de Aleph que sondea cada 5 s
+ *  pierde fases enteras sin enterarse. */
+export const DEFAULT_TIMEOUT_MS = 15_000;
+
+/** Cuánto espera el PRIMER pedido, que es el que puede tener que despertar al
+ *  árbitro: corre en un host gratuito que se duerme por inactividad y cuyo
+ *  arranque en frío medido es 42,4 s (el incidente del CHANGELOG 3.6.0: el
+ *  keep-alive fallaba 96 de cada 100 corridas por un tope más corto que ese
+ *  arranque). Con el tope de régimen, ese primer pedido falla siempre y el
+ *  usuario ve un error donde solo había que esperar. 75 s es el margen que la
+ *  web venía usando. */
+export const COLD_START_TIMEOUT_MS = 75_000;
+
 export interface ArbiterClientOptions {
   fetchImpl?: typeof fetch;
+  /** Tope por pedido en ms (default `DEFAULT_TIMEOUT_MS`). 0 lo desactiva. */
+  timeoutMs?: number;
+  /** Tope del primer pedido, hasta que el árbitro conteste una vez (default
+   *  `COLD_START_TIMEOUT_MS`, o `timeoutMs` si quien construye el cliente lo
+   *  fijó a mano: un tope explícito es un techo, nunca se lo pasa por arriba). */
+  coldStartTimeoutMs?: number;
 }
 
 export class ArbiterClient {
   private base: string;
   private fetchImpl: typeof fetch;
+  private timeoutMs: number;
+  private coldStartTimeoutMs: number;
+  /** ¿Ya contestó el árbitro alguna vez? Hasta entonces puede estar dormido. */
+  private awake = false;
 
   constructor(baseUrl: string, opts: ArbiterClientOptions = {}) {
     this.base = baseUrl.replace(/\/$/, "");
     this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.coldStartTimeoutMs =
+      opts.coldStartTimeoutMs ??
+      (opts.timeoutMs === undefined ? COLD_START_TIMEOUT_MS : this.timeoutMs);
   }
 
-  private async post(path: string, body: unknown): Promise<MatchView> {
-    const r = await this.fetchImpl(`${this.base}${path}`, {
+  /** Tope de ESTE pedido: el largo mientras el árbitro no haya dado señales de
+   *  vida, el de régimen después. Así el sondeo del loop sigue acotado corto
+   *  sin que el primer pedido muera contra un host dormido. */
+  private budgetMs(): number {
+    return this.awake ? this.timeoutMs : this.coldStartTimeoutMs;
+  }
+
+  /** `init` con el tope de tiempo puesto. Se le agrega a TODO pedido, GET
+   *  incluido: un GET colgado es el que más duele (es el sondeo).
+   *
+   *  Si quien llama ya trajo su propio `signal`, se COMBINAN en vez de pisarlo:
+   *  pisarlo en silencio es lo que rompió a la web (su fetch inyectado daba 75 s
+   *  solo cuando el init venía sin signal, y este método se lo ponía siempre,
+   *  así que todo pedido de la web cortaba con el tope del SDK). Un tope de acá
+   *  nunca puede cancelar el control que el llamador ya tenía sobre su pedido. */
+  private init(init: RequestInit = {}): RequestInit {
+    if (this.timeoutMs <= 0) return init;
+    const timeout = AbortSignal.timeout(this.budgetMs());
+    return {
+      ...init,
+      signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
+    };
+  }
+
+  /** Un pedido cortado por el tope de tiempo llega acá como `TimeoutError`
+   *  (o `AbortError`): se traduce a un mensaje que nombra la ruta, porque el
+   *  del runtime no dice contra qué se estaba hablando. `label` nunca lleva el
+   *  query string (ahí viaja el pase de vista: ver `get`). */
+  private async fetchWithTimeout(
+    url: string,
+    label: string,
+    init?: RequestInit,
+  ): Promise<Response> {
+    const budget = this.budgetMs();
+    try {
+      const r = await this.fetchImpl(url, this.init(init));
+      // Contestó (aunque sea un 4xx): el host está despierto, los pedidos que
+      // siguen ya no necesitan el margen del arranque en frío.
+      this.awake = true;
+      return r;
+    } catch (e) {
+      const name = (e as { name?: string } | null | undefined)?.name;
+      if (name === "TimeoutError" || name === "AbortError") {
+        throw new Error(`arbiter ${label} timeout after ${budget}ms`, { cause: e });
+      }
+      throw e;
+    }
+  }
+
+  private async post<T = MatchView>(path: string, body: unknown): Promise<T> {
+    const r = await this.fetchWithTimeout(`${this.base}${path}`, path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!r.ok) throw new Error(`arbiter ${path} ${r.status}: ${await r.text()}`);
-    return (await r.json()) as MatchView;
+    return (await r.json()) as T;
+  }
+
+  /** GET con el motivo del árbitro en el error: un 400 de Aleph ("room not
+   *  settled yet", "stage or phase mismatch") le sirve al agente para decidir
+   *  qué hacer, no solo el código. El mensaje NUNCA lleva el query string: en
+   *  `alephView` ahí viaja el pase de vista completo (address+signature+ts), una
+   *  credencial portadora que `verifySigned` no consume ni marca como usada
+   *  (apps/server/src/aleph.ts) — sigue siendo válida y repetible durante los
+   *  MATCHMAKE_AUTH_TTL_MS de la firma. Filtrarla en un error de log expondría
+   *  la vista PRIVADA de ese asiento a cualquiera que lo lea. */
+  private async get<T>(path: string): Promise<T> {
+    const label = path.split("?")[0];
+    const r = await this.fetchWithTimeout(`${this.base}${path}`, label);
+    if (!r.ok) {
+      throw new Error(`arbiter ${label} ${r.status}: ${await r.text()}`);
+    }
+    return (await r.json()) as T;
   }
 
   /** `auth` (firma de matchmakeAuthMessage + su ts) es obligatoria cuando el
@@ -82,22 +272,66 @@ export class ArbiterClient {
 
   async getMatch(id: string, address?: string): Promise<MatchView> {
     const q = address ? `?address=${address}` : "";
-    const r = await this.fetchImpl(`${this.base}/match/${id}${q}`);
+    const r = await this.fetchWithTimeout(`${this.base}/match/${id}${q}`, `get /match/${id}`);
     if (!r.ok) throw new Error(`arbiter get ${r.status}`);
     return (await r.json()) as MatchView;
   }
 
   async leaderboard(game: string, limit = 20): Promise<LeaderRow[]> {
-    const r = await this.fetchImpl(`${this.base}/leaderboard/${game}?limit=${limit}`);
+    const r = await this.fetchWithTimeout(
+      `${this.base}/leaderboard/${game}?limit=${limit}`,
+      `leaderboard/${game}`,
+    );
     if (!r.ok) throw new Error(`arbiter leaderboard ${r.status}`);
     const j = (await r.json()) as { top?: LeaderRow[] };
     return j.top ?? [];
   }
 
   async rating(address: string): Promise<Record<string, number>> {
-    const r = await this.fetchImpl(`${this.base}/rating/${address}`);
+    const r = await this.fetchWithTimeout(`${this.base}/rating/${address}`, `rating/${address}`);
     if (!r.ok) throw new Error(`arbiter rating ${r.status}`);
     const j = (await r.json()) as { ratings?: Record<string, number> };
     return j.ratings ?? {};
+  }
+
+  // ---- Aleph ------------------------------------------------------------
+
+  async alephLobbies(): Promise<AlephLobby[]> {
+    const j = await this.get<{ lobbies?: AlephLobby[] }>("/aleph/lobbies");
+    return j.lobbies ?? [];
+  }
+
+  /** Pedir asiento. `auth` = firma de matchmakeAuthMessage("aleph", stake,
+   *  address, ts); obligatoria en producción. Idempotente por address. */
+  alephJoin(
+    stake: number,
+    address: string,
+    auth?: { signature: string; ts: number },
+  ): Promise<AlephRoomView> {
+    return this.post<AlephRoomView>("/aleph/join", { stake, address, ...(auth ?? {}) });
+  }
+
+  /** Vista de la sala. Con `pass` (firma de alephViewAuthMessage) llega la vista
+   *  PRIVADA de ese asiento; sin pase válido, la pública. */
+  alephView(roomId: string, pass?: AlephViewPass): Promise<AlephRoomView> {
+    const q = pass
+      ? "?" +
+        new URLSearchParams({
+          address: pass.address,
+          signature: pass.signature,
+          ts: String(pass.ts),
+        }).toString()
+      : "";
+    return this.get<AlephRoomView>(`/aleph/${roomId}${q}`);
+  }
+
+  /** Una acción firmada. La respuesta es la vista privada actualizada. */
+  alephAct(roomId: string, address: string, body: AlephActBody): Promise<AlephRoomView> {
+    return this.post<AlephRoomView>(`/aleph/${roomId}/act`, { address, ...body });
+  }
+
+  /** Registro completo; antes de `settled` el árbitro responde 400. */
+  alephLog(roomId: string): Promise<AlephLog> {
+    return this.get<AlephLog>(`/aleph/${roomId}/log`);
   }
 }

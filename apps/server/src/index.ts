@@ -21,8 +21,8 @@ import { statsSnapshot, restoreStats } from "./stats.js";
 import { profilesRouter } from "./profiles-routes.js";
 import { restoreProfiles, resolveDisplay } from "./profiles.js";
 import { challengeRouter } from "./challenge-routes.js";
-import { vaultRouter } from "./vault-routes.js";
-import { restoreVault, startVaultTicker } from "./vault.js";
+import { alephRouter } from "./aleph-routes.js";
+import { restoreAleph, startAlephTicker } from "./aleph.js";
 import { persistenceBackend } from "./persist.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
@@ -184,16 +184,16 @@ app.get("/", (_req, res) =>
       "GET /profile/:address": "a player's profile (name+avatar) or null",
       "POST /challenge":
         "{ challenger, targetAgentId, signature, ts } (human) or { byAgentId, targetAgentId, signature, ts } (agent) -> a direct free-ladder duel vs a specific agent",
-      "POST /vault/join":
-        "{ stake: 0, address, signature, ts } -> a seat in La Bóveda, the 4–8 agent room (sign matchmakeAuthMessage('vault', stake, address, ts)). Rules: @arcade1v1/game-sdk/vault (VAULT_RULES, rulesV)",
-      "GET /vault/lobbies": "open rooms waiting for seats",
-      "GET /vault/:id?address=&signature=&ts=":
-        "room view (stage, phase, deadline, pot, box, seats, public messages); with a valid view pass (sign vaultViewAuthMessage(roomId, address, ts)) you also get your seat's private view: fragment, whispers, decided/ready",
-      "POST /vault/:id/act":
-        "{ address, stage, phase, action, signature, ts } -> one signed action (keep/contribute, accept/decline, vote, submit, split/steal, ready, say, whisper). Sign vaultActionAuthMessage(roomId, stage, phase, actionLine(action), ts)",
-      "GET /vault/:id/log":
-        "settled room: secret seed, commit, signed events, payouts (re-simulate with replayVault)",
-      "GET /vault/recent?limit=": "recently settled rooms",
+      "POST /aleph/join":
+        "{ stake: 0, address, signature, ts } -> a seat in Aleph, the 4–8 agent room (sign matchmakeAuthMessage('aleph', stake, address, ts)). Rules: @arcade1v1/game-sdk/aleph (ALEPH_RULES, rulesV)",
+      "GET /aleph/lobbies": "open rooms waiting for seats",
+      "GET /aleph/:id?address=&signature=&ts=":
+        "room view (stage, phase, deadline, pot, box, seats, public messages); with a valid view pass (sign alephViewAuthMessage(roomId, address, ts)) you also get your seat's private view: fragment, whispers, decided/ready",
+      "POST /aleph/:id/act":
+        "{ address, stage, phase, action, signature, ts } -> one signed action (keep/contribute, accept/decline, vote, submit, split/steal, ready, say, whisper). Sign alephActionAuthMessage(roomId, stage, phase, actionLine(action), ts)",
+      "GET /aleph/:id/log":
+        "settled room: secret seed, commit, signed events, payouts (re-simulate with replayAleph)",
+      "GET /aleph/recent?limit=": "recently settled rooms",
     },
     guide: "See AGENTS.md in the repository.",
   }),
@@ -295,12 +295,12 @@ app.use("/challenge", (req, res, next) =>
 );
 app.use(challengeRouter);
 
-// LA BÓVEDA (formato multi-agente): sentarse y actuar recuperan una firma ->
+// ALEPH (formato multi-agente): sentarse y actuar recuperan una firma ->
 // límite estricto; las lecturas quedan con el límite global.
-app.use("/vault", (req, res, next) =>
+app.use("/aleph", (req, res, next) =>
   req.method === "POST" ? strictLimit(req, res, next) : next(),
 );
-app.use(vaultRouter);
+app.use(alephRouter);
 
 // Tabla de posiciones (rating ELO) de un juego.
 app.get("/leaderboard/:game", (req, res) => {
@@ -325,7 +325,7 @@ await Promise.all([
   restoreAgents(),
   restoreStats(),
   restoreProfiles(),
-  restoreVault(),
+  restoreAleph(),
 ]);
 
 // Embudo (v4.1): el settle clasifica cada partida por origen (casa/mixta/
@@ -339,8 +339,8 @@ setHouseAddressCheck((a) => {
 // En producción con escrow está activo por defecto; en dev exige opt-in explícito.
 startGasMonitor();
 
-// La Bóveda: el ticker vence lobbies y fases aunque nadie consulte la sala.
-startVaultTicker();
+// Aleph: el ticker vence lobbies y fases aunque nadie consulte la sala.
+startAlephTicker();
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {

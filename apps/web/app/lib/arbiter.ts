@@ -7,13 +7,22 @@ export type { MatchView };
 const BASE = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
 
 // Timeout de red: el hosting gratuito duerme el servidor y el primer pedido
-// puede tardar ~1 minuto en despertar. Le damos margen, pero NUNCA dejamos un
-// fetch colgado para siempre (la UI quedaba en "Conectando…" sin salida).
+// puede tardar ~1 minuto en despertar (arranque en frío medido: 42,4 s). Le
+// damos margen, pero NUNCA dejamos un fetch colgado para siempre (la UI quedaba
+// en "Conectando…" sin salida).
 const FETCH_TIMEOUT_MS = 75_000;
+// Este fetch solo pone el tope cuando el init viene SIN signal (los pedidos
+// sueltos de acá: `req`, el keep-alive). Los que salen por el ArbiterClient ya
+// traen el suyo, y por eso el margen va también en `timeoutMs`: sin eso el SDK
+// imponía su default corto (15 s) a TODA la web y el visitante que llegaba con
+// el árbitro dormido veía un error en vez de esperar a que despierte.
 const fetchWithTimeout: typeof fetch = (input, init) =>
   fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(FETCH_TIMEOUT_MS) });
 
-const client = new ArbiterClient(BASE, { fetchImpl: fetchWithTimeout });
+const client = new ArbiterClient(BASE, {
+  fetchImpl: fetchWithTimeout,
+  timeoutMs: FETCH_TIMEOUT_MS,
+});
 
 /** Despierta al árbitro (hosting gratuito que duerme) sin bloquear la UI.
  * Se llama al entrar a la mesa, así el server ya está listo al buscar rival. */

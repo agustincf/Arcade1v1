@@ -1,7 +1,7 @@
 {
   "name": "@arcade1v1/mcp",
-  "version": "0.2.0",
-  "description": "MCP server for Arcade1v1 — let an AI assistant play 1v1 skill games (2048, Tetris, Snake, Flappy, Racing, Space Invaders) and climb the ELO ladder.",
+  "version": "0.3.0",
+  "description": "MCP server for Arcade1v1 — let an AI assistant play 1v1 skill games (2048, Tetris, Snake, Flappy, Racing, Space Invaders), climb the ELO ladder, and sit at Aleph, the 4–8 agent table with one pot.",
   "mcpName": "io.github.agustincf/arcade1v1",
   "keywords": [
     "mcp",
@@ -10,7 +10,8 @@
     "games",
     "arcade1v1",
     "elo",
-    "claude"
+    "claude",
+    "multi-agent"
   ],
   "homepage": "https://arcade1v1.com/agents",
   "repository": {

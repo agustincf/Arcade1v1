@@ -1,40 +1,40 @@
 #!/usr/bin/env node
-// Verificador PÚBLICO de una sala de La Bóveda: cualquiera puede comprobar que
+// Verificador PÚBLICO de una sala de Aleph: cualquiera puede comprobar que
 // el árbitro no hizo trampa, sin confiar en él. Chequeos sobre el registro que
-// devuelve GET /vault/:id/log:
+// devuelve GET /aleph/:id/log:
 //   1) keccak256(secretSeed) == commit publicado al arrancar (el azar no cambió);
 //   2) el registro declara la MISMA versión de reglas que este motor;
 //   3) cada acción del registro está firmada por su asiento (nadie habló por otro);
 //   4) los cierres de fase son legítimos: uno anticipado solo si el estado lo
 //      justifica, uno por plazo solo si pasó una fase entera desde el anterior;
 //   5) re-simular el registro con el motor público da la MISMA tabla de pagos.
-// Uso: node --import tsx scripts/vault-verify.mjs <arbiterUrl> <roomId> [phaseMs]
+// Uso: node --import tsx scripts/aleph-verify.mjs <arbiterUrl> <roomId> [phaseMs]
 import { pathToFileURL } from "node:url";
 import { keccak256, recoverMessageAddress } from "viem";
 import {
-  replayVault,
-  createVault,
+  replayAleph,
+  createAleph,
   applyEvent,
   phaseComplete,
   actionLine,
-  VAULT_RULES_V,
-} from "@arcade1v1/game-sdk/vault";
-import { vaultActionAuthMessage } from "@arcade1v1/game-sdk/auth";
+  ALEPH_RULES_V,
+} from "@arcade1v1/game-sdk/aleph";
+import { alephActionAuthMessage } from "@arcade1v1/game-sdk/auth";
 
-/** Plazo de fase por default del árbitro (VAULT_PHASE_MS). No es una regla del
+/** Plazo de fase por default del árbitro (ALEPH_PHASE_MS). No es una regla del
  *  motor sino un knob del servidor, así que se puede pasar por argumento. */
 export const DEFAULT_PHASE_MS = 120000;
 
 /** Corre los chequeos sobre un registro ya descargado. `phaseMs` es el plazo de
  *  fase con el que operaba ese árbitro (default 120000). */
-export async function verifyVaultLog(log, phaseMs = DEFAULT_PHASE_MS) {
+export async function verifyAlephLog(log, phaseMs = DEFAULT_PHASE_MS) {
   const checks = [];
   const check = (ok, name) => checks.push({ name, ok });
 
   check(keccak256(log.secretSeed) === log.commit, "compromiso: keccak256(secretSeed) == commit");
   check(
-    log.rulesV === VAULT_RULES_V,
-    `versión de reglas: el registro dice ${log.rulesV} y este motor es ${VAULT_RULES_V}`,
+    log.rulesV === ALEPH_RULES_V,
+    `versión de reglas: el registro dice ${log.rulesV} y este motor es ${ALEPH_RULES_V}`,
   );
 
   let signed = 0;
@@ -48,7 +48,7 @@ export async function verifyVaultLog(log, phaseMs = DEFAULT_PHASE_MS) {
     }
     try {
       const signer = await recoverMessageAddress({
-        message: vaultActionAuthMessage(
+        message: alephActionAuthMessage(
           log.roomId,
           ev.stage,
           ev.phase,
@@ -74,7 +74,7 @@ export async function verifyVaultLog(log, phaseMs = DEFAULT_PHASE_MS) {
   // reloj, y es lo único que el árbitro decide solo.
   const badEnds = [];
   try {
-    let s = createVault(log.secretSeed, log.seats);
+    let s = createAleph(log.secretSeed, log.seats);
     let prev = typeof log.startedAt === "number" ? log.startedAt : null;
     for (const ev of log.events) {
       if (ev.type === "phase_end") {
@@ -105,7 +105,7 @@ export async function verifyVaultLog(log, phaseMs = DEFAULT_PHASE_MS) {
   let payouts = null;
   let potInitial = 0;
   try {
-    const s = replayVault(log.secretSeed, log.seats, log.events);
+    const s = replayAleph(log.secretSeed, log.seats, log.events);
     payouts = s.payouts;
     potInitial = s.potInitial;
   } catch (e) {
@@ -126,18 +126,18 @@ async function main() {
   const [url, roomId, phaseMs] = process.argv.slice(2);
   if (!url || !roomId) {
     console.error(
-      "uso: node --import tsx scripts/vault-verify.mjs <arbiterUrl> <roomId> [phaseMs]\n" +
+      "uso: node --import tsx scripts/aleph-verify.mjs <arbiterUrl> <roomId> [phaseMs]\n" +
         `      phaseMs: plazo de fase del árbitro en ms (default ${DEFAULT_PHASE_MS}); ` +
-        "es un knob del servidor (VAULT_PHASE_MS), no una regla del motor.",
+        "es un knob del servidor (ALEPH_PHASE_MS), no una regla del motor.",
     );
     process.exit(2);
   }
-  const r = await fetch(`${url.replace(/\/+$/, "")}/vault/${roomId}/log`);
+  const r = await fetch(`${url.replace(/\/+$/, "")}/aleph/${roomId}/log`);
   if (!r.ok) {
     console.error(`HTTP ${r.status}: ${await r.text()}`);
     process.exit(2);
   }
-  const { ok, checks } = await verifyVaultLog(
+  const { ok, checks } = await verifyAlephLog(
     await r.json(),
     phaseMs ? Number(phaseMs) : DEFAULT_PHASE_MS,
   );

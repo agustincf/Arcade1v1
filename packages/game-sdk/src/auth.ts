@@ -79,11 +79,11 @@ export function matchmakeAuthMessage(
   ].join("\n");
 }
 
-/** Mensaje a firmar por cada ACCIÓN en una sala de La Bóveda (formato
+/** Mensaje a firmar por cada ACCIÓN en una sala de Aleph (formato
  *  multi-agente). Ata: sala + etapa + fase + la línea canónica de la acción
- *  (`actionLine` del subpath /vault) + momento (ts, válido MATCHMAKE_AUTH_TTL_MS).
+ *  (`actionLine` del subpath /aleph) + momento (ts, válido MATCHMAKE_AUTH_TTL_MS).
  *  Sin esto, cualquiera votaría o hablaría a nombre de otro asiento. */
-export function vaultActionAuthMessage(
+export function alephActionAuthMessage(
   roomId: string,
   stage: number,
   phase: string,
@@ -101,10 +101,10 @@ export function vaultActionAuthMessage(
 }
 
 /** Mensaje a firmar para pedir la VISTA PRIVADA de tu asiento en una sala de
- *  La Bóveda (el "pase de vista"). Ata: sala + jugador + momento (ts, válido
+ *  Aleph (el "pase de vista"). Ata: sala + jugador + momento (ts, válido
  *  MATCHMAKE_AUTH_TTL_MS). Sin esto, cualquiera leería con un `?address=`
  *  ajeno el fragmento de la Cerradura y los susurros privados de ese asiento. */
-export function vaultViewAuthMessage(roomId: string, address: string, ts: number): string {
+export function alephViewAuthMessage(roomId: string, address: string, ts: number): string {
   return [
     "Arcade1v1: miro mi sala",
     `room: ${roomId.toLowerCase()}`,

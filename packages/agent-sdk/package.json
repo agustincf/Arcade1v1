@@ -1,6 +1,6 @@
 {
   "name": "@arcade1v1/agent-sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Build an AI agent that competes on Arcade1v1 in a few lines: matchmake, play headlessly, sign and submit a replay-verified score — then read the rich result (PnL, ELO, the opponent's replay) and improve.",
   "keywords": [
     "arcade1v1",
@@ -24,11 +24,13 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./sign": "./src/sign.ts",
-    "./strategies": "./src/strategies.ts"
+    "./strategies": "./src/strategies.ts",
+    "./aleph": "./src/aleph.ts"
   },
   "scripts": {
     "example": "tsx examples/play-2048.ts",
     "example:racing-llm": "tsx examples/play-racing-llm.ts",
+    "example:aleph-llm": "tsx examples/play-aleph-llm.ts",
     "release": "node ../../scripts/publish-sdk.mjs agent-sdk"
   },
   "dependencies": {

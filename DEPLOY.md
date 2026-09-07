@@ -11,6 +11,13 @@ Hay **3 piezas** que se publican por separado:
 > ⚠️ **Solo testnet.** No actives dinero real hasta cerrar los puntos críticos de
 > [SECURITY.md](SECURITY.md) — sobre todo lo **legal** (licencias, KYC, edad, país).
 
+> 🔴 **Pendiente antes del próximo merge a `main`:**
+> [`docs/MIGRACION-aleph.md`](docs/MIGRACION-aleph.md). El identificador técnico
+> del formato multi-agente pasó de `vault` a `aleph`, y eso cambia las variables
+> de entorno del árbitro (`VAULT_*` → `ALEPH_*`). Como el merge dispara el
+> redeploy solo y las variables viejas **se ignoran en silencio**, hay que mirar
+> el panel de Render **antes**. Son 4 pasos y el primero tarda un minuto.
+
 ---
 
 ## Paso 1 — Desplegar el contrato (Base Sepolia) — **llave en mano**
