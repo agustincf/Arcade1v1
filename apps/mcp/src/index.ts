@@ -12,6 +12,11 @@ async function main() {
   // al arrancar lo despierta mientras el usuario todavía está escribiendo.
   fetch(`${arbiterUrl}/health`).catch(() => {});
 
+  // El ping no garantiza que el árbitro esté despierto cuando llegue la primera
+  // herramienta, así que el cliente va con sus topes por defecto: el primer
+  // pedido espera el arranque en frío (COLD_START_TIMEOUT_MS) y recién después
+  // baja al tope corto de régimen. Con un tope corto desde el vamos, la primera
+  // herramienta contra un árbitro dormido falla siempre.
   const client = new ArbiterClient(arbiterUrl);
   const agent = createAgent({ arbiterUrl, client });
   const server = buildServer({ agent, client });

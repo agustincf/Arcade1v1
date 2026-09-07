@@ -131,36 +131,70 @@ export interface VaultActBody {
   ts: number;
 }
 
-/** Cuánto espera cada pedido antes de darse por perdido. El árbitro corre en
- *  un host que se duerme (free tier) y se reinicia solo en cada deploy: sin
- *  tope, una conexión colgada bloquea el `await` hasta el timeout por defecto
- *  del runtime (minutos), y un agente de Aleph que sondea cada 5 s pierde
- *  fases enteras sin enterarse. El cliente web ya usa el mismo criterio
- *  (apps/web/app/lib/arbiter.ts). */
+/** Cuánto espera cada pedido, ya con el árbitro despierto, antes de darse por
+ *  perdido. Sin tope, una conexión colgada bloquea el `await` hasta el timeout
+ *  por defecto del runtime (minutos), y un agente de Aleph que sondea cada 5 s
+ *  pierde fases enteras sin enterarse. */
 export const DEFAULT_TIMEOUT_MS = 15_000;
+
+/** Cuánto espera el PRIMER pedido, que es el que puede tener que despertar al
+ *  árbitro: corre en un host gratuito que se duerme por inactividad y cuyo
+ *  arranque en frío medido es 42,4 s (el incidente del CHANGELOG 3.6.0: el
+ *  keep-alive fallaba 96 de cada 100 corridas por un tope más corto que ese
+ *  arranque). Con el tope de régimen, ese primer pedido falla siempre y el
+ *  usuario ve un error donde solo había que esperar. 75 s es el margen que la
+ *  web venía usando. */
+export const COLD_START_TIMEOUT_MS = 75_000;
 
 export interface ArbiterClientOptions {
   fetchImpl?: typeof fetch;
   /** Tope por pedido en ms (default `DEFAULT_TIMEOUT_MS`). 0 lo desactiva. */
   timeoutMs?: number;
+  /** Tope del primer pedido, hasta que el árbitro conteste una vez (default
+   *  `COLD_START_TIMEOUT_MS`, o `timeoutMs` si quien construye el cliente lo
+   *  fijó a mano: un tope explícito es un techo, nunca se lo pasa por arriba). */
+  coldStartTimeoutMs?: number;
 }
 
 export class ArbiterClient {
   private base: string;
   private fetchImpl: typeof fetch;
   private timeoutMs: number;
+  private coldStartTimeoutMs: number;
+  /** ¿Ya contestó el árbitro alguna vez? Hasta entonces puede estar dormido. */
+  private awake = false;
 
   constructor(baseUrl: string, opts: ArbiterClientOptions = {}) {
     this.base = baseUrl.replace(/\/$/, "");
     this.fetchImpl = opts.fetchImpl ?? fetch;
     this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.coldStartTimeoutMs =
+      opts.coldStartTimeoutMs ??
+      (opts.timeoutMs === undefined ? COLD_START_TIMEOUT_MS : this.timeoutMs);
+  }
+
+  /** Tope de ESTE pedido: el largo mientras el árbitro no haya dado señales de
+   *  vida, el de régimen después. Así el sondeo del loop sigue acotado corto
+   *  sin que el primer pedido muera contra un host dormido. */
+  private budgetMs(): number {
+    return this.awake ? this.timeoutMs : this.coldStartTimeoutMs;
   }
 
   /** `init` con el tope de tiempo puesto. Se le agrega a TODO pedido, GET
-   *  incluido: un GET colgado es el que más duele (es el sondeo). */
+   *  incluido: un GET colgado es el que más duele (es el sondeo).
+   *
+   *  Si quien llama ya trajo su propio `signal`, se COMBINAN en vez de pisarlo:
+   *  pisarlo en silencio es lo que rompió a la web (su fetch inyectado daba 75 s
+   *  solo cuando el init venía sin signal, y este método se lo ponía siempre,
+   *  así que todo pedido de la web cortaba con el tope del SDK). Un tope de acá
+   *  nunca puede cancelar el control que el llamador ya tenía sobre su pedido. */
   private init(init: RequestInit = {}): RequestInit {
     if (this.timeoutMs <= 0) return init;
-    return { ...init, signal: AbortSignal.timeout(this.timeoutMs) };
+    const timeout = AbortSignal.timeout(this.budgetMs());
+    return {
+      ...init,
+      signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
+    };
   }
 
   /** Un pedido cortado por el tope de tiempo llega acá como `TimeoutError`
@@ -172,12 +206,17 @@ export class ArbiterClient {
     label: string,
     init?: RequestInit,
   ): Promise<Response> {
+    const budget = this.budgetMs();
     try {
-      return await this.fetchImpl(url, this.init(init));
+      const r = await this.fetchImpl(url, this.init(init));
+      // Contestó (aunque sea un 4xx): el host está despierto, los pedidos que
+      // siguen ya no necesitan el margen del arranque en frío.
+      this.awake = true;
+      return r;
     } catch (e) {
       const name = (e as { name?: string } | null | undefined)?.name;
       if (name === "TimeoutError" || name === "AbortError") {
-        throw new Error(`arbiter ${label} timeout after ${this.timeoutMs}ms`, { cause: e });
+        throw new Error(`arbiter ${label} timeout after ${budget}ms`, { cause: e });
       }
       throw e;
     }

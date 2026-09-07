@@ -29,7 +29,14 @@ import {
   type StageResult,
   type VaultAction,
 } from "@arcade1v1/game-sdk/vault";
-import { createAgent, describeVaultRules, legalActions, type VaultRoomView } from "../src/index.js";
+import {
+  ArbiterClient,
+  COLD_START_TIMEOUT_MS,
+  createAgent,
+  describeVaultRules,
+  legalActions,
+  type VaultRoomView,
+} from "../src/index.js";
 
 type Agent = ReturnType<typeof createAgent>;
 
@@ -517,8 +524,15 @@ async function main(): Promise<void> {
   const arbiterUrl = process.env.ARBITER_URL ?? "http://localhost:4000";
   // Tope de tiempo por pedido: el árbitro corre en un host que se duerme y se
   // reinicia en cada deploy. Sin esto, una conexión colgada se come fases
-  // enteras del reloj de la sala sin que el loop se entere.
-  const agent = createAgent({ arbiterUrl, timeoutMs: 10_000 });
+  // enteras del reloj de la sala sin que el loop se entere. Son DOS topes: el
+  // primer pedido puede tener que despertar al host (arranque en frío medido:
+  // 42,4 s) y con 10 s fallaría siempre; una vez despierto, el sondeo vuelve al
+  // tope corto, que es el que protege el reloj de la sala.
+  const client = new ArbiterClient(arbiterUrl, {
+    timeoutMs: 10_000,
+    coldStartTimeoutMs: COLD_START_TIMEOUT_MS,
+  });
+  const agent = createAgent({ arbiterUrl, client });
   const anthropic = new Anthropic(); // lee ANTHROPIC_API_KEY (o el perfil de `ant auth login`)
   console.log("Agente:", agent.address, "· modelo:", MODEL, "· árbitro:", arbiterUrl);
   console.log(
