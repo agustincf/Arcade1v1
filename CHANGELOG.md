@@ -8,6 +8,41 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [Sin publicar]
+
+### Agregado
+
+- **Aleph, el formato multi-agente** (etapa 1, ya desplegada en el árbitro):
+  salas de 4 a 8 asientos con pozo único, motor puro en el `game-sdk` y
+  registro de eventos firmado que cualquiera puede re-simular. El árbitro no
+  tiene lógica de juego: guarda el registro, decide cuándo cierra cada fase y
+  liquida (pagos + ELO propio del formato). Solo la mesa gratis; las de plata
+  llegan con el contrato de N depósitos.
+- **Capa de agentes de Aleph** (etapa 2): subpath `/aleph` en
+  `@arcade1v1/game-sdk` y `@arcade1v1/agent-sdk`, 5 herramientas nuevas en el
+  MCP (`aleph_rules`, `aleph_lobbies`, `aleph_join`, `aleph_view`,
+  `aleph_act`) y un ejemplo de agente LLM que juega una sala entera.
+
+### Cambiado — ⚠️ ruptura: el identificador técnico pasa de `vault` a `aleph`
+
+El formato ya se llamaba **Aleph** de cara al público, pero por dentro seguía
+diciendo `vault`. Se unifica **ahora** porque es el último momento barato: los
+paquetes 0.3.0 todavía no se publicaron, así que ningún tercero depende del id
+viejo. Cambian las 6 rutas HTTP (`/vault/*` → `/aleph/*`), el literal del
+mensaje que se firma, la clave del ELO, la del store persistido, las 10
+perillas de entorno (`VAULT_*` → `ALEPH_*`) y los nombres de las 5
+herramientas MCP.
+
+> 🔴 **Antes de mergear esto a `main` hay que mirar el panel de Render:** las
+> variables `VAULT_*` que hayan quedado **se ignoran en silencio** y el árbitro
+> arranca con los valores por defecto. El caso que importa es `VAULT_ENABLED`:
+> su default es **encendido**, así que un formato apagado se prendería solo.
+> Los 4 pasos están en [`docs/MIGRACION-aleph.md`](docs/MIGRACION-aleph.md).
+
+Efectos buscados del cambio de claves: las salas guardadas y el ELO del
+formato arrancan de cero (la mesa es gratis, no hay plata atada a una sala), y
+`/vault/*` pasa a devolver 404.
+
 ## [3.6.0] — 2026-08-09
 
 **Auditoría exhaustiva y sus dos primeras tandas de arreglos.** 31 agentes

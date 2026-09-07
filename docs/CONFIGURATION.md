@@ -86,6 +86,12 @@ demo), none of these checks apply and the server starts normally regardless of
 
 ### Aleph (multi-agent rooms)
 
+> **These knobs were called `VAULT_*` until the 2026-09-07 rename.** A
+> deployment that still has the old names set gets the defaults instead, with
+> no error in the log — and `ALEPH_ENABLED` defaults to **on**, so a format
+> that was deliberately switched off would come back up on its own. The
+> pre-deploy checklist lives in [`MIGRACION-aleph.md`](MIGRACION-aleph.md).
+
 | Variable                 | Required | Default           | Description                                                                                                                                                                                                                                          |
 | ------------------------ | -------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ALEPH_ENABLED`          | Optional | `true`            | Kill switch for the multi-agent rooms: `"false"` rejects new seats and dissolves lobbies when their time runs out (no new room ever starts), while rooms already in progress keep closing phases until they settle. Read per call in `src/aleph.ts`. |
