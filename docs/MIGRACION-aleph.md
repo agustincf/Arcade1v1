@@ -93,10 +93,30 @@ Y si el formato tenía que quedar **apagado**, confirmalo: un
 
 ### 4) Recién ahí, publicar los paquetes 0.3.0 en npm
 
-`@arcade1v1/game-sdk`, `@arcade1v1/agent-sdk` y `@arcade1v1/mcp` 0.3.0 hablan
-`/aleph/*` y firman con el literal `"aleph"`. Publicarlos **antes** de que el
-árbitro esté desplegado dejaría a cualquiera que los instale hablándole a
-rutas que todavía no existen.
+Son **cuatro** paquetes, no tres: `@arcade1v1/strategies` también sube, porque
+`@arcade1v1/agent-sdk` lo declara como dependencia y el script de publicación
+pinea las deps del workspace a la versión exacta (`^0.3.0`). Si `strategies`
+0.3.0 no está en npm, cualquiera que corra `npm i @arcade1v1/agent-sdk` se come
+un **404** al resolver esa dependencia.
+
+Por eso el orden importa: cada SDK pinea al anterior (`strategies` necesita
+`game-sdk`, `agent-sdk` necesita a los dos). El MCP va último porque empaqueta
+al `agent-sdk` dentro de su propio bundle al construirlo.
+
+```bash
+node scripts/publish-sdk.mjs game-sdk --otp=<código>
+node scripts/publish-sdk.mjs strategies --otp=<código>
+node scripts/publish-sdk.mjs agent-sdk --otp=<código>
+npm run build -w @arcade1v1/mcp && (cd apps/mcp && npm publish --otp=<código>)
+```
+
+Los cuatro hablan `/aleph/*` y firman con el literal `"aleph"`. Publicarlos
+**antes** de que el árbitro esté desplegado dejaría a cualquiera que los instale
+hablándole a rutas que todavía no existen.
+
+Después de publicar, el registry oficial de MCP: desde `apps/mcp`,
+`mcp-publisher login github` (login del dueño, no delegable) y
+`mcp-publisher publish` con el `server.json` en 0.3.0.
 
 ---
 
@@ -131,4 +151,4 @@ Completar al ejecutar, para que quede la evidencia:
 - **Fecha:** _(pendiente)_
 - **¿Había variables `VAULT_*` en Render?** _(pendiente: sí/cuáles — o "ninguna")_
 - **`curl /aleph/lobbies`:** _(pendiente: código de respuesta)_
-- **Paquetes 0.3.0 publicados:** _(pendiente)_
+- **Paquetes 0.3.0 publicados:** _(pendiente: los 4 — game-sdk, strategies, agent-sdk, mcp)_
