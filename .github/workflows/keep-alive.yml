@@ -17,9 +17,17 @@
 # `/health` (respuesta mínima) en vez de `/stats` (arma el resumen entero).
 name: keep-alive
 
+# 2026-09-06 — APAGADO A PROPÓSITO (motivo: costo). El ping cada 10 minutos
+# mantenía el árbitro despierto las ~730 horas del mes y se comía el cupo
+# gratuito de Render él solo. Sin el cron, el servicio duerme cuando no hay
+# nadie jugando y despierta con la primera visita (~45 s de arranque en frío).
+#
+# CÓMO REACTIVARLO: descomentá las dos líneas del `schedule` de abajo. Para un
+# ping suelto sin reactivar nada, alcanza con correrlo a mano desde la pestaña
+# Actions (eso es lo que habilita `workflow_dispatch`).
 on:
-  schedule:
-    - cron: "*/10 * * * *"
+  # schedule:
+  #   - cron: "*/10 * * * *"
   workflow_dispatch: {}
 
 jobs:
