@@ -65,9 +65,9 @@ test("un pedido colgado se corta por el tope de tiempo, con la ruta en el mensaj
   // timeout nombra la ruta, nunca el query (misma regla que el error del GET).
   const room = "0x" + "ab".repeat(32);
   await assert.rejects(
-    () => client.vaultView(room, { address: "0x" + "2".repeat(40), signature: "0xSECRET", ts: 1 }),
+    () => client.alephView(room, { address: "0x" + "2".repeat(40), signature: "0xSECRET", ts: 1 }),
     (e: Error) => {
-      assert.match(e.message, new RegExp(`arbiter /vault/${room} timeout after 20ms`));
+      assert.match(e.message, new RegExp(`arbiter /aleph/${room} timeout after 20ms`));
       assert.ok(!/0xSECRET/.test(e.message), "el pase no se filtra en el error");
       return true;
     },
@@ -109,7 +109,7 @@ test("el primer pedido espera el arranque en frío; ya despierto, el sondeo vuel
     timeoutMs: 10,
     coldStartTimeoutMs: 60,
   });
-  await assert.rejects(() => cold.vaultLobbies(), /\/vault\/lobbies timeout after 60ms/);
+  await assert.rejects(() => cold.alephLobbies(), /\/aleph\/lobbies timeout after 60ms/);
 
   // Con una respuesta de por medio, el host está despierto y manda el corto.
   const warm = new ArbiterClient("http://arbiter.test", {
@@ -117,8 +117,8 @@ test("el primer pedido espera el arranque en frío; ya despierto, el sondeo vuel
     timeoutMs: 10,
     coldStartTimeoutMs: 60,
   });
-  await warm.vaultLobbies();
-  await assert.rejects(() => warm.vaultLobbies(), /\/vault\/lobbies timeout after 10ms/);
+  await warm.alephLobbies();
+  await assert.rejects(() => warm.alephLobbies(), /\/aleph\/lobbies timeout after 10ms/);
 });
 
 test("el tope del SDK no pisa el signal que ya traiga quien llama", async () => {

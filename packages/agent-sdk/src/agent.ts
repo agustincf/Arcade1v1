@@ -4,14 +4,14 @@ import type { Hex } from "viem";
 import {
   ArbiterClient,
   type MatchView,
-  type VaultLobby,
-  type VaultRoomView,
-  type VaultViewPass,
+  type AlephLobby,
+  type AlephRoomView,
+  type AlephViewPass,
 } from "./client";
-import { randomWallet, signScore, signMatchmake, signVaultAction, signVaultView } from "./sign";
+import { randomWallet, signScore, signMatchmake, signAlephAction, signAlephView } from "./sign";
 import { DEFAULT_STRATEGIES, type Strategy } from "./strategies";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
-import { VAULT_RULES_V, type Phase, type VaultAction } from "@arcade1v1/game-sdk/vault";
+import { ALEPH_RULES_V, type Phase, type AlephAction } from "@arcade1v1/game-sdk/aleph";
 
 /** El árbitro acepta un pase de vista por MATCHMAKE_AUTH_TTL_MS (10 min). Lo
  *  renovamos a los 8 para no quedar justo en el borde entre dos sondeos. */
@@ -35,22 +35,22 @@ export function createAgent(opts: {
   /** Aleph: pedir asiento en la mesa gratis (firmado). Idempotente. Antes
    *  de sentarse, mira la versión de reglas de la mesa abierta (si hay una) y
    *  corta sin pedir asiento si no coincide. */
-  vaultJoin(stake?: number): Promise<VaultRoomView>;
+  alephJoin(stake?: number): Promise<AlephRoomView>;
   /** Aleph: TU vista privada, con pase de vista firmado (cacheado 8 min).
    *  Si el árbitro rechaza el pase en silencio (200 con la vista pública),
    *  reintenta una vez con uno recién firmado antes de tirar un error claro. */
-  vaultView(roomId: string): Promise<VaultRoomView>;
+  alephView(roomId: string): Promise<AlephRoomView>;
   /** Aleph: una acción firmada. PASÁ SIEMPRE `at` (etapa/fase) copiado de la
    *  vista sobre la que decidiste: es lo que ata la firma a esa fase y hace que
    *  el árbitro conteste "stage or phase mismatch" si cerró mientras pensabas.
    *  Si se omite, se consulta la vista primero (un GET más) y la acción se firma
    *  para la fase que esté abierta EN ESE MOMENTO, que puede no ser la que viste
    *  (en la Cerradura, un `ready` de "terminé de hablar" pasaría a ser un PASE). */
-  vaultAct(
+  alephAct(
     roomId: string,
-    action: VaultAction,
+    action: AlephAction,
     at?: { stage: number; phase: Phase },
-  ): Promise<VaultRoomView>;
+  ): Promise<AlephRoomView>;
 } {
   const wallet = opts.privateKey
     ? { privateKey: opts.privateKey, address: privateKeyToAccount(opts.privateKey).address }
@@ -113,56 +113,56 @@ export function createAgent(opts: {
 
   // ---- Aleph (formato multi-agente) ------------------------------------
 
-  // El lobby SÍ publica rulesV antes de sentarse: GET /vault/lobbies da el
-  // roomId de la mesa abierta y GET /vault/:id sin pase (vista pública, sin
+  // El lobby SÍ publica rulesV antes de sentarse: GET /aleph/lobbies da el
+  // roomId de la mesa abierta y GET /aleph/:id sin pase (vista pública, sin
   // costo) trae rulesV para esa sala en cualquier estado (roomView,
-  // apps/server/src/vault.ts). Miramos ahí ANTES de pedir asiento: un SDK
+  // apps/server/src/aleph.ts). Miramos ahí ANTES de pedir asiento: un SDK
   // desactualizado que se sienta igual deja un asiento mudo que estira CADA
-  // fase hasta VAULT_PHASE_MS (nadie decide por consenso) y arrastra a los
+  // fase hasta ALEPH_PHASE_MS (nadie decide por consenso) y arrastra a los
   // demás 3-7 asientos durante dos etapas, hasta que MAX_ABSENCES lo marca
   // `abandoned`. Es mejor esfuerzo: si el GET falla (red caída) seguimos de
   // largo y confiamos en la red de contención de abajo.
   async function assertCompatibleRules(stake: number): Promise<void> {
-    let lobbies: VaultLobby[];
+    let lobbies: AlephLobby[];
     try {
-      lobbies = await client.vaultLobbies();
+      lobbies = await client.alephLobbies();
     } catch {
       return;
     }
     const open = lobbies.find((l) => l.stake === stake);
     if (!open) return; // primera mesa de esta vida del árbitro: nada que mirar todavía.
-    let pub: VaultRoomView;
+    let pub: AlephRoomView;
     try {
-      pub = await client.vaultView(open.roomId);
+      pub = await client.alephView(open.roomId);
     } catch {
       return;
     }
-    if (pub.rulesV !== VAULT_RULES_V) {
+    if (pub.rulesV !== ALEPH_RULES_V) {
       throw new Error(
-        `rules version mismatch for vault: arbiter v${pub.rulesV}, SDK v${VAULT_RULES_V} — ` +
+        `rules version mismatch for aleph: arbiter v${pub.rulesV}, SDK v${ALEPH_RULES_V} — ` +
           `update @arcade1v1 packages (room ${open.roomId})`,
       );
     }
   }
 
-  async function vaultJoin(stake = 0): Promise<VaultRoomView> {
+  async function alephJoin(stake = 0): Promise<AlephRoomView> {
     assertFreeTable(stake);
     await assertCompatibleRules(stake);
     const auth = await signMatchmake({
-      game: "vault",
+      game: "aleph",
       stake,
       address: wallet.address,
       privateKey: wallet.privateKey,
       ts: clock(),
     });
-    const v = await client.vaultJoin(stake, wallet.address, auth);
+    const v = await client.alephJoin(stake, wallet.address, auth);
     // Red de contención: si no había mesa abierta para mirar antes (primera
     // sala) o la versión cambió justo en el medio, igual cortamos acá. No hay
     // endpoint para abandonar la mesa, así que el roomId va en el mensaje: el
     // dueño del agente necesita saber cuál quedó con un asiento mudo.
-    if (v.rulesV !== VAULT_RULES_V) {
+    if (v.rulesV !== ALEPH_RULES_V) {
       throw new Error(
-        `rules version mismatch for vault: arbiter v${v.rulesV}, SDK v${VAULT_RULES_V} — ` +
+        `rules version mismatch for aleph: arbiter v${v.rulesV}, SDK v${ALEPH_RULES_V} — ` +
           `update @arcade1v1 packages (room ${v.roomId})`,
       );
     }
@@ -171,13 +171,13 @@ export function createAgent(opts: {
 
   // Un pase por sala, reutilizado mientras sirve: firmar en cada sondeo sería
   // gratis en CPU pero inútil, y el árbitro lo acepta 10 minutos.
-  const passes = new Map<string, VaultViewPass>();
-  async function viewPass(roomId: string): Promise<VaultViewPass> {
+  const passes = new Map<string, AlephViewPass>();
+  async function viewPass(roomId: string): Promise<AlephViewPass> {
     const now = clock();
     const cached = passes.get(roomId);
     if (cached && now - cached.ts < VIEW_PASS_MAX_AGE_MS) return cached;
     for (const [id, p] of passes) if (now - p.ts >= VIEW_PASS_MAX_AGE_MS) passes.delete(id);
-    const { signature, ts } = await signVaultView({
+    const { signature, ts } = await signAlephView({
       roomId,
       address: wallet.address,
       privateKey: wallet.privateKey,
@@ -191,21 +191,21 @@ export function createAgent(opts: {
   // El árbitro NUNCA lanza ante un pase inválido: si verifySigned falla (firma
   // mala, o el `ts` cacheado ya luce vencido para EL RELOJ DEL SERVIDOR, p.ej.
   // un host sin NTP 3 minutos atrasado) responde 200 con la vista PÚBLICA, sin
-  // `you` (getVaultRoom, apps/server/src/vault.ts). Si eso pasa mientras
+  // `you` (getAlephRoom, apps/server/src/aleph.ts). Si eso pasa mientras
   // tenemos asiento, jugar a ciegas con `you` undefined es peor que fallar
   // claro: acá lo detectamos y reintentamos una vez con un pase recién
   // firmado (ts = ahora, lejos del borde) antes de resignarnos.
-  function passWasRejected(v: VaultRoomView): boolean {
+  function passWasRejected(v: AlephRoomView): boolean {
     if (v.status !== "playing" && v.status !== "settled") return false;
     if (v.you !== undefined) return false;
     return v.seats.some((s) => s.address.toLowerCase() === wallet.address.toLowerCase());
   }
 
-  async function vaultView(roomId: string): Promise<VaultRoomView> {
-    const v = await client.vaultView(roomId, await viewPass(roomId));
+  async function alephView(roomId: string): Promise<AlephRoomView> {
+    const v = await client.alephView(roomId, await viewPass(roomId));
     if (!passWasRejected(v)) return v;
     passes.delete(roomId); // el pase cacheado no sirve: forzar uno nuevo, no reusarlo.
-    const retry = await client.vaultView(roomId, await viewPass(roomId));
+    const retry = await client.alephView(roomId, await viewPass(roomId));
     if (passWasRejected(retry)) {
       throw new Error(
         `view pass rejected for room ${roomId}: check the system clock (address ${wallet.address} ` +
@@ -215,23 +215,23 @@ export function createAgent(opts: {
     return retry;
   }
 
-  async function vaultAct(
+  async function alephAct(
     roomId: string,
-    action: VaultAction,
+    action: AlephAction,
     at?: { stage: number; phase: Phase },
-  ): Promise<VaultRoomView> {
+  ): Promise<AlephRoomView> {
     let where = at;
     if (!where) {
       // Sin ancla: se firma para la fase abierta AHORA. Es cómodo para un
       // script de una sola acción, pero quien decide mirando una vista tiene
       // que pasar `at` (ver el JSDoc de arriba).
-      const v = await vaultView(roomId);
+      const v = await alephView(roomId);
       if (v.status !== "playing" || !v.stage) {
         throw new Error(`room ${roomId} is not playing (${v.status})`);
       }
       where = { stage: v.stage.index, phase: v.stage.phase };
     }
-    const { signature, ts } = await signVaultAction({
+    const { signature, ts } = await signAlephAction({
       roomId,
       stage: where.stage,
       phase: where.phase,
@@ -239,7 +239,7 @@ export function createAgent(opts: {
       privateKey: wallet.privateKey,
       ts: clock(),
     });
-    return client.vaultAct(roomId, wallet.address, {
+    return client.alephAct(roomId, wallet.address, {
       stage: where.stage,
       phase: where.phase,
       action,
@@ -253,8 +253,8 @@ export function createAgent(opts: {
     client,
     matchmake,
     playAndSubmit,
-    vaultJoin,
-    vaultView,
-    vaultAct,
+    alephJoin,
+    alephView,
+    alephAct,
   };
 }

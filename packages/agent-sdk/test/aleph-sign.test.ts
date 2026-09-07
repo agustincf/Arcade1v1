@@ -1,20 +1,20 @@
 // Las dos firmas de Aleph las recupera la wallet del agente sobre el
 // mensaje canónico del game-sdk (sin drift con el árbitro).
-// Correr: node --import tsx --test packages/agent-sdk/test/vault-sign.test.ts
+// Correr: node --import tsx --test packages/agent-sdk/test/aleph-sign.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { recoverMessageAddress } from "viem";
-import { vaultActionAuthMessage, vaultViewAuthMessage } from "@arcade1v1/game-sdk/auth";
-import { actionLine } from "@arcade1v1/game-sdk/vault";
-import { randomWallet, signVaultAction, signVaultView } from "../src/sign.ts";
+import { alephActionAuthMessage, alephViewAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { actionLine } from "@arcade1v1/game-sdk/aleph";
+import { randomWallet, signAlephAction, signAlephView } from "../src/sign.ts";
 
 const ROOM = "0x" + "cd".repeat(32);
 const T0 = 1_800_000_000_000;
 
-test("signVaultAction: firma la línea canónica y la recupera la wallet; ts fresco por defecto", async () => {
+test("signAlephAction: firma la línea canónica y la recupera la wallet; ts fresco por defecto", async () => {
   const w = randomWallet();
   const action = { type: "whisper" as const, to: "0x" + "A".repeat(40), text: "mi dígito es 7" };
-  const { signature, ts } = await signVaultAction({
+  const { signature, ts } = await signAlephAction({
     roomId: ROOM,
     stage: 3,
     phase: "talk",
@@ -23,13 +23,13 @@ test("signVaultAction: firma la línea canónica y la recupera la wallet; ts fre
   });
   assert.ok(Math.abs(Date.now() - ts) < 5_000, "ts fresco por defecto");
   const signer = await recoverMessageAddress({
-    message: vaultActionAuthMessage(ROOM, 3, "talk", actionLine(action), ts),
+    message: alephActionAuthMessage(ROOM, 3, "talk", actionLine(action), ts),
     signature,
   });
   assert.equal(signer.toLowerCase(), w.address.toLowerCase());
 });
 
-test("signVaultAction: con ts explícito la firma es reproducible", async () => {
+test("signAlephAction: con ts explícito la firma es reproducible", async () => {
   const w = randomWallet();
   const opts = {
     roomId: ROOM,
@@ -39,21 +39,21 @@ test("signVaultAction: con ts explícito la firma es reproducible", async () => 
     privateKey: w.privateKey,
     ts: T0,
   };
-  const a = await signVaultAction(opts);
-  const b = await signVaultAction(opts);
+  const a = await signAlephAction(opts);
+  const b = await signAlephAction(opts);
   assert.equal(a.ts, T0);
   assert.equal(a.signature, b.signature);
 });
 
-test("signVaultView: el pase de vista lo recupera la wallet del asiento", async () => {
+test("signAlephView: el pase de vista lo recupera la wallet del asiento", async () => {
   const w = randomWallet();
-  const { signature, ts } = await signVaultView({
+  const { signature, ts } = await signAlephView({
     roomId: ROOM,
     address: w.address,
     privateKey: w.privateKey,
   });
   const signer = await recoverMessageAddress({
-    message: vaultViewAuthMessage(ROOM, w.address, ts),
+    message: alephViewAuthMessage(ROOM, w.address, ts),
     signature,
   });
   assert.equal(signer.toLowerCase(), w.address.toLowerCase());

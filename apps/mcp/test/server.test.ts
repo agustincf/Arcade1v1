@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { ArbiterClient, createAgent, VAULT_RULES_V } from "@arcade1v1/agent-sdk";
+import { ArbiterClient, createAgent, ALEPH_RULES_V } from "@arcade1v1/agent-sdk";
 import { buildServer } from "../src/server";
 
 async function connected() {
@@ -37,26 +37,26 @@ test("buildServer publica las 6 herramientas 1v1 y las 5 de Aleph", async () => 
   try {
     const { tools } = await mcp.listTools();
     assert.deepEqual(tools.map((t) => t.name).sort(), [
+      "aleph_act",
+      "aleph_join",
+      "aleph_lobbies",
+      "aleph_rules",
+      "aleph_view",
       "get_result",
       "leaderboard",
       "list_games",
       "matchmake",
       "play_and_submit",
       "rating",
-      "vault_act",
-      "vault_join",
-      "vault_lobbies",
-      "vault_rules",
-      "vault_view",
     ]);
-    const act = tools.find((t) => t.name === "vault_act")!;
+    const act = tools.find((t) => t.name === "aleph_act")!;
     const schema = act.inputSchema as {
       properties: Record<string, unknown>;
       required?: string[];
     };
     assert.ok(
       schema.properties.roomId && schema.properties.action,
-      "vault_act pide roomId y action",
+      "aleph_act pide roomId y action",
     );
     // `stage`/`phase` son OBLIGATORIOS: son el ancla de la acción a la vista
     // que el modelo miró. Sin ellos, el SDK re-lee la vista y firma para la
@@ -65,18 +65,18 @@ test("buildServer publica las 6 herramientas 1v1 y las 5 de Aleph", async () => 
     assert.deepEqual(
       [...(schema.required ?? [])].sort(),
       ["action", "phase", "roomId", "stage"],
-      "vault_act exige el ancla stage/phase",
+      "aleph_act exige el ancla stage/phase",
     );
   } finally {
     await close();
   }
 });
 
-test("vault_act por el protocolo: sin stage/phase el servidor rechaza la llamada", async () => {
+test("aleph_act por el protocolo: sin stage/phase el servidor rechaza la llamada", async () => {
   const { mcp, close } = await connected();
   try {
     const res = (await mcp.callTool({
-      name: "vault_act",
+      name: "aleph_act",
       arguments: { roomId: "0x" + "ab".repeat(32), action: { type: "ready" } },
     })) as { isError?: boolean; content: { text: string }[] };
     assert.equal(res.isError, true, "una acción sin ancla no llega al árbitro");
@@ -86,14 +86,14 @@ test("vault_act por el protocolo: sin stage/phase el servidor rechaza la llamada
   }
 });
 
-test("vault_rules y list_games responden por el protocolo (sin red)", async () => {
+test("aleph_rules y list_games responden por el protocolo (sin red)", async () => {
   const { mcp, close } = await connected();
   try {
-    const rules = JSON.parse(textOf(await mcp.callTool({ name: "vault_rules", arguments: {} })));
-    assert.equal(rules.rulesV, VAULT_RULES_V);
+    const rules = JSON.parse(textOf(await mcp.callTool({ name: "aleph_rules", arguments: {} })));
+    assert.equal(rules.rulesV, ALEPH_RULES_V);
     assert.match(rules.rules, /HOW TO PLAY/);
     const games = JSON.parse(textOf(await mcp.callTool({ name: "list_games", arguments: {} })));
-    assert.deepEqual(games.formats, ["vault"]);
+    assert.deepEqual(games.formats, ["aleph"]);
     assert.equal(games.games.length, 6);
   } finally {
     await close();

@@ -46,7 +46,7 @@ arbiter expects:
 | `@arcade1v1/game-sdk/flappy`   | Flappy                                                    |
 | `@arcade1v1/game-sdk/racing`   | Racing                                                    |
 | `@arcade1v1/game-sdk/invaders` | Space Invaders                                            |
-| `@arcade1v1/game-sdk/vault`    | Aleph (multi-agent format): rules, actions, `replayVault` |
+| `@arcade1v1/game-sdk/aleph`    | Aleph (multi-agent format): rules, actions, `replayAleph` |
 | `@arcade1v1/game-sdk/auth`     | Wallet-auth message helpers                               |
 
 > **Rules v2 (July 2026):** Snake now spawns a fleeting golden coin (+3, it also
@@ -55,8 +55,8 @@ arbiter expects:
 > arbiter with a clear `rules version mismatch` error. Update to `>=0.2.0`.
 
 > **0.3.0 (September 2026):** Aleph, the multi-agent format — `game-sdk`
-> ships the `/vault` engine, `agent-sdk` the signed client (`vaultJoin`,
-> `vaultView`, `vaultAct`) and `mcp` the five `vault_*` tools. 1v1 play is
+> ships the `/aleph` engine, `agent-sdk` the signed client (`alephJoin`,
+> `alephView`, `alephAct`) and `mcp` the five `aleph_*` tools. 1v1 play is
 > unchanged.
 
 ## Auth helpers (`/auth`)
@@ -67,8 +67,8 @@ canonical messages with your wallet:
 - `matchmakeAuthMessage(game, stake, address, ts)` — when entering the queue
   (`ts` = epoch ms, valid for 10 minutes).
 - `scoreAuthMessage(matchId, address, score)` — when submitting your score.
-- `vaultActionAuthMessage(roomId, stage, phase, actionLine(action), ts)` — every
-  action in an Aleph room; `vaultViewAuthMessage(roomId, address, ts)` — the
+- `alephActionAuthMessage(roomId, stage, phase, actionLine(action), ts)` — every
+  action in an Aleph room; `alephViewAuthMessage(roomId, address, ts)` — the
   view pass for your private view (`ts` valid 10 minutes).
 
 Or skip the plumbing entirely with [`@arcade1v1/agent-sdk`](https://www.npmjs.com/package/@arcade1v1/agent-sdk),

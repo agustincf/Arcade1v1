@@ -24,9 +24,9 @@ const ENTRIES = {
     "invaders",
     "auth",
     "rules",
-    "vault",
+    "aleph",
   ],
-  "agent-sdk": ["index", "client", "sign", "strategies", "vault"],
+  "agent-sdk": ["index", "client", "sign", "strategies", "aleph"],
   // Dependencia del agent-sdk: si no está en npm, el agent-sdk publicado es
   // ininstalable. Solo expone la raíz (sus módulos internos son relativos).
   strategies: ["index"],

@@ -1,11 +1,11 @@
-// packages/game-sdk/test/vault-helpers.ts
+// packages/game-sdk/test/aleph-helpers.ts
 // Helpers compartidos por los tests del motor de Aleph.
 import {
   applyEvent,
-  type VaultAction,
-  type VaultState,
+  type AlephAction,
+  type AlephState,
   type PhaseEndReason,
-} from "@arcade1v1/game-sdk/vault";
+} from "@arcade1v1/game-sdk/aleph";
 
 export const SEED = "0x" + "5eed".repeat(16);
 export const A = (i: number) => "0x" + i.toString(16).padStart(40, "0");
@@ -16,7 +16,7 @@ export const seedN = (i: number) =>
   Array.from({ length: 64 }, (_, j) => ((i * 31 + j * 17 + i * j) % 16).toString(16)).join("");
 
 /** Aplica una acción de `address` en la etapa/fase ACTUAL del estado. */
-export function act(s: VaultState, address: string, action: VaultAction): VaultState {
+export function act(s: AlephState, address: string, action: AlephAction): AlephState {
   return applyEvent(s, {
     type: "action",
     address,
@@ -28,7 +28,7 @@ export function act(s: VaultState, address: string, action: VaultAction): VaultS
 }
 
 /** Cierra la fase actual (por defecto, por vencimiento del plazo). */
-export function end(s: VaultState, reason: PhaseEndReason = "deadline"): VaultState {
+export function end(s: AlephState, reason: PhaseEndReason = "deadline"): AlephState {
   return applyEvent(s, {
     type: "phase_end",
     stage: s.stage.index,
@@ -39,19 +39,19 @@ export function end(s: VaultState, reason: PhaseEndReason = "deadline"): VaultSt
 }
 
 /** Si la etapa está en charla, la cierra; devuelve el estado en `decide`. */
-export function skipTalk(s: VaultState): VaultState {
+export function skipTalk(s: AlephState): AlephState {
   return s.stage.phase === "talk" ? end(s) : s;
 }
 
 /** Todos los vivos deciden lo mismo y se cierra la fase. */
-export function allDecide(s: VaultState, action: VaultAction): VaultState {
+export function allDecide(s: AlephState, action: AlephAction): AlephState {
   let cur = skipTalk(s);
   for (const seat of cur.seats) if (seat.status === "alive") cur = act(cur, seat.address, action);
   return end(cur, "all_acted");
 }
 
 /** Conservación: en todo momento pot + box + Σ pocket === potInitial, sin negativos. */
-export function assertConserved(s: VaultState): void {
+export function assertConserved(s: AlephState): void {
   const pockets = s.seats.reduce((acc, x) => acc + x.pocket, 0);
   if (s.pot + s.box + pockets !== s.potInitial) {
     throw new Error(

@@ -4,10 +4,10 @@
 import type {
   Phase,
   SeatStatus,
-  VaultAction,
-  VaultEvent,
-  VaultView,
-} from "@arcade1v1/game-sdk/vault";
+  AlephAction,
+  AlephEvent,
+  AlephView,
+} from "@arcade1v1/game-sdk/aleph";
 
 export interface MatchView {
   matchId: string;
@@ -46,12 +46,12 @@ export interface LeaderRow {
 
 // ---- Aleph (formato multi-agente) ------------------------------------------
 
-export type VaultRoomStatus = "lobby" | "playing" | "settled" | "dissolved";
+export type AlephRoomStatus = "lobby" | "playing" | "settled" | "dissolved";
 
 /** Un asiento como lo sirve el árbitro: estado y bolsillo del motor más la
  *  ficha pública que resuelve `resolveDisplay` (nombre/avatar si el dueño los
  *  cargó; `house`/`byo` si es un agente hosteado). */
-export interface VaultSeatView {
+export interface AlephSeatView {
   address: string;
   status: SeatStatus;
   pocket: number;
@@ -62,16 +62,16 @@ export interface VaultSeatView {
   byo?: boolean;
 }
 
-/** La vista de una sala tal como la devuelven `GET /vault/:id`, `POST
- *  /vault/join` y `POST /vault/:id/act`. Espeja `VaultRoomView` de
- *  apps/server/src/vault.ts: los campos de sala los pone el árbitro; el resto
- *  es la vista del motor (`VaultView`) y solo viene con la sala en juego o
+/** La vista de una sala tal como la devuelven `GET /aleph/:id`, `POST
+ *  /aleph/join` y `POST /aleph/:id/act`. Espeja `AlephRoomView` de
+ *  apps/server/src/aleph.ts: los campos de sala los pone el árbitro; el resto
+ *  es la vista del motor (`AlephView`) y solo viene con la sala en juego o
  *  terminada. `you` (tu estado, tu fragmento, si ya decidiste) solo llega con
  *  un pase de vista válido o en las respuestas de join/act, que ya van firmadas. */
-export type VaultRoomView = {
+export type AlephRoomView = {
   roomId: string;
   stake: number;
-  status: VaultRoomStatus;
+  status: AlephRoomStatus;
   rulesV: number;
   min: number;
   max: number;
@@ -87,10 +87,10 @@ export type VaultRoomView = {
   deadline?: number;
   /** `settled`, para el asiento que consulta con pase */
   rating?: { before: number; after: number; delta: number };
-  seats: VaultSeatView[];
-} & Partial<Omit<VaultView, "seats">>;
+  seats: AlephSeatView[];
+} & Partial<Omit<AlephView, "seats">>;
 
-export interface VaultLobby {
+export interface AlephLobby {
   roomId: string;
   stake: number;
   seats: number;
@@ -99,9 +99,9 @@ export interface VaultLobby {
   closesAt: number;
 }
 
-/** Registro completo de una sala terminada (`GET /vault/:id/log`): lo que
+/** Registro completo de una sala terminada (`GET /aleph/:id/log`): lo que
  *  re-simula cualquier verificador. */
-export interface VaultLog {
+export interface AlephLog {
   roomId: string;
   stake: number;
   rulesV: number;
@@ -110,23 +110,23 @@ export interface VaultLog {
   secretSeed: string;
   startedAt?: number;
   settledAt?: number;
-  events: VaultEvent[];
+  events: AlephEvent[];
   payouts: Record<string, number>;
 }
 
-/** Pase de vista: firma de `vaultViewAuthMessage(roomId, address, ts)`. */
-export interface VaultViewPass {
+/** Pase de vista: firma de `alephViewAuthMessage(roomId, address, ts)`. */
+export interface AlephViewPass {
   address: string;
   signature: string;
   ts: number;
 }
 
-/** Una acción firmada: firma de `vaultActionAuthMessage(roomId, stage, phase,
+/** Una acción firmada: firma de `alephActionAuthMessage(roomId, stage, phase,
  *  actionLine(action), ts)`. `stage` y `phase` salen de la vista. */
-export interface VaultActBody {
+export interface AlephActBody {
   stage: number;
   phase: Phase;
-  action: VaultAction;
+  action: AlephAction;
   signature: string;
   ts: number;
 }
@@ -235,9 +235,9 @@ export class ArbiterClient {
   /** GET con el motivo del árbitro en el error: un 400 de Aleph ("room not
    *  settled yet", "stage or phase mismatch") le sirve al agente para decidir
    *  qué hacer, no solo el código. El mensaje NUNCA lleva el query string: en
-   *  `vaultView` ahí viaja el pase de vista completo (address+signature+ts), una
+   *  `alephView` ahí viaja el pase de vista completo (address+signature+ts), una
    *  credencial portadora que `verifySigned` no consume ni marca como usada
-   *  (apps/server/src/vault.ts) — sigue siendo válida y repetible durante los
+   *  (apps/server/src/aleph.ts) — sigue siendo válida y repetible durante los
    *  MATCHMAKE_AUTH_TTL_MS de la firma. Filtrarla en un error de log expondría
    *  la vista PRIVADA de ese asiento a cualquiera que lo lea. */
   private async get<T>(path: string): Promise<T> {
@@ -296,24 +296,24 @@ export class ArbiterClient {
 
   // ---- Aleph ------------------------------------------------------------
 
-  async vaultLobbies(): Promise<VaultLobby[]> {
-    const j = await this.get<{ lobbies?: VaultLobby[] }>("/vault/lobbies");
+  async alephLobbies(): Promise<AlephLobby[]> {
+    const j = await this.get<{ lobbies?: AlephLobby[] }>("/aleph/lobbies");
     return j.lobbies ?? [];
   }
 
-  /** Pedir asiento. `auth` = firma de matchmakeAuthMessage("vault", stake,
+  /** Pedir asiento. `auth` = firma de matchmakeAuthMessage("aleph", stake,
    *  address, ts); obligatoria en producción. Idempotente por address. */
-  vaultJoin(
+  alephJoin(
     stake: number,
     address: string,
     auth?: { signature: string; ts: number },
-  ): Promise<VaultRoomView> {
-    return this.post<VaultRoomView>("/vault/join", { stake, address, ...(auth ?? {}) });
+  ): Promise<AlephRoomView> {
+    return this.post<AlephRoomView>("/aleph/join", { stake, address, ...(auth ?? {}) });
   }
 
-  /** Vista de la sala. Con `pass` (firma de vaultViewAuthMessage) llega la vista
+  /** Vista de la sala. Con `pass` (firma de alephViewAuthMessage) llega la vista
    *  PRIVADA de ese asiento; sin pase válido, la pública. */
-  vaultView(roomId: string, pass?: VaultViewPass): Promise<VaultRoomView> {
+  alephView(roomId: string, pass?: AlephViewPass): Promise<AlephRoomView> {
     const q = pass
       ? "?" +
         new URLSearchParams({
@@ -322,16 +322,16 @@ export class ArbiterClient {
           ts: String(pass.ts),
         }).toString()
       : "";
-    return this.get<VaultRoomView>(`/vault/${roomId}${q}`);
+    return this.get<AlephRoomView>(`/aleph/${roomId}${q}`);
   }
 
   /** Una acción firmada. La respuesta es la vista privada actualizada. */
-  vaultAct(roomId: string, address: string, body: VaultActBody): Promise<VaultRoomView> {
-    return this.post<VaultRoomView>(`/vault/${roomId}/act`, { address, ...body });
+  alephAct(roomId: string, address: string, body: AlephActBody): Promise<AlephRoomView> {
+    return this.post<AlephRoomView>(`/aleph/${roomId}/act`, { address, ...body });
   }
 
   /** Registro completo; antes de `settled` el árbitro responde 400. */
-  vaultLog(roomId: string): Promise<VaultLog> {
-    return this.get<VaultLog>(`/vault/${roomId}/log`);
+  alephLog(roomId: string): Promise<AlephLog> {
+    return this.get<AlephLog>(`/aleph/${roomId}/log`);
   }
 }

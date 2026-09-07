@@ -3,12 +3,12 @@
 // árbitro y los SDKs, así nadie deriva una línea distinta de la misma acción
 // (sin drift = las firmas verifican). Sin dependencias, sin reloj, sin azar.
 
-/** Versión de reglas. Cambiar cualquier constante de VAULT_RULES es cambiar de
+/** Versión de reglas. Cambiar cualquier constante de ALEPH_RULES es cambiar de
  *  versión: el árbitro y los clientes la comparan como en RULES_V. */
-export const VAULT_RULES_V = 1;
+export const ALEPH_RULES_V = 1;
 
 /** Reglas numéricas. NO son variables de entorno: son las reglas del juego. */
-export const VAULT_RULES = {
+export const ALEPH_RULES = {
   UNITS_PER_SEAT: 1000, // unidades que aporta cada asiento
   BOX_BPS: 2000, // caja del demonio inicial (20 % del total)
   DECAY_BPS: 500, // el pozo pierde 5 % por etapa (a la caja)
@@ -33,7 +33,7 @@ export type Phase = "talk" | "decide";
 export type SeatStatus = "alive" | "left" | "voted_out" | "abandoned" | "finished";
 export type PhaseEndReason = "deadline" | "all_acted" | "all_ready";
 
-export type VaultAction =
+export type AlephAction =
   | { type: "keep" }
   | { type: "contribute" }
   | { type: "accept" }
@@ -46,13 +46,13 @@ export type VaultAction =
   | { type: "say"; text: string }
   | { type: "whisper"; to: string; text: string };
 
-export type VaultEvent =
+export type AlephEvent =
   | {
       type: "action";
       address: string;
       stage: number;
       phase: Phase;
-      action: VaultAction;
+      action: AlephAction;
       ts: number;
       signature?: string;
     }
@@ -65,7 +65,7 @@ const CONTROL_RE = /[\u0000-\u001f\u007f]/;
 const SIMPLE = new Set(["keep", "contribute", "accept", "decline", "split", "steal", "ready"]);
 
 /** Forma canónica de una acción: la línea que se firma y se guarda. */
-export function actionLine(a: VaultAction): string {
+export function actionLine(a: AlephAction): string {
   switch (a.type) {
     case "vote":
       return `vote:${a.target.toLowerCase()}`;
@@ -86,8 +86,8 @@ export function actionLine(a: VaultAction): string {
  *  MOTOR al aplicar la acción, así un registro con un mensaje fuera de tope no
  *  re-simula en ningún verificador. */
 export function assertMessageText(v: unknown): void {
-  if (typeof v !== "string" || v.length < 1 || v.length > VAULT_RULES.MAX_MSG_LEN) {
-    throw new Error(`invalid action: text must be 1..${VAULT_RULES.MAX_MSG_LEN} chars`);
+  if (typeof v !== "string" || v.length < 1 || v.length > ALEPH_RULES.MAX_MSG_LEN) {
+    throw new Error(`invalid action: text must be 1..${ALEPH_RULES.MAX_MSG_LEN} chars`);
   }
   if (CONTROL_RE.test(v)) throw new Error("invalid action: text has control characters");
 }
@@ -106,11 +106,11 @@ function address(v: unknown): string {
 /** Valida la FORMA de una acción recibida de afuera (JSON) y la normaliza.
  *  Lo que depende del estado (¿está vivo el destino? ¿largo del código?) lo
  *  chequea el motor al aplicarla. */
-export function validateAction(raw: unknown): VaultAction {
+export function validateAction(raw: unknown): AlephAction {
   if (!raw || typeof raw !== "object") throw new Error("invalid action: not an object");
   const r = raw as Record<string, unknown>;
   const type = String(r.type ?? "");
-  if (SIMPLE.has(type)) return { type } as VaultAction;
+  if (SIMPLE.has(type)) return { type } as AlephAction;
   switch (type) {
     case "vote":
       return { type, target: address(r.target) };

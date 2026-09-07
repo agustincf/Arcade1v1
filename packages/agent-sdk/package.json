@@ -25,12 +25,12 @@
     "./client": "./src/client.ts",
     "./sign": "./src/sign.ts",
     "./strategies": "./src/strategies.ts",
-    "./vault": "./src/vault.ts"
+    "./aleph": "./src/aleph.ts"
   },
   "scripts": {
     "example": "tsx examples/play-2048.ts",
     "example:racing-llm": "tsx examples/play-racing-llm.ts",
-    "example:vault-llm": "tsx examples/play-vault-llm.ts",
+    "example:aleph-llm": "tsx examples/play-aleph-llm.ts",
     "release": "node ../../scripts/publish-sdk.mjs agent-sdk"
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 // Ejemplo: un agente con "cerebro LLM" juega Aleph (el formato multi-agente).
 //
 // Claude decide en cada fase qué decir, a quién susurrar y qué acción tomar. El
-// loop (`playVaultRoom`) pide asiento, sondea la vista firmada cada pocos
+// loop (`playAlephRoom`) pide asiento, sondea la vista firmada cada pocos
 // segundos y, cuando le toca, arma un prompt con las reglas, el estado y los
 // mensajes y pide UNA respuesta en JSON. El cerebro se inyecta (`Brain`): el
 // ejemplo real usa Claude y el test un doble determinístico, igual que en
@@ -12,7 +12,7 @@
 // cae a la acción por defecto de la etapa.
 //
 // Correr (usa TU propia API key; ARBITER_URL por defecto el árbitro local):
-//   ANTHROPIC_API_KEY=... ARBITER_URL=https://arcade1v1.onrender.com npm run example:vault-llm -w @arcade1v1/agent-sdk
+//   ANTHROPIC_API_KEY=... ARBITER_URL=https://arcade1v1.onrender.com npm run example:aleph-llm -w @arcade1v1/agent-sdk
 //
 // HONESTO: una sala dura entre 10 y 40 minutos de reloj (fases de 2 minutos) y
 // hace del orden de 15 a 40 llamadas al modelo, con un prompt de ~2k tokens
@@ -25,17 +25,17 @@ import Anthropic from "@anthropic-ai/sdk";
 import { pathToFileURL } from "node:url";
 import {
   validateAction,
-  VAULT_RULES,
+  ALEPH_RULES,
   type StageResult,
-  type VaultAction,
-} from "@arcade1v1/game-sdk/vault";
+  type AlephAction,
+} from "@arcade1v1/game-sdk/aleph";
 import {
   ArbiterClient,
   COLD_START_TIMEOUT_MS,
   createAgent,
-  describeVaultRules,
+  describeAlephRules,
   legalActions,
-  type VaultRoomView,
+  type AlephRoomView,
 } from "../src/index.js";
 
 type Agent = ReturnType<typeof createAgent>;
@@ -43,7 +43,7 @@ type Agent = ReturnType<typeof createAgent>;
 /** Lo que el cerebro devuelve, ya validado. `wait` = seguir escuchando: solo
  *  tiene sentido en una charla o mientras falte mucho para el plazo. */
 export interface BrainReply {
-  action: VaultAction | { type: "wait" };
+  action: AlephAction | { type: "wait" };
   say?: string;
   whisper?: { to: string; text: string };
 }
@@ -51,7 +51,7 @@ export interface BrainReply {
 /** El cerebro: recibe el prompt en texto (lo ÚNICO que ve el LLM) y, para los
  *  dobles de test, también la vista cruda y la propia address. Devuelve el
  *  texto de la respuesta; `parseBrainReply` lo convierte en acción. */
-export type Brain = (prompt: string, view: VaultRoomView, me: string) => Promise<string>;
+export type Brain = (prompt: string, view: AlephRoomView, me: string) => Promise<string>;
 
 // --- El estado, contado en texto -------------------------------------------------
 
@@ -93,7 +93,7 @@ function describeResult(r: StageResult): string {
 /** Serializa la vista a texto para el modelo: etapa, plazo, plata, asientos,
  *  lo propio (fragmento incluido), el último resultado revelado, los mensajes
  *  de la etapa (marcados como datos) y qué se puede hacer ahora. */
-export function describeVaultView(v: VaultRoomView, me: string, now = Date.now()): string {
+export function describeAlephView(v: AlephRoomView, me: string, now = Date.now()): string {
   const lines: string[] = [`Room ${v.roomId} — status: ${v.status}.`];
   if (v.status !== "playing" || !v.stage) return lines.join("\n");
   const st = v.stage;
@@ -196,7 +196,7 @@ export function parseBrainReply(raw: string): BrainReply | null {
 /** La acción segura cuando el cerebro no responde algo válido: coincide con lo
  *  que el motor asume ante una ausencia, salvo en el Voto (donde la ausencia es
  *  un voto en contra propio: mejor votar a otro). */
-export function defaultAction(v: VaultRoomView, me: string): VaultAction {
+export function defaultAction(v: AlephRoomView, me: string): AlephAction {
   const st = v.stage!;
   if (st.phase === "talk") return { type: "ready" };
   switch (st.kind) {
@@ -236,14 +236,14 @@ export function isFatalBrainError(e: unknown): boolean {
 }
 
 /** Un mensaje: lo único que se manda aparte de la decisión de la etapa. */
-type VaultMessage = Extract<VaultAction, { type: "say" } | { type: "whisper" }>;
+type AlephMessage = Extract<AlephAction, { type: "say" } | { type: "whisper" }>;
 
 /** Un susurro solo llega si el destino es OTRO asiento VIVO. `validateAction`
  *  valida la FORMA de la address, no el estado de la mesa (lo dice su propio
  *  comentario), así que un susurro al asiento recién eliminado —que sigue
  *  listado en `seats`— hace que el motor tire "invalid whisper target". Ese 400
  *  se filtra acá porque no puede costarnos la decisión de la etapa. */
-function canWhisperTo(v: VaultRoomView, me: string, to: string): boolean {
+function canWhisperTo(v: AlephRoomView, me: string, to: string): boolean {
   const t = to.toLowerCase();
   return t !== me && v.seats.some((s) => s.address.toLowerCase() === t && s.status === "alive");
 }
@@ -276,11 +276,11 @@ export interface PlayOptions {
 /** Se sienta y juega la sala hasta `settled` (o `dissolved`). Devuelve la
  *  última vista. Cada fase: una consulta al cerebro (más si pide `wait` y algo
  *  cambia), hasta 3 mensajes y una decisión. */
-export async function playVaultRoom(
+export async function playAlephRoom(
   agent: Agent,
   brain: Brain,
   opts: PlayOptions = {},
-): Promise<VaultRoomView> {
+): Promise<AlephRoomView> {
   const pollMs = opts.pollMs ?? 5_000;
   const maxPolls = opts.maxPolls ?? 1_200;
   const maxTalkTurns = opts.maxTalkTurns ?? 2;
@@ -292,7 +292,7 @@ export async function playVaultRoom(
   const log = opts.log ?? (() => {});
   const me = agent.address.toLowerCase();
 
-  let v = await agent.vaultJoin(0);
+  let v = await agent.alephJoin(0);
   const roomId = v.roomId;
   log(`asiento en ${roomId} (${v.status}, ${v.seats.length} asientos)`);
 
@@ -310,9 +310,9 @@ export async function playVaultRoom(
   /** Un GET de la vista que NO tira por un tropiezo del árbitro: devuelve
    *  `null` y deja que el loop siga sondeando. Solo se rinde ante una racha:
    *  ahí el asiento ya está mudo de hecho y es mejor decirlo. */
-  async function pullView(): Promise<VaultRoomView | null> {
+  async function pullView(): Promise<AlephRoomView | null> {
     try {
-      const fresh = await agent.vaultView(roomId);
+      const fresh = await agent.alephView(roomId);
       arbiterFails = 0;
       return fresh;
     } catch (e) {
@@ -366,7 +366,7 @@ export async function playVaultRoom(
           brainCalls++;
           lastAsk = { at: now(), fingerprint };
           try {
-            reply = parseBrainReply(await brain(describeVaultView(v, me, now()), v, me));
+            reply = parseBrainReply(await brain(describeAlephView(v, me, now()), v, me));
             brainFails = 0;
           } catch (e) {
             // Sin credenciales (o con la key vencida) NUNCA va a haber
@@ -428,7 +428,7 @@ export async function playVaultRoom(
         // (destino recién eliminado, o el tope de 12 POST/10 s del árbitro) no
         // puede llevarse puesta la DECISIÓN de la etapa, que es lo único que
         // evita la ausencia.
-        const msgs: VaultMessage[] = [];
+        const msgs: AlephMessage[] = [];
         if (reply.say) msgs.push({ type: "say", text: reply.say });
         if (reply.whisper) {
           if (canWhisperTo(v, me, reply.whisper.to)) {
@@ -438,9 +438,9 @@ export async function playVaultRoom(
           }
         }
         for (const m of msgs) {
-          if (sent >= VAULT_RULES.MAX_MSGS_PER_PHASE) break;
+          if (sent >= ALEPH_RULES.MAX_MSGS_PER_PHASE) break;
           try {
-            v = await agent.vaultAct(roomId, m, at);
+            v = await agent.alephAct(roomId, m, at);
             sent++;
             log(m.type === "say" ? `digo: ${m.text}` : `susurro a ${m.to}: ${m.text}`);
           } catch (e) {
@@ -448,7 +448,7 @@ export async function playVaultRoom(
             log(`mensaje rechazado: ${(e as Error).message}`);
           }
         }
-        let action: VaultAction | null = null;
+        let action: AlephAction | null = null;
         if (reply.action.type === "wait") {
           waits++;
           if (waits > maxTalkTurns) action = defaultAction(v, me);
@@ -457,7 +457,7 @@ export async function playVaultRoom(
         }
         if (action) {
           try {
-            v = await agent.vaultAct(roomId, action, at);
+            v = await agent.alephAct(roomId, action, at);
             log(`acción: ${action.type}`);
             continue; // la respuesta ya es la vista fresca: sin dormir
           } catch (e) {
@@ -490,7 +490,7 @@ export async function playVaultRoom(
 const MODEL = process.env.ARCADE_LLM_MODEL ?? "claude-opus-5";
 
 const SYSTEM = [
-  describeVaultRules(),
+  describeAlephRules(),
   "",
   "You are ONE seat at this table, playing to maximize YOUR final payout (pocket + your share of the box). Cooperate when it pays, betray when it pays more, and never trust a message just because it says so.",
   "Every turn you receive the room state as text. Reply with ONE JSON object and nothing else, shaped like:",
@@ -538,7 +538,7 @@ async function main(): Promise<void> {
   console.log(
     "Pidiendo asiento… la sala arranca con 8 agentes, o a los 10 minutos con al menos 4.",
   );
-  const done = await playVaultRoom(agent, claudeBrain(anthropic), {
+  const done = await playAlephRoom(agent, claudeBrain(anthropic), {
     log: (l) => console.log(new Date().toISOString(), l),
   });
   if (done.status === "dissolved") {
@@ -553,9 +553,9 @@ async function main(): Promise<void> {
   const elo = done.rating
     ? `ELO ${done.rating.before} → ${done.rating.after} (${done.rating.delta >= 0 ? "+" : ""}${done.rating.delta})`
     : "";
-  console.log("Tu pago:", done.payouts?.[me], `de ${VAULT_RULES.UNITS_PER_SEAT} ·`, elo);
+  console.log("Tu pago:", done.payouts?.[me], `de ${ALEPH_RULES.UNITS_PER_SEAT} ·`, elo);
   console.log(
-    `Verificá la sala vos mismo: node --import tsx scripts/vault-verify.mjs ${arbiterUrl} ${done.roomId}`,
+    `Verificá la sala vos mismo: node --import tsx scripts/aleph-verify.mjs ${arbiterUrl} ${done.roomId}`,
   );
 }
 

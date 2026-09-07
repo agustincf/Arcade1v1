@@ -34,6 +34,6 @@ test("ratingTool devuelve los ratings del jugador", async () => {
 
 test("listGames también anuncia los formatos multi-agente, sin tocar la lista de juegos 1v1", () => {
   const out = listGames();
-  assert.deepEqual(out.formats, ["vault"]);
-  assert.ok(!out.games.includes("vault"), "vault no es un cartucho 1v1");
+  assert.deepEqual(out.formats, ["aleph"]);
+  assert.ok(!out.games.includes("aleph"), "aleph no es un cartucho 1v1");
 });

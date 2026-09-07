@@ -1,34 +1,34 @@
-// Rutas HTTP de Aleph (formato multi-agente). Capa fina sobre vault.ts:
-// valida presencia de campos, traduce VaultError a 400 y decora los asientos
+// Rutas HTTP de Aleph (formato multi-agente). Capa fina sobre aleph.ts:
+// valida presencia de campos, traduce AlephError a 400 y decora los asientos
 // con nombre/avatar (resolveDisplay), como el resto de las vistas públicas.
 import { Router, type Response } from "express";
 import {
-  joinVault,
-  getVaultRoom,
-  actVault,
-  vaultLog,
-  listVaultLobbies,
-  recentVaultRooms,
-  VaultError,
-} from "./vault.js";
+  joinAleph,
+  getAlephRoom,
+  actAleph,
+  alephLog,
+  listAlephLobbies,
+  recentAlephRooms,
+  AlephError,
+} from "./aleph.js";
 import { resolveDisplay } from "./profiles.js";
 
 function fail(res: Response, e: unknown): void {
-  if (e instanceof VaultError) {
+  if (e instanceof AlephError) {
     res.status(400).json({ error: e.message });
     return;
   }
-  console.error("[vault]", (e as Error)?.stack ?? e);
+  console.error("[aleph]", (e as Error)?.stack ?? e);
   res.status(500).json({ error: "internal error" });
 }
 
 const withDisplay = <T extends { address: string }>(seats: T[]) =>
   seats.map((s) => ({ ...s, ...resolveDisplay(s.address) }));
 
-export const vaultRouter = Router();
+export const alephRouter = Router();
 
-// Pedir asiento (firmado en producción: matchmakeAuthMessage("vault", stake, address, ts)).
-vaultRouter.post("/vault/join", async (req, res) => {
+// Pedir asiento (firmado en producción: matchmakeAuthMessage("aleph", stake, address, ts)).
+alephRouter.post("/aleph/join", async (req, res) => {
   const { stake, address, signature, ts } = req.body ?? {};
   if (stake === undefined || stake === null || !address) {
     return res.status(400).json({ error: "faltan stake o address" });
@@ -38,7 +38,7 @@ vaultRouter.post("/vault/join", async (req, res) => {
   }
   try {
     const auth = signature ? { signature: String(signature), ts: Number(ts) } : undefined;
-    const v = await joinVault(Number(stake), String(address), auth);
+    const v = await joinAleph(Number(stake), String(address), auth);
     res.json({ ...v, seats: withDisplay(v.seats) });
   } catch (e) {
     fail(res, e);
@@ -46,32 +46,32 @@ vaultRouter.post("/vault/join", async (req, res) => {
 });
 
 // Lobbies abiertos (para que un agente sepa que hay mesa esperando).
-vaultRouter.get("/vault/lobbies", (_req, res) => {
+alephRouter.get("/aleph/lobbies", (_req, res) => {
   try {
-    res.json({ lobbies: listVaultLobbies() });
+    res.json({ lobbies: listAlephLobbies() });
   } catch (e) {
     fail(res, e);
   }
 });
 
 // Salas terminadas recientes (espectador).
-vaultRouter.get("/vault/recent", (req, res) => {
+alephRouter.get("/aleph/recent", (req, res) => {
   try {
     const limit = Number(req.query.limit ?? 20);
-    res.json({ rooms: recentVaultRooms(limit) });
+    res.json({ rooms: recentAlephRooms(limit) });
   } catch (e) {
     fail(res, e);
   }
 });
 
 // Vista de una sala. Con ?address= + un PASE DE VISTA válido (?signature=&ts=
-// sobre vaultViewAuthMessage(roomId, address, ts)) devuelve la vista de ESE
+// sobre alephViewAuthMessage(roomId, address, ts)) devuelve la vista de ESE
 // asiento: su fragmento, sus susurros, si ya decidió. Sin pase válido, la
 // vista pública: nunca decisiones ajenas ni la semilla antes del cierre.
-vaultRouter.get("/vault/:id", async (req, res) => {
+alephRouter.get("/aleph/:id", async (req, res) => {
   const { address, signature, ts } = req.query as Record<string, string | undefined>;
   try {
-    const v = await getVaultRoom(String(req.params.id), address, undefined, {
+    const v = await getAlephRoom(String(req.params.id), address, undefined, {
       signature,
       ts: ts === undefined ? undefined : Number(ts),
     });
@@ -83,7 +83,7 @@ vaultRouter.get("/vault/:id", async (req, res) => {
 });
 
 // Una acción firmada: { address, stage, phase, action, signature, ts }.
-vaultRouter.post("/vault/:id/act", async (req, res) => {
+alephRouter.post("/aleph/:id/act", async (req, res) => {
   const { address, stage, phase, action, signature, ts } = req.body ?? {};
   if (!address || stage === undefined || stage === null || !phase || !action) {
     return res.status(400).json({ error: "faltan address, stage, phase o action" });
@@ -92,7 +92,7 @@ vaultRouter.post("/vault/:id/act", async (req, res) => {
     return res.status(400).json({ error: "falta ts (junto con signature)" });
   }
   try {
-    const v = await actVault(String(req.params.id), String(address), {
+    const v = await actAleph(String(req.params.id), String(address), {
       stage: Number(stage),
       phase: String(phase),
       action,
@@ -106,9 +106,9 @@ vaultRouter.post("/vault/:id/act", async (req, res) => {
 });
 
 // Registro completo (solo salas terminadas): semilla, eventos firmados, pagos.
-vaultRouter.get("/vault/:id/log", (req, res) => {
+alephRouter.get("/aleph/:id/log", (req, res) => {
   try {
-    res.json(vaultLog(String(req.params.id)));
+    res.json(alephLog(String(req.params.id)));
   } catch (e) {
     fail(res, e);
   }

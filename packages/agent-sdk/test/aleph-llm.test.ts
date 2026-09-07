@@ -1,43 +1,43 @@
-// packages/agent-sdk/test/vault-llm.test.ts
+// packages/agent-sdk/test/aleph-llm.test.ts
 // El loop del ejemplo LLM, sin red ni API key: 4 agentes con un cerebro doble
 // juegan una sala entera contra un árbitro falso montado sobre el MOTOR REAL.
 // Además: parseo tolerante de la respuesta, acciones por defecto y el texto
 // que ve el modelo.
-// Correr: node --import tsx --test packages/agent-sdk/test/vault-llm.test.ts
+// Correr: node --import tsx --test packages/agent-sdk/test/aleph-llm.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   applyEvent,
-  createVault,
+  createAleph,
   phaseComplete,
   viewFor,
-  VAULT_RULES_V,
+  ALEPH_RULES_V,
   type StageResult,
-  type VaultState,
-} from "@arcade1v1/game-sdk/vault";
+  type AlephState,
+} from "@arcade1v1/game-sdk/aleph";
 import {
   ArbiterClient,
   createAgent,
-  type VaultActBody,
-  type VaultRoomView,
-  type VaultViewPass,
+  type AlephActBody,
+  type AlephRoomView,
+  type AlephViewPass,
 } from "../src/index.js";
 import {
   defaultAction,
-  describeVaultView,
+  describeAlephView,
   isFatalBrainError,
   parseBrainReply,
-  playVaultRoom,
+  playAlephRoom,
   type Brain,
-} from "../examples/play-vault-llm.js";
+} from "../examples/play-aleph-llm.js";
 
 /** Árbitro falso sobre el motor real: una sala de 4 que arranca con el cuarto
  *  asiento y cierra cada fase cuando todos actuaron. Sin firmas ni reloj: eso lo
- *  cubre el E2E contra el router real (apps/server/test/vault-sdk-e2e.test.ts). */
-class FakeVaultArbiter extends ArbiterClient {
+ *  cubre el E2E contra el router real (apps/server/test/aleph-sdk-e2e.test.ts). */
+class FakeAlephArbiter extends ArbiterClient {
   readonly roomId = "0x" + "ab".repeat(32);
   seats: string[] = [];
-  state?: VaultState;
+  state?: AlephState;
   acts = 0;
   /** Intentos de mensaje que LLEGARON al árbitro (los filtrados no cuentan). */
   msgAttempts = 0;
@@ -49,11 +49,11 @@ class FakeVaultArbiter extends ArbiterClient {
     super("http://fake");
     this.deadlineAt = opts.deadline ?? (() => Date.now() + 120_000);
   }
-  private room(address?: string): VaultRoomView {
+  private room(address?: string): AlephRoomView {
     const base = {
       roomId: this.roomId,
       stake: 0,
-      rulesV: VAULT_RULES_V,
+      rulesV: ALEPH_RULES_V,
       min: 4,
       max: 8,
       createdAt: 0,
@@ -73,25 +73,25 @@ class FakeVaultArbiter extends ArbiterClient {
       ...v,
     };
   }
-  /** `vaultJoin` del SDK mira las mesas abiertas antes de sentarse (guard de
+  /** `alephJoin` del SDK mira las mesas abiertas antes de sentarse (guard de
    *  versión de reglas). Sin esto la clase base saldría a la red de verdad
    *  contra http://fake en cada join: lento y ruidoso. Lista vacía = no hay
    *  mesa que mirar, el guard sigue de largo. */
-  async vaultLobbies() {
+  async alephLobbies() {
     return [];
   }
-  async vaultJoin(_stake: number, address: string) {
+  async alephJoin(_stake: number, address: string) {
     const a = address.toLowerCase();
     if (!this.seats.includes(a)) this.seats.push(a);
     if (this.seats.length === 4 && !this.state) {
-      this.state = createVault("0x" + "11".repeat(32), this.seats);
+      this.state = createAleph("0x" + "11".repeat(32), this.seats);
     }
     return this.room(a);
   }
-  async vaultView(_roomId: string, pass?: VaultViewPass) {
+  async alephView(_roomId: string, pass?: AlephViewPass) {
     return this.room(pass?.address.toLowerCase());
   }
-  async vaultAct(_roomId: string, address: string, body: VaultActBody) {
+  async alephAct(_roomId: string, address: string, body: AlephActBody) {
     const a = address.toLowerCase();
     if (body.action.type === "say" || body.action.type === "whisper") this.msgAttempts++;
     if (body.action.type === "whisper") this.whisperAttempts++;
@@ -149,10 +149,10 @@ const scripted: Brain = async (_prompt, v, me) => {
 
 const FAST = { pollMs: 0, rePromptMs: 0 };
 
-test("playVaultRoom: 4 agentes con cerebro guionado juegan una sala entera contra el motor real", async () => {
-  const fake = new FakeVaultArbiter();
+test("playAlephRoom: 4 agentes con cerebro guionado juegan una sala entera contra el motor real", async () => {
+  const fake = new FakeAlephArbiter();
   const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
-  const results = await Promise.all(agents.map((a) => playVaultRoom(a, scripted, FAST)));
+  const results = await Promise.all(agents.map((a) => playAlephRoom(a, scripted, FAST)));
   for (const r of results) {
     assert.equal(r.status, "settled");
     assert.equal(r.roomId, fake.roomId);
@@ -176,11 +176,11 @@ test("playVaultRoom: 4 agentes con cerebro guionado juegan una sala entera contr
   );
 });
 
-test("playVaultRoom: un cerebro que devuelve basura juega igual, con las acciones por defecto", async () => {
-  const fake = new FakeVaultArbiter();
+test("playAlephRoom: un cerebro que devuelve basura juega igual, con las acciones por defecto", async () => {
+  const fake = new FakeAlephArbiter();
   const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
   const garbage: Brain = async () => "I will not answer in JSON, sorry.";
-  const results = await Promise.all(agents.map((a) => playVaultRoom(a, garbage, FAST)));
+  const results = await Promise.all(agents.map((a) => playAlephRoom(a, garbage, FAST)));
   assert.ok(results.every((r) => r.status === "settled"));
   // Todo por defecto: nadie guardó, nadie aceptó, nadie intentó la Cerradura.
   assert.ok(
@@ -189,8 +189,8 @@ test("playVaultRoom: un cerebro que devuelve basura juega igual, con las accione
   assert.equal(fake.state!.messages.length, 0, "sin respuesta válida no se manda ningún mensaje");
 });
 
-test("playVaultRoom: `wait` en la charla vuelve a consultar y cae a ready al agotar los turnos", async () => {
-  const fake = new FakeVaultArbiter();
+test("playAlephRoom: `wait` en la charla vuelve a consultar y cae a ready al agotar los turnos", async () => {
+  const fake = new FakeAlephArbiter();
   const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
   let waits = 0;
   const waiter: Brain = async (prompt, v, me) => {
@@ -201,14 +201,14 @@ test("playVaultRoom: `wait` en la charla vuelve a consultar y cae a ready al ago
     return scripted(prompt, v, me);
   };
   const results = await Promise.all(
-    agents.map((a) => playVaultRoom(a, waiter, { ...FAST, maxTalkTurns: 1 })),
+    agents.map((a) => playAlephRoom(a, waiter, { ...FAST, maxTalkTurns: 1 })),
   );
   assert.ok(results.every((r) => r.status === "settled"));
   assert.ok(waits >= 8, "cada charla consultó al menos dos veces por asiento");
 });
 
-test("playVaultRoom: un error de credenciales aborta la sala en vez de jugarla a ciegas", async () => {
-  const fake = new FakeVaultArbiter();
+test("playAlephRoom: un error de credenciales aborta la sala en vez de jugarla a ciegas", async () => {
+  const fake = new FakeAlephArbiter();
   const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
   let calls = 0;
   // El texto exacto del SDK de Anthropic cuando no hay ANTHROPIC_API_KEY (la
@@ -219,16 +219,16 @@ test("playVaultRoom: un error de credenciales aborta la sala en vez de jugarla a
     throw new Error("Could not resolve authentication method. Expected either apiKey or authToken");
   };
   const settled = await Promise.allSettled([
-    playVaultRoom(agents[0], noKey, FAST),
-    ...agents.slice(1).map((a) => playVaultRoom(a, scripted, { ...FAST, maxPolls: 40 })),
+    playAlephRoom(agents[0], noKey, FAST),
+    ...agents.slice(1).map((a) => playAlephRoom(a, scripted, { ...FAST, maxPolls: 40 })),
   ]);
   assert.equal(settled[0].status, "rejected");
   assert.match((settled[0] as PromiseRejectedResult).reason.message, /authentication/);
   assert.equal(calls, 1, "no gasta la sala entera reintentando contra una key que no existe");
 });
 
-test("playVaultRoom: una racha de fallos del modelo corta en vez de jugar de defaults", async () => {
-  const fake = new FakeVaultArbiter();
+test("playAlephRoom: una racha de fallos del modelo corta en vez de jugar de defaults", async () => {
+  const fake = new FakeAlephArbiter();
   const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
   let calls = 0;
   // Un 529 suelto se aguanta; una racha es el mismo daño que no tener key.
@@ -237,8 +237,8 @@ test("playVaultRoom: una racha de fallos del modelo corta en vez de jugar de def
     throw Object.assign(new Error("overloaded_error"), { status: 529 });
   };
   const settled = await Promise.allSettled([
-    playVaultRoom(agents[0], overloaded, { ...FAST, maxBrainFails: 3 }),
-    ...agents.slice(1).map((a) => playVaultRoom(a, scripted, { ...FAST, maxPolls: 40 })),
+    playAlephRoom(agents[0], overloaded, { ...FAST, maxBrainFails: 3 }),
+    ...agents.slice(1).map((a) => playAlephRoom(a, scripted, { ...FAST, maxPolls: 40 })),
   ]);
   assert.equal(settled[0].status, "rejected");
   assert.match((settled[0] as PromiseRejectedResult).reason.message, /3 veces seguidas/);
@@ -248,20 +248,20 @@ test("playVaultRoom: una racha de fallos del modelo corta en vez de jugar de def
 /** Árbitro que tropieza en los GET de la vista de UN asiento: `fails` vistas
  *  seguidas fallan y después responde normal. Es el reinicio del árbitro por un
  *  deploy, el free tier que se despierta o un 502 del proxy. */
-class FlakyViewArbiter extends FakeVaultArbiter {
+class FlakyViewArbiter extends FakeAlephArbiter {
   victim = "";
   fails = 0;
   seen = 0;
-  async vaultView(roomId: string, pass?: VaultViewPass) {
+  async alephView(roomId: string, pass?: AlephViewPass) {
     if (pass && pass.address.toLowerCase() === this.victim && this.seen < this.fails) {
       this.seen++;
-      throw new Error(`arbiter /vault/${this.roomId} 503: Service Unavailable`);
+      throw new Error(`arbiter /aleph/${this.roomId} 503: Service Unavailable`);
     }
-    return super.vaultView(roomId, pass);
+    return super.alephView(roomId, pass);
   }
 }
 
-test("playVaultRoom: un tropiezo del árbitro no mata al asiento (sigue sondeando y termina la sala)", async () => {
+test("playAlephRoom: un tropiezo del árbitro no mata al asiento (sigue sondeando y termina la sala)", async () => {
   const fake = new FlakyViewArbiter();
   const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
   fake.victim = agents[0].address.toLowerCase();
@@ -269,7 +269,7 @@ test("playVaultRoom: un tropiezo del árbitro no mata al asiento (sigue sondeand
   const lines: string[] = [];
   const results = await Promise.all(
     agents.map((a, i) =>
-      playVaultRoom(a, scripted, i === 0 ? { ...FAST, log: (l) => lines.push(l) } : FAST),
+      playAlephRoom(a, scripted, i === 0 ? { ...FAST, log: (l) => lines.push(l) } : FAST),
     ),
   );
   assert.ok(
@@ -283,7 +283,7 @@ test("playVaultRoom: un tropiezo del árbitro no mata al asiento (sigue sondeand
   );
 });
 
-test("playVaultRoom: una racha de fallos del árbitro sí corta, con el motivo", async () => {
+test("playAlephRoom: una racha de fallos del árbitro sí corta, con el motivo", async () => {
   // Si el árbitro no vuelve, el asiento ya está mudo de hecho: es mejor decirlo
   // que fingir que se está jugando.
   const fake = new FlakyViewArbiter();
@@ -291,8 +291,8 @@ test("playVaultRoom: una racha de fallos del árbitro sí corta, con el motivo",
   fake.victim = agents[0].address.toLowerCase();
   fake.fails = Infinity;
   const settled = await Promise.allSettled([
-    playVaultRoom(agents[0], scripted, { ...FAST, maxArbiterFails: 3 }),
-    ...agents.slice(1).map((a) => playVaultRoom(a, scripted, { ...FAST, maxPolls: 40 })),
+    playAlephRoom(agents[0], scripted, { ...FAST, maxArbiterFails: 3 }),
+    ...agents.slice(1).map((a) => playAlephRoom(a, scripted, { ...FAST, maxPolls: 40 })),
   ]);
   assert.equal(settled[0].status, "rejected");
   assert.match(
@@ -318,27 +318,27 @@ test("isFatalBrainError: credenciales y cuota son irrecuperables; 429 y 529 no",
   assert.equal(isFatalBrainError(new Error("fetch failed")), false);
 });
 
-test("playVaultRoom: con el plazo encima no se consulta al modelo", async () => {
+test("playAlephRoom: con el plazo encima no se consulta al modelo", async () => {
   // Menos que el margen de 20 s: una respuesta que llega con la fase cerrada
   // vale lo mismo que una ausencia, así que ni se pide.
-  const fake = new FakeVaultArbiter({ deadline: () => Date.now() + 5_000 });
+  const fake = new FakeAlephArbiter({ deadline: () => Date.now() + 5_000 });
   const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
   let calls = 0;
   const counted: Brain = async (p, v, me) => {
     calls++;
     return scripted(p, v, me);
   };
-  const results = await Promise.all(agents.map((a) => playVaultRoom(a, counted, FAST)));
+  const results = await Promise.all(agents.map((a) => playAlephRoom(a, counted, FAST)));
   assert.ok(results.every((r) => r.status === "settled"));
   assert.equal(calls, 0, "no se gasta una llamada al modelo que no va a llegar a tiempo");
   assert.equal(fake.msgAttempts, 0);
 });
 
-test("playVaultRoom: una respuesta lenta no se postea con la vista vieja", async () => {
+test("playAlephRoom: una respuesta lenta no se postea con la vista vieja", async () => {
   // Reloj falso: el plazo va siempre 60 s por delante y el cerebro tarda 60 s
   // en pensar, así que TODA respuesta llega con el plazo encima.
   let t = 1_800_000_000_000;
-  const fake = new FakeVaultArbiter({ deadline: () => t + 60_000 });
+  const fake = new FakeAlephArbiter({ deadline: () => t + 60_000 });
   const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
   const slow: Brain = async (p, v, me) => {
     t += 60_000;
@@ -346,7 +346,7 @@ test("playVaultRoom: una respuesta lenta no se postea con la vista vieja", async
   };
   const lines: string[] = [];
   const results = await Promise.all(
-    agents.map((a) => playVaultRoom(a, slow, { ...FAST, now: () => t, log: (l) => lines.push(l) })),
+    agents.map((a) => playAlephRoom(a, slow, { ...FAST, now: () => t, log: (l) => lines.push(l) })),
   );
   assert.ok(results.every((r) => r.status === "settled"));
   assert.ok(
@@ -360,21 +360,21 @@ test("playVaultRoom: una respuesta lenta no se postea con la vista vieja", async
   );
 });
 
-test("playVaultRoom: un mensaje rechazado no se lleva puesta la decisión de la etapa", async () => {
+test("playAlephRoom: un mensaje rechazado no se lleva puesta la decisión de la etapa", async () => {
   // El árbitro rechaza TODO mensaje (como el rate limit de 12 POST/10 s) y
   // acepta las decisiones: la sala tiene que terminar igual.
-  class NoMessagesArbiter extends FakeVaultArbiter {
-    async vaultAct(roomId: string, address: string, body: VaultActBody) {
+  class NoMessagesArbiter extends FakeAlephArbiter {
+    async alephAct(roomId: string, address: string, body: AlephActBody) {
       if (body.action.type === "say" || body.action.type === "whisper") {
         this.msgAttempts++;
         throw new Error("HTTP 429: rate limited");
       }
-      return super.vaultAct(roomId, address, body);
+      return super.alephAct(roomId, address, body);
     }
   }
   const fake = new NoMessagesArbiter();
   const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
-  const results = await Promise.all(agents.map((a) => playVaultRoom(a, scripted, FAST)));
+  const results = await Promise.all(agents.map((a) => playAlephRoom(a, scripted, FAST)));
   assert.ok(results.every((r) => r.status === "settled"));
   assert.ok(fake.msgAttempts > 0, "hubo mensajes rechazados de verdad");
   assert.equal(fake.state!.messages.length, 0);
@@ -384,15 +384,15 @@ test("playVaultRoom: un mensaje rechazado no se lleva puesta la decisión de la 
   );
 });
 
-test("playVaultRoom: un susurro a un asiento que no está vivo se filtra antes de mandarlo", async () => {
-  const fake = new FakeVaultArbiter();
+test("playAlephRoom: un susurro a un asiento que no está vivo se filtra antes de mandarlo", async () => {
+  const fake = new FakeAlephArbiter();
   const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
   const stray = "0x" + "de".repeat(20); // nadie de esta mesa: el motor tiraría "invalid whisper target"
   const strayWhisper: Brain = async (p, v, me) => {
     const j = JSON.parse(await scripted(p, v, me));
     return JSON.stringify({ ...j, whisper: { to: stray, text: "psst" } });
   };
-  const results = await Promise.all(agents.map((a) => playVaultRoom(a, strayWhisper, FAST)));
+  const results = await Promise.all(agents.map((a) => playAlephRoom(a, strayWhisper, FAST)));
   assert.ok(results.every((r) => r.status === "settled"));
   assert.equal(fake.whisperAttempts, 0, "el susurro imposible ni se intentó");
   assert.ok(
@@ -432,11 +432,11 @@ test("parseBrainReply: JSON con ruido alrededor, wait, mensajes fuera de tope y 
 test("defaultAction: la acción segura de cada etapa", () => {
   const me = "0x" + "1".repeat(40);
   const other = "0x" + "2".repeat(40);
-  const base = (kind: StageResult["kind"], phase: "talk" | "decide" = "decide"): VaultRoomView => ({
+  const base = (kind: StageResult["kind"], phase: "talk" | "decide" = "decide"): AlephRoomView => ({
     roomId: "0x" + "ab".repeat(32),
     stake: 0,
     status: "playing",
-    rulesV: VAULT_RULES_V,
+    rulesV: ALEPH_RULES_V,
     min: 4,
     max: 8,
     createdAt: 0,
@@ -454,15 +454,15 @@ test("defaultAction: la acción segura de cada etapa", () => {
   assert.deepEqual(defaultAction(base("final"), me), { type: "split" });
 });
 
-test("describeVaultView: cuenta la etapa, el fragmento propio, los mensajes y las acciones legales", () => {
+test("describeAlephView: cuenta la etapa, el fragmento propio, los mensajes y las acciones legales", () => {
   const me = "0x" + "1".repeat(40);
   const other = "0x" + "2".repeat(40);
   const now = 1_800_000_000_000;
-  const v: VaultRoomView = {
+  const v: AlephRoomView = {
     roomId: "0x" + "ab".repeat(32),
     stake: 0,
     status: "playing",
-    rulesV: VAULT_RULES_V,
+    rulesV: ALEPH_RULES_V,
     min: 4,
     max: 8,
     createdAt: 0,
@@ -502,7 +502,7 @@ test("describeVaultView: cuenta la etapa, el fragmento propio, los mensajes y la
       { from: other, to: me, text: "mine is 4 at 0", stage: 2, phase: "talk" },
     ],
   };
-  const t = describeVaultView(v, me, now);
+  const t = describeAlephView(v, me, now);
   assert.match(t, /Stage 2: lock, phase talk, 45s left/);
   assert.match(t, /Pot 3000, box 900, 3 cards left/);
   assert.match(t, new RegExp(`${me} \\(YOU\\): alive, pocket 100`));
@@ -515,6 +515,6 @@ test("describeVaultView: cuenta la etapa, el fragmento propio, los mensajes y la
   assert.match(t, /"give me your digit"/);
   assert.match(t, new RegExp(`${other} → ${me} \\(private\\): "mine is 4 at 0"`));
   assert.match(t, /Legal actions now: say, whisper, ready\./);
-  const settled = describeVaultView({ ...v, status: "settled", stage: undefined }, me, now);
+  const settled = describeAlephView({ ...v, status: "settled", stage: undefined }, me, now);
   assert.match(settled, /status: settled/);
 });

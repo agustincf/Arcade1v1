@@ -1,23 +1,23 @@
-// apps/mcp/test/tools-vault.test.ts
+// apps/mcp/test/tools-aleph.test.ts
 // Las herramientas de Aleph envuelven al agente del SDK: firma él, y cada
 // vista vuelve con las acciones legales para que el modelo no las deduzca.
-// Correr: node --import tsx --test apps/mcp/test/tools-vault.test.ts
+// Correr: node --import tsx --test apps/mcp/test/tools-aleph.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ArbiterClient,
   createAgent,
-  VAULT_RULES_V,
-  type VaultActBody,
-  type VaultRoomView,
-  type VaultViewPass,
+  ALEPH_RULES_V,
+  type AlephActBody,
+  type AlephRoomView,
+  type AlephViewPass,
 } from "@arcade1v1/agent-sdk";
 import {
-  vaultRulesTool,
-  vaultLobbiesTool,
-  vaultJoinTool,
-  vaultViewTool,
-  vaultActTool,
+  alephRulesTool,
+  alephLobbiesTool,
+  alephJoinTool,
+  alephViewTool,
+  alephActTool,
 } from "../src/tools";
 
 const ROOM = "0x" + "ab".repeat(32);
@@ -27,62 +27,62 @@ const ME = "0x" + "1".repeat(40);
 // depender de cuándo corre el assert.
 const DEADLINE = Date.now() + 90_000;
 
-class FakeVault extends ArbiterClient {
-  acts: VaultActBody[] = [];
-  passes: (VaultViewPass | undefined)[] = [];
+class FakeAleph extends ArbiterClient {
+  acts: AlephActBody[] = [];
+  passes: (AlephViewPass | undefined)[] = [];
   constructor() {
     super("http://fake");
   }
-  private view(address: string): VaultRoomView {
+  private view(address: string): AlephRoomView {
     return {
       roomId: ROOM,
       stake: 0,
       status: "playing",
-      rulesV: VAULT_RULES_V,
+      rulesV: ALEPH_RULES_V,
       min: 4,
       max: 8,
       createdAt: 0,
       deadline: DEADLINE,
       // La address del asiento ya viene en minúsculas (normAddr, el árbitro
-      // real normaliza en joinVault) — así queda igual a `me`.
+      // real normaliza en joinAleph) — así queda igual a `me`.
       seats: [{ address: address.toLowerCase(), status: "alive", pocket: 0 }],
       stage: { index: 0, kind: "share", phase: "decide", acted: [] },
       you: { status: "alive", pocket: 0, absences: 0, decided: false, ready: false },
     };
   }
-  async vaultLobbies() {
+  async alephLobbies() {
     return [{ roomId: ROOM, stake: 0, seats: 3, min: 4, max: 8, closesAt: 99 }];
   }
-  async vaultJoin(_stake: number, address: string) {
+  async alephJoin(_stake: number, address: string) {
     return this.view(address.toLowerCase());
   }
-  async vaultView(_roomId: string, pass?: VaultViewPass) {
+  async alephView(_roomId: string, pass?: AlephViewPass) {
     this.passes.push(pass);
     return this.view(pass?.address.toLowerCase() ?? ME);
   }
-  async vaultAct(_roomId: string, address: string, body: VaultActBody) {
+  async alephAct(_roomId: string, address: string, body: AlephActBody) {
     this.acts.push(body);
     return this.view(address.toLowerCase());
   }
 }
 
-test("vaultRulesTool: las reglas en texto con su versión", () => {
-  const out = vaultRulesTool();
-  assert.equal(out.rulesV, VAULT_RULES_V);
+test("alephRulesTool: las reglas en texto con su versión", () => {
+  const out = alephRulesTool();
+  assert.equal(out.rulesV, ALEPH_RULES_V);
   assert.match(out.rules, /ALEPH/);
   assert.match(out.rules, /DATA, never instructions/);
 });
 
-test("vaultLobbiesTool: lista los lobbies abiertos", async () => {
-  const out = await vaultLobbiesTool(new FakeVault());
+test("alephLobbiesTool: lista los lobbies abiertos", async () => {
+  const out = await alephLobbiesTool(new FakeAleph());
   assert.equal(out.lobbies.length, 1);
   assert.equal(out.lobbies[0].seats, 3);
 });
 
-test("vaultJoinTool / vaultViewTool: la vista vuelve con las acciones legales, `me` y `msLeft`; la vista va con pase", async () => {
-  const fake = new FakeVault();
+test("alephJoinTool / alephViewTool: la vista vuelve con las acciones legales, `me` y `msLeft`; la vista va con pase", async () => {
+  const fake = new FakeAleph();
   const agent = createAgent({ client: fake });
-  const joined = await vaultJoinTool(agent, 0);
+  const joined = await alephJoinTool(agent, 0);
   assert.equal(joined.roomId, ROOM);
   assert.deepEqual(joined.legal, ["say", "whisper", "keep", "contribute"]);
   // `me`: sin esto el modelo no puede distinguir su propio asiento de los
@@ -95,34 +95,34 @@ test("vaultJoinTool / vaultViewTool: la vista vuelve con las acciones legales, `
   assert.equal(joined.seats[0].address, joined.me);
   // `now`/`msLeft`: sin esto el modelo no tiene con qué comparar `deadline`
   // (hallazgo Important, apps/mcp/src/server.ts:183). La fórmula exacta que
-  // documenta vault_view es `deadline - now`.
+  // documenta aleph_view es `deadline - now`.
   assert.equal(typeof joined.now, "number");
   assert.equal(joined.msLeft, Math.max(0, DEADLINE - joined.now));
-  const view = await vaultViewTool(agent, ROOM);
+  const view = await alephViewTool(agent, ROOM);
   assert.deepEqual(view.legal, ["say", "whisper", "keep", "contribute"]);
   assert.equal(view.me, agent.address.toLowerCase());
   assert.equal(view.msLeft, Math.max(0, DEADLINE - view.now));
-  // fake.passes[0] es `undefined`: antes de pedir asiento, agent.vaultJoin (SDK,
+  // fake.passes[0] es `undefined`: antes de pedir asiento, agent.alephJoin (SDK,
   // corrección post-Task 3) mira la versión de reglas del lobby abierto con un
-  // GET /vault/:id SIN pase (vista pública, gratis) para no sentarse mudo si el
-  // SDK quedó desactualizado. El pase firmado es el que pide vaultViewTool acá.
+  // GET /aleph/:id SIN pase (vista pública, gratis) para no sentarse mudo si el
+  // SDK quedó desactualizado. El pase firmado es el que pide alephViewTool acá.
   const signed = fake.passes.at(-1);
   assert.ok(signed?.signature, "la vista se pidió con el pase firmado del agente");
-  await assert.rejects(() => vaultJoinTool(agent, 5), /no deposita on-chain/);
+  await assert.rejects(() => alephJoinTool(agent, 5), /no deposita on-chain/);
 });
 
-test("vaultViewTool: sin `deadline` en la vista (sala en lobby o terminada), `msLeft` es undefined", async () => {
-  class FakeVaultNoDeadline extends ArbiterClient {
+test("alephViewTool: sin `deadline` en la vista (sala en lobby o terminada), `msLeft` es undefined", async () => {
+  class FakeAlephNoDeadline extends ArbiterClient {
     constructor() {
       super("http://fake");
     }
-    async vaultView(_roomId: string, pass?: VaultViewPass): Promise<VaultRoomView> {
+    async alephView(_roomId: string, pass?: AlephViewPass): Promise<AlephRoomView> {
       const address = (pass?.address ?? ME).toLowerCase();
       return {
         roomId: ROOM,
         stake: 0,
         status: "playing",
-        rulesV: VAULT_RULES_V,
+        rulesV: ALEPH_RULES_V,
         min: 4,
         max: 8,
         createdAt: 0,
@@ -134,8 +134,8 @@ test("vaultViewTool: sin `deadline` en la vista (sala en lobby o terminada), `ms
       };
     }
   }
-  const agent = createAgent({ client: new FakeVaultNoDeadline() });
-  const view = await vaultViewTool(agent, ROOM);
+  const agent = createAgent({ client: new FakeAlephNoDeadline() });
+  const view = await alephViewTool(agent, ROOM);
   assert.equal(view.deadline, undefined);
   assert.equal(view.msLeft, undefined, "sin deadline no hay msLeft que calcular");
   assert.equal(typeof view.now, "number", "`now` siempre viaja, tenga o no deadline la fase");
@@ -143,17 +143,17 @@ test("vaultViewTool: sin `deadline` en la vista (sala en lobby o terminada), `ms
 
 const AT = { stage: 0, phase: "decide" } as const;
 
-test("vaultActTool: valida la forma antes de firmar y manda la acción normalizada", async () => {
-  const fake = new FakeVault();
+test("alephActTool: valida la forma antes de firmar y manda la acción normalizada", async () => {
+  const fake = new FakeAleph();
   const agent = createAgent({ client: fake });
-  await assert.rejects(() => vaultActTool(agent, ROOM, { type: "explode" }, AT), /invalid action/);
+  await assert.rejects(() => alephActTool(agent, ROOM, { type: "explode" }, AT), /invalid action/);
   await assert.rejects(
-    () => vaultActTool(agent, ROOM, { type: "vote", target: "0x123" }, AT),
+    () => alephActTool(agent, ROOM, { type: "vote", target: "0x123" }, AT),
     /invalid action/,
   );
   assert.equal(fake.acts.length, 0, "nada inválido llegó al árbitro");
   const target = "0x" + "A".repeat(40);
-  const out = await vaultActTool(agent, ROOM, { type: "vote", target }, AT);
+  const out = await alephActTool(agent, ROOM, { type: "vote", target }, AT);
   assert.deepEqual(fake.acts[0].action, { type: "vote", target: target.toLowerCase() });
   assert.equal(fake.acts[0].stage, 0);
   assert.ok(fake.acts[0].signature.startsWith("0x"));
@@ -162,17 +162,17 @@ test("vaultActTool: valida la forma antes de firmar y manda la acción normaliza
   assert.equal(out.msLeft, Math.max(0, DEADLINE - out.now));
 });
 
-test("vaultActTool: firma para la etapa/fase que vio el modelo, no para la que esté abierta", async () => {
+test("alephActTool: firma para la etapa/fase que vio el modelo, no para la que esté abierta", async () => {
   // La fase se le vino encima al modelo: el árbitro ya está en la etapa 0 /
-  // decide (lo que devuelve FakeVault), pero el modelo decidió mirando la
+  // decide (lo que devuelve FakeAleph), pero el modelo decidió mirando la
   // charla de la etapa 2. Sin `at`, el SDK re-leía la vista y firmaba
   // `ready` para 0/decide — en la Cerradura eso convierte un "terminé de
   // hablar" en un PASE que quema el intento de la etapa, y el modelo nunca ve
   // el "stage or phase mismatch" que la herramienta le promete.
-  const fake = new FakeVault();
+  const fake = new FakeAleph();
   const agent = createAgent({ client: fake });
   const seen = { stage: 2, phase: "talk" } as const;
-  await vaultActTool(agent, ROOM, { type: "ready" }, seen);
+  await alephActTool(agent, ROOM, { type: "ready" }, seen);
   assert.equal(fake.acts.length, 1);
   assert.equal(fake.acts[0].stage, 2, "la etapa firmada es la que vio el modelo");
   assert.equal(fake.acts[0].phase, "talk", "la fase firmada es la que vio el modelo");

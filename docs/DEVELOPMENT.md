@@ -85,7 +85,7 @@ etc.) — from each workspace's own `package.json`:
 - `apps/server`: `dev` (tsx watch), `start` (tsx, no watch), `selftest`, `agent`.
 - `apps/web`: `dev`, `build`, `start` (standard Next.js scripts).
 - `apps/mcp`: `build` (esbuild bundle via `build.mjs`), `start` (tsx).
-- `packages/agent-sdk`: `example` (2048), `example:racing-llm`, `example:vault-llm`
+- `packages/agent-sdk`: `example` (2048), `example:racing-llm`, `example:aleph-llm`
   (both need `ANTHROPIC_API_KEY`), `release`.
 
 Contract-specific tooling (`forge test`, deploy scripts) lives entirely in

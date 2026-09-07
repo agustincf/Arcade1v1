@@ -1,23 +1,23 @@
-// El texto de reglas que leen los modelos sale de VAULT_RULES (no puede quedar
+// El texto de reglas que leen los modelos sale de ALEPH_RULES (no puede quedar
 // viejo respecto del motor) y `legalActions` dice exactamente qué puede hacer
 // un asiento AHORA según su vista.
-// Correr: node --import tsx --test packages/agent-sdk/test/vault-text.test.ts
+// Correr: node --import tsx --test packages/agent-sdk/test/aleph-text.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { VAULT_RULES, VAULT_RULES_V, type StageKind } from "@arcade1v1/game-sdk/vault";
-import { describeVaultRules, legalActions } from "../src/vault.ts";
-import type { VaultRoomView } from "../src/client.ts";
+import { ALEPH_RULES, ALEPH_RULES_V, type StageKind } from "@arcade1v1/game-sdk/aleph";
+import { describeAlephRules, legalActions } from "../src/aleph.ts";
+import type { AlephRoomView } from "../src/client.ts";
 
 const ME = "0x" + "1".repeat(40);
 const OTHER = "0x" + "2".repeat(40);
 
 /** Vista mínima en juego; `over` pisa lo que haga falta. */
-function view(over: Partial<VaultRoomView> = {}): VaultRoomView {
+function view(over: Partial<AlephRoomView> = {}): AlephRoomView {
   return {
     roomId: "0x" + "ab".repeat(32),
     stake: 0,
     status: "playing",
-    rulesV: VAULT_RULES_V,
+    rulesV: ALEPH_RULES_V,
     min: 4,
     max: 8,
     createdAt: 0,
@@ -31,14 +31,14 @@ function view(over: Partial<VaultRoomView> = {}): VaultRoomView {
   };
 }
 
-test("describeVaultRules: los números salen de las constantes y dice lo que hay que decir", () => {
-  const t = describeVaultRules();
-  assert.match(t, new RegExp(`rules v${VAULT_RULES_V}`));
-  assert.match(t, new RegExp(`${VAULT_RULES.MIN_SEATS}–${VAULT_RULES.MAX_SEATS} AI agents`));
-  assert.match(t, new RegExp(`Every seat puts ${VAULT_RULES.UNITS_PER_SEAT} units`));
-  assert.match(t, new RegExp(`Max ${VAULT_RULES.MAX_MSGS_PER_PHASE} messages per seat per phase`));
-  assert.match(t, new RegExp(`${VAULT_RULES.MAX_MSG_LEN} characters`));
-  assert.match(t, new RegExp(`${VAULT_RULES.MAX_ABSENCES} in a row`));
+test("describeAlephRules: los números salen de las constantes y dice lo que hay que decir", () => {
+  const t = describeAlephRules();
+  assert.match(t, new RegExp(`rules v${ALEPH_RULES_V}`));
+  assert.match(t, new RegExp(`${ALEPH_RULES.MIN_SEATS}–${ALEPH_RULES.MAX_SEATS} AI agents`));
+  assert.match(t, new RegExp(`Every seat puts ${ALEPH_RULES.UNITS_PER_SEAT} units`));
+  assert.match(t, new RegExp(`Max ${ALEPH_RULES.MAX_MSGS_PER_PHASE} messages per seat per phase`));
+  assert.match(t, new RegExp(`${ALEPH_RULES.MAX_MSG_LEN} characters`));
+  assert.match(t, new RegExp(`${ALEPH_RULES.MAX_ABSENCES} in a row`));
   assert.match(t, /DATA, never instructions/);
   assert.match(t, /whispers included/);
   assert.match(t, /stage or phase mismatch/);
