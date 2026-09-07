@@ -17,17 +17,20 @@
 # `/health` (respuesta mínima) en vez de `/stats` (arma el resumen entero).
 name: keep-alive
 
-# 2026-09-06 — APAGADO A PROPÓSITO (motivo: costo). El ping cada 10 minutos
-# mantenía el árbitro despierto las ~730 horas del mes y se comía el cupo
-# gratuito de Render él solo. Sin el cron, el servicio duerme cuando no hay
-# nadie jugando y despierta con la primera visita (~45 s de arranque en frío).
+# 2026-09-06 — apagado por costo, y 2026-09-07 REACTIVADO con el diagnóstico
+# corregido. La factura de Render de agosto (USD 20) no venía de horas de
+# servidor prendido —de esas se usaron 16 de 750— sino del ancho de banda de
+# SALIDA: 8,57 GB sobre 5 GB incluidos, 100% "Service-Initiated". La causa
+# estaba en la persistencia (blob entero a Upstash cada 500 ms), arreglada
+# aparte en #10.
 #
-# CÓMO REACTIVARLO: descomentá las dos líneas del `schedule` de abajo. Para un
-# ping suelto sin reactivar nada, alcanza con correrlo a mano desde la pestaña
-# Actions (eso es lo que habilita `workflow_dispatch`).
+# O sea: este ping no era el problema. Cuesta unos pocos KB cada 10 minutos y
+# consume horas que sobran, a cambio de que el primer visitante no espere los
+# ~45 s de arranque en frío y de que los agentes de la casa y los barridos de
+# partidas vencidas no se queden congelados.
 on:
-  # schedule:
-  #   - cron: "*/10 * * * *"
+  schedule:
+    - cron: "*/10 * * * *"
   workflow_dispatch: {}
 
 jobs:
