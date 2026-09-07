@@ -131,21 +131,60 @@ export interface VaultActBody {
   ts: number;
 }
 
+/** Cuánto espera cada pedido antes de darse por perdido. El árbitro corre en
+ *  un host que se duerme (free tier) y se reinicia solo en cada deploy: sin
+ *  tope, una conexión colgada bloquea el `await` hasta el timeout por defecto
+ *  del runtime (minutos), y un agente de Aleph que sondea cada 5 s pierde
+ *  fases enteras sin enterarse. El cliente web ya usa el mismo criterio
+ *  (apps/web/app/lib/arbiter.ts). */
+export const DEFAULT_TIMEOUT_MS = 15_000;
+
 export interface ArbiterClientOptions {
   fetchImpl?: typeof fetch;
+  /** Tope por pedido en ms (default `DEFAULT_TIMEOUT_MS`). 0 lo desactiva. */
+  timeoutMs?: number;
 }
 
 export class ArbiterClient {
   private base: string;
   private fetchImpl: typeof fetch;
+  private timeoutMs: number;
 
   constructor(baseUrl: string, opts: ArbiterClientOptions = {}) {
     this.base = baseUrl.replace(/\/$/, "");
     this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  }
+
+  /** `init` con el tope de tiempo puesto. Se le agrega a TODO pedido, GET
+   *  incluido: un GET colgado es el que más duele (es el sondeo). */
+  private init(init: RequestInit = {}): RequestInit {
+    if (this.timeoutMs <= 0) return init;
+    return { ...init, signal: AbortSignal.timeout(this.timeoutMs) };
+  }
+
+  /** Un pedido cortado por el tope de tiempo llega acá como `TimeoutError`
+   *  (o `AbortError`): se traduce a un mensaje que nombra la ruta, porque el
+   *  del runtime no dice contra qué se estaba hablando. `label` nunca lleva el
+   *  query string (ahí viaja el pase de vista: ver `get`). */
+  private async fetchWithTimeout(
+    url: string,
+    label: string,
+    init?: RequestInit,
+  ): Promise<Response> {
+    try {
+      return await this.fetchImpl(url, this.init(init));
+    } catch (e) {
+      const name = (e as { name?: string } | null | undefined)?.name;
+      if (name === "TimeoutError" || name === "AbortError") {
+        throw new Error(`arbiter ${label} timeout after ${this.timeoutMs}ms`, { cause: e });
+      }
+      throw e;
+    }
   }
 
   private async post<T = MatchView>(path: string, body: unknown): Promise<T> {
-    const r = await this.fetchImpl(`${this.base}${path}`, {
+    const r = await this.fetchWithTimeout(`${this.base}${path}`, path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -163,9 +202,9 @@ export class ArbiterClient {
    *  MATCHMAKE_AUTH_TTL_MS de la firma. Filtrarla en un error de log expondría
    *  la vista PRIVADA de ese asiento a cualquiera que lo lea. */
   private async get<T>(path: string): Promise<T> {
-    const r = await this.fetchImpl(`${this.base}${path}`);
+    const label = path.split("?")[0];
+    const r = await this.fetchWithTimeout(`${this.base}${path}`, label);
     if (!r.ok) {
-      const label = path.split("?")[0];
       throw new Error(`arbiter ${label} ${r.status}: ${await r.text()}`);
     }
     return (await r.json()) as T;
@@ -194,20 +233,23 @@ export class ArbiterClient {
 
   async getMatch(id: string, address?: string): Promise<MatchView> {
     const q = address ? `?address=${address}` : "";
-    const r = await this.fetchImpl(`${this.base}/match/${id}${q}`);
+    const r = await this.fetchWithTimeout(`${this.base}/match/${id}${q}`, `get /match/${id}`);
     if (!r.ok) throw new Error(`arbiter get ${r.status}`);
     return (await r.json()) as MatchView;
   }
 
   async leaderboard(game: string, limit = 20): Promise<LeaderRow[]> {
-    const r = await this.fetchImpl(`${this.base}/leaderboard/${game}?limit=${limit}`);
+    const r = await this.fetchWithTimeout(
+      `${this.base}/leaderboard/${game}?limit=${limit}`,
+      `leaderboard/${game}`,
+    );
     if (!r.ok) throw new Error(`arbiter leaderboard ${r.status}`);
     const j = (await r.json()) as { top?: LeaderRow[] };
     return j.top ?? [];
   }
 
   async rating(address: string): Promise<Record<string, number>> {
-    const r = await this.fetchImpl(`${this.base}/rating/${address}`);
+    const r = await this.fetchWithTimeout(`${this.base}/rating/${address}`, `rating/${address}`);
     if (!r.ok) throw new Error(`arbiter rating ${r.status}`);
     const j = (await r.json()) as { ratings?: Record<string, number> };
     return j.ratings ?? {};

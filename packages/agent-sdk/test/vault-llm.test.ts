@@ -245,6 +245,62 @@ test("playVaultRoom: una racha de fallos del modelo corta en vez de jugar de def
   assert.equal(calls, 3, "tolera fallos sueltos y corta a los 3 seguidos");
 });
 
+/** Árbitro que tropieza en los GET de la vista de UN asiento: `fails` vistas
+ *  seguidas fallan y después responde normal. Es el reinicio del árbitro por un
+ *  deploy, el free tier que se despierta o un 502 del proxy. */
+class FlakyViewArbiter extends FakeVaultArbiter {
+  victim = "";
+  fails = 0;
+  seen = 0;
+  async vaultView(roomId: string, pass?: VaultViewPass) {
+    if (pass && pass.address.toLowerCase() === this.victim && this.seen < this.fails) {
+      this.seen++;
+      throw new Error(`arbiter /vault/${this.roomId} 503: Service Unavailable`);
+    }
+    return super.vaultView(roomId, pass);
+  }
+}
+
+test("playVaultRoom: un tropiezo del árbitro no mata al asiento (sigue sondeando y termina la sala)", async () => {
+  const fake = new FlakyViewArbiter();
+  const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
+  fake.victim = agents[0].address.toLowerCase();
+  fake.fails = 2; // dos vistas seguidas caídas, después el árbitro vuelve
+  const lines: string[] = [];
+  const results = await Promise.all(
+    agents.map((a, i) =>
+      playVaultRoom(a, scripted, i === 0 ? { ...FAST, log: (l) => lines.push(l) } : FAST),
+    ),
+  );
+  assert.ok(
+    results.every((r) => r.status === "settled"),
+    "la sala terminó igual: el asiento no quedó mudo",
+  );
+  assert.equal(fake.seen, 2, "los dos fallos ocurrieron de verdad");
+  assert.ok(
+    lines.some((l) => /el árbitro no respondió \(1\/6\)/.test(l)),
+    "el fallo quedó registrado en el log, no tragado",
+  );
+});
+
+test("playVaultRoom: una racha de fallos del árbitro sí corta, con el motivo", async () => {
+  // Si el árbitro no vuelve, el asiento ya está mudo de hecho: es mejor decirlo
+  // que fingir que se está jugando.
+  const fake = new FlakyViewArbiter();
+  const agents = Array.from({ length: 4 }, () => createAgent({ client: fake }));
+  fake.victim = agents[0].address.toLowerCase();
+  fake.fails = Infinity;
+  const settled = await Promise.allSettled([
+    playVaultRoom(agents[0], scripted, { ...FAST, maxArbiterFails: 3 }),
+    ...agents.slice(1).map((a) => playVaultRoom(a, scripted, { ...FAST, maxPolls: 40 })),
+  ]);
+  assert.equal(settled[0].status, "rejected");
+  assert.match(
+    (settled[0] as PromiseRejectedResult).reason.message,
+    /el árbitro falló 3 veces seguidas/,
+  );
+});
+
 test("isFatalBrainError: credenciales y cuota son irrecuperables; 429 y 529 no", () => {
   assert.equal(isFatalBrainError(new Error("Could not resolve authentication method")), true);
   assert.equal(isFatalBrainError(Object.assign(new Error("nope"), { status: 401 })), true);

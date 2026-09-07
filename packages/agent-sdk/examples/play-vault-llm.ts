@@ -254,6 +254,14 @@ export interface PlayOptions {
   maxBrainCalls?: number;
   /** Fallos SEGUIDOS del cliente del modelo tolerados antes de abandonar la sala (default 3). */
   maxBrainFails?: number;
+  /** Fallos SEGUIDOS del árbitro (sondeo o refresco) tolerados antes de
+   *  abandonar la sala (default 6 ≈ 30 s a 5 s de sondeo). El árbitro se
+   *  reinicia en cada deploy y su host gratuito se duerme: un 502 suelto en
+   *  una sala de 10 a 40 minutos no puede matar el proceso y dejar el asiento
+   *  mudo, que estira CADA fase hasta el plazo y arrastra a los otros 3-7
+   *  asientos dos etapas. Cada pedido ya tiene su propio tope de tiempo
+   *  (`timeoutMs` del cliente), así que un fallo llega, tarde o temprano. */
+  maxArbiterFails?: number;
   now?: () => number;
   log?: (line: string) => void;
 }
@@ -272,6 +280,7 @@ export async function playVaultRoom(
   const rePromptMs = opts.rePromptMs ?? 30_000;
   const maxBrainCalls = opts.maxBrainCalls ?? 60;
   const maxBrainFails = opts.maxBrainFails ?? 3;
+  const maxArbiterFails = opts.maxArbiterFails ?? 6;
   const now = opts.now ?? Date.now;
   const log = opts.log ?? (() => {});
   const me = agent.address.toLowerCase();
@@ -286,7 +295,32 @@ export async function playVaultRoom(
   let lastAsk = { at: -Infinity, fingerprint: "" };
   let brainCalls = 0;
   let brainFails = 0; // fallos SEGUIDOS del cliente del modelo (se resetea al responder)
+  let arbiterFails = 0; // fallos SEGUIDOS del árbitro (se resetea al responder)
   let budgetLogged = false;
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  /** Un GET de la vista que NO tira por un tropiezo del árbitro: devuelve
+   *  `null` y deja que el loop siga sondeando. Solo se rinde ante una racha:
+   *  ahí el asiento ya está mudo de hecho y es mejor decirlo. */
+  async function pullView(): Promise<VaultRoomView | null> {
+    try {
+      const fresh = await agent.vaultView(roomId);
+      arbiterFails = 0;
+      return fresh;
+    } catch (e) {
+      arbiterFails++;
+      const msg = (e as Error).message;
+      log(`el árbitro no respondió (${arbiterFails}/${maxArbiterFails}): ${msg}`);
+      if (arbiterFails >= maxArbiterFails) {
+        throw new Error(
+          `el árbitro falló ${arbiterFails} veces seguidas en la sala ${roomId}: ${msg}`,
+          { cause: e },
+        );
+      }
+      return null;
+    }
+  }
 
   for (let i = 0; i < maxPolls; i++) {
     if (v.status === "settled" || v.status === "dissolved") return v;
@@ -356,7 +390,16 @@ export async function playVaultRoom(
         // AUSENCIA. Se refresca antes de decidir y se resigna lo accesorio.
         if (reply && !nearDeadline && timeLeft() < DEADLINE_MARGIN_MS) {
           log("la respuesta llegó con el plazo encima: refresco la vista antes de decidir");
-          v = await agent.vaultView(roomId);
+          const refreshed = await pullView();
+          if (!refreshed) {
+            // Sin vista fresca no sabemos en qué fase estamos: postear con el
+            // `at` viejo es tirar la decisión a una fase que quizá ya cerró. Se
+            // deja para el próximo sondeo, que con el plazo encima ya juega la
+            // acción por defecto sin consultar al modelo.
+            await sleep(pollMs);
+            continue;
+          }
+          v = refreshed;
           const fresh = v.stage;
           if (
             v.status !== "playing" ||
@@ -424,8 +467,11 @@ export async function playVaultRoom(
         if (postFailed) lastAsk = { at: -Infinity, fingerprint: "" };
       }
     }
-    await new Promise((r) => setTimeout(r, pollMs));
-    v = await agent.vaultView(roomId);
+    await sleep(pollMs);
+    // Si el árbitro tropieza, se conserva la vista anterior y se reintenta en
+    // el próximo sondeo: un asiento vivo vale más que un proceso prolijo.
+    const fresh = await pullView();
+    if (fresh) v = fresh;
   }
   throw new Error(`la sala ${roomId} no terminó dentro de ${maxPolls} sondeos`);
 }
@@ -469,7 +515,10 @@ function claudeBrain(client: Anthropic): Brain {
 
 async function main(): Promise<void> {
   const arbiterUrl = process.env.ARBITER_URL ?? "http://localhost:4000";
-  const agent = createAgent({ arbiterUrl });
+  // Tope de tiempo por pedido: el árbitro corre en un host que se duerme y se
+  // reinicia en cada deploy. Sin esto, una conexión colgada se come fases
+  // enteras del reloj de la sala sin que el loop se entere.
+  const agent = createAgent({ arbiterUrl, timeoutMs: 10_000 });
   const anthropic = new Anthropic(); // lee ANTHROPIC_API_KEY (o el perfil de `ant auth login`)
   console.log("Agente:", agent.address, "· modelo:", MODEL, "· árbitro:", arbiterUrl);
   console.log(

@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.agustincf/arcade1v1",
-  "description": "Play 1v1 arcade games vs AI agents & humans, ranked by ELO, or sit at Aleph: a 4–8 agent table with one pot. Replay-verified, on-chain escrow (Base).",
+  "description": "Play 1v1 arcade games vs AI agents & humans, ranked by ELO, or Aleph: a 4–8 agent table, one pot.",
   "repository": {
     "url": "https://github.com/agustincf/Arcade1v1",
     "source": "github",

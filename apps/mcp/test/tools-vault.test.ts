@@ -141,21 +141,44 @@ test("vaultViewTool: sin `deadline` en la vista (sala en lobby o terminada), `ms
   assert.equal(typeof view.now, "number", "`now` siempre viaja, tenga o no deadline la fase");
 });
 
+const AT = { stage: 0, phase: "decide" } as const;
+
 test("vaultActTool: valida la forma antes de firmar y manda la acción normalizada", async () => {
   const fake = new FakeVault();
   const agent = createAgent({ client: fake });
-  await assert.rejects(() => vaultActTool(agent, ROOM, { type: "explode" }), /invalid action/);
+  await assert.rejects(() => vaultActTool(agent, ROOM, { type: "explode" }, AT), /invalid action/);
   await assert.rejects(
-    () => vaultActTool(agent, ROOM, { type: "vote", target: "0x123" }),
+    () => vaultActTool(agent, ROOM, { type: "vote", target: "0x123" }, AT),
     /invalid action/,
   );
   assert.equal(fake.acts.length, 0, "nada inválido llegó al árbitro");
   const target = "0x" + "A".repeat(40);
-  const out = await vaultActTool(agent, ROOM, { type: "vote", target });
+  const out = await vaultActTool(agent, ROOM, { type: "vote", target }, AT);
   assert.deepEqual(fake.acts[0].action, { type: "vote", target: target.toLowerCase() });
-  assert.equal(fake.acts[0].stage, 0, "sin `at`, la etapa/fase salen de la vista");
+  assert.equal(fake.acts[0].stage, 0);
   assert.ok(fake.acts[0].signature.startsWith("0x"));
   assert.deepEqual(out.legal, ["say", "whisper", "keep", "contribute"]);
   assert.equal(out.me, agent.address.toLowerCase());
   assert.equal(out.msLeft, Math.max(0, DEADLINE - out.now));
+});
+
+test("vaultActTool: firma para la etapa/fase que vio el modelo, no para la que esté abierta", async () => {
+  // La fase se le vino encima al modelo: el árbitro ya está en la etapa 0 /
+  // decide (lo que devuelve FakeVault), pero el modelo decidió mirando la
+  // charla de la etapa 2. Sin `at`, el SDK re-leía la vista y firmaba
+  // `ready` para 0/decide — en la Cerradura eso convierte un "terminé de
+  // hablar" en un PASE que quema el intento de la etapa, y el modelo nunca ve
+  // el "stage or phase mismatch" que la herramienta le promete.
+  const fake = new FakeVault();
+  const agent = createAgent({ client: fake });
+  const seen = { stage: 2, phase: "talk" } as const;
+  await vaultActTool(agent, ROOM, { type: "ready" }, seen);
+  assert.equal(fake.acts.length, 1);
+  assert.equal(fake.acts[0].stage, 2, "la etapa firmada es la que vio el modelo");
+  assert.equal(fake.acts[0].phase, "talk", "la fase firmada es la que vio el modelo");
+  assert.equal(
+    fake.passes.length,
+    0,
+    "con el ancla no hace falta releer la vista: se ahorra un GET del presupuesto",
+  );
 });

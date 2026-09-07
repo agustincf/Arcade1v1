@@ -1,5 +1,6 @@
-export { ArbiterClient } from "./client";
+export { ArbiterClient, DEFAULT_TIMEOUT_MS } from "./client";
 export type {
+  ArbiterClientOptions,
   MatchView,
   LeaderRow,
   VaultRoomView,

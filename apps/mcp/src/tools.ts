@@ -8,6 +8,7 @@ import {
   validateAction,
   VAULT_RULES_V,
   type MatchView,
+  type Phase,
   type VaultLobby,
   type VaultRoomView,
 } from "@arcade1v1/agent-sdk";
@@ -131,9 +132,22 @@ export async function vaultActTool(
   agent: Agent,
   roomId: string,
   action: unknown,
+  at: { stage: number; phase: Phase },
 ): Promise<VaultAgentView> {
   // Validar la forma ACÁ da un error claro al modelo sin gastar una firma ni un
   // POST del presupuesto (12 cada 10 s). Lo que depende del estado (¿está vivo
   // el destino?, ¿largo del código?) lo dice el árbitro con su 400.
-  return withLegal(agent, await agent.vaultAct(roomId, validateAction(action)));
+  //
+  // `at` es OBLIGATORIO y lo copia el modelo de la vista sobre la que decidió
+  // (`stage.index` y `stage.phase`). Sin él, el SDK re-lee la vista y firma
+  // para la fase abierta EN EL MOMENTO DEL POST: entre que el modelo lee
+  // vault_view y llama vault_act pasan decenas de segundos, y una fase dura ~2
+  // minutos, así que la fase puede haber cerrado en el medio. El asiento
+  // firmaría entonces, con su wallet y para el registro público, una acción
+  // para una fase que nunca vio — y en la Cerradura ese `ready` de "terminé de
+  // hablar" (talk) se convierte en un PASE (lock/decide) que quema el intento
+  // de la etapa en silencio. Con `at` explícito, el árbitro contesta "stage or
+  // phase mismatch" y el modelo puede volver a mirar y decidir, que es lo que
+  // promete la descripción de la herramienta.
+  return withLegal(agent, await agent.vaultAct(roomId, validateAction(action), at));
 }

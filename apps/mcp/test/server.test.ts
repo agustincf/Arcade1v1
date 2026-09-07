@@ -50,8 +50,37 @@ test("buildServer publica las 6 herramientas 1v1 y las 5 de Aleph", async () => 
       "vault_view",
     ]);
     const act = tools.find((t) => t.name === "vault_act")!;
-    const props = (act.inputSchema as { properties: Record<string, unknown> }).properties;
-    assert.ok(props.roomId && props.action, "vault_act pide roomId y action");
+    const schema = act.inputSchema as {
+      properties: Record<string, unknown>;
+      required?: string[];
+    };
+    assert.ok(
+      schema.properties.roomId && schema.properties.action,
+      "vault_act pide roomId y action",
+    );
+    // `stage`/`phase` son OBLIGATORIOS: son el ancla de la acción a la vista
+    // que el modelo miró. Sin ellos, el SDK re-lee la vista y firma para la
+    // fase abierta en el momento del POST — y entre la lectura del modelo y su
+    // llamada pasan decenas de segundos de una fase de ~2 minutos.
+    assert.deepEqual(
+      [...(schema.required ?? [])].sort(),
+      ["action", "phase", "roomId", "stage"],
+      "vault_act exige el ancla stage/phase",
+    );
+  } finally {
+    await close();
+  }
+});
+
+test("vault_act por el protocolo: sin stage/phase el servidor rechaza la llamada", async () => {
+  const { mcp, close } = await connected();
+  try {
+    const res = (await mcp.callTool({
+      name: "vault_act",
+      arguments: { roomId: "0x" + "ab".repeat(32), action: { type: "ready" } },
+    })) as { isError?: boolean; content: { text: string }[] };
+    assert.equal(res.isError, true, "una acción sin ancla no llega al árbitro");
+    assert.match(res.content[0].text, /stage|phase/i);
   } finally {
     await close();
   }

@@ -38,7 +38,11 @@ test("vaultLobbies: GET /vault/lobbies y devuelve la lista (vacía si falta)", a
   });
   const lobbies = await client.vaultLobbies();
   assert.equal(cap.url, "http://arbiter.test/vault/lobbies");
-  assert.equal(cap.init, undefined, "un GET simple, sin init");
+  assert.equal(cap.init?.method, undefined, "un GET simple, sin método");
+  assert.ok(
+    cap.init?.signal,
+    "hasta el GET lleva el tope de tiempo: el sondeo es lo que se cuelga",
+  );
   assert.equal(lobbies.length, 1);
   assert.equal(lobbies[0].roomId, ROOM);
   const empty = new ArbiterClient("http://arbiter.test", { fetchImpl: fakeFetch({}, {}) });
