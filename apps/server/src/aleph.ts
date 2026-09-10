@@ -289,8 +289,19 @@ export async function joinAleph(
 }
 
 /** Cierra el lobby y arranca la sala: semilla secreta + compromiso público. */
+/** Tests: fija la semilla de la PRÓXIMA sala que arranque, y se consume ahí
+ *  mismo. La semilla es lo único que decide el mazo, así que es la única forma
+ *  de llevar una sala a una etapa concreta (la Cerradura, por ejemplo) sin
+ *  correr el test veinte veces a ver si sale. A diferencia de forzar el mazo,
+ *  el registro sigue re-simulando igual: `stateOf` deriva TODO de la semilla. */
+let forcedSeed: Hex | undefined;
+export function __forceAlephSeedForTest(seed?: Hex): void {
+  forcedSeed = seed;
+}
+
 function startRoom(room: AlephRoom, now: number): void {
-  const secretSeed = randomHex32();
+  const secretSeed = forcedSeed ?? randomHex32();
+  forcedSeed = undefined;
   room.secretSeed = secretSeed;
   room.commit = keccak256(secretSeed);
   room.status = "playing";

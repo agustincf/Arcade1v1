@@ -288,3 +288,77 @@ test("cerradura: arma el código con los fragmentos cantados, y espera si falta 
     "si falta una posición no inventa un código",
   );
 });
+
+// REGRESIÓN del peor bug del relleno. En la Cerradura, "paso" se manda como
+// `ready`, y el motor lo guarda aparte de las decisiones. El barrido miraba
+// solo `decided`, así que reintentaba el mismo paso cada 5 segundos y el motor
+// lo rechazaba una y otra vez hasta que venciera el plazo: 15 rechazos
+// logueados en una sola sala.
+//
+// Llegar a una Cerradura hace falta fijar la SEMILLA: el mazo sale de ahí y de
+// ningún otro lado, así que sin fijarla el test caía en esa etapa una de cada
+// seis corridas y pasaba en verde con el bug adentro.
+const SEMILLA_CON_CERRADURA =
+  "0x358c0c52129d876f566a1bd6d04ff14236faef87f26601e3a5a1f1dcc1df2c92" as const;
+
+test("cerradura: el paso del relleno NO se reintenta en cada barrido", async () => {
+  V.__forceAlephSeedForTest(SEMILLA_CON_CERRADURA);
+  const t0 = Date.now();
+  const a = realAgent();
+  await a.join(t0);
+  let now = inFillWindow(t0);
+  await H.alephHouseTick(now);
+
+  const roomId = V.liveAlephRooms(now).find((r) => r.seats.includes(a.address))!.id;
+  const roomNow = () => V.liveAlephRooms(now).find((r) => r.id === roomId)!;
+  const viewNow = () => viewFor(V.stateOf(roomNow()), a.address);
+  assert.equal(viewNow().stage.kind, "share", "la primera etapa siempre es el Reparto");
+
+  // Avanzar hasta la FASE DE DECISIÓN de la Cerradura: la casa y el agente de
+  // verdad actúan hasta que el mazo saque esa carta.
+  for (let guard = 0; guard < 20; guard++) {
+    const st = viewNow().stage;
+    if (st.kind === "lock" && st.phase === "decide") break;
+    await H.alephHouseTick(now);
+    // El barrido pudo cerrar la fase: se relee ANTES de actuar, si no el agente
+    // manda una acción de la etapa anterior y el motor la rechaza con razón.
+    const v = viewNow();
+    if (v.stage.kind === "lock" && v.stage.phase === "decide") break;
+    const you = v.you!;
+    if (v.stage.phase === "talk" ? !you.ready : !you.decided) {
+      await a.act(
+        roomId,
+        v.stage.index,
+        v.stage.phase,
+        v.stage.phase === "talk" ? { type: "ready" } : { type: "contribute" },
+        now,
+      );
+    }
+    now += 1000;
+  }
+  const st = viewNow().stage;
+  assert.equal(st.kind, "lock");
+  assert.equal(st.phase, "decide", "la semilla fijada llevó la sala a la Cerradura");
+
+  // Primer barrido en esta fase: los asientos que no pueden armar el código
+  // pasan con `ready`. El segundo barrido NO tiene que volver a intentarlo.
+  await H.alephHouseTick(now);
+  const pasaron = Seats.houseSeats()
+    .filter((s) => roomNow().seats.includes(s.address))
+    .map((s) => viewFor(V.stateOf(roomNow()), s.address).you!);
+  assert.ok(
+    pasaron.some((you) => you.ready && !you.decided),
+    "al menos un asiento de la casa pasó la Cerradura con `ready`",
+  );
+
+  const original = console.error;
+  const gritos: string[] = [];
+  console.error = (...args: unknown[]) => void gritos.push(args.join(" "));
+  try {
+    await H.alephHouseTick(now + 5_000);
+    await H.alephHouseTick(now + 10_000);
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(gritos, [], "el barrido no vuelve a mandar el paso ya dado");
+});
