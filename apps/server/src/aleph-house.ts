@@ -37,6 +37,7 @@ import {
   joinAleph,
   liveAlephRooms,
   stateOf,
+  type AlephRoom,
 } from "./aleph.js";
 import { houseSeats, isAlephHouseAddress, type HouseSeat } from "./aleph-house-seats.js";
 
@@ -44,13 +45,23 @@ import { houseSeats, isAlephHouseAddress, type HouseSeat } from "./aleph-house-s
  *  porque sin relleno el formato no arranca ninguna mesa. */
 export const alephHouseEnabled = () => process.env.ALEPH_HOUSE_ENABLED !== "false";
 
+/** Perilla numérica del entorno, con la misma guarda que `aleph.ts`: un valor
+ *  que no es un número positivo cae al default en vez de propagar `NaN`. Sin
+ *  esto, `ALEPH_HOUSE_TICK_MS=x` daba `setInterval(fn, NaN)` (que corre cada
+ *  1 ms) y `ALEPH_HOUSE_FILL_LEAD_MS=x` volvía falsa la comparación del plazo,
+ *  con la casa sentándose apenas se abre el lobby. */
+const envNum = (key: string, def: number) => {
+  const n = Number(process.env[key]);
+  return Number.isFinite(n) && n > 0 ? n : def;
+};
+
 /** Cuánto antes del cierre del lobby entra la casa. Por defecto, los últimos
  *  2 minutos de los 10: entrar antes le robaría la silla a alguien de verdad. */
-const FILL_LEAD_MS = Number(process.env.ALEPH_HOUSE_FILL_LEAD_MS ?? 2 * 60_000);
+const FILL_LEAD_MS = envNum("ALEPH_HOUSE_FILL_LEAD_MS", 2 * 60_000);
 
 /** Cada cuánto revisa. Igual que el ticker del formato: no hay apuro, las fases
  *  duran minutos. */
-const TICK_MS = Number(process.env.ALEPH_HOUSE_TICK_MS ?? 5_000);
+const TICK_MS = envNum("ALEPH_HOUSE_TICK_MS", 5_000);
 
 const FRAGMENT_RE = /#(\d+)=(\d)/g;
 
@@ -58,13 +69,17 @@ let ticker: NodeJS.Timeout | undefined;
 
 // ---- Firmar y actuar ----------------------------------------------------------
 
-async function seatJoin(seat: HouseSeat, stake: number, now: number): Promise<void> {
+/** Sienta al asiento y devuelve la sala en la que QUEDÓ. No se pide una sala
+ *  concreta: `joinAleph` sienta en el lobby abierto de ese stake, y el que lo
+ *  llama tiene que verificar que sea el que esperaba. */
+async function seatJoin(seat: HouseSeat, stake: number, now: number): Promise<string> {
   const account = privateKeyToAccount(seat.privateKey);
   const ts = now;
   const signature = await account.signMessage({
     message: matchmakeAuthMessage("aleph", stake, seat.address, ts),
   });
-  await joinAleph(stake, seat.address, { signature, ts }, now);
+  const room = await joinAleph(stake, seat.address, { signature, ts }, now);
+  return room.roomId;
 }
 
 async function seatAct(
@@ -156,15 +171,17 @@ export function houseAction(
 
     case "vote": {
       const others = alive.filter((s) => s.address !== me);
-      if (others.length === 0) return { type: "ready" };
+      // No debería pasar (el director manda a la Final con 2 vivos), pero si
+      // pasara: esperar. `ready` NO vale en un Voto — el motor solo lo acepta
+      // en charla o en la Cerradura — así que devolverlo sería un rechazo
+      // seguro, no una espera. `others` ya es un array nuevo: se ordena en él.
+      if (others.length === 0) return undefined;
       // El que más guardó es el que más amenaza: criterio legible, que un
       // agente de verdad puede leer y usar en su favor. El errático tira.
       const target =
         seat.temperament === "erratic"
           ? others[Math.floor(r * others.length)]
-          : [...others].sort(
-              (a, b) => b.pocket - a.pocket || a.address.localeCompare(b.address),
-            )[0];
+          : others.sort((a, b) => b.pocket - a.pocket || a.address.localeCompare(b.address))[0];
       return { type: "vote", target: target.address };
     }
 
@@ -198,15 +215,17 @@ export function houseAction(
 // ---- El barrido ---------------------------------------------------------------
 
 /** Asientos de la casa que no están en ninguna sala viva. El motor solo deja un
- *  asiento por address, así que un asiento ocupado no puede completar otra mesa. */
-function freeSeats(now: number): HouseSeat[] {
-  const busy = new Set(liveAlephRooms(now).flatMap((r) => r.seats));
+ *  asiento por address, así que un asiento ocupado no puede completar otra mesa.
+ *  Se recalcula sobre las salas del barrido, que ya traen los asientos que se
+ *  sentaron en esta misma vuelta. */
+function freeSeats(rooms: AlephRoom[]): HouseSeat[] {
+  const busy = new Set(rooms.flatMap((r) => r.seats));
   return houseSeats().filter((s) => !busy.has(s.address));
 }
 
 /** Completa los lobbies que están por vencerse con alguien de verdad adentro. */
-async function fillLobbies(now: number): Promise<void> {
-  for (const room of liveAlephRooms(now)) {
+async function fillLobbies(rooms: AlephRoom[], now: number): Promise<void> {
+  for (const room of rooms) {
     if (room.status !== "lobby") continue;
     if (room.stake !== 0) continue; // la casa no pone plata (límite 2)
     if (now < room.createdAt + ALEPH_LOBBY_MS - FILL_LEAD_MS) continue; // todavía hay tiempo (3)
@@ -215,15 +234,31 @@ async function fillLobbies(now: number): Promise<void> {
     if (!room.seats.some((a) => !isAlephHouseAddress(a))) continue;
 
     const need = ALEPH_MIN_SEATS - room.seats.length;
-    for (const seat of freeSeats(now).slice(0, need)) {
-      await seatJoin(seat, room.stake, now);
+    const free = freeSeats(rooms);
+    // Sin asientos suficientes para LLEGAR al mínimo, sentarse no sirve de
+    // nada: el lobby se disolvería igual y esos asientos quedarían trabados
+    // (uno por sala) hasta que eso pase, sin poder completar otra mesa.
+    if (free.length < need) continue;
+    for (const seat of free.slice(0, need)) {
+      // `joinAleph` sienta en el lobby ABIERTO del stake, no en una sala
+      // concreta, y entre la firma y la sentada ese lobby pudo arrancar o
+      // disolverse. Si el asiento cae en otra sala, sería un lobby nuevo de
+      // pura casa: se corta acá, que es justo lo que prohíbe el límite 1.
+      if (room.status !== "lobby") break;
+      try {
+        if ((await seatJoin(seat, room.stake, now)) !== room.id) break;
+      } catch (e) {
+        // Un asiento que no entró no puede frenar el resto del barrido.
+        console.error("[aleph-house] join", seat.name, (e as Error).message);
+        break;
+      }
     }
   }
 }
 
 /** Juega los asientos de la casa que tienen algo pendiente en la fase actual. */
-async function playSeats(now: number): Promise<void> {
-  for (const room of liveAlephRooms(now)) {
+async function playSeats(rooms: AlephRoom[], now: number): Promise<void> {
+  for (const room of rooms) {
     if (room.status !== "playing") continue;
     const mine = houseSeats().filter((s) => room.seats.includes(s.address));
     if (mine.length === 0) continue;
@@ -233,21 +268,26 @@ async function playSeats(now: number): Promise<void> {
       // El estado se relee en cada vuelta: la acción anterior pudo cerrar la
       // fase (todos decidieron) y hasta la sala entera.
       if (room.status !== "playing") break;
-      const v = viewFor(stateOf(room), seat.address);
-      const you = v.you;
-      if (!you || you.status !== "alive") continue;
-      const st = v.stage;
-      const phase = st.phase;
-      if (phase === "talk" ? you.ready : you.decided) continue;
-
-      const action = houseAction(seat, v, room.id, offerTaken);
-      if (!action) continue;
-      if (action.type === "accept") offerTaken = true;
       try {
+        const v = viewFor(stateOf(room), seat.address);
+        const you = v.you;
+        if (!you || you.status !== "alive") continue;
+        const st = v.stage;
+        const phase = st.phase;
+        // `ready` también cuenta como decidido: en la Cerradura es "paso", y
+        // el motor lo guarda aparte de las decisiones. Mirando solo `decided`
+        // la casa reintentaba el mismo paso en cada barrido y el motor lo
+        // rechazaba con "already decided", una vez cada 5 s hasta el plazo.
+        if (you.decided || you.ready) continue;
+
+        const action = houseAction(seat, v, room.id, offerTaken);
+        if (!action) continue;
+        if (action.type === "accept") offerTaken = true;
         await seatAct(seat, room.id, st.index, phase, action, now);
       } catch (e) {
-        // Una acción rechazada (la fase cerró mientras firmábamos, por ejemplo)
-        // no puede frenar al resto de la mesa: se loguea y se sigue.
+        // Una acción rechazada (la fase cerró mientras firmábamos, por
+        // ejemplo) o una sala que ya no re-simula no pueden frenar al resto de
+        // la mesa ni al resto del barrido: se loguea y se sigue.
         console.error("[aleph-house]", seat.name, (e as Error).message);
       }
     }
@@ -258,8 +298,13 @@ async function playSeats(now: number): Promise<void> {
  *  sin esperar al intervalo. */
 export async function alephHouseTick(now = Date.now()): Promise<void> {
   if (!alephHouseEnabled() || !alephEnabled()) return;
-  await fillLobbies(now);
-  await playSeats(now);
+  // Las salas se piden UNA vez: cada llamada a `liveAlephRooms` corre un
+  // `settleDue` entero (todas las salas, más su posible escritura al store), y
+  // el barrido lo hacía tres veces o más por vuelta. Son referencias vivas, así
+  // que un lobby que arranca mientras se rellena ya se ve `playing` acá abajo.
+  const rooms = liveAlephRooms(now);
+  await fillLobbies(rooms, now);
+  await playSeats(rooms, now);
 }
 
 export function startAlephHouse(): void {

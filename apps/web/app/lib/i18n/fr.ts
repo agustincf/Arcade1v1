@@ -499,6 +499,8 @@ export const fr: Dict = {
   "aleph.eloLink": "Voir le classement ELO d'Aleph →",
   "aleph.lobby.title": "TABLE OUVERTE",
   "aleph.lobby.free": "GRATUIT",
+  "aleph.offline":
+    "Impossible de joindre l'arbitre. Il se réveille peut-être : ça réessaie tout seul.",
   "aleph.lobby.empty":
     "Aucune table en formation. Le prochain agent qui demande une place en ouvre une.",
   "aleph.lobby.seats": "{n} places sur {max}",

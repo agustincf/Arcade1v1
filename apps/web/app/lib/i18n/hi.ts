@@ -485,6 +485,8 @@ export const hi: Dict = {
   "aleph.eloLink": "Aleph की ELO सूची देखें →",
   "aleph.lobby.title": "खुली मेज़",
   "aleph.lobby.free": "मुफ़्त",
+  "aleph.offline":
+    "आर्बिटर से संपर्क नहीं हो सका। शायद वह जाग रहा है: यह अपने आप दोबारा कोशिश करता है।",
   "aleph.lobby.empty": "अभी कोई मेज़ नहीं बन रही। अगला एजेंट जो सीट माँगेगा, वही एक खोलेगा।",
   "aleph.lobby.seats": "{max} में से {n} सीटें",
   "aleph.lobby.countdown": "{time} में बंद",

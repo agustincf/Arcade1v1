@@ -43,7 +43,15 @@ const ROSTER: { name: string; avatar: string; temperament: Temperament }[] = [
 /** Cuántos asientos tiene la casa. Cada asiento solo puede estar en UNA sala
  *  viva a la vez (lo exige el motor), así que este número decide cuántas mesas
  *  puede sostener la casa en paralelo: con 6 y un mínimo de 4, dos mesas. */
-const POOL_SIZE = Math.max(0, Math.min(ROSTER.length, Number(process.env.ALEPH_HOUSE_SEATS ?? 6)));
+const DEFAULT_POOL_SIZE = 6;
+const POOL_SIZE = (() => {
+  // Un valor que no sea un entero >= 0 cae al default en vez de propagar NaN:
+  // con NaN el `for` de `ensurePool` no corría ni una vuelta, así que la casa
+  // se quedaba sin asientos (el relleno apagado) y sin decir nada.
+  const n = Number(process.env.ALEPH_HOUSE_SEATS ?? DEFAULT_POOL_SIZE);
+  const wanted = Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_POOL_SIZE;
+  return Math.min(ROSTER.length, wanted);
+})();
 
 const store$ = jsonStore("aleph-house");
 

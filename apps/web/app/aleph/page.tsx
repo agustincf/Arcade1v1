@@ -36,6 +36,10 @@ export default function AlephPage() {
   const { t } = useT();
   const [lobbies, setLobbies] = useState<AlephLobby[] | null>(null);
   const [rooms, setRooms] = useState<RecentAlephRoom[] | null>(null);
+  // "No pudimos preguntar" NO es "no hay mesa". Tragarse el error y mostrar la
+  // lista vacía deja al visitante creyendo que el formato está muerto, que es
+  // justo el mensaje que esta página existe para no dar.
+  const [offline, setOffline] = useState(false);
   // El reloj propio: la cuenta regresiva del lobby tiene que correr entre
   // refrescos, si no el visitante ve un número congelado 10 segundos.
   const [now, setNow] = useState(() => Date.now());
@@ -51,13 +55,13 @@ export default function AlephPage() {
     // árbitro dormido el primer fetch tarda ~40 s y un setInterval le apilaría
     // pedidos encima antes de que conteste el primero.
     const load = async () => {
-      const [l, r] = await Promise.all([
-        getAlephLobbies().catch(() => [] as AlephLobby[]),
-        getRecentAlephRooms(10).catch(() => [] as RecentAlephRoom[]),
-      ]);
+      const [l, r] = await Promise.allSettled([getAlephLobbies(), getRecentAlephRooms(10)]);
       if (cancel) return;
-      setLobbies(l);
-      setRooms(r);
+      // Los dos pedidos fallando es el árbitro dormido o caído; uno solo es un
+      // problema de esa ruta y la otra mitad de la página sigue sirviendo.
+      setOffline(l.status === "rejected" && r.status === "rejected");
+      if (l.status === "fulfilled") setLobbies(l.value);
+      if (r.status === "fulfilled") setRooms(r.value);
       timer = setTimeout(load, REFRESH_MS);
     };
     load();
@@ -103,7 +107,11 @@ export default function AlephPage() {
           <span className="chip">{t("aleph.lobby.free")}</span>
         </div>
         <div className="p-5">
-          {lobbies === null ? (
+          {offline ? (
+            <p className="py-6 text-center text-base text-(--color-muted-2)">
+              {t("aleph.offline")}
+            </p>
+          ) : lobbies === null ? (
             <p className="py-6 text-center text-base text-(--color-muted-2)">
               {t("match.connecting")}
             </p>

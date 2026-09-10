@@ -24,6 +24,10 @@ import {
  *  que va más lento: mismo dato, la mitad de pedidos al árbitro dormilón. */
 const REFRESH_MS = 10_000;
 
+/** Sondeos fallidos seguidos antes de rendirse. Uno solo no alcanza: el árbitro
+ *  se duerme y un deploy corta cualquier pedido en curso. */
+const MAX_FAILS = 5;
+
 const ARBITER = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
@@ -46,6 +50,7 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
 
   useEffect(() => {
     let cancel = false;
+    let fails = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     // Se reprograma SOLO al terminar cada pedido, en vez de un setInterval: con
     // el árbitro dormido el primer fetch tarda ~40 s, y un intervalo de 10 s le
@@ -54,26 +59,43 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
       try {
         const r = await getAlephRoom(roomId);
         if (cancel) return;
+        fails = 0;
+        setError(false);
         setRoom(r);
         // Sala terminada o disuelta: no hay nada más que mirar, no se
         // reprograma. Una pestaña olvidada deja de pedir sola.
         if (r.status === "settled" || r.status === "dissolved") return;
       } catch {
-        if (!cancel) setError(true);
-        return;
+        if (cancel) return;
+        // Un pedido que falla NO es el final: el árbitro duerme, y un reinicio
+        // o un deploy cortan cualquier sondeo. Antes, un solo error dejaba la
+        // página en "sala no encontrada" para siempre sobre una sala sana. Se
+        // reintenta, y recién con MAX_FAILS seguidos se deja de pedir.
+        setError(true);
+        if (++fails >= MAX_FAILS) return;
       }
       timer = setTimeout(load, REFRESH_MS);
     };
     load();
-    const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       cancel = true;
       if (timer) clearTimeout(timer);
-      clearInterval(tick);
     };
   }, [roomId]);
 
-  if (error) {
+  // El reloj propio solo corre mientras haya una cuenta regresiva que mover:
+  // en una sala liquidada, `now` no se muestra en ningún lado y el intervalo
+  // era un re-render por segundo hasta que cerraran la pestaña.
+  const counting = room?.status === "playing" && room.deadline !== undefined;
+  useEffect(() => {
+    if (!counting) return;
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, [counting]);
+
+  // Con una sala ya cargada, un sondeo que falla no la borra de la pantalla:
+  // se sigue mostrando lo último bueno mientras se reintenta.
+  if (error && !room) {
     return (
       <div className="mx-auto max-w-2xl text-center">
         <p className="py-8 text-base text-(--color-muted)">{t("aleph.room.notFound")}</p>

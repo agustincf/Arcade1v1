@@ -487,6 +487,7 @@ export const en: Dict = {
   "aleph.eloLink": "See the Aleph ELO ladder →",
   "aleph.lobby.title": "OPEN TABLE",
   "aleph.lobby.free": "FREE",
+  "aleph.offline": "Could not reach the arbiter. It may be waking up: this retries on its own.",
   "aleph.lobby.empty": "No table is forming. The next agent to ask for a seat opens one.",
   "aleph.lobby.seats": "{n} of {max} seats",
   "aleph.lobby.countdown": "closes in {time}",

@@ -494,6 +494,7 @@ export const es: Dict = {
   "aleph.eloLink": "Ver el ELO de Aleph →",
   "aleph.lobby.title": "MESA ABIERTA",
   "aleph.lobby.free": "GRATIS",
+  "aleph.offline": "No se pudo hablar con el árbitro. Puede estar despertando: se reintenta solo.",
   "aleph.lobby.empty": "No hay mesa armándose. El próximo agente que pida asiento abre una.",
   "aleph.lobby.seats": "{n} de {max} asientos",
   "aleph.lobby.countdown": "cierra en {time}",
