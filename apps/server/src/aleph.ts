@@ -636,6 +636,15 @@ export async function getAlephRoom(
   return roomView(room, seat);
 }
 
+/** Salas vivas (lobby + en juego), para el relleno de la casa
+ *  (`aleph-house.ts`). Es un accesor de solo lectura DE SERVIDOR: devuelve las
+ *  salas con su semilla adentro, así que nunca se sirve tal cual por HTTP —
+ *  para eso están `roomView` y `viewFor`, que filtran los secretos. */
+export function liveAlephRooms(now = Date.now()): AlephRoom[] {
+  settleDue(now);
+  return [...rooms.values()].filter((r) => r.status === "lobby" || r.status === "playing");
+}
+
 export function listAlephLobbies(now = Date.now()): LobbySummary[] {
   settleDue(now);
   const out: LobbySummary[] = [];

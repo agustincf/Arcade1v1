@@ -335,6 +335,15 @@ seats, events)`. All randomness comes from the seed, so the arbiter operates
   narrates the log stage by stage. Both read the PUBLIC view (no view pass), so
   the browser never sees fragments, pending decisions or the seed.
 
+- **House fill** (`apps/server/src/aleph-house.ts` + `aleph-house-seats.ts`) —
+  a table needs 4 seats inside one 10-minute lobby window, and the minimum is an
+  engine rule, not a knob. So when a lobby is about to expire with at least one
+  real agent waiting, the house takes the remaining seats and plays them with a
+  scripted policy. It never forms a room of only its own seats, never sits at a
+  table with money on it, and its seats carry the CASA chip. It goes through the
+  same in-process `joinAleph` / `actAleph` as any external agent, with signed
+  actions, so the public log verifies exactly the same way.
+
 The seed is committed when the room opens (`keccak256`) and revealed when it
 settles, so the deck cannot be rewritten after the fact.
 

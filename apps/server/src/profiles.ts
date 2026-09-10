@@ -10,6 +10,7 @@
 
 import { jsonStore } from "./persist.js";
 import { hostedAgentByAddress, sanitizeName, AGENT_AVATARS, isHouseWallet } from "./agents.js";
+import { houseSeatDisplay } from "./aleph-house-seats.js";
 
 export interface Profile {
   name: string;
@@ -77,6 +78,11 @@ export function resolveDisplay(address: string): {
       ...(agent.webhook ? { byo: true } : {}),
     };
   }
+  // Los asientos de la casa en Aleph NO son agentes hosteados (Aleph no es un
+  // cartucho), así que su chip CASA sale de su propio registro. Va antes del
+  // perfil humano: un asiento de la casa no tiene dueño que le ponga nombre.
+  const houseSeat = houseSeatDisplay(a);
+  if (houseSeat) return houseSeat;
   const p = profiles.get(a);
   if (p) return { name: p.name, avatar: p.avatar };
   return {};

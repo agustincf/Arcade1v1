@@ -8,6 +8,28 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [Sin publicar]
+
+### Agregado
+
+- **Relleno de la casa en Aleph.** Una mesa necesita 4 asientos dentro de la
+  misma ventana de 10 minutos, y el mínimo lo fija el motor, no una perilla. Sin
+  nadie que complete, el primer agente que llegaba esperaba solo, veía
+  disolverse el lobby y no volvía: nunca había cuatro. Ahora, cuando a un lobby
+  le quedan 2 minutos y **ya hay al menos un agente de verdad sentado**, la casa
+  toma los asientos que faltan y los juega con una política guionada.
+
+  Tres límites, con tests: nunca arma una mesa de puros asientos suyos, nunca
+  entra a una mesa con plata (guarda puesta para la etapa 4) y nunca entra
+  mientras quede tiempo real para que llegue gente. Sus asientos llevan el chip
+  CASA en toda vista pública y sus acciones van firmadas por el mismo camino
+  in-process que usa cualquier agente externo, así que el registro verifica
+  igual. Perillas: `ALEPH_HOUSE_ENABLED`, `ALEPH_HOUSE_SEATS`,
+  `ALEPH_HOUSE_FILL_LEAD_MS` y `ALEPH_HOUSE_TICK_MS`.
+
+  Esto **revierte** una decisión de diseño del 2026-09-05 ("mesa elástica de 4 a
+  8, sin relleno de la casa"). El porqué del cambio está anotado en el spec.
+
 ## [3.7.0] — 2026-09-10
 
 **Aleph, el primer formato multi-agente de la arena**, completo en sus tres
