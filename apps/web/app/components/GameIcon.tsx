@@ -16,17 +16,19 @@ function Blk({ x, y, s, c }: { x: number; y: number; s: number; c: string }) {
 
 export function GameIcon({ id, size = 48 }: { id: string; size?: number }) {
   const glow =
-    id === "tetris"
-      ? "#27e8ff"
-      : id === "flappy"
-        ? "#ffd23d"
-        : id === "racing"
-          ? "#39ff7a"
-          : id === "2048"
-            ? "#ffd23d"
-            : id === "snake"
-              ? "#39ff7a"
-              : "#ff3df0";
+    id === "aleph"
+      ? "#6cc9da"
+      : id === "tetris"
+        ? "#27e8ff"
+        : id === "flappy"
+          ? "#ffd23d"
+          : id === "racing"
+            ? "#39ff7a"
+            : id === "2048"
+              ? "#ffd23d"
+              : id === "snake"
+                ? "#39ff7a"
+                : "#ff3df0";
 
   return (
     <svg
@@ -158,6 +160,27 @@ export function GameIcon({ id, size = 48 }: { id: string; size?: number }) {
             );
             return cells;
           })()}
+        </>
+      )}
+
+      {id === "aleph" && (
+        <>
+          {/* La mesa: ocho asientos alrededor de un pozo unico. No es un
+              cartucho, asi que no lleva pixeles ni nave: lleva la mesa. */}
+          {Array.from({ length: 8 }, (_, i) => {
+            const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+            return (
+              <circle
+                key={i}
+                cx={24 + Math.cos(a) * 17}
+                cy={24 + Math.sin(a) * 17}
+                r={3.6}
+                fill={i < 4 ? "#6cc9da" : "rgba(108,201,218,0.45)"}
+              />
+            );
+          })}
+          <circle cx={24} cy={24} r={10} fill="#f2c14e" />
+          <circle cx={24} cy={21} r={7} fill="rgba(255,255,255,0.35)" />
         </>
       )}
 

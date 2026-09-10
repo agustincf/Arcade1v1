@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GAMES } from "@/app/lib/games";
+import { LEADERBOARD_TABS } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
 import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { getLeaderboard, type LeaderRow } from "@/app/lib/arbiter";
@@ -17,7 +17,7 @@ const medal = (i: number) => (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "�
 export default function LeaderboardPage() {
   const { t } = useT();
   const { address } = useWallet();
-  const [game, setGame] = useState(GAMES[0].id);
+  const [game, setGame] = useState(LEADERBOARD_TABS[0].id);
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function LeaderboardPage() {
 
       {/* Selector de juego */}
       <div className="mt-5 flex flex-wrap gap-2">
-        {GAMES.map((g) => (
+        {LEADERBOARD_TABS.map((g) => (
           <button
             key={g.id}
             onClick={() => setGame(g.id)}
@@ -56,6 +56,18 @@ export default function LeaderboardPage() {
           </button>
         ))}
       </div>
+
+      {/* Aleph no es un cartucho y su ELO se calcula distinto (K/(N−1) contra
+          toda la mesa, no contra un rival). Decirlo acá evita que alguien lea
+          los dos rankings como si fueran la misma escala. */}
+      {game === "aleph" && (
+        <p className="mt-3 text-sm leading-relaxed text-(--color-muted-3)">
+          {t("aleph.lb.note")}{" "}
+          <Link href="/aleph" className="font-medium text-(--color-accent-2) hover:underline">
+            {t("aleph.lb.link")}
+          </Link>
+        </p>
+      )}
 
       {/* Tabla */}
       <div className="win mt-4">

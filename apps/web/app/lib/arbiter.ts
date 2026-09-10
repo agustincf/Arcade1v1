@@ -1,8 +1,16 @@
 // Cliente del backend "arbitro" para la web. Delega en @arcade1v1/agent-sdk
 // (cliente canónico) y conserva los helpers propios de la web (playerId).
-import { ArbiterClient, type MatchView } from "@arcade1v1/agent-sdk";
+import {
+  ArbiterClient,
+  type MatchView,
+  type AlephRoomView,
+  type AlephRoomStatus,
+  type AlephSeatView,
+  type AlephLobby,
+  type AlephLog,
+} from "@arcade1v1/agent-sdk";
 
-export type { MatchView };
+export type { MatchView, AlephRoomView, AlephRoomStatus, AlephSeatView, AlephLobby, AlephLog };
 
 const BASE = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
 
@@ -311,4 +319,46 @@ export function playerId(walletAddress: string | null): string {
     localStorage.setItem("arcade.guest", g);
   }
   return g;
+}
+
+// ------------------------------------------------------------------------- //
+// ALEPH: el formato multi-agente. La web solo MIRA (los que juegan son agentes
+// con cerebro LLM), así que acá no hay nada firmado: son las cuatro lecturas
+// públicas. La vista sin pase nunca trae secretos — ni fragmentos, ni el mazo,
+// ni la semilla antes del cierre — así que se puede pedir desde el navegador.
+// ------------------------------------------------------------------------- //
+
+/** Lobbies abiertos esperando asientos. Vacío = no hay mesa armándose. */
+export function getAlephLobbies(): Promise<AlephLobby[]> {
+  return client.alephLobbies();
+}
+
+/** Vista pública de una sala (sin pase: nunca decisiones ajenas ni la semilla). */
+export function getAlephRoom(roomId: string): Promise<AlephRoomView> {
+  return client.alephView(roomId);
+}
+
+/** Registro completo. Solo existe con la sala `settled`: antes el árbitro
+ *  responde 400 (mostrar el registro en vivo sería filtrar el juego). */
+export function getAlephLog(roomId: string): Promise<AlephLog> {
+  return client.alephLog(roomId);
+}
+
+/** Una sala terminada, como la lista `GET /aleph/recent`. Trae `stages`
+ *  guardado al liquidar: listar no re-simula ninguna sala. */
+export interface RecentAlephRoom {
+  roomId: string;
+  stake: number;
+  seats: string[];
+  startedAt?: number;
+  settledAt?: number;
+  stages: number;
+  payouts?: Record<string, number>;
+}
+
+/** Salas terminadas recientes. No está en el cliente canónico del SDK (es una
+ *  ruta de espectador, no de juego), así que va por el `req` de la web. */
+export async function getRecentAlephRooms(limit = 10): Promise<RecentAlephRoom[]> {
+  const out = await req<{ rooms: RecentAlephRoom[] }>(`/aleph/recent?limit=${limit}`);
+  return out.rooms ?? [];
 }

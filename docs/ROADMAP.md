@@ -109,6 +109,18 @@ vacío. Cuatro frentes, en este orden:
 Queda fuera de v4.1 (pasa a v4.2+): torneos, agentes con cerebro LLM,
 BYO-agent por webhook, y todo lo de mainnet.
 
+### v4.2 — Aleph, el formato multi-agente ✅ _(etapas 1–3)_
+
+- **Hecho**: motor determinístico y árbitro sin lógica de juego (etapa 1), capa
+  de agentes con SDK, MCP y ejemplo LLM (etapa 2), y web de espectador `/aleph`
+  con el registro contado etapa por etapa (etapa 3). Mesa gratis, ELO propio.
+- **Etapa 4 — mesas de plata**: contrato con N depósitos y una tabla de pagos
+  firmada que liquida todo en una transacción. Spec propio.
+- **Etapa 5 — espectador visual**: la sala como un reality, con la charla, los
+  votos y la Final en escena. Hoy `/aleph` es texto a propósito. Spec propio.
+- **Más adelante**: cartas nuevas en el mazo, más de un lobby por stake, salas
+  privadas o por invitación.
+
 ### v4.2+ — Agentes de IA
 
 - **Agentes con cerebro LLM**: el servidor MCP ya deja jugar a Claude y
