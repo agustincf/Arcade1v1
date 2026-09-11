@@ -265,6 +265,53 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
     }
 
     // --------------------------------------------------------------------- //
+    //                             REEMBOLSOS                                //
+    // --------------------------------------------------------------------- //
+    // Ningún camino puede dejar plata trabada para siempre. Los tres son de
+    // bucle acotado (N <= 8) y devuelven EXACTAMENTE el stake a cada uno que
+    // depositó; el que no depositó no recibe nada.
+
+    /// @notice Venció el fondeo sin completarse: cada uno recupera lo suyo.
+    function refundUnfunded(bytes32 id) external nonReentrant {
+        Room storage r = rooms[id];
+        require(r.status == Status.Funding, "not funding");
+        require(block.timestamp > r.fundDeadline, "not expired");
+        r.status = Status.Refunded;
+        _refundPaid(id, r);
+        emit Refunded(id);
+    }
+
+    /// @notice Se fondeó pero el árbitro no liquidó: pasada la gracia,
+    ///         cualquiera devuelve el stake a los N.
+    function refundExpired(bytes32 id) external nonReentrant {
+        Room storage r = rooms[id];
+        require(r.status == Status.Funded, "not funded");
+        require(block.timestamp > uint256(r.playDeadline) + REFUND_GRACE, "not expired");
+        r.status = Status.Refunded;
+        _refundPaid(id, r);
+        emit Refunded(id);
+    }
+
+    /// @notice Disputa o sala rota: el árbitro (o el dueño) cancela y reembolsa.
+    ///         El árbitro lo usa también cuando SU plazo de fondeo vence, para
+    ///         no dejar a nadie esperando el reembolso permissionless.
+    function cancelRoom(bytes32 id) external nonReentrant {
+        require(msg.sender == arbiter || msg.sender == owner(), "not allowed");
+        Room storage r = rooms[id];
+        require(r.status == Status.Funding || r.status == Status.Funded, "cant cancel");
+        r.status = Status.Refunded;
+        _refundPaid(id, r);
+        emit Refunded(id);
+    }
+
+    function _refundPaid(bytes32 id, Room storage r) internal {
+        for (uint256 i = 0; i < r.seats.length; i++) {
+            address s = r.seats[i];
+            if (paid[id][s]) usdc.safeTransfer(s, r.stake);
+        }
+    }
+
+    // --------------------------------------------------------------------- //
     //                              VISTAS                                   //
     // --------------------------------------------------------------------- //
 

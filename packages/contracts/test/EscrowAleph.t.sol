@@ -441,4 +441,108 @@ contract EscrowAlephTest is Test {
         assertEq(usdc.balanceOf(platform), 2_400_000);
         assertEq(usdc.balanceOf(address(escrow)), 0);
     }
+
+    // --- Reembolsos ----------------------------------------------------------
+
+    function test_RefundUnfundedReturnsExactlyToThoseWhoPaid() public {
+        _open(roomId, seats4);
+        _deposit(roomId, seats4, 1); // 2 de 4 depositaron
+        vm.expectRevert(bytes("not expired"));
+        escrow.refundUnfunded(roomId);
+
+        vm.warp(block.timestamp + 10 minutes + 1);
+        escrow.refundUnfunded(roomId);
+        assertEq(usdc.balanceOf(seats4[0]), stake, "recupera lo suyo");
+        assertEq(usdc.balanceOf(seats4[1]), stake, "recupera lo suyo");
+        assertEq(usdc.balanceOf(seats4[2]), stake, "nunca deposito: sigue con su USDC");
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+        (,,,,, EscrowAleph.Status status) = escrow.roomOf(roomId);
+        assertEq(uint8(status), uint8(EscrowAleph.Status.Refunded));
+        // Reembolsada: ya no se puede depositar ni reembolsar de nuevo.
+        vm.expectRevert(bytes("not funding"));
+        escrow.refundUnfunded(roomId);
+    }
+
+    function test_RefundUnfundedRejectsFundedRoom() public {
+        _fundRoom(roomId, seats4);
+        vm.warp(block.timestamp + 10 minutes + 1);
+        vm.expectRevert(bytes("not funding"));
+        escrow.refundUnfunded(roomId);
+    }
+
+    function test_RefundExpiredRespectsGrace() public {
+        _fundRoom(roomId, seats4);
+        (, uint64 play) = _deadlines();
+        // Justo pasado playDeadline, dentro de la gracia: todavia no.
+        vm.warp(uint256(play) + 1);
+        vm.expectRevert(bytes("not expired"));
+        escrow.refundExpired(roomId);
+        // Pasada la gracia: devuelve el stake a los 4.
+        vm.warp(uint256(play) + escrow.REFUND_GRACE() + 1);
+        escrow.refundExpired(roomId);
+        for (uint256 i = 0; i < 4; i++) assertEq(usdc.balanceOf(seats4[i]), stake);
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    // ANTI-GRIEFING: dentro de la gracia, un settle tardio GANA al reembolso.
+    function test_SettleWinsInsideGraceWindow() public {
+        _fundRoom(roomId, seats4);
+        (, uint64 play) = _deadlines();
+        vm.warp(uint256(play) + 1);
+        vm.expectRevert(bytes("not expired"));
+        escrow.refundExpired(roomId);
+        uint256[] memory amounts = _table4();
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        escrow.settle(roomId, seats4, amounts, sig);
+        assertEq(usdc.balanceOf(seats4[0]), amounts[0], "cobra pese al settle tardio");
+    }
+
+    function test_RefundExpiredRejectsAfterSettle() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        escrow.settle(roomId, seats4, amounts, _signPayout(roomId, seats4, amounts));
+        (, uint64 play) = _deadlines();
+        vm.warp(uint256(play) + escrow.REFUND_GRACE() + 1);
+        vm.expectRevert(bytes("not funded"));
+        escrow.refundExpired(roomId);
+    }
+
+    function test_CancelByArbiterRefundsPaidOnly() public {
+        _open(roomId, seats4);
+        _deposit(roomId, seats4, 1);
+        _deposit(roomId, seats4, 2);
+        vm.prank(arbiter);
+        escrow.cancelRoom(roomId);
+        assertEq(usdc.balanceOf(seats4[0]), stake);
+        assertEq(usdc.balanceOf(seats4[1]), stake);
+        assertEq(usdc.balanceOf(seats4[2]), stake);
+        assertEq(usdc.balanceOf(seats4[3]), stake, "no deposito, no recibe de mas");
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    function test_CancelByOwnerOnFundedRoom() public {
+        _fundRoom(roomId, seats4);
+        vm.prank(owner);
+        escrow.cancelRoom(roomId);
+        for (uint256 i = 0; i < 4; i++) assertEq(usdc.balanceOf(seats4[i]), stake);
+    }
+
+    function test_CancelRejectsStrangerAndSettledRoom() public {
+        _fundRoom(roomId, seats4);
+        vm.prank(address(0x999));
+        vm.expectRevert(bytes("not allowed"));
+        escrow.cancelRoom(roomId);
+
+        uint256[] memory amounts = _table4();
+        escrow.settle(roomId, seats4, amounts, _signPayout(roomId, seats4, amounts));
+        vm.prank(arbiter);
+        vm.expectRevert(bytes("cant cancel"));
+        escrow.cancelRoom(roomId);
+    }
+
+    function test_CancelRejectsUnknownRoom() public {
+        vm.prank(arbiter);
+        vm.expectRevert(bytes("cant cancel"));
+        escrow.cancelRoom(keccak256("nope"));
+    }
 }
