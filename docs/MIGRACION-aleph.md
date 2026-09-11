@@ -1,10 +1,17 @@
 # Migración `vault` → `aleph` — qué hacer ANTES de mergear
 
-> ## ⏳ PENDIENTE — leer esto antes de mergear la rama del rename
+> ## ✅ EJECUTADO el 2026-09-11 — no hace falta repetirlo
 >
-> Este instructivo **todavía no se ejecutó**. Cuando lo hagas, cambiá este
-> encabezado a `✅ EJECUTADO el <fecha>` (como en
-> [`REDEPLOY-v3.4.0.md`](REDEPLOY-v3.4.0.md)) para que nadie lo repita.
+> - **Paso 1 (panel de Render):** el dueño confirmó que **no hay ni hubo**
+>   ninguna variable `VAULT_*` en el servicio del árbitro. El formato corría
+>   con los valores por defecto, así que no había nada que renombrar y el caso
+>   peligroso (`VAULT_ENABLED=false`) nunca existió: Aleph estaba y sigue
+>   **encendido** a propósito.
+> - **Paso 2 (merge y deploy):** hecho, PR #12 (commit `4e388f7`).
+> - **Paso 3 (verificación):** `GET /aleph/lobbies` devuelve `{"lobbies":[]}`
+>   con **200** y la ruta vieja `GET /vault/lobbies` devuelve **404**. El
+>   rename llegó entero.
+> - **Paso 4 (npm):** los cuatro paquetes están publicados en **0.3.0**.
 
 El formato multi-agente **Aleph** ya está vivo en producción
 (`https://arcade1v1.onrender.com`) desde la etapa 1, pero con el identificador
