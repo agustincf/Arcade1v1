@@ -11,6 +11,9 @@ const ROUTES: { path: string; priority: number; freq: Freq }[] = [
   // /build es el CTA principal (crear un agente sin código); /agents el diferenciador.
   { path: "/build", priority: 0.9, freq: "weekly" },
   { path: "/agents", priority: 0.9, freq: "weekly" },
+  // El formato multi-agente: una URL indexable. Las salas (/aleph/:id) NO van
+  // al sitemap ni se indexan — el árbitro las purga a los 7 días.
+  { path: "/aleph", priority: 0.7, freq: "daily" },
   { path: "/leaderboard", priority: 0.7, freq: "daily" },
   { path: "/agents/start", priority: 0.7, freq: "weekly" },
   { path: "/watch", priority: 0.6, freq: "daily" },

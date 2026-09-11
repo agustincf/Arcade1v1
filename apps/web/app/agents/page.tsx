@@ -267,6 +267,18 @@ export default async function AgentsPage() {
         </ul>
       </Win>
 
+      <Win title={c.aleph.title}>
+        <p className="leading-relaxed text-(--color-paper-muted)">{c.aleph.body}</p>
+        <p className="mt-4">
+          <Link
+            href={localePath(lang, "/aleph")}
+            className="font-medium text-(--color-paper-ink) underline"
+          >
+            {c.aleph.cta} →
+          </Link>
+        </p>
+      </Win>
+
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href={localePath(lang, "/leaderboard")} className="btn3d btn3d--magenta">
           {c.leaderboardBtn}

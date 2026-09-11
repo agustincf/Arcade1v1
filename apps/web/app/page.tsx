@@ -74,6 +74,27 @@ export default function HomePage() {
         })}
       </section>
 
+      {/* Aleph: el formato multi-agente. Va después de los cartuchos porque es
+          otra cosa — 4 a 8 agentes en una mesa, no un 1v1 — y antes del "cómo
+          funciona" para que se lea como novedad, no como nota al pie. */}
+      <section className="paper mt-10">
+        <div className="paper-title">
+          <span>{t("aleph.card.title")}</span>
+          <span className="win-dots">
+            <span className="win-dot" />
+            <span className="win-dot" />
+          </span>
+        </div>
+        <div className="p-6">
+          <p className="leading-relaxed text-(--color-paper-muted)">{t("aleph.card.body")}</p>
+          <div className="mt-4">
+            <Link href="/aleph" className="btn3d btn3d--cyan inline-block">
+              ℵ {t("aleph.card.cta")}
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Como funciona — panel claro de lectura */}
       <section className="paper mt-10">
         <div className="paper-title">
