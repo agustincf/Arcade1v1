@@ -110,22 +110,34 @@ Por eso el orden importa: cada SDK pinea al anterior (`strategies` necesita
 `game-sdk`, `agent-sdk` necesita a los dos). El MCP va último porque empaqueta
 al `agent-sdk` dentro de su propio bundle al construirlo.
 
-> ⚠️ El código va **sin los signos** `<` `>`: en bash son redirección de
-> archivos y el comando muere con `syntax error near unexpected token` antes de
-> ejecutar nada. Reemplazá `123456` por el código real de tu app de
-> autenticación. Si la cuenta no tiene doble factor para escrituras, sacá la
-> bandera entera.
+Desde la **raíz del repo**, y **sin pasar el código 2FA en la línea**:
 
 ```bash
-node scripts/publish-sdk.mjs game-sdk   --otp=123456
-node scripts/publish-sdk.mjs strategies --otp=123456
-node scripts/publish-sdk.mjs agent-sdk  --otp=123456
-cd apps/mcp && npm publish --otp=123456 && cd ../..
+node scripts/publish-sdk.mjs game-sdk
+node scripts/publish-sdk.mjs strategies
+node scripts/publish-sdk.mjs agent-sdk
+(cd apps/mcp && npm publish)
 ```
 
-El código dura unos 30 segundos: si alguno rebota con `EOTP`, no pasó nada malo,
-sacá uno nuevo y repetí **solo ese** comando. El paquete del MCP compila solo al
-publicar (`prepublishOnly`), así que no hace falta buildearlo antes.
+Cada comando compila, empaqueta y **recién ahí frena y te pide el código**. Es
+mucho mejor que `--otp=...`: el código rota cada 30 segundos y compilar tarda,
+así que pasándolo en la línea llega vencido y npm contesta que hace falta una
+contraseña de un solo uso. El `--otp=` existe para cuando no hay terminal
+interactiva (CI), no para el uso a mano.
+
+> ⚠️ Dos trampas, las dos vistas en vivo el 2026-09-11:
+>
+> - Si igual usás `--otp=`, el código va **sin los signos** `<` `>`: en bash son
+>   redirección y el comando muere con `syntax error near unexpected token`
+>   antes de ejecutar nada.
+> - Los **paréntesis** del comando del MCP no son decorativos: mantienen el
+>   cambio de carpeta adentro de ese comando. Con `cd apps/mcp && npm publish &&
+cd ../..`, un publish fallido saltea el `cd` de vuelta y te deja parado en
+>   `apps/mcp`, donde el reintento falla con "No such file or directory" y
+>   parece otro problema.
+
+El paquete del MCP compila solo al publicar (`prepublishOnly`), así que no hace
+falta buildearlo antes.
 
 Los cuatro hablan `/aleph/*` y firman con el literal `"aleph"`. Publicarlos
 **antes** de que el árbitro esté desplegado dejaría a cualquiera que los instale
