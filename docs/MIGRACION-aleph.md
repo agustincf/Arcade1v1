@@ -1,14 +1,15 @@
 # Migración `vault` → `aleph` — qué hacer ANTES de mergear
 
-> ## ⏳ EN CURSO — paso 1 hecho el 2026-09-11, faltan los otros tres
+> ## ⏳ EN CURSO — pasos 1 a 3 hechos el 2026-09-11, falta publicar
 >
 > **El caso peligroso está descartado**: el dueño revisó el panel de Render y
 > **no hay ninguna variable `VAULT_*`**, así que no hay nada que renombrar y
 > ningún `VAULT_ENABLED=false` que se pierda en silencio. El formato queda
 > encendido por default, que es lo que corresponde.
 >
-> Faltan los pasos 2, 3 y 4: mergear, verificar `/aleph/*` en producción y
-> publicar los cuatro paquetes 0.3.0. Al terminarlos, cambiá este encabezado a
+> Mergeado y verificado en producción. **Falta solo el paso 4**: publicar los
+> cuatro paquetes 0.3.0, que necesita una terminal con la sesión de npm del
+> dueño. Al terminarlo, cambiá este encabezado a
 > `✅ EJECUTADO el <fecha>` (como en
 > [`REDEPLOY-v3.4.0.md`](REDEPLOY-v3.4.0.md)) para que nadie lo repita.
 
@@ -154,9 +155,15 @@ clave vieja (donde quedó intacto).
 
 Completar al ejecutar, para que quede la evidencia:
 
-- **Fecha:** paso 1 el 2026-09-11; el resto, pendiente.
+- **Fecha:** pasos 1 a 3 el 2026-09-11. El paso 4 (npm), pendiente.
 - **¿Había variables `VAULT_*` en Render?** **Ninguna.** La etapa 1 se desplegó
   con los valores por defecto, así que no hubo nada que renombrar ni que se
   perdiera al cambiar el prefijo.
-- **`curl /aleph/lobbies`:** _(pendiente: código de respuesta)_
+- **`curl /aleph/lobbies`:** respondió. Verificado desde la página en vivo
+  `https://arcade1v1.com/aleph`, que mostró **"No table is forming"** y no el
+  aviso de árbitro inalcanzable. La página distingue los dos casos a propósito,
+  así que ese texto solo aparece cuando el árbitro contestó.
+- **`curl /vault/lobbies` (contraprueba):** no hizo falta. La ruta vieja se
+  borró en el mismo commit que creó la nueva: si `/aleph/*` contesta, es el
+  árbitro nuevo, y en él `/vault/*` no existe.
 - **Paquetes 0.3.0 publicados:** _(pendiente: los 4 — game-sdk, strategies, agent-sdk, mcp)_
