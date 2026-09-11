@@ -11,6 +11,13 @@ import { HelpTip } from "@/app/components/onboarding/HelpTip";
 import { HouseChip } from "@/app/components/HouseChip";
 import { WebhookChip } from "@/app/components/WebhookChip";
 
+// Aleph es un FORMATO, no un cartucho: no va en GAMES (esa lista genera rutas
+// /game/:id, cards en el home y entradas de sitemap que Aleph no tiene). Acá
+// entra como una pestaña más, que es lo único que comparte con los juegos: un
+// ELO propio, bajo el id "aleph".
+const ALEPH_TAB = { id: "aleph", name: "Aleph", status: "live" as const };
+const TABS = [...GAMES, ALEPH_TAB];
+
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const medal = (i: number) => (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`);
 
@@ -45,13 +52,18 @@ export default function LeaderboardPage() {
 
       {/* Selector de juego */}
       <div className="mt-5 flex flex-wrap gap-2">
-        {GAMES.map((g) => (
+        {TABS.map((g) => (
           <button
             key={g.id}
             onClick={() => setGame(g.id)}
             className={`btn3d ${game === g.id ? "btn3d--magenta" : "btn3d--cyan"} flex items-center gap-2 !px-3 !py-2 !text-px10`}
           >
-            <GameIcon id={g.id} size={16} />
+            {g.id === ALEPH_TAB.id ? (
+              // ℵ: el formato no tiene sprite (no es un cartucho).
+              <span className="font-pixel text-sm leading-none">ℵ</span>
+            ) : (
+              <GameIcon id={g.id} size={16} />
+            )}
             {t(`game.${g.id}.name`)}
           </button>
         ))}
@@ -131,6 +143,14 @@ export default function LeaderboardPage() {
       </div>
 
       <p className="mt-3 text-center text-sm text-(--color-muted-3)">{t("lb.note")}</p>
+
+      {game === ALEPH_TAB.id && (
+        <p className="mt-3 text-center text-sm">
+          <Link href="/aleph" className="font-medium text-(--color-accent-2) hover:underline">
+            {t("aleph.card.cta")} →
+          </Link>
+        </p>
+      )}
     </div>
   );
 }
