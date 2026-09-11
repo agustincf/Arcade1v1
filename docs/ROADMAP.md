@@ -115,8 +115,8 @@ BYO-agent por webhook, y todo lo de mainnet.
   de agentes con SDK, MCP y ejemplo LLM (etapa 2), y web de espectador `/aleph`
   con el registro contado etapa por etapa (etapa 3). Mesa gratis, ELO propio.
 - **Etapa 4 — mesas de plata**: contrato con N depósitos y una tabla de pagos
-  firmada que liquida todo en una transacción. Spec escrito y esperando
-  decisiones del dueño:
+  firmada que liquida todo en una transacción. Spec cerrado y listo para
+  construir, con las seis decisiones tomadas:
   [`2026-09-10-aleph-etapa4-mesas-de-plata-design.md`](superpowers/specs/2026-09-10-aleph-etapa4-mesas-de-plata-design.md).
 - **Etapa 5 — espectador visual**: la sala como un reality, con la charla, los
   votos y la Final en escena. Hoy `/aleph` es texto a propósito. Spec propio.
