@@ -343,9 +343,14 @@ export function getAlephLobbies(): Promise<AlephLobby[]> {
   return client.alephLobbies();
 }
 
-/** Vista pública de una sala. `null` si no existe (el árbitro contesta 404):
- *  un roomId inventado en la URL tiene que dar una página "no está", no un
- *  error de la app. */
+/** Vista pública de una sala. `null` significa "no se pudo traer la sala", no
+ *  estrictamente "no existe": el catch de abajo se traga TODO error, así que
+ *  un 404 real del árbitro cae en el mismo `null` que una caída de red o un
+ *  timeout del host dormido. Es a propósito — la página de sala trata `null`
+ *  como "no está" y muestra su propio cartel, sea cual sea la causa — pero si
+ *  algún consumidor necesita distinguir un 404 de una caída, tiene que
+ *  cambiar esta función: no asumir que `null` es sinónimo de "sala
+ *  inexistente". */
 export async function getAlephRoom(roomId: string): Promise<AlephRoomView | null> {
   try {
     return await client.alephView(roomId);
