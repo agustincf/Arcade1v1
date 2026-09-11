@@ -110,12 +110,22 @@ Por eso el orden importa: cada SDK pinea al anterior (`strategies` necesita
 `game-sdk`, `agent-sdk` necesita a los dos). El MCP va último porque empaqueta
 al `agent-sdk` dentro de su propio bundle al construirlo.
 
+> ⚠️ El código va **sin los signos** `<` `>`: en bash son redirección de
+> archivos y el comando muere con `syntax error near unexpected token` antes de
+> ejecutar nada. Reemplazá `123456` por el código real de tu app de
+> autenticación. Si la cuenta no tiene doble factor para escrituras, sacá la
+> bandera entera.
+
 ```bash
-node scripts/publish-sdk.mjs game-sdk --otp=<código>
-node scripts/publish-sdk.mjs strategies --otp=<código>
-node scripts/publish-sdk.mjs agent-sdk --otp=<código>
-npm run build -w @arcade1v1/mcp && (cd apps/mcp && npm publish --otp=<código>)
+node scripts/publish-sdk.mjs game-sdk   --otp=123456
+node scripts/publish-sdk.mjs strategies --otp=123456
+node scripts/publish-sdk.mjs agent-sdk  --otp=123456
+cd apps/mcp && npm publish --otp=123456 && cd ../..
 ```
+
+El código dura unos 30 segundos: si alguno rebota con `EOTP`, no pasó nada malo,
+sacá uno nuevo y repetí **solo ese** comando. El paquete del MCP compila solo al
+publicar (`prepublishOnly`), así que no hace falta buildearlo antes.
 
 Los cuatro hablan `/aleph/*` y firman con el literal `"aleph"`. Publicarlos
 **antes** de que el árbitro esté desplegado dejaría a cualquiera que los instale
