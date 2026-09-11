@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useT } from "@/app/lib/i18n";
-import { Countdown } from "@/app/components/Countdown";
+import { CountdownIn } from "@/app/components/Countdown";
 import {
   getAlephLobbies,
   getRecentAlephRooms,
@@ -115,8 +115,11 @@ export default function AlephPage() {
                   </span>
                   <span className="flex items-center gap-3 text-sm text-(--color-muted-3)">
                     <span>
-                      {t("aleph.lobbies.closes", { t: "" })}
-                      <Countdown to={l.closesAt} onZero={load} />
+                      <CountdownIn
+                        label={t("aleph.lobbies.closes")}
+                        to={l.closesAt}
+                        onZero={load}
+                      />
                     </span>
                     <Link
                       href={`/aleph/${l.roomId}`}

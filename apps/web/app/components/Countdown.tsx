@@ -37,3 +37,26 @@ export function Countdown({ to, onZero }: { to: number; onZero?: () => void }) {
   if (left === null) return null;
   return <span className="font-mono tabular-nums">{formatLeft(left)}</span>;
 }
+
+/** Una frase con la cuenta regresiva EN SU LUGAR. La clave i18n trae `{t}`
+ *  donde va el reloj, y cada idioma lo pone donde su gramática manda (el
+ *  hindi, por ejemplo, lo abre: "{t} में बंद"). Pasale la frase SIN
+ *  interpolar (`t("aleph.room.closes")`) y esto la parte en dos. */
+export function CountdownIn({
+  label,
+  to,
+  onZero,
+}: {
+  label: string;
+  to: number;
+  onZero?: () => void;
+}) {
+  const [before, after = ""] = label.split("{t}");
+  return (
+    <>
+      {before}
+      <Countdown to={to} onZero={onZero} />
+      {after}
+    </>
+  );
+}
