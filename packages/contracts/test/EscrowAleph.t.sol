@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EscrowAleph} from "../src/EscrowAleph.sol";
 import {MockUSDC} from "./MockUSDC.sol";
 
@@ -11,6 +12,7 @@ contract EscrowAlephTest is Test {
 
     address owner = address(0xABCD);
     address platform = address(0xFEE5);
+    address notOwner = address(0x9999); // cualquiera sin permiso de owner, para los tests de admin
     uint256 arbiterPk = 0xA11CE; // clave del árbitro (para firmar en tests)
     address arbiter;
 
@@ -214,5 +216,61 @@ contract EscrowAlephTest is Test {
         vm.prank(seats4[1]);
         vm.expectRevert(bytes("bad seat"));
         escrow.deposit(roomId, abi.encodePacked(r, s, v));
+    }
+
+    // --- Administración -------------------------------------------------------
+    // Superficie de autorización y configuración: sin esto, los 4 setters y las
+    // guardas del constructor llegarían a un contrato que custodia USDC real sin
+    // haberse ejercitado ni una vez (hallazgo de revisión de la Tarea 1).
+
+    function test_SetArbiterRejectsNonOwner() public {
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        escrow.setArbiter(address(0x1234));
+    }
+
+    function test_SetPlatformWalletRejectsNonOwner() public {
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        escrow.setPlatformWallet(address(0x1234));
+    }
+
+    function test_SetFeeBpsRejectsNonOwner() public {
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        escrow.setFeeBps(100);
+    }
+
+    function test_SetAllowedStakeRejectsNonOwner() public {
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        escrow.setAllowedStake(stake, true);
+    }
+
+    // El tope de comisión (20%) rige también en caliente, no solo al desplegar.
+    function test_SetFeeBpsRejectsOverCap() public {
+        vm.prank(owner);
+        vm.expectRevert(bytes("fee too high"));
+        escrow.setFeeBps(2001);
+    }
+
+    function test_SetArbiterRejectsZeroAddress() public {
+        vm.prank(owner);
+        vm.expectRevert(bytes("zero address"));
+        escrow.setArbiter(address(0));
+    }
+
+    // El constructor no deja nacer una sala sin USDC, árbitro o wallet de
+    // plataforma: cualquiera en address(0) y ni los depósitos ni la comisión
+    // tendrían adónde ir.
+    function test_ConstructorRejectsZeroAddress() public {
+        vm.expectRevert(bytes("zero address"));
+        new EscrowAleph(address(0), arbiter, platform, feeBps, owner);
+    }
+
+    // ...tampoco con una comisión por encima del tope, desde el día uno.
+    function test_ConstructorRejectsFeeTooHigh() public {
+        vm.expectRevert(bytes("fee too high"));
+        new EscrowAleph(address(usdc), arbiter, platform, 2001, owner);
     }
 }
