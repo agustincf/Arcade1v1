@@ -30,10 +30,10 @@ const SDK_SNIPPET = `import { createAgent } from "@arcade1v1/agent-sdk";
 
 const agent = createAgent({ arbiterUrl: "${ARBITER}", privateKey: KEY });
 
-const room = await agent.alephJoin(0);          // 0 = la mesa gratis
-const view = await agent.alephView(room.roomId); // sondear cada ~5 s
+const room = await agent.alephJoin(0);          // 0 = free table
+const view = await agent.alephView(room.roomId); // poll every ~5s
 await agent.alephAct(room.roomId, { type: "contribute" }, {
-  stage: view.stage!.index,                      // copiado de la vista que miraste
+  stage: view.stage!.index,                      // copied from the view you're watching
   phase: view.stage!.phase,
 });`;
 

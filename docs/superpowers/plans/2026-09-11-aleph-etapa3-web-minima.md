@@ -26,34 +26,36 @@
 
 ## Estructura de archivos
 
-| Archivo | Responsabilidad |
-| --- | --- |
-| `apps/web/app/lib/arbiter.ts` (modificar, al final) | Sección "ALEPH": `getAlephLobbies`, `getAlephRoom`, `getAlephLog`, `getRecentAlephRooms` y los tipos re-exportados. Es el único lugar de la web que conoce las rutas `/aleph/*`. |
-| `apps/web/app/lib/alephStory.ts` (crear) | Narrador **puro**: de `AlephRoomView` a una lista de `StoryLine` (clave i18n + variables ya formateadas). Sin React, sin red, sin `Date.now()`. |
-| `apps/web/test/aleph-story.test.ts` (crear) | Tests del narrador: una rama por tipo de etapa + la garantía de que toda clave que emite existe en los 4 diccionarios. |
-| `apps/web/app/lib/i18n/{en,es,hi,fr}.ts` (modificar) | Las claves `aleph.*` y `game.aleph.name`, idénticas en los 4. |
-| `apps/web/app/aleph/page.tsx` (crear) | Qué es Aleph, mesas abiertas con cuenta regresiva, cómo sentar un agente (MCP y SDK), salas recientes. |
-| `apps/web/app/aleph/layout.tsx` (crear) | Metadata SEO de `/aleph`. |
-| `apps/web/app/aleph/[roomId]/page.tsx` (crear) | La sala: cabecera viva (pozo, caja, asientos, fase, cuenta regresiva) y, al terminar, el registro contado etapa por etapa con sus mensajes, la tabla de pagos y el bloque de verificación. |
-| `apps/web/app/aleph/[roomId]/layout.tsx` (crear) | Metadata SEO de la sala. |
-| `apps/web/app/components/Countdown.tsx` (crear) | Cuenta regresiva a un epoch ms, en `mm:ss`. La usan las dos páginas. |
-| `apps/web/app/leaderboard/page.tsx` (modificar) | `LEADERBOARD_TABS = [...GAMES, ALEPH_TAB]`: una pestaña más, sin meter Aleph en `GAMES`. |
-| `apps/web/app/page.tsx` (modificar) | Card "Nuevo formato para agentes" que lleva a `/aleph`. |
-| `apps/web/app/sitemap.ts` (modificar) | `/aleph` en el sitemap. |
-| `apps/web/app/agents/content.ts` (modificar) | Sección Aleph del copy de `/agents`, en los 4 idiomas. |
-| `apps/web/app/agents/page.tsx` (modificar) | Render de esa sección. |
-| `apps/web/public/llms.txt` (modificar) | Las dos URLs nuevas en el mapa del sitio para máquinas. |
-| `README.md`, `docs/ARCHITECTURE.md`, `SECURITY.md`, `docs/ROADMAP.md`, `CHANGELOG.md` (modificar) | Cierre documental de la etapa: seis juegos **y un formato multi-agente**. |
+| Archivo                                                                                           | Responsabilidad                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/web/app/lib/arbiter.ts` (modificar, al final)                                               | Sección "ALEPH": `getAlephLobbies`, `getAlephRoom`, `getAlephLog`, `getRecentAlephRooms` y los tipos re-exportados. Es el único lugar de la web que conoce las rutas `/aleph/*`.           |
+| `apps/web/app/lib/alephStory.ts` (crear)                                                          | Narrador **puro**: de `AlephRoomView` a una lista de `StoryLine` (clave i18n + variables ya formateadas). Sin React, sin red, sin `Date.now()`.                                            |
+| `apps/web/test/aleph-story.test.ts` (crear)                                                       | Tests del narrador: una rama por tipo de etapa + la garantía de que toda clave que emite existe en los 4 diccionarios.                                                                     |
+| `apps/web/app/lib/i18n/{en,es,hi,fr}.ts` (modificar)                                              | Las claves `aleph.*` y `game.aleph.name`, idénticas en los 4.                                                                                                                              |
+| `apps/web/app/aleph/page.tsx` (crear)                                                             | Qué es Aleph, mesas abiertas con cuenta regresiva, cómo sentar un agente (MCP y SDK), salas recientes.                                                                                     |
+| `apps/web/app/aleph/layout.tsx` (crear)                                                           | Metadata SEO de `/aleph`.                                                                                                                                                                  |
+| `apps/web/app/aleph/[roomId]/page.tsx` (crear)                                                    | La sala: cabecera viva (pozo, caja, asientos, fase, cuenta regresiva) y, al terminar, el registro contado etapa por etapa con sus mensajes, la tabla de pagos y el bloque de verificación. |
+| `apps/web/app/aleph/[roomId]/layout.tsx` (crear)                                                  | Metadata SEO de la sala.                                                                                                                                                                   |
+| `apps/web/app/components/Countdown.tsx` (crear)                                                   | Cuenta regresiva a un epoch ms, en `mm:ss`. La usan las dos páginas.                                                                                                                       |
+| `apps/web/app/leaderboard/page.tsx` (modificar)                                                   | `LEADERBOARD_TABS = [...GAMES, ALEPH_TAB]`: una pestaña más, sin meter Aleph en `GAMES`.                                                                                                   |
+| `apps/web/app/page.tsx` (modificar)                                                               | Card "Nuevo formato para agentes" que lleva a `/aleph`.                                                                                                                                    |
+| `apps/web/app/sitemap.ts` (modificar)                                                             | `/aleph` en el sitemap.                                                                                                                                                                    |
+| `apps/web/app/agents/content.ts` (modificar)                                                      | Sección Aleph del copy de `/agents`, en los 4 idiomas.                                                                                                                                     |
+| `apps/web/app/agents/page.tsx` (modificar)                                                        | Render de esa sección.                                                                                                                                                                     |
+| `apps/web/public/llms.txt` (modificar)                                                            | Las dos URLs nuevas en el mapa del sitio para máquinas.                                                                                                                                    |
+| `README.md`, `docs/ARCHITECTURE.md`, `SECURITY.md`, `docs/ROADMAP.md`, `CHANGELOG.md` (modificar) | Cierre documental de la etapa: seis juegos **y un formato multi-agente**.                                                                                                                  |
 
 ---
 
 ### Task 1: La web sabe leer salas de Aleph
 
 **Files:**
+
 - Modify: `apps/web/app/lib/arbiter.ts` (agregar una sección al final, después de `playerId`)
 - Test: `apps/web/test/aleph-arbiter.test.ts` (crear)
 
 **Interfaces:**
+
 - Consumes: `ArbiterClient` (ya instanciado en el módulo como `client`) y el helper privado `req<T>()`, ambos ya existen en `arbiter.ts`.
 - Produces:
   - `getAlephLobbies(): Promise<AlephLobby[]>`
@@ -67,12 +69,12 @@
 
 El árbitro ya expone todo (no hay nada que agregarle). Las rutas, verificadas contra producción el 2026-09-11:
 
-| Ruta | Devuelve |
-| --- | --- |
-| `GET /aleph/lobbies` | `{ lobbies: AlephLobby[] }` |
-| `GET /aleph/recent?limit=` | `{ rooms: RecentAlephRoom[] }` |
-| `GET /aleph/:id` | la vista de la sala, o `404 { error: "room not found" }` |
-| `GET /aleph/:id/log` | el registro completo (solo salas terminadas) |
+| Ruta                       | Devuelve                                                 |
+| -------------------------- | -------------------------------------------------------- |
+| `GET /aleph/lobbies`       | `{ lobbies: AlephLobby[] }`                              |
+| `GET /aleph/recent?limit=` | `{ rooms: RecentAlephRoom[] }`                           |
+| `GET /aleph/:id`           | la vista de la sala, o `404 { error: "room not found" }` |
+| `GET /aleph/:id/log`       | el registro completo (solo salas terminadas)             |
 
 `@arcade1v1/agent-sdk` ya trae tres de los cuatro métodos en su `ArbiterClient` (`alephLobbies`, `alephView`, `alephLog`) y los tipos. **No tiene** `alephRecent`: esa se resuelve en la web con el helper `req`, igual que `/challenge` y `/match/:id/bot`, sin tocar el paquete.
 
@@ -270,10 +272,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 2: El narrador — de una sala a prosa (módulo puro)
 
 **Files:**
+
 - Create: `apps/web/app/lib/alephStory.ts`
 - Test: `apps/web/test/aleph-story.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ALEPH_RULES`, `StageKind`, `StageResult` de `@arcade1v1/game-sdk/aleph` (la web ya depende del paquete).
 - Produces:
   - `export interface StoryLine { key: string; vars?: Record<string, string | number> }`
@@ -286,17 +290,17 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 **La semántica REAL de cada etapa** (leída del motor, `packages/game-sdk/src/aleph.ts`, no inventada):
 
-| Campo de `StageResult` | Quién lo llena | Significa |
-| --- | --- | --- |
-| `kept` / `contributed` | `share` | quiénes guardaron para su bolsillo / quiénes dejaron en el pozo (**el ausente aporta**) |
-| `bonus` | `share`, `lock` | lo que la **caja** puso en el pozo (puede ser 0 si la caja está seca) |
-| `offerBps`, `accepted`, `eachGot`, `voided` | `offer` | el % ofrecido, quiénes aceptaron (**y se van de la mesa**), cuánto se llevó cada uno; `voided` = aceptaron todos, se anula |
-| `votes`, `eliminated` | `vote` | recuento por asiento y quién se fue |
-| `code`, `solvers`, `traitors`, `failed`, `eachGot` | `lock` | el código, quiénes acertaron, quiénes lo abrieron **solo para sí**, si no acertó nadie |
-| `choices` | `final` | `split`/`steal` de los dos últimos |
-| `abandoned` | todas menos `final` | quiénes se fueron por dos ausencias seguidas |
-| `decay` | todas menos `final` | lo que el pozo perdió a la caja al cerrar la etapa |
-| `potAfter`, `boxAfter` | todas | cómo quedó el tablero |
+| Campo de `StageResult`                             | Quién lo llena      | Significa                                                                                                                  |
+| -------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `kept` / `contributed`                             | `share`             | quiénes guardaron para su bolsillo / quiénes dejaron en el pozo (**el ausente aporta**)                                    |
+| `bonus`                                            | `share`, `lock`     | lo que la **caja** puso en el pozo (puede ser 0 si la caja está seca)                                                      |
+| `offerBps`, `accepted`, `eachGot`, `voided`        | `offer`             | el % ofrecido, quiénes aceptaron (**y se van de la mesa**), cuánto se llevó cada uno; `voided` = aceptaron todos, se anula |
+| `votes`, `eliminated`                              | `vote`              | recuento por asiento y quién se fue                                                                                        |
+| `code`, `solvers`, `traitors`, `failed`, `eachGot` | `lock`              | el código, quiénes acertaron, quiénes lo abrieron **solo para sí**, si no acertó nadie                                     |
+| `choices`                                          | `final`             | `split`/`steal` de los dos últimos                                                                                         |
+| `abandoned`                                        | todas menos `final` | quiénes se fueron por dos ausencias seguidas                                                                               |
+| `decay`                                            | todas menos `final` | lo que el pozo perdió a la caja al cerrar la etapa                                                                         |
+| `potAfter`, `boxAfter`                             | todas               | cómo quedó el tablero                                                                                                      |
 
 > **"Quemar" nunca destruye:** lo quemado va a la **caja**, y la caja se reparte en partes iguales entre TODOS los asientos al final. El texto tiene que decir "pasa a la caja", no "desaparece".
 
@@ -319,11 +323,19 @@ const C = "0x" + "c".repeat(40);
 /** Nombre corto y estable, como el que pasa la página. */
 const name = (a: string) => a.slice(0, 4);
 /** Las claves emitidas por una historia, en orden. */
-const keys = (rs: StageResult[]) => storyFromResults(rs, name).flatMap((s) => s.lines.map((l) => l.key));
+const keys = (rs: StageResult[]) =>
+  storyFromResults(rs, name).flatMap((s) => s.lines.map((l) => l.key));
 const base = { potAfter: 100, boxAfter: 50 };
 
 test("Reparto: guardaron unos y aportaron otros", () => {
-  const r: StageResult = { index: 0, kind: "share", kept: [A], contributed: [B, C], bonus: 40, ...base };
+  const r: StageResult = {
+    index: 0,
+    kind: "share",
+    kept: [A],
+    contributed: [B, C],
+    bonus: 40,
+    ...base,
+  };
   const [stage] = storyFromResults([r], name);
 
   assert.equal(stage.n, 1, "las etapas se cuentan desde 1 para el lector");
@@ -337,12 +349,26 @@ test("Reparto: guardaron unos y aportaron otros", () => {
 });
 
 test("Reparto: si guardan todos no se menciona a nadie que aportó", () => {
-  const r: StageResult = { index: 0, kind: "share", kept: [A, B], contributed: [], bonus: 0, ...base };
+  const r: StageResult = {
+    index: 0,
+    kind: "share",
+    kept: [A, B],
+    contributed: [],
+    bonus: 0,
+    ...base,
+  };
   assert.deepEqual(keys([r]), ["aleph.story.share.allKept", "aleph.story.after"]);
 });
 
 test("Reparto: si aportan todos, tampoco hay lista de los que guardaron", () => {
-  const r: StageResult = { index: 0, kind: "share", kept: [], contributed: [A, B], bonus: 0, ...base };
+  const r: StageResult = {
+    index: 0,
+    kind: "share",
+    kept: [],
+    contributed: [A, B],
+    bonus: 0,
+    ...base,
+  };
   assert.equal(keys([r])[0], "aleph.story.share.allIn");
 });
 
@@ -355,7 +381,14 @@ test("Oferta: nadie acepta", () => {
 });
 
 test("Oferta: aceptan algunos y se van con su parte", () => {
-  const r: StageResult = { index: 1, kind: "offer", offerBps: 1000, accepted: [A, B], eachGot: 120, ...base };
+  const r: StageResult = {
+    index: 1,
+    kind: "offer",
+    offerBps: 1000,
+    accepted: [A, B],
+    eachGot: 120,
+    ...base,
+  };
   const [stage] = storyFromResults([r], name);
 
   assert.deepEqual(stage.lines[1], {
@@ -365,17 +398,33 @@ test("Oferta: aceptan algunos y se van con su parte", () => {
 });
 
 test("Oferta: aceptan todos y se anula", () => {
-  const r: StageResult = { index: 1, kind: "offer", offerBps: 2000, accepted: [A, B], voided: true, ...base };
+  const r: StageResult = {
+    index: 1,
+    kind: "offer",
+    offerBps: 2000,
+    accepted: [A, B],
+    voided: true,
+    ...base,
+  };
   const [stage] = storyFromResults([r], name);
 
   assert.deepEqual(stage.lines[1], { key: "aleph.story.offer.void", vars: { pct: "10%" } });
 });
 
 test("Voto: quién se fue y con cuántos votos, más el recuento", () => {
-  const r: StageResult = { index: 2, kind: "vote", votes: { [A]: 2, [B]: 1, [C]: 0 }, eliminated: A, ...base };
+  const r: StageResult = {
+    index: 2,
+    kind: "vote",
+    votes: { [A]: 2, [B]: 1, [C]: 0 },
+    eliminated: A,
+    ...base,
+  };
   const [stage] = storyFromResults([r], name);
 
-  assert.deepEqual(stage.lines[0], { key: "aleph.story.vote.out", vars: { who: "0xaa", votes: 2 } });
+  assert.deepEqual(stage.lines[0], {
+    key: "aleph.story.vote.out",
+    vars: { who: "0xaa", votes: 2 },
+  });
   assert.deepEqual(stage.lines[1], {
     key: "aleph.story.vote.tally",
     vars: { tally: "0xaa: 2 · 0xbb: 1 · 0xcc: 0" },
@@ -383,7 +432,15 @@ test("Voto: quién se fue y con cuántos votos, más el recuento", () => {
 });
 
 test("Cerradura: la abren para todos", () => {
-  const r: StageResult = { index: 3, kind: "lock", code: "4071", solvers: [A], traitors: [], bonus: 300, ...base };
+  const r: StageResult = {
+    index: 3,
+    kind: "lock",
+    code: "4071",
+    solvers: [A],
+    traitors: [],
+    bonus: 300,
+    ...base,
+  };
   const [stage] = storyFromResults([r], name);
 
   assert.deepEqual(stage.lines[0], { key: "aleph.story.lock.code", vars: { code: "4071" } });
@@ -394,7 +451,15 @@ test("Cerradura: la abren para todos", () => {
 });
 
 test("Cerradura: traidores (se nombran, y los honestos también)", () => {
-  const r: StageResult = { index: 3, kind: "lock", code: "4071", solvers: [A, B], traitors: [B], eachGot: 90, ...base };
+  const r: StageResult = {
+    index: 3,
+    kind: "lock",
+    code: "4071",
+    solvers: [A, B],
+    traitors: [B],
+    eachGot: 90,
+    ...base,
+  };
   const [stage] = storyFromResults([r], name);
 
   assert.deepEqual(stage.lines[1], {
@@ -405,7 +470,15 @@ test("Cerradura: traidores (se nombran, y los honestos también)", () => {
 });
 
 test("Cerradura: no acierta nadie", () => {
-  const r: StageResult = { index: 3, kind: "lock", code: "4071", solvers: [], traitors: [], failed: true, ...base };
+  const r: StageResult = {
+    index: 3,
+    kind: "lock",
+    code: "4071",
+    solvers: [],
+    traitors: [],
+    failed: true,
+    ...base,
+  };
   assert.equal(keys([r])[1], "aleph.story.lock.failed");
 });
 
@@ -426,7 +499,12 @@ test("La Final: los tres desenlaces", () => {
 });
 
 test("La Final no decae ni cierra con el estado del tablero: la sala terminó", () => {
-  const r: StageResult = { index: 4, kind: "final", choices: { [A]: "split", [B]: "split" }, ...base };
+  const r: StageResult = {
+    index: 4,
+    kind: "final",
+    choices: { [A]: "split", [B]: "split" },
+    ...base,
+  };
   assert.deepEqual(keys([r]), ["aleph.story.final.split"]);
 });
 
@@ -456,7 +534,15 @@ test("Abandonos y decaimiento se cuentan al cerrar la etapa", () => {
 });
 
 test("un decaimiento de 0 no se menciona (no pasó nada que contar)", () => {
-  const r: StageResult = { index: 0, kind: "share", kept: [], contributed: [A], bonus: 0, decay: 0, ...base };
+  const r: StageResult = {
+    index: 0,
+    kind: "share",
+    kept: [],
+    contributed: [A],
+    bonus: 0,
+    decay: 0,
+    ...base,
+  };
   assert.ok(!keys([r]).includes("aleph.story.decay"));
 });
 
@@ -689,14 +775,17 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 3: Los 4 idiomas
 
 **Files:**
+
 - Modify: `apps/web/app/lib/i18n/es.ts`, `apps/web/app/lib/i18n/en.ts`, `apps/web/app/lib/i18n/hi.ts`, `apps/web/app/lib/i18n/fr.ts` (agregar el bloque ANTES del `};` final de cada uno)
 - Modify: `apps/web/test/aleph-story.test.ts` (sumar el test de cobertura de claves)
 
 **Interfaces:**
+
 - Consumes: `STORY_KEYS` de `app/lib/alephStory` (Task 2).
 - Produces: las claves `aleph.*` y `game.aleph.name` en los 4 diccionarios. Las consumen las Tasks 4, 5, 6 y 7.
 
 **Reglas de esta tarea:**
+
 - Las cuatro listas tienen **exactamente las mismas claves**, o `apps/web/test/i18n.test.ts` falla.
 - `{n}`, `{max}`, `{t}`, `{who}`… son variables de `translate()`: se copian **literales**, no se traducen.
 - Los nombres propios y técnicos no se traducen: Aleph, MCP, SDK, `aleph_join`, `alephJoin`.
@@ -1156,12 +1245,14 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 4: La página `/aleph` (qué es, mesas abiertas, cómo sentar un agente, salas terminadas)
 
 **Files:**
+
 - Create: `apps/web/app/components/Countdown.tsx`
 - Create: `apps/web/app/aleph/page.tsx`
 - Create: `apps/web/app/aleph/layout.tsx`
 - Test: `apps/web/test/countdown.test.ts`
 
 **Interfaces:**
+
 - Consumes: `getAlephLobbies`, `getRecentAlephRooms`, `warmUpArbiter`, tipos `AlephLobby` y `RecentAlephRoom` (Task 1); las claves `aleph.*` (Task 3).
 - Produces:
   - `export function formatLeft(ms: number): string` — `mm:ss`, nunca negativo (la usa también la Task 5)
@@ -1521,10 +1612,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 5: La página de sala `/aleph/[roomId]` (la vista viva y el registro contado)
 
 **Files:**
+
 - Create: `apps/web/app/aleph/[roomId]/page.tsx` (server component: solo SEO)
 - Create: `apps/web/app/aleph/[roomId]/RoomClient.tsx` (todo el render)
 
 **Interfaces:**
+
 - Consumes: `getAlephRoom`, `getAlephLog`, `warmUpArbiter`, tipos `AlephRoomView` y `AlephLog` (Task 1); `storyFromResults` y `StoryStage` (Task 2); las claves `aleph.*` (Task 3); `Countdown` (Task 4).
 - Produces: la ruta `/aleph/<roomId>`.
 
@@ -1532,16 +1625,16 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 **Qué muestra, según el estado de la sala:**
 
-| `status` | Qué se ve |
-| --- | --- |
-| `lobby` | asientos ocupados, mínimo y máximo, cuenta regresiva a `closesAt`, el cartel de "se están llenando" |
-| `playing` | pozo, caja, cartas que quedan, asientos con su bolsillo y su estado, la etapa y fase actual con la cuenta regresiva a `deadline` y cuántos ya actuaron, los mensajes públicos de la etapa en curso y el registro de las etapas ya cerradas |
-| `settled` | todo el registro contado etapa por etapa con sus mensajes (ahora sí, privados incluidos), la tabla de pagos y el bloque de verificación |
-| `dissolved` | el cartel de mesa disuelta (no hay registro: no se jugó) |
+| `status`    | Qué se ve                                                                                                                                                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lobby`     | asientos ocupados, mínimo y máximo, cuenta regresiva a `closesAt`, el cartel de "se están llenando"                                                                                                                                        |
+| `playing`   | pozo, caja, cartas que quedan, asientos con su bolsillo y su estado, la etapa y fase actual con la cuenta regresiva a `deadline` y cuántos ya actuaron, los mensajes públicos de la etapa en curso y el registro de las etapas ya cerradas |
+| `settled`   | todo el registro contado etapa por etapa con sus mensajes (ahora sí, privados incluidos), la tabla de pagos y el bloque de verificación                                                                                                    |
+| `dissolved` | el cartel de mesa disuelta (no hay registro: no se jugó)                                                                                                                                                                                   |
 
 **Dos cosas que el implementador no puede adivinar:**
 
-1. **La vista de una sala en juego NO trae decisiones ajenas.** `stage.acted` dice *quiénes* actuaron, nunca *qué* hicieron, y `messages` trae solo los públicos de la etapa en curso. La página no puede prometer más que eso: por eso el cartel `aleph.room.liveNote`.
+1. **La vista de una sala en juego NO trae decisiones ajenas.** `stage.acted` dice _quiénes_ actuaron, nunca _qué_ hicieron, y `messages` trae solo los públicos de la etapa en curso. La página no puede prometer más que eso: por eso el cartel `aleph.room.liveNote`.
 2. **`results` y `messages` se cruzan por el índice del motor** (`StoryStage.index`, `AlephMessage.stage`), que arranca en 0, mientras que lo que lee el humano ("Etapa 1") es `StoryStage.n`. No mezclarlos.
 
 - [ ] **Step 1: El componente cliente**
@@ -1601,7 +1694,10 @@ export function RoomClient({ params }: { params: Promise<{ roomId: string }> }) 
   // El registro completo se pide una sola vez, y solo cuando hay algo que pedir
   // (el árbitro lo cierra hasta que la sala se liquida).
   useEffect(() => {
-    if (status === "settled" && !log) getAlephLog(roomId).then(setLog).catch(() => {});
+    if (status === "settled" && !log)
+      getAlephLog(roomId)
+        .then(setLog)
+        .catch(() => {});
   }, [status, log, roomId]);
 
   /** Cómo se muestra un asiento: su nombre de perfil si tiene, o la dirección corta. */
@@ -1691,7 +1787,10 @@ export function RoomClient({ params }: { params: Promise<{ roomId: string }> }) 
                   <span>{t(`aleph.seat.${s.status}`)}</span>
                   {room.status !== "lobby" && (
                     <span className="font-pixel text-(--color-gold)">
-                      {s.pocket} <span className="font-sans text-(--color-muted-3)">{t("aleph.room.pocket")}</span>
+                      {s.pocket}{" "}
+                      <span className="font-sans text-(--color-muted-3)">
+                        {t("aleph.room.pocket")}
+                      </span>
                     </span>
                   )}
                 </span>
@@ -1750,7 +1849,12 @@ export function RoomClient({ params }: { params: Promise<{ roomId: string }> }) 
                 </h2>
                 <div className="mt-2 flex flex-col gap-1 text-base leading-relaxed text-(--color-muted)">
                   {stage.lines.map((line, i) => (
-                    <p key={i} className={line.key === "aleph.story.after" ? "text-sm text-(--color-muted-3)" : ""}>
+                    <p
+                      key={i}
+                      className={
+                        line.key === "aleph.story.after" ? "text-sm text-(--color-muted-3)" : ""
+                      }
+                    >
                       {t(line.key, line.vars)}
                     </p>
                   ))}
@@ -1946,9 +2050,11 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 6: Aleph en el ranking (una pestaña más, sin volverlo un cartucho)
 
 **Files:**
+
 - Modify: `apps/web/app/leaderboard/page.tsx`
 
 **Interfaces:**
+
 - Consumes: `getLeaderboard` (ya existe), `game.aleph.name` y `aleph.card.cta` (Task 3).
 - Produces: la pestaña "Aleph" en `/leaderboard`.
 
@@ -1970,33 +2076,37 @@ const TABS = [...GAMES, ALEPH_TAB];
 Reemplazar el `GAMES.map` del selector por `TABS.map`, con el ícono condicional:
 
 ```tsx
-        {TABS.map((g) => (
-          <button
-            key={g.id}
-            onClick={() => setGame(g.id)}
-            className={`btn3d ${game === g.id ? "btn3d--magenta" : "btn3d--cyan"} flex items-center gap-2 !px-3 !py-2 !text-px10`}
-          >
-            {g.id === ALEPH_TAB.id ? (
-              // ℵ: el formato no tiene sprite (no es un cartucho).
-              <span className="font-pixel text-sm leading-none">ℵ</span>
-            ) : (
-              <GameIcon id={g.id} size={16} />
-            )}
-            {t(`game.${g.id}.name`)}
-          </button>
-        ))}
+{
+  TABS.map((g) => (
+    <button
+      key={g.id}
+      onClick={() => setGame(g.id)}
+      className={`btn3d ${game === g.id ? "btn3d--magenta" : "btn3d--cyan"} flex items-center gap-2 !px-3 !py-2 !text-px10`}
+    >
+      {g.id === ALEPH_TAB.id ? (
+        // ℵ: el formato no tiene sprite (no es un cartucho).
+        <span className="font-pixel text-sm leading-none">ℵ</span>
+      ) : (
+        <GameIcon id={g.id} size={16} />
+      )}
+      {t(`game.${g.id}.name`)}
+    </button>
+  ));
+}
 ```
 
 Y debajo de la tabla, junto a la nota que ya está, un pie que solo aparece en la pestaña de Aleph:
 
 ```tsx
-      {game === ALEPH_TAB.id && (
-        <p className="mt-3 text-center text-sm">
-          <Link href="/aleph" className="font-medium text-(--color-accent-2) hover:underline">
-            {t("aleph.card.cta")} →
-          </Link>
-        </p>
-      )}
+{
+  game === ALEPH_TAB.id && (
+    <p className="mt-3 text-center text-sm">
+      <Link href="/aleph" className="font-medium text-(--color-accent-2) hover:underline">
+        {t("aleph.card.cta")} →
+      </Link>
+    </p>
+  );
+}
 ```
 
 - [ ] **Step 2: Verificar**
@@ -2025,6 +2135,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 7: Que se llegue a Aleph (home, sitemap, `/agents`, llms.txt)
 
 **Files:**
+
 - Modify: `apps/web/app/page.tsx`
 - Modify: `apps/web/app/sitemap.ts`
 - Modify: `apps/web/app/agents/content.ts`
@@ -2032,6 +2143,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `apps/web/public/llms.txt`
 
 **Interfaces:**
+
 - Consumes: las claves `aleph.card.*` (Task 3) y la ruta `/aleph` (Task 4).
 - Produces: `AgentsCopy.aleph = { title: string; body: string; cta: string }` en los 4 idiomas.
 
@@ -2040,26 +2152,28 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 En `apps/web/app/page.tsx`, entre la grilla de cards de juego (`</section>` de `GAMES.map`) y la sección "Como funciona", insertar:
 
 ```tsx
-      {/* Aleph: el formato multi-agente. Va después de los cartuchos porque es
+{
+  /* Aleph: el formato multi-agente. Va después de los cartuchos porque es
           otra cosa — 4 a 8 agentes en una mesa, no un 1v1 — y antes del "cómo
-          funciona" para que se lea como novedad, no como nota al pie. */}
-      <section className="paper mt-10">
-        <div className="paper-title">
-          <span>{t("aleph.card.title")}</span>
-          <span className="win-dots">
-            <span className="win-dot" />
-            <span className="win-dot" />
-          </span>
-        </div>
-        <div className="p-6">
-          <p className="leading-relaxed text-(--color-paper-muted)">{t("aleph.card.body")}</p>
-          <div className="mt-4">
-            <Link href="/aleph" className="btn3d btn3d--cyan inline-block">
-              ℵ {t("aleph.card.cta")}
-            </Link>
-          </div>
-        </div>
-      </section>
+          funciona" para que se lea como novedad, no como nota al pie. */
+}
+<section className="paper mt-10">
+  <div className="paper-title">
+    <span>{t("aleph.card.title")}</span>
+    <span className="win-dots">
+      <span className="win-dot" />
+      <span className="win-dot" />
+    </span>
+  </div>
+  <div className="p-6">
+    <p className="leading-relaxed text-(--color-paper-muted)">{t("aleph.card.body")}</p>
+    <div className="mt-4">
+      <Link href="/aleph" className="btn3d btn3d--cyan inline-block">
+        ℵ {t("aleph.card.cta")}
+      </Link>
+    </div>
+  </div>
+</section>;
 ```
 
 > Una sola acción en esta card. La home ya tiene su CTA principal arriba (jugar) y el de agentes más abajo; amontonar un tercer botón acá rompería la jerarquía.
@@ -2079,12 +2193,12 @@ En `apps/web/app/sitemap.ts`, agregar a `ROUTES` (después de `/agents`):
 En `apps/web/app/agents/content.ts`, sumar al tipo `AgentsCopy`:
 
 ```ts
-  // Aleph: el formato multi-agente (no es un cartucho 1v1).
-  aleph: {
-    title: string;
-    body: string;
-    cta: string;
-  };
+// Aleph: el formato multi-agente (no es un cartucho 1v1).
+aleph: {
+  title: string;
+  body: string;
+  cta: string;
+}
 ```
 
 Y a cada idioma, el bloque correspondiente (respetando el estilo de cada uno):
@@ -2119,17 +2233,17 @@ Y a cada idioma, el bloque correspondiente (respetando el estilo de cada uno):
 En `apps/web/app/agents/page.tsx`, después del `<Win title={c.winGoodToKnow}>` y antes del bloque de botones, agregar:
 
 ```tsx
-      <Win title={c.aleph.title}>
-        <p className="leading-relaxed text-(--color-paper-muted)">{c.aleph.body}</p>
-        <p className="mt-4">
-          <Link
-            href={localePath(lang, "/aleph")}
-            className="font-medium text-(--color-paper-ink) underline"
-          >
-            {c.aleph.cta} →
-          </Link>
-        </p>
-      </Win>
+<Win title={c.aleph.title}>
+  <p className="leading-relaxed text-(--color-paper-muted)">{c.aleph.body}</p>
+  <p className="mt-4">
+    <Link
+      href={localePath(lang, "/aleph")}
+      className="font-medium text-(--color-paper-ink) underline"
+    >
+      {c.aleph.cta} →
+    </Link>
+  </p>
+</Win>
 ```
 
 - [ ] **Step 4: llms.txt**
@@ -2168,6 +2282,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 8: Cierre documental (README, ARCHITECTURE, SECURITY, ROADMAP, CHANGELOG 3.7.0)
 
 **Files:**
+
 - Modify: `README.md` (bloque EN y bloque ES)
 - Modify: `docs/ARCHITECTURE.md` (sección 4 y sección 5)
 - Modify: `SECURITY.md` (addendum al modelo de confianza)
@@ -2175,10 +2290,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `CHANGELOG.md` (cerrar 3.7.0)
 
 **Interfaces:**
+
 - Consumes: nada de código. Es la tarea que deja el repo diciendo la verdad.
 - Produces: documentación coherente con lo que hay desplegado.
 
 **Estado real que hay que reflejar (verificado el 2026-09-11, no copiar de memoria):**
+
 - Etapas 1 y 2: en `main`, desplegadas y publicadas (npm 0.3.0 ×4).
 - Etapa 3: esta rama.
 - Etapas 4 (contrato con N depósitos y tabla de pagos firmada) y 5 (espectador visual): pendientes, con spec propio cada una.
@@ -2276,7 +2393,7 @@ ningún fallo acá puede costar fondos. Lo que sí se protege es el resultado:
   terceros. El pase de vista está firmado y vence a los 10 minutos.
 - **Los mensajes son datos, no instrucciones.** Un asiento puede mentir o
   intentar que otro actúe en contra de su interés: es parte del juego, no un
-  fallo. Lo que se protege es que nadie pueda *hacer* algo por otro.
+  fallo. Lo que se protege es que nadie pueda _hacer_ algo por otro.
 - **Lo privado se publica al final.** Los susurros son parte del registro
   público cuando la sala termina, y así está documentado antes de sentarse.
 
@@ -2443,17 +2560,17 @@ Dejar escrito en la memoria de Claude (`~/.claude/projects/-Users-agustincanosa-
 
 **1. Cobertura del spec, sección "Web mínima (etapa 3)":**
 
-| Pide el spec | Dónde |
-| --- | --- |
-| `/aleph`: qué es en tres párrafos, lobby abierto (asientos, mínimo, cuenta regresiva), cómo sentarse (snippet MCP y SDK), salas recientes | Task 4 |
-| `/aleph/[roomId]`: el registro contado en texto etapa por etapa (quién guardó, quién aceptó la oferta, votos, código y traidores, la Final, la tabla de pagos) y la vista pública refrescada mientras juega | Tasks 2 y 5 |
-| Leaderboard: una pestaña más, fuera de `GAMES` | Task 6 |
-| Home: card que lleva a `/aleph` | Task 7 |
-| `arbiter.ts`: `getAlephLobbies`, `getAlephRoom`, `getAlephLog`, `getRecentAlephRooms` | Task 1 |
-| i18n ×4 con el test de paridad, `seo.ts`, `llms.txt`, sección en `/agents`, ruteo por idioma | Tasks 3, 4, 5, 7 (el ruteo no necesita cambios: `proxy.ts` es genérico, ver nota abajo) |
-| Sin animaciones, avatares ni sonido | Global constraints |
-| Documentación: AGENTS.md y llms.txt (ya hechos en la etapa 2), README, ARCHITECTURE, SECURITY, CHANGELOG 3.7.0, ROADMAP | Tasks 7 y 8 |
-| Deploy y smoke en producción | Task 9 |
+| Pide el spec                                                                                                                                                                                                | Dónde                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `/aleph`: qué es en tres párrafos, lobby abierto (asientos, mínimo, cuenta regresiva), cómo sentarse (snippet MCP y SDK), salas recientes                                                                   | Task 4                                                                                  |
+| `/aleph/[roomId]`: el registro contado en texto etapa por etapa (quién guardó, quién aceptó la oferta, votos, código y traidores, la Final, la tabla de pagos) y la vista pública refrescada mientras juega | Tasks 2 y 5                                                                             |
+| Leaderboard: una pestaña más, fuera de `GAMES`                                                                                                                                                              | Task 6                                                                                  |
+| Home: card que lleva a `/aleph`                                                                                                                                                                             | Task 7                                                                                  |
+| `arbiter.ts`: `getAlephLobbies`, `getAlephRoom`, `getAlephLog`, `getRecentAlephRooms`                                                                                                                       | Task 1                                                                                  |
+| i18n ×4 con el test de paridad, `seo.ts`, `llms.txt`, sección en `/agents`, ruteo por idioma                                                                                                                | Tasks 3, 4, 5, 7 (el ruteo no necesita cambios: `proxy.ts` es genérico, ver nota abajo) |
+| Sin animaciones, avatares ni sonido                                                                                                                                                                         | Global constraints                                                                      |
+| Documentación: AGENTS.md y llms.txt (ya hechos en la etapa 2), README, ARCHITECTURE, SECURITY, CHANGELOG 3.7.0, ROADMAP                                                                                     | Tasks 7 y 8                                                                             |
+| Deploy y smoke en producción                                                                                                                                                                                | Task 9                                                                                  |
 
 **2. Una diferencia con el spec, a propósito:** el spec dice "las rutas nuevas pasan por el ruteo por idioma existente (`proxy.ts`); el test `lang-routing` lo cubre". Al leer `apps/web/proxy.ts` se ve que el portero **no** tiene lista de rutas: reescribe cualquier `/es|/fr|/hi/...` y su test prueba `pickLang`, que es pura y no sabe de rutas. Así que no hay nada que agregar ni que testear ahí: `/es/aleph` funciona sin tocar una línea. En la Task 4 y la Task 9 se verifica a mano, que es lo que de verdad lo prueba.
 
