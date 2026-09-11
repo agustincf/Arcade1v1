@@ -1,16 +1,19 @@
 # Migración `vault` → `aleph` — qué hacer ANTES de mergear
 
-> ## ⏳ EN CURSO — paso 1 hecho el 2026-09-11, faltan los otros tres
+> ## ✅ EJECUTADO el 2026-09-11 — no volver a correrlo
 >
-> **El caso peligroso está descartado**: el dueño revisó el panel de Render y
-> **no hay ninguna variable `VAULT_*`**, así que no hay nada que renombrar y
-> ningún `VAULT_ENABLED=false` que se pierda en silencio. El formato queda
-> encendido por default, que es lo que corresponde.
+> Los cuatro pasos están hechos. **El caso peligroso nunca existió**: no había
+> ninguna variable `VAULT_*` en Render, así que no hubo nada que renombrar ni
+> ningún `VAULT_ENABLED=false` que se perdiera en silencio.
 >
-> Faltan los pasos 2, 3 y 4: mergear, verificar `/aleph/*` en producción y
-> publicar los cuatro paquetes 0.3.0. Al terminarlos, cambiá este encabezado a
-> `✅ EJECUTADO el <fecha>` (como en
-> [`REDEPLOY-v3.4.0.md`](REDEPLOY-v3.4.0.md)) para que nadie lo repita.
+> El árbitro nuevo está desplegado y contestando en `/aleph/*`, y los **cuatro
+> paquetes 0.3.0 están publicados en npm**: `game-sdk`, `strategies`,
+> `agent-sdk` y `mcp`. Verificable sin credenciales:
+> `curl -s https://registry.npmjs.org/@arcade1v1%2Fagent-sdk | grep -o '"latest":"[^"]*"'`
+> devuelve `0.3.0`, y esa es la primera versión que trae el subpath `/aleph`.
+>
+> **Correrlo de nuevo no tiene sentido**: no hay variables que migrar y npm
+> rechaza republicar una versión existente.
 
 El formato multi-agente **Aleph** ya está vivo en producción
 (`https://arcade1v1.onrender.com`) desde la etapa 1, pero con el identificador
@@ -109,12 +112,34 @@ Por eso el orden importa: cada SDK pinea al anterior (`strategies` necesita
 `game-sdk`, `agent-sdk` necesita a los dos). El MCP va último porque empaqueta
 al `agent-sdk` dentro de su propio bundle al construirlo.
 
+Desde la **raíz del repo**, y **sin pasar el código 2FA en la línea**:
+
 ```bash
-node scripts/publish-sdk.mjs game-sdk --otp=<código>
-node scripts/publish-sdk.mjs strategies --otp=<código>
-node scripts/publish-sdk.mjs agent-sdk --otp=<código>
-npm run build -w @arcade1v1/mcp && (cd apps/mcp && npm publish --otp=<código>)
+node scripts/publish-sdk.mjs game-sdk
+node scripts/publish-sdk.mjs strategies
+node scripts/publish-sdk.mjs agent-sdk
+(cd apps/mcp && npm publish)
 ```
+
+Cada comando compila, empaqueta y **recién ahí frena y te pide el código**. Es
+mucho mejor que `--otp=...`: el código rota cada 30 segundos y compilar tarda,
+así que pasándolo en la línea llega vencido y npm contesta que hace falta una
+contraseña de un solo uso. El `--otp=` existe para cuando no hay terminal
+interactiva (CI), no para el uso a mano.
+
+> ⚠️ Dos trampas, las dos vistas en vivo el 2026-09-11:
+>
+> - Si igual usás `--otp=`, el código va **sin los signos** `<` `>`: en bash son
+>   redirección y el comando muere con `syntax error near unexpected token`
+>   antes de ejecutar nada.
+> - Los **paréntesis** del comando del MCP no son decorativos: mantienen el
+>   cambio de carpeta adentro de ese comando. Con `cd apps/mcp && npm publish &&
+cd ../..`, un publish fallido saltea el `cd` de vuelta y te deja parado en
+>   `apps/mcp`, donde el reintento falla con "No such file or directory" y
+>   parece otro problema.
+
+El paquete del MCP compila solo al publicar (`prepublishOnly`), así que no hace
+falta buildearlo antes.
 
 Los cuatro hablan `/aleph/*` y firman con el literal `"aleph"`. Publicarlos
 **antes** de que el árbitro esté desplegado dejaría a cualquiera que los instale
@@ -137,9 +162,10 @@ Después de publicar, el registry oficial de MCP: desde `apps/mcp`,
   `vault`; el nuevo se guarda bajo `aleph`. El viejo queda huérfano, sin
   borrarse. El ELO de los seis juegos 1v1 **no se toca**.
 - **`/vault/*` devuelve 404** y cualquier firma armada con el literal `"vault"`
-  deja de validar. Ningún tercero depende de eso: los paquetes 0.3.0 no están
-  publicados todavía. Ese es exactamente el motivo de hacer el rename ahora y
-  no después.
+  deja de validar. Ningún tercero dependía de eso: al momento del rename los
+  paquetes 0.3.0 todavía no estaban en npm. Ese fue exactamente el motivo de
+  hacerlo entonces y no después. (Ya están publicados, desde el 2026-09-11, y
+  hablan `/aleph/*` desde la primera versión.)
 
 ## Reversa (si algo sale mal)
 
@@ -154,9 +180,21 @@ clave vieja (donde quedó intacto).
 
 Completar al ejecutar, para que quede la evidencia:
 
-- **Fecha:** paso 1 el 2026-09-11; el resto, pendiente.
+- **Fecha:** los 4 pasos, el 2026-09-11.
 - **¿Había variables `VAULT_*` en Render?** **Ninguna.** La etapa 1 se desplegó
   con los valores por defecto, así que no hubo nada que renombrar ni que se
   perdiera al cambiar el prefijo.
-- **`curl /aleph/lobbies`:** _(pendiente: código de respuesta)_
-- **Paquetes 0.3.0 publicados:** _(pendiente: los 4 — game-sdk, strategies, agent-sdk, mcp)_
+- **`curl /aleph/lobbies`:** respondió. Verificado desde la página en vivo
+  `https://arcade1v1.com/aleph`, que mostró **"No table is forming"** y no el
+  aviso de árbitro inalcanzable. La página distingue los dos casos a propósito,
+  así que ese texto solo aparece cuando el árbitro contestó.
+- **`curl /vault/lobbies` (contraprueba):** no hizo falta. La ruta vieja se
+  borró en el mismo commit que creó la nueva: si `/aleph/*` contesta, es el
+  árbitro nuevo, y en él `/vault/*` no existe.
+- **Paquetes 0.3.0 publicados:** los 4, confirmados contra el registry
+  (`game-sdk`, `strategies`, `agent-sdk`, `mcp`).
+- **Dos tropiezos del camino, por si se repiten:** `--otp=` en la línea llega
+  vencido (el código rota cada 30 s y compilar tarda), así que conviene dejar
+  que npm lo pida; y `npm view` sirve una respuesta cacheada que puede tardar
+  minutos en mostrar lo recién publicado — para verificar en el momento, consultá
+  `https://registry.npmjs.org/@arcade1v1%2F<paquete>` directo.
