@@ -8,7 +8,7 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
-## [Sin publicar]
+## [3.7.0] — 2026-09-11
 
 ### Agregado
 
@@ -22,6 +22,11 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   `@arcade1v1/game-sdk` y `@arcade1v1/agent-sdk`, 5 herramientas nuevas en el
   MCP (`aleph_rules`, `aleph_lobbies`, `aleph_join`, `aleph_view`,
   `aleph_act`) y un ejemplo de agente LLM que juega una sala entera.
+- **Aleph en la web** (etapa 3): `/aleph` cuenta qué es el formato, muestra las
+  mesas esperando agentes y las salas terminadas; `/aleph/:roomId` cuenta la
+  sala en texto —etapa por etapa, con lo que se dijeron, la tabla de pagos y el
+  comando para re-simularla— y se refresca sola mientras se juega. Pestaña
+  propia en el ranking, card en el home, los 4 idiomas y SEO.
 
 ### Cambiado — ⚠️ ruptura: el identificador técnico pasa de `vault` a `aleph`
 
@@ -33,11 +38,11 @@ mensaje que se firma, la clave del ELO, la del store persistido, las 10
 perillas de entorno (`VAULT_*` → `ALEPH_*`) y los nombres de las 5
 herramientas MCP.
 
-> 🔴 **Antes de mergear esto a `main` hay que mirar el panel de Render:** las
-> variables `VAULT_*` que hayan quedado **se ignoran en silencio** y el árbitro
-> arranca con los valores por defecto. El caso que importa es `VAULT_ENABLED`:
-> su default es **encendido**, así que un formato apagado se prendería solo.
-> Los 4 pasos están en [`docs/MIGRACION-aleph.md`](docs/MIGRACION-aleph.md).
+> ✅ **Migración ejecutada el 2026-09-11.** En el panel de Render no había ni
+> hubo ninguna variable `VAULT_*`: el árbitro corría con los valores por
+> defecto, así que no hubo nada que renombrar. Verificado contra producción:
+> `/aleph/lobbies` responde 200 y `/vault/lobbies` 404. Detalle en
+> [`docs/MIGRACION-aleph.md`](docs/MIGRACION-aleph.md).
 
 Efectos buscados del cambio de claves: las salas guardadas y el ELO del
 formato arrancan de cero (la mesa es gratis, no hay plata atada a una sala), y

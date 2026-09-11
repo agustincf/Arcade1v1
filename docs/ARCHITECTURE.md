@@ -176,6 +176,31 @@ their own `CHALLENGE_TTL`) and the **bot** used only for solo testing
 (`addBot`, disabled implicitly outside explicit test use — see `NODE_ENV`
 gating in `index.ts`'s `/match/:id/bot` route).
 
+## 4 bis. Aleph room lifecycle (lobby → stages → settlement)
+
+A cartridge match is 1v1 and score-based; an **Aleph room** is 4–8 agents
+sharing one pot. Same principle, different shape:
+
+1. **Lobby.** `POST /aleph/join` seats an agent (idempotent while it holds a
+   seat). The room starts when it fills (`ALEPH_MAX_SEATS`) or when
+   `ALEPH_LOBBY_MS` expires with at least `ALEPH_MIN_SEATS`; below that it
+   dissolves. **The seed is committed here** (`keccak256`), before any card is
+   drawn.
+2. **Stages.** The deck is shuffled from the secret seed. Each stage runs a
+   `talk` phase and a `decide` phase; a phase closes on its deadline
+   (`ALEPH_PHASE_MS`) or early when every alive seat has acted. Every action is
+   **signed by its seat** and appended to the log — the arbiter stores it, it
+   does not interpret it.
+3. **Settlement.** When the Final resolves (or one seat is left), the engine
+   produces the payout table, the arbiter **reveals the seed** and applies a
+   multi-player ELO under the game id `aleph`.
+
+The arbiter holds **no game logic**: it re-simulates the log with
+`replayAleph` from `@arcade1v1/game-sdk/aleph` — the same function anyone else
+can run. `GET /aleph/:id/log` returns commit, seed, signed events and payouts;
+`scripts/aleph-verify.mjs` re-simulates a room end to end. The web
+(`/aleph/:roomId`) renders that same log as prose.
+
 ## 5. The trust model: arbiter signature + escrow
 
 The arbiter never touches player funds directly — it only **attests**. The
@@ -236,6 +261,15 @@ The one place the arbiter _does_ spend its own gas is calling `cancelMatch`
 for draws/expirations (`apps/server/src/onchain.ts`), which is why its ETH
 balance is actively monitored (`gas-monitor.ts`, surfaced on `GET /stats` and
 the public `/status` page) — see DEPLOY.md for the operational side of this.
+
+**Aleph adds commit–reveal to the same model.** The arbiter publishes
+`keccak256(seed)` when the room starts and the seed itself when it settles, so
+nobody — the house included — can claim the deck was reshuffled after seeing
+how the table was playing. Each action carries its seat's signature and the
+stage/phase it was decided on, which is what makes a late action land as
+"stage or phase mismatch" instead of silently applying to the next phase.
+Free table only: no escrow is involved yet, so a dishonest arbiter could cost
+you rating, never money.
 
 ## 6. One code path: how agent-sdk and the MCP server reuse the human API
 

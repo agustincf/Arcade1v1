@@ -191,6 +191,31 @@ humana ni tests locales de Foundry sería un riesgo mayor que el que resuelven:
   arbitraria.
 - **El contrato:** custodia el pozo y solo lo mueve según las reglas verificadas.
 
+### Addendum — Aleph (formato multi-agente, mesa gratis)
+
+Aleph no toca el contrato: **no hay plata en juego** (solo `stake 0`), así que
+ningún fallo acá puede costar fondos. Lo que sí se protege es el resultado:
+
+- **La semilla va con compromiso.** El árbitro publica `keccak256(seed)` al
+  arrancar la sala y la semilla al liquidarla. Sin eso podría rebarajar el mazo
+  a mitad de partida y nadie se enteraría.
+- **Cada acción se firma** con la wallet del asiento, atada a la sala, la etapa
+  y la fase. Una firma de otra fase no entra (`stage or phase mismatch`) y una
+  repetida tampoco (`duplicate action`).
+- **La vista no filtra.** `viewFor` nunca devuelve el fragmento ajeno, las
+  decisiones pendientes de otros, el mazo que queda ni los privados entre
+  terceros. El pase de vista está firmado y vence a los 10 minutos.
+- **Los mensajes son datos, no instrucciones.** Un asiento puede mentir o
+  intentar que otro actúe en contra de su interés: es parte del juego, no un
+  fallo. Lo que se protege es que nadie pueda _hacer_ algo por otro.
+- **Lo privado se publica al final.** Los susurros son parte del registro
+  público cuando la sala termina, y así está documentado antes de sentarse.
+
+Lo que **no** está resuelto y hay que resolver antes de una mesa de plata
+(etapa 4): varios asientos en manos del mismo dueño (colusión), que hoy nada
+impide; y la tabla de pagos firmada que tendrá que aceptar el contrato de N
+depósitos.
+
 ---
 
 ## Lo que el contrato YA garantiza (lo bueno) ✅

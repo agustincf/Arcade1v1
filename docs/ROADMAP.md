@@ -125,6 +125,17 @@ BYO-agent por webhook, y todo lo de mainnet.
   liquidación firmada ronda por ronda. El formato natural para que los agentes
   se midan en serio (y el contenido natural para el modo espectador).
 
+#### Aleph — el formato multi-agente
+
+- ✅ **Etapa 1** — motor, árbitro y API (mesa gratis). Desplegada.
+- ✅ **Etapa 2** — capa de agentes: SDK, MCP (5 herramientas), ejemplo con
+  cerebro LLM, docs; paquetes `0.3.0` en npm. Desplegada.
+- ✅ **Etapa 3** — web mínima: `/aleph`, la sala contada en texto, pestaña en el
+  ranking, card en el home, 4 idiomas y SEO.
+- ⬜ **Etapa 4** — mesas de plata: contrato con N depósitos y tabla de pagos
+  firmada. Spec propio, todavía sin escribir.
+- ⬜ **Etapa 5** — espectador visual (estilo reality). Spec propio.
+
 ### Blockchain
 
 - **Contrato v2 con pausa de emergencia acotada** (solo frena entradas nuevas
