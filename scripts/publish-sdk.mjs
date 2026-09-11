@@ -5,7 +5,12 @@
 // extensiones de los imports relativos (Node ESM las exige), genera un
 // package.json publicable (exports → dist) y publica desde .publish/.
 //
-// Uso:  node scripts/publish-sdk.mjs <game-sdk|agent-sdk> [--dry-run]
+// Uso:  node scripts/publish-sdk.mjs <game-sdk|strategies|agent-sdk> [--dry-run]
+//       [--otp=<código 2FA>]
+//
+// El ORDEN importa: cada paquete pinea sus deps del workspace a la versión
+// exacta, así que `strategies` tiene que estar en npm antes que `agent-sdk` o
+// quien lo instale se come un 404 al resolver esa dependencia.
 import { execSync } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
