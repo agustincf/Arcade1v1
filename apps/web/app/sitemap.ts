@@ -12,6 +12,9 @@ const ROUTES: { path: string; priority: number; freq: Freq }[] = [
   { path: "/build", priority: 0.9, freq: "weekly" },
   { path: "/agents", priority: 0.9, freq: "weekly" },
   { path: "/leaderboard", priority: 0.7, freq: "daily" },
+  // Aleph: el formato multi-agente. La sala individual (/aleph/<id>) NO va al
+  // sitemap — es efímera (7 días) y se descubre desde acá.
+  { path: "/aleph", priority: 0.7, freq: "daily" },
   { path: "/agents/start", priority: 0.7, freq: "weekly" },
   { path: "/watch", priority: 0.6, freq: "daily" },
   // /status es público a propósito (métricas de transparencia del árbitro).

@@ -289,8 +289,19 @@ export async function joinAleph(
 }
 
 /** Cierra el lobby y arranca la sala: semilla secreta + compromiso público. */
+/** Tests: fija la semilla de la PRÓXIMA sala que arranque, y se consume ahí
+ *  mismo. La semilla es lo único que decide el mazo, así que es la única forma
+ *  de llevar una sala a una etapa concreta (la Cerradura, por ejemplo) sin
+ *  correr el test veinte veces a ver si sale. A diferencia de forzar el mazo,
+ *  el registro sigue re-simulando igual: `stateOf` deriva TODO de la semilla. */
+let forcedSeed: Hex | undefined;
+export function __forceAlephSeedForTest(seed?: Hex): void {
+  forcedSeed = seed;
+}
+
 function startRoom(room: AlephRoom, now: number): void {
-  const secretSeed = randomHex32();
+  const secretSeed = forcedSeed ?? randomHex32();
+  forcedSeed = undefined;
   room.secretSeed = secretSeed;
   room.commit = keccak256(secretSeed);
   room.status = "playing";
@@ -634,6 +645,15 @@ export async function getAlephRoom(
     return roomView(room, undefined);
   }
   return roomView(room, seat);
+}
+
+/** Salas vivas (lobby + en juego), para el relleno de la casa
+ *  (`aleph-house.ts`). Es un accesor de solo lectura DE SERVIDOR: devuelve las
+ *  salas con su semilla adentro, así que nunca se sirve tal cual por HTTP —
+ *  para eso están `roomView` y `viewFor`, que filtran los secretos. */
+export function liveAlephRooms(now = Date.now()): AlephRoom[] {
+  settleDue(now);
+  return [...rooms.values()].filter((r) => r.status === "lobby" || r.status === "playing");
 }
 
 export function listAlephLobbies(now = Date.now()): LobbySummary[] {

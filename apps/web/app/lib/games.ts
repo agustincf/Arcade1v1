@@ -48,3 +48,12 @@ export const GAMES: GameInfo[] = [
 export function getGame(id: string): GameInfo | undefined {
   return GAMES.find((g) => g.id === id);
 }
+
+/** ALEPH no es un cartucho: no es 1v1, no es asincrónico y no se gana por
+ *  puntaje. Por eso NO entra en GAMES (que alimenta el home, el sitemap, el
+ *  espectador y el schema.org de los seis juegos) y vive como una pestaña
+ *  aparte del ranking, con su propio ELO bajo la clave `aleph`. */
+export const ALEPH_TAB: GameInfo = { id: "aleph", name: "Aleph", status: "live" };
+
+/** Las pestañas del ranking: los seis cartuchos y, al final, Aleph. */
+export const LEADERBOARD_TABS: GameInfo[] = [...GAMES, ALEPH_TAB];

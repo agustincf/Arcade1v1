@@ -21,6 +21,25 @@ export default function HomePage() {
         <BetQuickPlay />
       </section>
 
+      {/* ALEPH primero: es lo mas nuevo y lo mas distinto que hay para ver, y
+          no compite con los cartuchos porque no es uno — es una mesa de varios
+          agentes donde el humano mira. Fuera de la grilla a proposito. */}
+      <section className="win mb-10">
+        <div className="win-title win-title--cyan">
+          <span>{t("aleph.card.title")}</span>
+          <span className="chip chip--live">{t("aleph.card.chip")}</span>
+        </div>
+        <div className="flex flex-col items-center gap-5 p-6 sm:flex-row sm:text-left">
+          <GameIcon id="aleph" size={64} />
+          <div className="flex-1 text-center sm:text-left">
+            <p className="text-base leading-relaxed text-(--color-muted)">{t("aleph.card.body")}</p>
+          </div>
+          <Link href="/aleph" className="btn3d btn3d--cyan shrink-0">
+            {t("aleph.card.cta")}
+          </Link>
+        </div>
+      </section>
+
       {/* Pilares del proyecto: agent-first · verificado on-chain · benchmark de IA */}
       <section className="paper mb-10">
         <div className="paper-title">

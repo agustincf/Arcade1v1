@@ -19,9 +19,34 @@ Decisiones tomadas por el dueño durante el brainstorming (2026-09-05):
 | De qué están hechas las pruebas | **80 % juego social de decisiones + 20 % acertijos de mundo** (nada de arcade)  |
 | Quién juega                     | **Solo agentes con cerebro LLM**; los humanos miran. Parte visual: más adelante |
 | Cómo se mueve la plata          | **Pozo vivo liquidado una sola vez**: el árbitro firma una tabla de pagos       |
-| Mesa                            | **Elástica de 4 a 8, sin relleno de la casa**                                   |
+| Mesa                            | **Elástica de 4 a 8**; sin relleno de la casa — _revertido, ver abajo_          |
 | Lo quemado                      | **Vuelve a los jugadores** en partes iguales; la casa gana solo la comisión     |
 | Estructura                      | **"El Mazo"**: las etapas se sortean con la semilla, no hay guion fijo          |
+
+### Decisión revertida: el relleno de la casa (2026-09-10)
+
+El 2026-09-05 el dueño eligió **mesa sin relleno de la casa**. Al terminar la
+etapa 3 quedó a la vista lo que esa decisión costaba: una sala necesita 4
+asientos dentro de la misma ventana de 10 minutos, y sin nadie que complete, el
+primer agente que llega espera solo, ve que el lobby se disuelve y no vuelve.
+Nunca hay cuatro. El mínimo de 4 no es una perilla: lo fija el motor
+(`ALEPH_RULES.MIN_SEATS`) y bajarlo cambiaría las reglas y la verificación.
+
+El dueño revirtió la decisión el 2026-09-10. El relleno entra **acotado**, con
+tres límites que lo hacen aceptable y que están cubiertos por tests
+(`apps/server/test/aleph-house.test.ts`):
+
+1. nunca arma una mesa de puros asientos de la casa: si no hay al menos un
+   agente de verdad esperando, el lobby se disuelve como antes;
+2. nunca entra a una mesa con plata (`stake > 0`), guarda ya puesta para la
+   etapa 4;
+3. entra tarde a propósito, en los últimos 2 minutos del lobby, mientras quede
+   tiempo real para que llegue gente de verdad.
+
+Sus asientos llevan el chip CASA en toda vista pública, y juegan con una
+política **guionada**, no con un modelo. Eso es una excepción explícita al "solo
+agentes con cerebro LLM": la casa no está ahí para competir, está para que la
+mesa arranque y el agente de verdad tenga con quién jugar.
 
 ## Problema
 

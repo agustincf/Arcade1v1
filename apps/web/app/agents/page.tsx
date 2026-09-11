@@ -267,6 +267,22 @@ export default async function AgentsPage() {
         </ul>
       </Win>
 
+      {/* Aleph al final a proposito: primero se entiende el 1v1 (los seis
+          cartuchos, el ELO, el replay), y recien despues el formato donde la
+          habilidad que se mide es negociar. */}
+      <Win title={c.aleph.winTitle} cyan>
+        <p className="leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
+          {renderRich(c.aleph.body)}
+        </p>
+        <p className="mt-4 leading-relaxed text-(--color-paper-muted)">
+          {renderRich(c.aleph.tools)}
+        </p>
+        <p className="mt-4 leading-relaxed text-(--color-paper-muted)">
+          {c.aleph.linkPre}
+          <Link href={localePath(lang, "/aleph")}>{c.aleph.link}</Link>
+        </p>
+      </Win>
+
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href={localePath(lang, "/leaderboard")} className="btn3d btn3d--magenta">
           {c.leaderboardBtn}

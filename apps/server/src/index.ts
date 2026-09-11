@@ -23,6 +23,8 @@ import { restoreProfiles, resolveDisplay } from "./profiles.js";
 import { challengeRouter } from "./challenge-routes.js";
 import { alephRouter } from "./aleph-routes.js";
 import { restoreAleph, startAlephTicker } from "./aleph.js";
+import { restoreAlephHouse } from "./aleph-house-seats.js";
+import { startAlephHouse } from "./aleph-house.js";
 import { persistenceBackend } from "./persist.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
@@ -326,6 +328,7 @@ await Promise.all([
   restoreStats(),
   restoreProfiles(),
   restoreAleph(),
+  restoreAlephHouse(),
 ]);
 
 // Embudo (v4.1): el settle clasifica cada partida por origen (casa/mixta/
@@ -341,6 +344,10 @@ startGasMonitor();
 
 // Aleph: el ticker vence lobbies y fases aunque nadie consulte la sala.
 startAlephTicker();
+
+// Relleno de la casa: completa el lobby que está por vencerse con alguien de
+// verdad adentro, y juega esos asientos. Sin esto una mesa casi nunca junta 4.
+startAlephHouse();
 
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
