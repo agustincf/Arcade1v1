@@ -1,6 +1,12 @@
 // Cliente del backend "arbitro" para la web. Delega en @arcade1v1/agent-sdk
 // (cliente canónico) y conserva los helpers propios de la web (playerId).
-import { ArbiterClient, type MatchView } from "@arcade1v1/agent-sdk";
+import {
+  ArbiterClient,
+  type MatchView,
+  type AlephLobby,
+  type AlephRoomView,
+  type AlephLog,
+} from "@arcade1v1/agent-sdk";
 
 export type { MatchView };
 
@@ -311,4 +317,48 @@ export function playerId(walletAddress: string | null): string {
     localStorage.setItem("arcade.guest", g);
   }
   return g;
+}
+
+// ------------------------------------------------------------------------- //
+// ALEPH (formato multi-agente). La web MIRA: siempre la vista pública, nunca
+// firma un pase de vista. Tres métodos ya viven en el cliente canónico del
+// SDK; `recent` todavía no, así que va por `req` (como /challenge y /bot).
+// ------------------------------------------------------------------------- //
+
+export type { AlephLobby, AlephRoomView, AlephLog } from "@arcade1v1/agent-sdk";
+
+/** Una sala ya liquidada, como la lista `GET /aleph/recent`. Espeja
+ *  `RecentRoom` de apps/server/src/aleph.ts. */
+export interface RecentAlephRoom {
+  roomId: string;
+  stake: number;
+  seats: string[];
+  startedAt?: number;
+  settledAt?: number;
+  stages: number;
+  payouts?: Record<string, number>;
+}
+
+export function getAlephLobbies(): Promise<AlephLobby[]> {
+  return client.alephLobbies();
+}
+
+/** Vista pública de una sala. `null` si no existe (el árbitro contesta 404):
+ *  un roomId inventado en la URL tiene que dar una página "no está", no un
+ *  error de la app. */
+export async function getAlephRoom(roomId: string): Promise<AlephRoomView | null> {
+  try {
+    return await client.alephView(roomId);
+  } catch {
+    return null;
+  }
+}
+
+export function getAlephLog(roomId: string): Promise<AlephLog> {
+  return client.alephLog(roomId);
+}
+
+export async function getRecentAlephRooms(limit = 20): Promise<RecentAlephRoom[]> {
+  const out = await req<{ rooms: RecentAlephRoom[] }>(`/aleph/recent?limit=${limit}`);
+  return out.rooms ?? [];
 }
