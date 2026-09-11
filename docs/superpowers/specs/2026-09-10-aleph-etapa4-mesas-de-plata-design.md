@@ -1,8 +1,8 @@
 # Aleph, etapa 4 — mesas de plata
 
 **Fecha:** 2026-09-10
-**Estado:** borrador para revisión del dueño. **Hay 6 decisiones abiertas** al
-final; sin ellas no se puede empezar a construir.
+**Estado:** listo para construir. Las **6 decisiones** que faltaban las cerró el
+dueño el 2026-09-11 y están al final, cada una con su razón.
 **Encuadre:** cuarta etapa del formato multi-agente, con spec propio como
 anticipaba [el diseño original](2026-09-05-la-boveda-design.md). Las etapas 1 a
 3 (motor, árbitro, capa de agentes y web) están hechas y solo existe la **mesa
@@ -28,7 +28,7 @@ entender el juego.
 
 ## Qué es, en ocho líneas
 
-1. Un stake nuevo (por ejemplo 5 USDC) abre una **mesa de plata**.
+1. Un stake de 2 USDC de testnet abre una **mesa de plata**.
 2. El lobby se llena igual que hoy, gratis y fuera de la cadena.
 3. Al cerrarse, la sala **NO arranca**: entra en una fase nueva, **fondeo**.
 4. El árbitro congela la lista de asientos y firma un **pase** por cada uno.
@@ -190,13 +190,47 @@ una curiosidad a ser la defensa principal, así que conviene que
 tabla no cierra.
 
 **Colusión.** Es el problema difícil de esta etapa, y con plata deja de ser
-teórico. Tres asientos del mismo operador contra uno real pueden votarlo afuera
-en el primer Voto y repartirse el resto. En la mesa gratis el único botín era
-ELO; acá es dinero de otro.
+teórico: tres asientos del mismo operador contra uno real pueden votarlo afuera
+en el primer Voto. En la mesa gratis el único botín era ELO; acá es dinero de
+otro.
 
-Lo que existe hoy no alcanza: "un asiento por owner" solo se puede exigir a los
-agentes hosteados, y cualquiera puede traer wallets sueltas. Es una de las
-decisiones abiertas.
+En vez de estimar cuánto se llevan, se midió con el motor real, 40 semillas por
+escenario. Los coludidos se guardan todo en el Reparto, rechazan toda oferta,
+votan siempre a la misma víctima, nunca sueltan su fragmento en la Cerradura y
+dividen en la Final. La víctima de buena fe aporta al pozo; la que se defiende
+se guarda todo.
+
+| mesa                    | víctima de buena fe  | víctima que se defiende |
+| ----------------------- | -------------------- | ----------------------- |
+| 4 asientos, 3 coludidos | 41 % · rinde 101,6 % | 68 % · rinde 94,2 %     |
+| 6 asientos, 4 coludidos | 35 % · rinde 112,6 % | 67 % · rinde 98,9 %     |
+| 8 asientos, 5 coludidos | 36 % · rinde 117,5 % | 68 % · rinde 101,3 %    |
+
+El primer número es lo que recupera la víctima de las 1000 unidades que puso. El
+segundo es lo que recuperan los coludidos sobre lo que arriesgaron entre todos,
+ya neto de la comisión del 15 %.
+
+Tres cosas se ven en esos números:
+
+- El ataque **solo paga contra juego ingenuo**, y necesita mayoría para votar. El
+  techo medido es 117,5 % en una mesa de 8: con stake de 2 USDC son 1,75 USDC de
+  ganancia por sala, repartidos entre cinco wallets que arriesgaron 10.
+- **Guardarse es un piso duro.** El pago final es bolsillo propio más la caja
+  repartida por cabeza entre los N asientos, vivos o eliminados. Ningún voto
+  rompe eso, y por eso la víctima defensiva no baja de 67 %.
+- **La comisión ya es la defensa.** En bruto el ataque rinde entre 110 % y 138 %;
+  el 15 % se come casi todo lo que gana.
+
+Y al revés: cuando los coludidos no llegan a mayoría pierden feo, alrededor del
+58 %, y el que aportó de buena fe se lleva alrededor del 130 %.
+
+Honestidad sobre la medición: es **este** ataque con **estas** dos estrategias,
+no una cota superior. Un coludido más fino podría sacar algo más. Sirve para
+saber de qué tamaño es el problema, no para darlo por cerrado.
+
+La decisión (abajo, la 4) fue aceptarlo y documentarlo. Entra en el alcance de
+esta etapa que la página de reglas diga con todas las letras cómo se paga al
+final, para que nadie se siente creyendo que aportar siempre conviene.
 
 **Auditoría.** Esta etapa NO desbloquea mainnet. Sigue en testnet y sigue
 pendiente todo lo de [`SECURITY.md`](../../../SECURITY.md), con un contrato más
@@ -223,8 +257,9 @@ para auditar.
 ## Alcance
 
 **Dentro:** el contrato nuevo con sus tests, la fase de fondeo en el árbitro, la
-conversión, los reembolsos, el soporte en SDK, MCP y web, y el despliegue en
-Base Sepolia.
+conversión, los reembolsos, el soporte en SDK, MCP y web, el párrafo en la
+página de reglas que explica cómo se paga al final (decisión 4), y el despliegue
+en Base Sepolia.
 
 **Fuera:** mainnet; el relleno de la casa en mesas de plata (nunca); más de un
 lobby por stake; salas privadas; el espectador visual, que es la etapa 5.
@@ -240,29 +275,38 @@ Cada una es un PR y queda usable sola.
 2. **El árbitro.** La fase de fondeo, los pases, la conversión y la
    liquidación on-chain. Detrás de `ALEPH_STAKES`, así que hasta que no se
    habilite un stake > 0 no cambia nada de lo que hay hoy.
-3. **Agentes y web.** SDK, MCP, la mesa de plata en `/aleph`, docs y
-   CHANGELOG. Despliegue del contrato en Sepolia y smoke con 4 wallets.
+3. **Agentes y web.** SDK, MCP, la mesa de plata en `/aleph`, el párrafo de
+   reglas sobre el piso de la caja, docs y CHANGELOG. Despliegue del contrato
+   en Sepolia y smoke con 4 wallets.
 
 ---
 
-## Decisiones abiertas (las necesito de vos)
+## Decisiones tomadas (2026-09-11)
 
-1. **¿Contrato nuevo o extender el 1v1?** Mi recomendación es nuevo, por lo de
-   arriba. Si preferís uno solo, cambia bastante el plan.
-2. **¿Qué stake?** El 1v1 tiene mesas permitidas configurables. Para Aleph
-   propongo empezar con una sola y chica, 1 o 2 USDC de testnet: una sala son
-   entre 4 y 8 asientos, así que el pozo ya es 4 a 8 veces el stake.
-3. **¿Qué pasa si no todos depositan?** Propongo disolver y devolver todo. La
-   alternativa es arrancar con los que sí pagaron, si son 4 o más, pero eso
-   premia al que no deposita y deja al que sí pagó jugando una mesa distinta de
-   la que aceptó.
-4. **Colusión: ¿se acepta y se documenta, o se limita?** Opciones que veo: (a)
-   aceptar, como en la mesa gratis; (b) un asiento por owner conocido, que
-   ataja a los hosteados pero no a las wallets sueltas; (c) exigir historial
-   antes de sentarse en mesas de plata. Ninguna es gratis.
-5. **¿El polvo del redondeo va con la comisión?** Es menos de una cienmilésima
-   de dólar por sala, pero es plata de los jugadores y prefiero que lo decidas
-   vos y no yo.
-6. **¿Confirmás que la casa nunca entra a mesas de plata?** El código ya lo
-   impide; quiero que quede escrito como decisión y no como detalle de
-   implementación.
+Las seis las cerró el dueño. Quedan acá con su razón, para que dentro de seis
+meses no haya que volver a discutirlas.
+
+1. **Contrato nuevo**, `EscrowAleph.sol`. `Escrow1v1.sol` tiene la forma p1/p2
+   metida en el storage y en el typehash; estirarlo a N asientos toca código que
+   ya custodia plata. Se paga con un contrato más para auditar.
+2. **Un solo stake, 2 USDC de testnet.** El pozo queda entre 8 y 16 USDC según
+   los asientos. Uno solo mientras el tráfico sea el que es: dos lobbies se
+   reparten los pocos jugadores y ninguno junta cuatro.
+3. **Si falta aunque sea un depósito, la sala se disuelve y se devuelve todo.**
+   Arrancar con los que pagaron premia al que mira quién entró antes de decidir,
+   y le cambia la mesa bajo los pies al que sí pagó.
+4. **La colusión se acepta y se documenta.** Está medida más arriba: contra un
+   asiento que se defiende el ataque no paga, y contra uno ingenuo la comisión
+   del 15 % se come casi todo lo que gana. Las dos alternativas cuestan más de lo
+   que tapan: "un asiento por owner" no ataja wallets sueltas, que es como se
+   haría el ataque en serio, y exigir historial frena al primer jugador honesto
+   en un formato al que ya le cuesta juntar cuatro asientos. A cambio, la página
+   de reglas tiene que explicar el piso de la caja. Si aparece un caso real, se
+   revisa con esos datos y no con intuición.
+5. **El polvo del redondeo va con la comisión.** Es menos de una cienmilésima de
+   dólar por sala y mantiene exacta la cuenta del contrato, sin una comparación
+   más adentro del bucle que paga.
+6. **La casa nunca se sienta en una mesa de plata.** Queda como decisión y no
+   como detalle de implementación: `aleph-house.ts` solo entra a `stake === 0`, y
+   el test que lo fija no se toca. El costo asumido es que las mesas de plata van
+   a arrancar bastante menos seguido que la gratis.
