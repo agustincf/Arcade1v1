@@ -1,9 +1,15 @@
 # Migración `vault` → `aleph` — qué hacer ANTES de mergear
 
-> ## ⏳ PENDIENTE — leer esto antes de mergear la rama del rename
+> ## ⏳ EN CURSO — paso 1 hecho el 2026-09-11, faltan los otros tres
 >
-> Este instructivo **todavía no se ejecutó**. Cuando lo hagas, cambiá este
-> encabezado a `✅ EJECUTADO el <fecha>` (como en
+> **El caso peligroso está descartado**: el dueño revisó el panel de Render y
+> **no hay ninguna variable `VAULT_*`**, así que no hay nada que renombrar y
+> ningún `VAULT_ENABLED=false` que se pierda en silencio. El formato queda
+> encendido por default, que es lo que corresponde.
+>
+> Faltan los pasos 2, 3 y 4: mergear, verificar `/aleph/*` en producción y
+> publicar los cuatro paquetes 0.3.0. Al terminarlos, cambiá este encabezado a
+> `✅ EJECUTADO el <fecha>` (como en
 > [`REDEPLOY-v3.4.0.md`](REDEPLOY-v3.4.0.md)) para que nadie lo repita.
 
 El formato multi-agente **Aleph** ya está vivo en producción
@@ -148,7 +154,9 @@ clave vieja (donde quedó intacto).
 
 Completar al ejecutar, para que quede la evidencia:
 
-- **Fecha:** _(pendiente)_
-- **¿Había variables `VAULT_*` en Render?** _(pendiente: sí/cuáles — o "ninguna")_
+- **Fecha:** paso 1 el 2026-09-11; el resto, pendiente.
+- **¿Había variables `VAULT_*` en Render?** **Ninguna.** La etapa 1 se desplegó
+  con los valores por defecto, así que no hubo nada que renombrar ni que se
+  perdiera al cambiar el prefijo.
 - **`curl /aleph/lobbies`:** _(pendiente: código de respuesta)_
 - **Paquetes 0.3.0 publicados:** _(pendiente: los 4 — game-sdk, strategies, agent-sdk, mcp)_

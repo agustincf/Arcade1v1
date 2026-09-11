@@ -75,13 +75,13 @@ mensaje que se firma, la clave del ELO, la del store persistido, las 10
 perillas de entorno (`VAULT_*` → `ALEPH_*`) y los nombres de las 5
 herramientas MCP.
 
-> 🔴 **Pendiente de operación: mirar el panel de Render.** El rename ya está en
-> `main` (2026-09-07) pero el chequeo previo nunca se marcó como ejecutado. Las
-> variables `VAULT_*` que hayan quedado **se ignoran en silencio** y el árbitro
-> arranca con los valores por defecto. El caso que importa es `VAULT_ENABLED`:
-> su default es **encendido**, así que un formato que se creía apagado estaría
-> prendido ahora mismo. Los 4 pasos, y el encabezado que hay que marcar al
-> terminarlos, están en [`docs/MIGRACION-aleph.md`](docs/MIGRACION-aleph.md).
+> ✅ **Riesgo descartado (2026-09-11).** El aviso de esta versión era que una
+> variable `VAULT_*` olvidada en Render se ignoraría en silencio, y que el caso
+> grave era un `VAULT_ENABLED=false` perdido dejando el formato prendido sin que
+> nadie lo decidiera. El dueño revisó el panel: **no había ninguna**. La etapa 1
+> se había desplegado con los valores por defecto. Queda anotado en
+> [`docs/MIGRACION-aleph.md`](docs/MIGRACION-aleph.md), junto con los pasos que
+> todavía faltan.
 
 Efectos buscados del cambio de claves: las salas guardadas y el ELO del
 formato arrancan de cero (la mesa es gratis, no hay plata atada a una sala), y
