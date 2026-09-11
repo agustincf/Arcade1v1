@@ -273,4 +273,172 @@ contract EscrowAlephTest is Test {
         vm.expectRevert(bytes("fee too high"));
         new EscrowAleph(address(usdc), arbiter, platform, 2001, owner);
     }
+
+    // --- Liquidación --------------------------------------------------------
+
+    function _signPayout(bytes32 id, address[] memory seats, uint256[] memory amounts)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes32 digest = escrow.payoutDigest(id, keccak256(abi.encode(seats, amounts)));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(arbiterPk, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    /// Tabla "como la calcula el árbitro": unidades del motor -> USDC neto, con
+    /// floor por asiento. pot = 8 USDC; fee 15 % = 1,2 USDC; neto = 6,8 USDC.
+    function _table4() internal pure returns (uint256[] memory amounts) {
+        // unidades del motor (suman 4000): 1700, 1100, 700, 500
+        uint256 net = 6_800_000;
+        amounts = new uint256[](4);
+        amounts[0] = (1700 * net) / 4000; // 2_890_000
+        amounts[1] = (1100 * net) / 4000; // 1_870_000
+        amounts[2] = (700 * net) / 4000; // 1_190_000
+        amounts[3] = (500 * net) / 4000; // 850_000
+    }
+
+    function test_SettleHappyPathPaysEveryoneInOneTx() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        escrow.settle(roomId, seats4, amounts, sig); // cualquiera puede presentarla
+
+        for (uint256 i = 0; i < 4; i++) assertEq(usdc.balanceOf(seats4[i]), amounts[i], "pago del asiento");
+        assertEq(usdc.balanceOf(platform), 1_200_000, "comision 15 % (sin polvo en esta tabla)");
+        assertEq(usdc.balanceOf(address(escrow)), 0, "contrato vacio");
+        (,,,,, EscrowAleph.Status status) = escrow.roomOf(roomId);
+        assertEq(uint8(status), uint8(EscrowAleph.Status.Settled));
+    }
+
+    function test_SettleDustGoesToPlatform() public {
+        _fundRoom(roomId, seats4);
+        // Unidades 1333/1333/1333/1: neto 6.800.000 -> floor deja polvo.
+        uint256 net = 6_800_000;
+        uint256[] memory amounts = new uint256[](4);
+        amounts[0] = (1333 * net) / 4000; // 2_266_100
+        amounts[1] = amounts[0];
+        amounts[2] = amounts[0];
+        amounts[3] = (1 * net) / 4000; // 1_700
+        uint256 sum = amounts[0] * 3 + amounts[3]; // 6_800_000 exacto acá; forzar polvo:
+        amounts[3] -= 2; // 2 micro-USDC de polvo (< N = 4)
+        sum -= 2;
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        escrow.settle(roomId, seats4, amounts, sig);
+        assertEq(usdc.balanceOf(platform), 8_000_000 - sum, "comision + polvo");
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    function test_SettleZeroAmountDoesNotTransfer() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = new uint256[](4);
+        amounts[0] = 6_800_000; // se lleva todo el neto (Final: robó)
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        escrow.settle(roomId, seats4, amounts, sig);
+        assertEq(usdc.balanceOf(seats4[0]), 6_800_000);
+        assertEq(usdc.balanceOf(seats4[1]), 0);
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    function test_SettleRejectsTableThatDoesNotAddUp() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        amounts[0] += 1; // un micro-USDC de más: pasa el neto
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        vm.expectRevert(bytes("bad sum"));
+        escrow.settle(roomId, seats4, amounts, sig);
+
+        // Y por defecto: dejar N micro-USDC o más sin repartir tampoco vale
+        // (la plataforma no puede quedarse con más que el polvo).
+        uint256[] memory low = _table4();
+        low[0] -= 4;
+        bytes memory sig2 = _signPayout(roomId, seats4, low);
+        vm.expectRevert(bytes("bad sum"));
+        escrow.settle(roomId, seats4, low, sig2);
+    }
+
+    function test_SettleRejectsNonSeatAddress() public {
+        _fundRoom(roomId, seats4);
+        address[] memory tampered = new address[](4);
+        for (uint256 i = 0; i < 4; i++) tampered[i] = seats4[i];
+        tampered[1] = address(0x666); // firmada por el árbitro, pero no es asiento
+        uint256[] memory amounts = _table4();
+        bytes memory sig = _signPayout(roomId, tampered, amounts);
+        vm.expectRevert(bytes("bad seat"));
+        escrow.settle(roomId, tampered, amounts, sig);
+    }
+
+    function test_SettleRejectsReorderedSeats() public {
+        _fundRoom(roomId, seats4);
+        address[] memory swapped = new address[](4);
+        swapped[0] = seats4[1];
+        swapped[1] = seats4[0];
+        swapped[2] = seats4[2];
+        swapped[3] = seats4[3];
+        uint256[] memory amounts = _table4();
+        bytes memory sig = _signPayout(roomId, swapped, amounts);
+        vm.expectRevert(bytes("bad seat"));
+        escrow.settle(roomId, swapped, amounts, sig);
+    }
+
+    function test_SettleRejectsBadLength() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory three = new uint256[](3);
+        bytes memory sig = _signPayout(roomId, seats4, three);
+        vm.expectRevert(bytes("bad table"));
+        escrow.settle(roomId, seats4, three, sig);
+    }
+
+    function test_SettleRejectsBadSignature() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        bytes32 digest = escrow.payoutDigest(roomId, keccak256(abi.encode(seats4, amounts)));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xBADBAD, digest);
+        vm.expectRevert(bytes("bad signature"));
+        escrow.settle(roomId, seats4, amounts, abi.encodePacked(r, s, v));
+    }
+
+    // Una tabla firmada para OTRA sala no liquida esta (la firma ata roomId).
+    function test_SettleRejectsTableOfAnotherRoom() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        bytes memory sigOther = _signPayout(keccak256("room-2"), seats4, amounts);
+        vm.expectRevert(bytes("bad signature"));
+        escrow.settle(roomId, seats4, amounts, sigOther);
+    }
+
+    function test_CannotSettleTwice() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        escrow.settle(roomId, seats4, amounts, sig);
+        vm.expectRevert(bytes("not funded"));
+        escrow.settle(roomId, seats4, amounts, sig);
+    }
+
+    function test_SettleRejectsWhileStillFunding() public {
+        _open(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        vm.expectRevert(bytes("not funded"));
+        escrow.settle(roomId, seats4, amounts, sig);
+    }
+
+    // El bucle aguanta la mesa máxima: 8 asientos, pozo 16 USDC.
+    function test_SettleEightSeats() public {
+        address[] memory eight = new address[](8);
+        for (uint160 i = 1; i <= 8; i++) eight[i - 1] = address(0x2000 + i);
+        _fund(eight);
+        bytes32 id = keccak256("room-8");
+        _fundRoom(id, eight);
+        assertEq(usdc.balanceOf(address(escrow)), stake * 8);
+        uint256 net = 16_000_000 - 2_400_000; // 13,6 USDC
+        uint256[] memory amounts = new uint256[](8);
+        for (uint256 i = 0; i < 8; i++) amounts[i] = (1000 * net) / 8000; // 1_700_000 cada uno
+        bytes memory sig = _signPayout(id, eight, amounts);
+        escrow.settle(id, eight, amounts, sig);
+        for (uint256 i = 0; i < 8; i++) assertEq(usdc.balanceOf(eight[i]), 1_700_000);
+        assertEq(usdc.balanceOf(platform), 2_400_000);
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
 }

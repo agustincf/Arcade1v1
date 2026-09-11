@@ -216,6 +216,55 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
     }
 
     // --------------------------------------------------------------------- //
+    //                            LIQUIDACIÓN                                //
+    // --------------------------------------------------------------------- //
+
+    /// @notice Paga la tabla firmada por el árbitro, a todos en una transacción.
+    ///         Cualquiera puede presentarla (el árbitro lo hace por defecto; si
+    ///         no, un asiento con la firma publicada en el registro).
+    ///
+    ///  La tabla llega en el MISMO orden que `seats` de la sala: así cada
+    ///  address se compara con el suyo (sin bucles anidados) y no puede repetirse.
+    ///  La suma no puede pasar el neto (pozo menos comisión) ni dejar N o más
+    ///  micro-USDC sin repartir: el resto (comisión + polvo) va a la plataforma.
+    function settle(bytes32 id, address[] calldata seats, uint256[] calldata amounts, bytes calldata signature)
+        external
+        nonReentrant
+    {
+        Room storage r = rooms[id];
+        require(r.status == Status.Funded, "not funded");
+        uint256 n = r.seats.length;
+        require(seats.length == n && amounts.length == n, "bad table");
+
+        bytes32 tableHash = keccak256(abi.encode(seats, amounts));
+        require(
+            ECDSA.recover(_hashTypedDataV4(keccak256(abi.encode(PAYOUT_TYPEHASH, id, tableHash))), signature)
+                == arbiter,
+            "bad signature"
+        );
+
+        uint256 sum = 0;
+        for (uint256 i = 0; i < n; i++) {
+            require(seats[i] == r.seats[i], "bad seat");
+            sum += amounts[i];
+        }
+        uint256 pot = r.stake * n;
+        // net = pot menos comisión; se evita una variable `fee` aparte (stack too
+        // deep con tantos parámetros calldata en esta función).
+        uint256 net = pot - (pot * feeBps) / 10000;
+        require(sum <= net && net - sum < n, "bad sum");
+
+        r.status = Status.Settled;
+
+        uint256 house = pot - sum; // comisión + polvo del redondeo
+        if (house > 0) usdc.safeTransfer(platformWallet, house);
+        for (uint256 i = 0; i < n; i++) {
+            if (amounts[i] > 0) usdc.safeTransfer(seats[i], amounts[i]);
+        }
+        emit Settled(id, tableHash, sum, house);
+    }
+
+    // --------------------------------------------------------------------- //
     //                              VISTAS                                   //
     // --------------------------------------------------------------------- //
 
