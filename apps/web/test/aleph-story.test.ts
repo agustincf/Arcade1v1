@@ -252,3 +252,16 @@ test("una sala entera se cuenta en orden, una entrada por etapa", () => {
     ],
   );
 });
+
+import { STORY_KEYS } from "../app/lib/alephStory";
+import { en } from "../app/lib/i18n/en.js";
+import { es } from "../app/lib/i18n/es.js";
+import { hi } from "../app/lib/i18n/hi.js";
+import { fr } from "../app/lib/i18n/fr.js";
+
+test("NINGUNA clave del narrador puede salir cruda: están en los 4 idiomas", () => {
+  for (const [lang, dict] of Object.entries({ en, es, hi, fr })) {
+    const missing = STORY_KEYS.filter((k) => !(k in dict));
+    assert.equal(missing.length, 0, `${lang} no tiene: ${missing.join(", ")}`);
+  }
+});
