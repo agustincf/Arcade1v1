@@ -51,7 +51,9 @@ class FakeAleph extends ArbiterClient {
     };
   }
   async alephLobbies() {
-    return [{ roomId: ROOM, stake: 0, seats: 3, min: 4, max: 8, closesAt: 99 }];
+    return [
+      { roomId: ROOM, stake: 0, status: "lobby" as const, seats: 3, min: 4, max: 8, closesAt: 99 },
+    ];
   }
   async alephJoin(_stake: number, address: string) {
     return this.view(address.toLowerCase());
