@@ -56,6 +56,17 @@ playDeadline, player)`, firmado por el árbitro): sin pase no hay asiento, y el
 Dominio EIP-712 propio: `Arcade1v1EscrowAleph` v1. Mesa habilitada por el
 script de despliegue: **2 USDC**.
 
+Propiedad conocida (a decidir antes de mainnet): el contrato paga empujando
+USDC a cada asiento. El USDC real de Circle revierte una transferencia a una
+dirección en su blacklist, así que un solo asiento en blacklist entre los 4 a 8
+haría revertir toda la liquidación. `settle` tiene una salida — la tabla
+firmada puede asignarle 0 a ese asiento — pero los tres reembolsos no: una sala
+en `Funding` con un depositante en blacklist dejaría su pozo trabado para
+siempre. El disparador exige que Circle ponga en blacklist a una dirección
+DESPUÉS de que depositó, así que la probabilidad es baja y el stake es de 2
+USDC. Es la misma propiedad que ya tiene `Escrow1v1`, desplegado con plata
+real, con un radio de impacto menor (2 asientos en vez de hasta 8).
+
 Pruebas: `forge test --match-contract EscrowAlephTest -vv` (43 pruebas: fondeo,
 liquidación, tabla que no suma, address que no es asiento, firma ajena, doble
 liquidación, los tres reembolsos exactos, 8 asientos, gracia, reentrancy y la
@@ -128,7 +139,7 @@ Requiere `.env.mainnet` (copiado de `.env.mainnet.example`) con
 `PLATFORM_WALLET`, `FEE_BPS` y `OWNER_ADDRESS` (la wallet de hardware que
 firma y queda como dueña del contrato).
 
-> Estado: contrato probado (9/9 pruebas) y flujo completo verificado en Anvil
+> Estado: contrato probado (14/14 pruebas) y flujo completo verificado en Anvil
 > (deposito, pago y reembolso). Las direcciones de un entorno publicado y sus
 > secretos no se guardan en Git (`.env`, `.env.mainnet` y `broadcast/` estan
 > en `.gitignore`), por lo que deben verificarse en la configuracion de ese

@@ -21,8 +21,12 @@ cleanup() { kill "$ANVIL_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
 KEY0=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+# Sin "2>/dev/null": si forge create falla queremos ver POR QUÉ en el log de CI.
+# Y el "|| true" evita que set -e/pipefail corten la línea antes de llegar al
+# chequeo de abajo (con pipefail, un forge que falla o un grep sin match hacen
+# fallar el pipeline entero, y el "❌" de la siguiente línea quedaría inalcanzable).
 USDC=$(forge create test/MockUSDC.sol:MockUSDC --rpc-url http://localhost:8545 \
-  --private-key $KEY0 --broadcast 2>/dev/null | grep "Deployed to:" | awk '{print $3}')
+  --private-key $KEY0 --broadcast | grep "Deployed to:" | awk '{print $3}') || true
 [ -n "$USDC" ] || { echo "❌ No se pudo desplegar el MockUSDC"; exit 1; }
 
 OUT=$(PRIVATE_KEY=$KEY0 \

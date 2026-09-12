@@ -98,6 +98,8 @@ contract EscrowAlephTest is Test {
         address[] memory d = escrow.depositors(roomId);
         assertEq(d.length, 1);
         assertEq(d[0], seats4[0]);
+        // La vista que firma el árbitro coincide con el hash rehecho a mano.
+        assertEq(escrow.seatsHashOf(seats4), keccak256(abi.encode(seats4)), "seatsHashOf vs hash manual");
     }
 
     function test_FundedWhenEveryoneDeposited() public {
@@ -283,7 +285,11 @@ contract EscrowAlephTest is Test {
         view
         returns (bytes memory)
     {
-        bytes32 digest = escrow.payoutDigest(id, keccak256(abi.encode(seats, amounts)));
+        // tableHash sale de la vista del contrato (no de un keccak256 rehecho a
+        // mano): así cada test de settle también ejercita `tableHashOf`, que es
+        // justo lo que el árbitro off-chain va a llamar para validar su encoder.
+        bytes32 tableHash = escrow.tableHashOf(seats, amounts);
+        bytes32 digest = escrow.payoutDigest(id, tableHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(arbiterPk, digest);
         return abi.encodePacked(r, s, v);
     }
@@ -304,6 +310,13 @@ contract EscrowAlephTest is Test {
         _fundRoom(roomId, seats4);
         uint256[] memory amounts = _table4();
         bytes memory sig = _signPayout(roomId, seats4, amounts);
+
+        // Settled es la única publicación on-chain del reparto: tableHash (qué
+        // tabla se pagó), paidOut (suma a los asientos) y house (comisión +
+        // polvo) tienen que salir exactos.
+        bytes32 tableHash = escrow.tableHashOf(seats4, amounts);
+        vm.expectEmit(true, true, true, true);
+        emit EscrowAleph.Settled(roomId, tableHash, 6_800_000, 1_200_000);
         escrow.settle(roomId, seats4, amounts, sig); // cualquiera puede presentarla
 
         for (uint256 i = 0; i < 4; i++) assertEq(usdc.balanceOf(seats4[i]), amounts[i], "pago del asiento");

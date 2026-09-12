@@ -249,8 +249,11 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
             sum += amounts[i];
         }
         uint256 pot = r.stake * n;
-        // net = pot menos comisión; se evita una variable `fee` aparte (stack too
-        // deep con tantos parámetros calldata en esta función).
+        // net = pot menos comisión, en una sola expresión: settle() queda a un
+        // solo slot del límite de stack del compilador. No es que la variable
+        // `fee` por sí sola rompa la build: se rompe si ADEMÁS se nombra aparte
+        // el resultado de ECDSA.recover del chequeo de firma de más arriba.
+        // Cualquiera de las dos extracciones entra sola; las dos juntas no.
         uint256 net = pot - (pot * feeBps) / 10000;
         require(sum <= net && net - sum < n, "bad sum");
 
@@ -362,9 +365,7 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
         uint64 playDeadline,
         address player
     ) external view returns (bytes32) {
-        return _hashTypedDataV4(
-            keccak256(abi.encode(SEAT_TYPEHASH, id, seatsHash, stake, fundDeadline, playDeadline, player))
-        );
+        return _seatDigest(id, seatsHash, stake, fundDeadline, playDeadline, player);
     }
 
     /// @notice Digest EIP-712 de la tabla de pagos (útil para backend/tests).
@@ -376,6 +377,23 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
     //                              INTERNOS                                 //
     // --------------------------------------------------------------------- //
 
+    /// @dev Digest EIP-712 del pase, compartido por la vista pública `seatDigest`
+    ///      y por `_requireSeat`. Antes se repetía igual en los dos lugares; un
+    ///      drift entre las copias haría que un chequeo offchain contra la vista
+    ///      pasara mientras `open`/`deposit` fallan en producción con "bad seat".
+    function _seatDigest(
+        bytes32 id,
+        bytes32 seatsHash,
+        uint256 stake,
+        uint64 fundDeadline,
+        uint64 playDeadline,
+        address player
+    ) internal view returns (bytes32) {
+        return _hashTypedDataV4(
+            keccak256(abi.encode(SEAT_TYPEHASH, id, seatsHash, stake, fundDeadline, playDeadline, player))
+        );
+    }
+
     function _requireSeat(
         bytes32 id,
         bytes32 seatsHash,
@@ -385,9 +403,7 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
         address player,
         bytes calldata seatSig
     ) internal view {
-        bytes32 digest = _hashTypedDataV4(
-            keccak256(abi.encode(SEAT_TYPEHASH, id, seatsHash, stake, fundDeadline, playDeadline, player))
-        );
+        bytes32 digest = _seatDigest(id, seatsHash, stake, fundDeadline, playDeadline, player);
         require(ECDSA.recover(digest, seatSig) == arbiter, "bad seat");
     }
 
