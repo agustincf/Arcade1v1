@@ -18,6 +18,7 @@ import {
 } from "./aleph-rules";
 
 export * from "./aleph-rules";
+export * from "./aleph-escrow";
 
 export interface Seat {
   address: string;
