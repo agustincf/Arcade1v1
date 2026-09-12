@@ -6,6 +6,8 @@
 // Correr: node --import tsx --test packages/agent-sdk/test/agent-aleph.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { recoverMessageAddress, type Hex } from "viem";
 import {
   matchmakeAuthMessage,
@@ -27,6 +29,56 @@ import { createAgent, VIEW_PASS_MAX_AGE_MS } from "../src/agent.ts";
 const ROOM = "0x" + "ee".repeat(32);
 const T0 = 1_800_000_000_000;
 
+/** El bloque `deposit` de la vista privada de un asiento en fondeo: mesa de 2
+ *  USDC (2_000_000 micro) sobre anvil. `over` cambia solo lo que el test mira. */
+function depositFixture(over: Partial<AlephDeposit> = {}): AlephDeposit {
+  return {
+    chainId: 31337,
+    escrow: "0x" + "e".repeat(40),
+    usdc: "0x" + "1".padStart(40, "0"),
+    stake: "2000000",
+    seats: [],
+    seatsHash: "0x" + "0".repeat(64),
+    fundDeadline: 1,
+    playDeadline: 2,
+    seatSig: "0x" + "0".repeat(130),
+    ...over,
+  };
+}
+
+/** Una sala de plata en fondeo, lista para que `alephDeposit` la mire. */
+function fundingFake(deposit = depositFixture()): FakeAleph {
+  const fake = new FakeAleph();
+  fake.status = "funding";
+  fake.stake = 2;
+  fake.deposited = [];
+  fake.deposit = deposit;
+  return fake;
+}
+
+/** Un RPC de mentira que solo contesta `eth_chainId`, para probar el control de
+ *  red sin levantar una cadena. Devuelve la url y cómo apagarlo. */
+async function fakeRpc(chainIdHex: string): Promise<{ url: string; close: () => void }> {
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      const { id } = JSON.parse(body) as { id: number };
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ jsonrpc: "2.0", id, result: chainIdHex }));
+    });
+  });
+  await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
+  const { port } = server.address() as AddressInfo;
+  return {
+    url: `http://127.0.0.1:${port}`,
+    close: () => {
+      server.closeAllConnections();
+      server.close();
+    },
+  };
+}
+
 /** Árbitro falso: captura lo que manda el agente y devuelve una vista fija.
  *  `lobbies` vacío por default: así los tests que no lo tocan preservan el
  *  camino viejo (sin mesa abierta para mirar antes de sentarse). */
@@ -39,6 +91,8 @@ class FakeAleph extends ArbiterClient {
   stage: AlephRoomView["stage"] = { index: 2, kind: "vote", phase: "decide", acted: [] };
   /** Estado de la sala; `playing` por default (el camino viejo). */
   status: AlephRoomStatus = "playing";
+  /** La mesa: 0 (gratis) por default, como todo el camino viejo. */
+  stake = 0;
   /** Solo en `funding`: quiénes ya depositaron y con qué depositar. */
   deposited?: string[];
   deposit?: AlephDeposit;
@@ -48,7 +102,7 @@ class FakeAleph extends ArbiterClient {
   private view(): AlephRoomView {
     return {
       roomId: ROOM,
-      stake: 0,
+      stake: this.stake,
       status: this.status,
       rulesV: this.rulesV,
       min: 4,
@@ -158,6 +212,126 @@ test("alephDeposit: si ya figuro entre los depositados, no manda nada", async ()
   assert.equal(r.step, "already");
   assert.equal(r.txHash, undefined);
   assert.equal(r.view.roomId, ROOM, "devuelve la vista que leyó");
+});
+
+// ---- Lo que el árbitro dice vs. lo que la wallet acepta gastar -------------
+// `deposit` llega en un JSON por la red. Todo lo que decide PLATA (cuánto, a qué
+// contrato, en qué red) se valida antes del approve: un árbitro comprometido,
+// mal configurado o suplantado no puede mover esta wallet a su gusto.
+
+test("alephDeposit: si el árbitro pide un stake distinto al de la mesa, no se aprueba nada", async () => {
+  const fake = fundingFake(depositFixture({ stake: "50000000" })); // 50 USDC en una mesa de 2
+  const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" });
+  await assert.rejects(
+    () => paying.alephDeposit(ROOM),
+    (e: Error) =>
+      /deposit stake mismatch/.test(e.message) &&
+      /50000000/.test(e.message) &&
+      /2 USDC table/.test(e.message) &&
+      /2000000/.test(e.message),
+  );
+});
+
+test("alephDeposit: con el escrow clavado en createAgent, otro escrow no se aprueba", async () => {
+  const fake = fundingFake();
+  const pinned = "0x" + "a".repeat(40);
+  const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1", escrow: pinned });
+  await assert.rejects(
+    () => paying.alephDeposit(ROOM),
+    (e: Error) => /escrow mismatch/.test(e.message) && e.message.includes(pinned),
+  );
+  // Con el escrow que sí corresponde (y otra capitalización) el control no
+  // estorba: el depósito sigue de largo hasta la cadena, que acá no existe.
+  const ok = createAgent({
+    client: fake,
+    rpcUrl: "http://127.0.0.1:1",
+    escrow: fake.deposit!.escrow.toUpperCase(),
+  });
+  await assert.rejects(
+    () => ok.alephDeposit(ROOM),
+    (e: Error) => !/escrow mismatch/.test(e.message),
+  );
+});
+
+test("alephDeposit: un chainId que el SDK no conoce se rechaza (no cae a una red por defecto)", async () => {
+  const fake = fundingFake(depositFixture({ chainId: 12345 }));
+  const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" });
+  await assert.rejects(() => paying.alephDeposit(ROOM), /unknown chainId 12345/);
+});
+
+test("alephDeposit: si el RPC está en otra red que el escrow del árbitro, corta antes de gastar", async () => {
+  const fake = fundingFake(depositFixture({ chainId: 8453 })); // el árbitro dice base
+  const rpc = await fakeRpc("0x1"); // y el RPC del operador contesta mainnet
+  try {
+    const paying = createAgent({ client: fake, rpcUrl: rpc.url });
+    await assert.rejects(
+      () => paying.alephDeposit(ROOM),
+      (e: Error) =>
+        /chain mismatch/.test(e.message) &&
+        /on chain 8453/.test(e.message) &&
+        /rpcUrl is chain 1/.test(e.message),
+    );
+  } finally {
+    rpc.close();
+  }
+});
+
+/** Árbitro falso en FONDEO que modela el rechazo silencioso del pase de vista:
+ *  la vista PÚBLICA de una sala en fondeo trae `status: "funding"` y la lista de
+ *  asientos, pero NO el bloque `deposit` (withDeposit, apps/server/src/aleph.ts).
+ *  `grantAt` controla desde qué llamada (1-based) el pase "sirve". */
+class FlakyFundingAleph extends ArbiterClient {
+  address = "";
+  calls = 0;
+  grantAt = 1;
+  constructor() {
+    super("http://fake");
+  }
+  async alephView(roomId: string): Promise<AlephRoomView> {
+    this.calls++;
+    const granted = this.calls >= this.grantAt;
+    return {
+      roomId,
+      stake: 2,
+      status: "funding",
+      rulesV: ALEPH_RULES_V,
+      min: 4,
+      max: 8,
+      createdAt: 0,
+      deposited: [],
+      seats: [{ address: this.address, status: "alive", pocket: 0 }],
+      deposit: granted ? depositFixture({ seats: [this.address] }) : undefined,
+    };
+  }
+}
+
+test("alephView: en FONDEO un pase rechazado también se reintenta (ahí está la plata)", async () => {
+  const fake = new FlakyFundingAleph();
+  const agent = createAgent({ client: fake });
+  fake.address = agent.address;
+  fake.grantAt = 2; // la primera vuelta "falla" (reloj desfasado); la segunda sirve.
+  const v = await agent.alephView(ROOM);
+  assert.equal(fake.calls, 2, "reintentó una vez con un pase recién firmado");
+  assert.ok(v.deposit, "la segunda vuelta sí trae con qué depositar");
+});
+
+test("alephDeposit: con el pase rechazado en fondeo, el error habla del PASE, no de la sala", async () => {
+  const fake = new FlakyFundingAleph();
+  const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" });
+  fake.address = paying.address;
+  fake.grantAt = 99; // nunca sirve dentro de este test
+  await assert.rejects(() => paying.alephDeposit(ROOM), /view pass rejected/);
+  assert.equal(fake.calls, 2, "reintentó exactamente una vez antes de resignarse");
+});
+
+test("alephDeposit: sin pase de depósito y sin asiento, el error lo dice (no 'la sala no está fondeando')", async () => {
+  const fake = fundingFake();
+  fake.deposit = undefined; // sala en fondeo, pero esta address no tiene asiento
+  const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" });
+  await assert.rejects(
+    () => paying.alephDeposit(ROOM),
+    (e: Error) => /no deposit pass/.test(e.message) && !/is not funding/.test(e.message),
+  );
 });
 
 test("alephJoin: si hay mesa abierta con otra versión de reglas, corta ANTES de pedir asiento", async () => {
