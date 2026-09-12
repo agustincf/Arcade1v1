@@ -49,6 +49,37 @@ test("alephLobbies: GET /aleph/lobbies y devuelve la lista (vacía si falta)", a
   assert.deepEqual(await empty.alephLobbies(), []);
 });
 
+test("alephLobbiesInfo: GET /aleph/lobbies con las mesas que acepta el árbitro", async () => {
+  const cap: Captured = {};
+  const client = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: fakeFetch(cap, {
+      lobbies: [
+        {
+          roomId: ROOM,
+          stake: 2,
+          status: "funding",
+          seats: 4,
+          deposited: 1,
+          min: 4,
+          max: 8,
+          closesAt: 9,
+        },
+      ],
+      stakes: [0, 2],
+    }),
+  });
+  const info = await client.alephLobbiesInfo();
+  assert.equal(cap.url, "http://arbiter.test/aleph/lobbies");
+  assert.deepEqual(info.stakes, [0, 2]);
+  assert.equal(info.lobbies[0].status, "funding");
+  assert.equal(info.lobbies[0].deposited, 1);
+  // Sin `stakes` (árbitro viejo): la mesa gratis y nada más.
+  const old = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: fakeFetch({}, { lobbies: [] }),
+  });
+  assert.deepEqual(await old.alephLobbiesInfo(), { lobbies: [], stakes: [0] });
+});
+
 test("alephJoin: POST /aleph/join con stake, address y la firma", async () => {
   const cap: Captured = {};
   const client = new ArbiterClient("http://arbiter.test", {

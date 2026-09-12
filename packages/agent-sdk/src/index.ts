@@ -6,6 +6,7 @@ export type {
   AlephRoomView,
   AlephRoomStatus,
   AlephSeatView,
+  AlephDeposit,
   AlephLobby,
   AlephLog,
   AlephViewPass,

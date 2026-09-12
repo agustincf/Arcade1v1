@@ -100,7 +100,9 @@ test("alephJoin: rechaza mesas de plata sin pedir asiento, y otra versión de re
 test("alephJoin: si hay mesa abierta con otra versión de reglas, corta ANTES de pedir asiento", async () => {
   const fake = new FakeAleph();
   const agent = createAgent({ client: fake });
-  fake.lobbies = [{ roomId: ROOM, stake: 0, seats: 3, min: 4, max: 8, closesAt: 0 }];
+  fake.lobbies = [
+    { roomId: ROOM, stake: 0, status: "lobby", seats: 3, min: 4, max: 8, closesAt: 0 },
+  ];
   fake.rulesV = ALEPH_RULES_V + 1;
   await assert.rejects(
     () => agent.alephJoin(0),
