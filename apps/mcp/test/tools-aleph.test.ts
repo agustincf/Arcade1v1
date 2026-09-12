@@ -110,7 +110,9 @@ test("alephJoinTool / alephViewTool: la vista vuelve con las acciones legales, `
   // SDK quedó desactualizado. El pase firmado es el que pide alephViewTool acá.
   const signed = fake.passes.at(-1);
   assert.ok(signed?.signature, "la vista se pidió con el pase firmado del agente");
-  await assert.rejects(() => alephJoinTool(agent, 5), /no deposita on-chain/);
+  // El agente del MCP se crea sin `rpcUrl` (apps/mcp/src/index.ts), así que su
+  // wallet no puede depositar: una mesa de plata se rechaza antes de sentarse.
+  await assert.rejects(() => alephJoinTool(agent, 5), /needs a wallet that can deposit/);
 });
 
 test("alephViewTool: sin `deadline` en la vista (sala en lobby o terminada), `msLeft` es undefined", async () => {

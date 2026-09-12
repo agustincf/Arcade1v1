@@ -1,7 +1,8 @@
 // packages/agent-sdk/test/agent-aleph.test.ts
-// createAgent en Aleph: firma con su wallet lo que el árbitro exige, no pide
-// mesas de plata, corta ante otra versión de reglas y reutiliza el pase de
-// vista mientras sirve (renovándolo antes de que venza).
+// createAgent en Aleph: firma con su wallet lo que el árbitro exige, exige
+// rpcUrl para sentarse en una mesa de plata (donde su wallet SÍ deposita),
+// corta ante otra versión de reglas y reutiliza el pase de vista mientras
+// sirve (renovándolo antes de que venza).
 // Correr: node --import tsx --test packages/agent-sdk/test/agent-aleph.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -15,7 +16,9 @@ import { actionLine, ALEPH_RULES_V, type AlephAction } from "@arcade1v1/game-sdk
 import {
   ArbiterClient,
   type AlephActBody,
+  type AlephDeposit,
   type AlephLobby,
+  type AlephRoomStatus,
   type AlephRoomView,
   type AlephViewPass,
 } from "../src/client.ts";
@@ -34,6 +37,11 @@ class FakeAleph extends ArbiterClient {
   rulesV = ALEPH_RULES_V;
   lobbies: AlephLobby[] = [];
   stage: AlephRoomView["stage"] = { index: 2, kind: "vote", phase: "decide", acted: [] };
+  /** Estado de la sala; `playing` por default (el camino viejo). */
+  status: AlephRoomStatus = "playing";
+  /** Solo en `funding`: quiénes ya depositaron y con qué depositar. */
+  deposited?: string[];
+  deposit?: AlephDeposit;
   constructor() {
     super("http://fake");
   }
@@ -41,13 +49,15 @@ class FakeAleph extends ArbiterClient {
     return {
       roomId: ROOM,
       stake: 0,
-      status: "playing",
+      status: this.status,
       rulesV: this.rulesV,
       min: 4,
       max: 8,
       createdAt: 0,
       seats: [],
       stage: this.stage,
+      deposited: this.deposited,
+      deposit: this.deposit,
     };
   }
   async alephLobbies() {
@@ -85,16 +95,69 @@ test("alephJoin: firma matchmakeAuthMessage('aleph', 0, address, ts) con la wall
   assert.equal(fake.joins[1].stake, 0);
 });
 
-test("alephJoin: rechaza mesas de plata sin pedir asiento, y otra versión de reglas", async () => {
+test("alephJoin: una mesa de plata exige rpcUrl (la wallet tiene que poder depositar); con rpcUrl firma stake 2", async () => {
   const fake = new FakeAleph();
   const agent = createAgent({ client: fake });
-  await assert.rejects(() => agent.alephJoin(1), /no deposita on-chain/);
+  await assert.rejects(() => agent.alephJoin(2), /rpcUrl/);
   assert.equal(fake.joins.length, 0, "no llegó a pedir asiento");
+
+  const paying = createAgent({ client: fake, rpcUrl: "http://localhost:8545" });
+  await paying.alephJoin(2);
+  assert.equal(fake.joins.length, 1);
+  assert.equal(fake.joins[0].stake, 2);
+  const j = fake.joins[0];
+  assert.ok(j.auth?.signature, "firmado con stake 2 en el mensaje");
+  // El árbitro verifica la firma sobre el stake QUE PIDIÓ: si el SDK firmara
+  // con 0 y se sentara con 2, el asiento rebotaría recién allá.
+  const signer = await recoverMessageAddress({
+    message: matchmakeAuthMessage("aleph", 2, paying.address, j.auth!.ts),
+    signature: j.auth!.signature as Hex,
+  });
+  assert.equal(signer.toLowerCase(), paying.address.toLowerCase());
+});
+
+// La red de contención de `alephJoin`: sin mesa abierta que mirar antes, la
+// versión se compara contra la vista que devuelve el propio join (ya sentado).
+// La variante que corta ANTES de pedir asiento es el test de más abajo.
+test("alephJoin: otra versión de reglas corta la partida (red de contención, ya sentado)", async () => {
+  const fake = new FakeAleph();
+  const agent = createAgent({ client: fake });
   fake.rulesV = ALEPH_RULES_V + 1;
   await assert.rejects(
     () => agent.alephJoin(0),
     (e: Error) => /rules version mismatch/.test(e.message) && /update/.test(e.message),
   );
+  assert.equal(fake.joins.length, 1, "acá ya se había sentado: la contención salta después");
+});
+
+test("alephDeposit: sin rpcUrl falla claro; con la sala fuera de funding no toca la cadena", async () => {
+  const fake = new FakeAleph(); // su vista es `playing`
+  const agent = createAgent({ client: fake });
+  await assert.rejects(() => agent.alephDeposit(ROOM), /rpcUrl/);
+  const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" }); // nada escucha ahí
+  await assert.rejects(() => paying.alephDeposit(ROOM), /not funding \(playing\)/);
+});
+
+test("alephDeposit: si ya figuro entre los depositados, no manda nada", async () => {
+  const fake = new FakeAleph();
+  const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" });
+  fake.status = "funding";
+  fake.deposited = [paying.address.toLowerCase()];
+  fake.deposit = {
+    chainId: 31337,
+    escrow: "0x" + "e".repeat(40),
+    usdc: "0x" + "1".padStart(40, "0"),
+    stake: "2000000",
+    seats: [paying.address.toLowerCase()],
+    seatsHash: "0x" + "0".repeat(64),
+    fundDeadline: 1,
+    playDeadline: 2,
+    seatSig: "0x" + "0".repeat(130),
+  };
+  const r = await paying.alephDeposit(ROOM);
+  assert.equal(r.step, "already");
+  assert.equal(r.txHash, undefined);
+  assert.equal(r.view.roomId, ROOM, "devuelve la vista que leyó");
 });
 
 test("alephJoin: si hay mesa abierta con otra versión de reglas, corta ANTES de pedir asiento", async () => {
