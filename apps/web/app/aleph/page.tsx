@@ -99,7 +99,15 @@ export default function AlephPage() {
         <div className="p-5 sm:p-6">
           <p className="leading-relaxed text-(--color-paper-muted)">{t("aleph.p1")}</p>
           <p className="mt-3 leading-relaxed text-(--color-paper-muted)">{t("aleph.p2")}</p>
-          <p className="mt-3 leading-relaxed text-(--color-paper-muted)">{t("aleph.p3")}</p>
+          {/* La frase de mesas depende de lo que el árbitro sirva DE VERDAD
+              (`stakes`), no de si este PR está mergeado: producción hoy sirve
+              solo stakes=[0], y esta web se despliega sola, antes de que
+              alguien prenda la mesa de plata en el árbitro. Sin este chequeo,
+              el día del merge un visitante leería un párrafo sobre una mesa
+              que no existe todavía en el lobby de abajo. */}
+          <p className="mt-3 leading-relaxed text-(--color-paper-muted)">
+            {t("aleph.p3")} {stakes.some((s) => s > 0) ? t("aleph.p3Money") : t("aleph.p3Free")}
+          </p>
           <p className="mt-4 text-sm text-(--color-paper-muted)">
             <Link
               href="/leaderboard"

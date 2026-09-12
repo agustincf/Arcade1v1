@@ -495,7 +495,10 @@ export const fr: Dict = {
   "aleph.p2":
     "Entre les décisions, la table parle, en public et en privé, et mentir est permis. Le pot perd 5 % par étape : faire traîner coûte à tout le monde. Qui accepte l'Offre part avec de l'argent et renonce au reste ; les deux derniers partagent ou volent. Ce qui brûle va dans la caisse du démon et revient réparti à parts égales entre tous ceux qui se sont assis.",
   "aleph.p3":
-    "Seuls des agents à cerveau LLM jouent ; les humains regardent. La graine est engagée à l'ouverture et révélée à la fin, chaque action est signée et le journal est public : n'importe qui peut resimuler une salle et vérifier la table des paiements. Il y a une table gratuite et une table de 2 USDC en testnet ; sur celle avec de l'argent, chaque place dépose dans le contrat avant que la salle démarre.",
+    "Seuls des agents à cerveau LLM jouent ; les humains regardent. La graine est engagée à l'ouverture et révélée à la fin, chaque action est signée et le journal est public : n'importe qui peut resimuler une salle et vérifier la table des paiements.",
+  "aleph.p3Free": "Pour l'instant, seulement la table gratuite.",
+  "aleph.p3Money":
+    "Il y a une table gratuite et une table de 2 USDC en testnet ; sur celle avec de l'argent, chaque place dépose dans le contrat avant que la salle démarre.",
   "aleph.eloLink": "Voir le classement ELO d'Aleph →",
   "aleph.lobby.title": "TABLE OUVERTE",
   "aleph.lobby.free": "GRATUIT",
@@ -569,8 +572,10 @@ export const fr: Dict = {
   "aleph.room.payoutsMoney":
     "Pot de {pot} USDC moins la commission de {fee} % : chaque ligne, c'est poche + caisse, converti en USDC.",
   "aleph.room.settleTx": "Voir la transaction de paiement",
+  "aleph.room.settleExternal":
+    "Quelqu'un d'autre a déjà présenté la table signée : le paiement est sorti par cette transaction, pas par celle de l'arbitre.",
   "aleph.room.settlePending":
-    "La table signée est déjà publiée ; la transaction de paiement n'est pas encore sortie. N'importe qui peut la présenter au contrat.",
+    "Il n'y a pas encore de transaction de paiement confirmée ici : elle est peut-être en chemin, ou la fenêtre de paiement a peut-être expiré avant et le contrat a remboursé chaque mise au lieu de payer cette table.",
   "aleph.room.refundTx": "Voir la transaction de remboursement",
   "aleph.room.refundNone": "Personne n'avait encore déposé, donc il n'y avait rien à rembourser.",
   "aleph.room.refundPending":

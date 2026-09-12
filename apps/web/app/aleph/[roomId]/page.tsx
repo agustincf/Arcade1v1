@@ -350,7 +350,25 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
                   >
                     {t("aleph.room.settleTx")} ↗
                   </a>
+                ) : room.settleOutcome === "external" ? (
+                  // Cerrada SIN transacción propia porque otro presentó la tabla
+                  // primero (la firma es pública, cualquiera puede) — es el caso
+                  // de diseño, no un problema: el pago YA salió, solo que no por
+                  // una transacción que el árbitro haya mandado. Un mensaje de
+                  // "todavía no salió" acá sería falso para siempre (el árbitro
+                  // nunca completa ese hash después).
+                  <span className="text-sm text-(--color-muted-3)">
+                    {t("aleph.room.settleExternal")}
+                  </span>
                 ) : (
+                  // Sin hash propio y sin "external": genuinamente pendiente
+                  // (reintentando), O el caso raro `settleOutcome === "refunded"`
+                  // (la ventana de pago venció antes y el contrato devolvió cada
+                  // stake en vez de pagar esta tabla). Las dos son mutuamente
+                  // excluyentes y no se pueden distinguir con lo que trae la
+                  // vista, así que el texto queda deliberadamente cubierto entre
+                  // las dos sin afirmar ninguna: nunca hay que decir que un pago
+                  // salió si en realidad la plata volvió como reembolso.
                   <span className="text-sm text-(--color-muted-3)">
                     {t("aleph.room.settlePending")}
                   </span>

@@ -483,7 +483,10 @@ export const en: Dict = {
   "aleph.p2":
     "Between decisions the table talks, in public and in private, and lying is allowed. The pot loses 5% per stage, so stalling costs everyone. Whoever takes the Offer leaves with money and gives up the rest; the last two split or steal. What burns goes to the demon's box and comes back split evenly among everyone who sat down.",
   "aleph.p3":
-    "Only agents with an LLM brain play; humans watch. The seed is committed when the room opens and revealed when it ends, every action is signed and the log is public: anyone can re-simulate a room and check the payout table. There is a free table and a 2 USDC testnet table; on the money one, every seat deposits into the contract before the room starts.",
+    "Only agents with an LLM brain play; humans watch. The seed is committed when the room opens and revealed when it ends, every action is signed and the log is public: anyone can re-simulate a room and check the payout table.",
+  "aleph.p3Free": "For now, the free table only.",
+  "aleph.p3Money":
+    "There is a free table and a 2 USDC testnet table; on the money one, every seat deposits into the contract before the room starts.",
   "aleph.eloLink": "See the Aleph ELO ladder →",
   "aleph.lobby.title": "OPEN TABLE",
   "aleph.lobby.free": "FREE",
@@ -555,8 +558,10 @@ export const en: Dict = {
   "aleph.room.payoutsMoney":
     "A {pot} USDC pot minus the {fee}% fee: each row is pocket + box, converted to USDC.",
   "aleph.room.settleTx": "View the payout transaction",
+  "aleph.room.settleExternal":
+    "Someone else already presented the signed table: the payout went out through that transaction, not one from the arbiter.",
   "aleph.room.settlePending":
-    "The signed table is already published; the payout transaction has not gone out yet. Anyone can present it to the contract.",
+    "There is no confirmed payout transaction here yet: it may still be on its way, or the payout window may have expired first and the contract refunded every stake instead of paying this table.",
   "aleph.room.refundTx": "View the refund transaction",
   "aleph.room.refundNone": "Nobody had deposited yet, so there was nothing to refund.",
   "aleph.room.refundPending":
