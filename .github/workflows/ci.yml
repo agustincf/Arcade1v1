@@ -100,3 +100,6 @@ jobs:
 
       - name: Ensayo del deploy (script real + mesas habilitadas)
         run: bash packages/contracts/check-deploy.sh
+
+      - name: Ensayo del deploy de EscrowAleph (mesa de 2 USDC habilitada)
+        run: bash packages/contracts/check-aleph-deploy.sh
