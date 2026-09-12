@@ -63,6 +63,13 @@ test("las reglas explican el piso de la caja y el flujo de la mesa de plata", ()
   assert.match(text, /aleph_deposit/);
   assert.match(text, /settleTx/);
   assert.doesNotMatch(text, /Only the free table/);
+  // Fix round 1: el reembolso por fondeo incompleto no depende del árbitro
+  // (refundUnfunded es permissionless en el contrato) y la comisión es la
+  // config VIGENTE, no una regla fija — verificable después en el log.
+  assert.match(text, /permissionless/i);
+  assert.match(text, /currently 15%/);
+  assert.doesNotMatch(text, /15 %/);
+  assert.match(text, /log\.usdc\.feeBps/);
 });
 
 test("legalActions: nada fuera de juego, sin vista privada o con el asiento fuera", () => {
