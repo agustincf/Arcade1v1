@@ -25,6 +25,9 @@ import {
   actionLine,
   ALEPH_RULES,
   ALEPH_RULES_V,
+  ALEPH_ESCROW_STATUS,
+  usdcPayoutTable,
+  stakeToUnits,
   type AlephAction,
   type AlephEvent,
   type AlephState,
@@ -42,6 +45,13 @@ import { AUTH_REQUIRED } from "./matchmaking.js";
 import { applyMultiResult, type RatingUpdate } from "./ratings.js";
 import { jsonStore } from "./persist.js";
 import { recordMatchCreated, recordMatchSettled } from "./stats.js";
+import { signAlephSeat, signAlephPayout, alephSeatsHash, alephTableHash } from "./sign.js";
+import {
+  alephChain,
+  alephOnchainEnabled,
+  alephEscrowAddress,
+  alephChainId,
+} from "./aleph-chain.js";
 
 /** Error esperable (pedido inválido, sala cerrada, firma mala…): las rutas lo
  *  devuelven como 400. Cualquier otro error es un bug y va como 500 + log. */
@@ -71,13 +81,26 @@ export const ALEPH_TICK_MS = envNum("ALEPH_TICK_MS", 5_000);
 export const ALEPH_MAX_ROOMS = envNum("ALEPH_MAX_ROOMS", 50);
 export const ALEPH_FINISHED_TTL_MS = envNum("ALEPH_FINISHED_TTL_MS", 7 * 24 * 60 * 60_000);
 export const ALEPH_MAX_SETTLED_KEPT = envNum("ALEPH_MAX_SETTLED_KEPT", 50);
-// Etapa 1: SOLO la mesa gratis. Las mesas de plata llegan con el contrato de N
-// depósitos (etapa 4); hasta entonces aceptar otro stake crearía salas sin escrow.
-const STAKES_ALLOWED = [0];
+/** Plazo para que los N asientos depositen, una vez cerrado el lobby. */
+export const ALEPH_FUNDING_MS = envNum("ALEPH_FUNDING_MS", 10 * 60_000);
+/** Ventana de juego que lleva el pase (playDeadline on-chain). El mazo tiene a
+ *  lo sumo N+2 etapas, ~22 fases de 2 min: 3 h sobra, y pasada esa ventana más
+ *  la gracia del contrato cualquiera puede pedir el reembolso. */
+export const ALEPH_PLAY_WINDOW_MS = envNum("ALEPH_PLAY_WINDOW_MS", 3 * 60 * 60_000);
+/** Mesas permitidas, en USDC enteros. `ALEPH_STAKES` (default "0"); la gratis
+ *  está SIEMPRE. Una mesa de plata solo se acepta con ALEPH_ESCROW_ADDRESS
+ *  (se chequea por llamada en joinAleph, y config-guard lo exige en producción). */
+export const ALEPH_STAKES: number[] = [
+  ...new Set(
+    ["0", ...(process.env.ALEPH_STAKES ?? "0").split(",")]
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isInteger(n) && n >= 0),
+  ),
+].sort((a, b) => a - b);
 /** Kill switch, leído por llamada. */
 export const alephEnabled = () => process.env.ALEPH_ENABLED !== "false";
 
-export type RoomStatus = "lobby" | "playing" | "settled" | "dissolved";
+export type RoomStatus = "lobby" | "funding" | "playing" | "settled" | "dissolved";
 
 export interface AlephRoom {
   id: Hex;
@@ -91,9 +114,41 @@ export interface AlephRoom {
   secretSeed?: Hex; // NUNCA sale en una vista hasta `settled`
   events: AlephEvent[]; // el registro: única fuente de verdad del juego
   phaseDeadline?: number;
+  // ---- Mesa de plata (stake > 0) ----
+  fundingDeadline?: number; // ms: cuándo vence el fondeo
+  playDeadline?: number; // ms: lo que lleva el pase como playDeadline (en segundos)
+  deposited?: string[]; // quién depositó, según la última lectura de la cadena
+  passes?: Record<string, Hex>; // pase firmado por asiento (determinístico; se cachea)
+  chain?: AlephChainRecord; // liquidación / reembolso on-chain
   stages?: number; // etapas jugadas, guardadas al liquidar (listar no re-simula)
   payouts?: Record<string, number>;
   eloUpdates?: Record<string, RatingUpdate>;
+}
+
+/** Lo que un asiento necesita para depositar: lo lee de su vista privada
+ *  mientras la sala está en `funding`. Deadlines en SEGUNDOS (como el contrato). */
+export interface AlephDeposit {
+  chainId: number;
+  escrow: Hex;
+  usdc: Hex;
+  stake: string; // micro-USDC, como string (JSON no lleva bigint)
+  seats: string[]; // la lista congelada, en orden
+  seatsHash: Hex;
+  fundDeadline: number;
+  playDeadline: number;
+  seatSig: Hex;
+}
+
+/** Rastro de la cadena en una sala de plata. Todo string: va al store. */
+export interface AlephChainRecord {
+  attempts: number;
+  nextAttemptAt?: number;
+  lastError?: string;
+  feeBps?: number;
+  payoutsUsdc?: Record<string, string>; // micro-USDC por asiento
+  payoutSig?: Hex;
+  settleTx?: string; // hash, o "external" si otro presentó la tabla
+  refundTx?: string; // hash, "external" (reembolso permissionless) o "none" (nadie depositó)
 }
 
 export type AlephRoomView = {
@@ -111,6 +166,14 @@ export type AlephRoomView = {
   secretSeed?: Hex; // solo `settled`
   deadline?: number; // fin de la fase actual
   rating?: RatingUpdate; // `settled`, para el asiento que consulta
+  // ---- Mesa de plata ----
+  fundingDeadline?: number; // `funding`: cuándo vence el fondeo (ms)
+  deposited?: string[]; // `funding`: quién ya depositó
+  deposit?: AlephDeposit; // `funding`, SOLO en la vista privada del asiento
+  escrow?: Hex; // stake > 0: el contrato
+  payoutsUsdc?: Record<string, string>; // `settled`, stake > 0
+  payoutSig?: Hex; // `settled`, stake > 0: cualquiera puede presentar la tabla
+  settleTx?: string; // `settled`, stake > 0, cuando la transacción salió
   seats: { address: string; status: SeatStatus; pocket: number }[];
 } & Partial<Omit<AlephView, "seats">>;
 
@@ -122,10 +185,12 @@ export interface AlephAuth {
 export interface LobbySummary {
   roomId: Hex;
   stake: number;
+  status: "lobby" | "funding";
   seats: number;
+  deposited?: number; // funding: cuántos ya depositaron
   min: number;
   max: number;
-  closesAt: number;
+  closesAt: number; // lobby: cuándo arranca o se disuelve; funding: cuándo vence el fondeo
 }
 
 const rooms = new Map<string, AlephRoom>();
@@ -190,14 +255,15 @@ function seatAlive(room: AlephRoom, address: string): boolean {
   }
 }
 
-/** La sala que OCUPA a esa address. Un lobby la ocupa siempre; una sala en
+/** La sala que OCUPA a esa address. Un lobby la ocupa siempre, y una sala en
+ *  fondeo también (la lista ya está congelada y su pase emitido); una sala en
  *  juego, solo mientras el asiento siga vivo: el que se fue con una Oferta, el
  *  votado y el que abandonó pueden sentarse en otro lobby sin esperar a que su
  *  sala termine. */
 function liveRoomOf(address: string): AlephRoom | undefined {
   for (const r of rooms.values()) {
     if (!r.seats.includes(address)) continue;
-    if (r.status === "lobby") return r;
+    if (r.status === "lobby" || r.status === "funding") return r;
     if (r.status === "playing" && seatAlive(r, address)) return r;
   }
   return undefined;
@@ -205,7 +271,9 @@ function liveRoomOf(address: string): AlephRoom | undefined {
 
 function liveCount(): number {
   let n = 0;
-  for (const r of rooms.values()) if (r.status === "lobby" || r.status === "playing") n++;
+  for (const r of rooms.values()) {
+    if (r.status === "lobby" || r.status === "funding" || r.status === "playing") n++;
+  }
   return n;
 }
 
@@ -260,15 +328,18 @@ export async function joinAleph(
   now = Date.now(),
 ): Promise<AlephRoomView> {
   if (!alephEnabled()) throw new AlephError("aleph disabled");
-  if (!STAKES_ALLOWED.includes(stake)) {
-    throw new AlephError(`stake not allowed: ${stake} (mesas: ${STAKES_ALLOWED.join(", ")})`);
+  if (!ALEPH_STAKES.includes(stake)) {
+    throw new AlephError(`stake not allowed: ${stake} (mesas: ${ALEPH_STAKES.join(", ")})`);
+  }
+  if (stake > 0 && !alephOnchainEnabled()) {
+    throw new AlephError("money tables are not enabled on this arbiter (ALEPH_ESCROW_ADDRESS)");
   }
   address = normAddr(address);
   if (!ADDRESS_RE.test(address)) throw new AlephError("invalid address");
   await verifySeatAuth(stake, address, auth, now);
   settleDue(now);
   const mine = liveRoomOf(address);
-  if (mine) return roomView(mine, address);
+  if (mine) return withDeposit(mine, roomView(mine, address), address);
 
   const openId = openLobby.get(stake);
   let room = openId ? rooms.get(openId) : undefined;
@@ -283,9 +354,9 @@ export async function joinAleph(
     openLobby.set(stake, room.id);
   }
   room.seats.push(address);
-  if (room.seats.length >= ALEPH_MAX_SEATS) startRoom(room, now);
+  if (room.seats.length >= ALEPH_MAX_SEATS) closeLobby(room, now);
   persist();
-  return roomView(room, address);
+  return withDeposit(room, roomView(room, address), address);
 }
 
 /** Cierra el lobby y arranca la sala: semilla secreta + compromiso público. */
@@ -312,6 +383,68 @@ function startRoom(room: AlephRoom, now: number): void {
   recordMatchCreated(now); // métrica: una sala cuenta como una partida
 }
 
+/** El lobby cierra: la gratis arranca; la de plata entra en FONDEO. */
+function closeLobby(room: AlephRoom, now: number): void {
+  if (room.stake === 0) startRoom(room, now);
+  else enterFunding(room, now);
+}
+
+/** Congela la lista y abre el plazo de fondeo. La semilla NO se sortea acá:
+ *  recién con los N depósitos (alephChainTick → startRoom). */
+function enterFunding(room: AlephRoom, now: number): void {
+  room.status = "funding";
+  room.fundingDeadline = now + ALEPH_FUNDING_MS;
+  room.playDeadline = room.fundingDeadline + ALEPH_PLAY_WINDOW_MS;
+  room.deposited = [];
+  room.passes = {};
+  if (openLobby.get(room.stake) === room.id) openLobby.delete(room.stake);
+}
+
+/** El pase de UN asiento, firmado una vez y cacheado (la firma es
+ *  determinística: RFC 6979). Solo mientras la sala fondea. */
+async function seatDeposit(room: AlephRoom, address: string): Promise<AlephDeposit> {
+  const seats = room.seats as Hex[];
+  const seatsHash = alephSeatsHash(seats);
+  const stake = stakeToUnits(room.stake);
+  const fundDeadline = Math.floor(room.fundingDeadline! / 1000);
+  const playDeadline = Math.floor(room.playDeadline! / 1000);
+  room.passes ??= {};
+  let seatSig = room.passes[address];
+  if (!seatSig) {
+    seatSig = await signAlephSeat({
+      roomId: room.id,
+      seatsHash,
+      stake,
+      fundDeadline: BigInt(fundDeadline),
+      playDeadline: BigInt(playDeadline),
+      player: address as Hex,
+    });
+    room.passes[address] = seatSig;
+    persist();
+  }
+  return {
+    chainId: alephChainId(),
+    escrow: alephEscrowAddress(),
+    usdc: await alephChain().usdcAddress(),
+    stake: stake.toString(),
+    seats: room.seats,
+    seatsHash,
+    fundDeadline,
+    playDeadline,
+    seatSig,
+  };
+}
+
+/** Adjunta el bloque de depósito a la vista PRIVADA de un asiento en fondeo. */
+async function withDeposit(
+  room: AlephRoom,
+  v: AlephRoomView,
+  address: string,
+): Promise<AlephRoomView> {
+  if (room.status !== "funding" || !room.seats.includes(address)) return v;
+  return { ...v, deposit: await seatDeposit(room, address) };
+}
+
 function dissolveRoom(room: AlephRoom, now: number): void {
   room.status = "dissolved";
   room.settledAt = now;
@@ -324,7 +457,7 @@ function settleRoomDue(room: AlephRoom, now: number): boolean {
     // Con el kill switch apagado NUNCA arranca una sala nueva, tenga los
     // asientos que tenga: el lobby que vence se disuelve. Las salas ya en
     // curso siguen cerrando fases por plazo hasta liquidarse.
-    if (room.seats.length >= ALEPH_MIN_SEATS && alephEnabled()) startRoom(room, now);
+    if (room.seats.length >= ALEPH_MIN_SEATS && alephEnabled()) closeLobby(room, now);
     else dissolveRoom(room, now);
     return true;
   }
@@ -388,6 +521,8 @@ export function settleDue(now = Date.now()): void {
     } catch (e) {
       console.error("[aleph] sala rota, se disuelve:", room.id, (e as Error).message);
       dissolveRoom(room, now);
+      // Con plata de por medio, disolver no alcanza: hay que devolverla.
+      if (room.stake > 0) room.chain = { attempts: 0, nextAttemptAt: now };
       states.delete(room.id);
       dirty = true;
     }
@@ -423,8 +558,8 @@ function closePhase(room: AlephRoom, reason: PhaseEndReason, at: number): void {
   else room.phaseDeadline = at + ALEPH_PHASE_MS;
 }
 
-/** Liquidación: tabla de pagos del motor + ELO multi-jugador + métrica. En la
- *  etapa 4 acá se firma la tabla para el contrato. */
+/** Liquidación: tabla de pagos del motor + ELO multi-jugador + métrica. En una
+ *  mesa de plata, además, deja pedida la liquidación on-chain. */
 function settleRoom(room: AlephRoom, s: AlephState, now: number): void {
   room.status = "settled";
   room.settledAt = now;
@@ -435,6 +570,9 @@ function settleRoom(room: AlephRoom, s: AlephState, now: number): void {
     "aleph",
     room.seats.map((a) => ({ address: a, score: s.payouts![a] })),
   );
+  // Mesa de plata: la tabla en USDC, su firma y la transacción las arma el tick
+  // de cadena (async, con reintento). Acá solo queda anotado que falta.
+  if (room.stake > 0) room.chain = { attempts: 0, nextAttemptAt: now };
   recordMatchSettled(0, now);
   // La sala ya no cambia: soltamos su estado derivado. Si alguien la mira, se
   // re-simula bajo demanda y vuelve a cachearse; lo que NO puede pasar es que
@@ -529,6 +667,19 @@ export function alephLog(roomId: string, now = Date.now()) {
     settledAt: room.settledAt,
     events: room.events,
     payouts: room.payouts,
+    // Mesa de plata: la tabla en USDC y su firma van en el registro PÚBLICO, así
+    // cualquiera puede presentar el `settle` si la transacción del árbitro falló.
+    usdc:
+      room.stake > 0
+        ? {
+            escrow: alephEscrowAddress(),
+            chainId: alephChainId(),
+            feeBps: room.chain?.feeBps,
+            table: room.chain?.payoutsUsdc,
+            signature: room.chain?.payoutSig,
+            settleTx: room.chain?.settleTx,
+          }
+        : undefined,
   };
 }
 
@@ -540,6 +691,7 @@ export interface RecentRoom {
   settledAt?: number;
   stages: number;
   payouts?: Record<string, number>;
+  settleTx?: string; // stake > 0: la transacción que pagó la tabla
 }
 
 /** Salas terminadas recientes (para la web y los agentes curiosos). */
@@ -558,7 +710,134 @@ export function recentAlephRooms(limit = 20, now = Date.now()): RecentRoom[] {
       settledAt: r.settledAt,
       stages: r.stages ?? 0,
       payouts: r.payouts,
+      settleTx: r.chain?.settleTx,
     }));
+}
+
+// ---- La cadena (mesas de plata) ----------------------------------------------
+// Todo lo que toca el contrato pasa por acá, en un tick ASÍNCRONO aparte del
+// reloj sincrónico (`settleDue`): leer depósitos, arrancar la sala fondeada,
+// disolver y cancelar al vencer el fondeo, liquidar y reembolsar. Con backoff:
+// un RPC caído no puede dejar una sala liquidada sin pagar, pero tampoco tiene
+// sentido martillarlo cada 5 s.
+
+let chainTicking = false;
+
+function backoffMs(attempts: number): number {
+  return Math.min(60 * 60_000, 10_000 * 2 ** Math.min(attempts, 8));
+}
+
+/** Exportado para los tests (reloj inyectado). El ticker lo llama cada tick. */
+export async function alephChainTick(now = Date.now()): Promise<void> {
+  if (chainTicking || !alephOnchainEnabled()) return;
+  chainTicking = true;
+  let dirty = false;
+  try {
+    for (const room of [...rooms.values()]) {
+      if (room.stake === 0) continue;
+      try {
+        if (room.status === "funding") {
+          if (await syncFunding(room, now)) dirty = true;
+        } else if (room.status === "settled" && room.chain && !room.chain.settleTx) {
+          if (await settleOnchain(room, now)) dirty = true;
+        } else if (room.status === "dissolved" && room.chain && !room.chain.refundTx) {
+          if (await refundOnchain(room, now)) dirty = true;
+        }
+      } catch (e) {
+        console.error("[aleph-chain]", room.id, (e as Error).message);
+      }
+    }
+  } finally {
+    chainTicking = false;
+  }
+  if (dirty) persist();
+}
+
+/** Lee la cadena para una sala en fondeo. Arranca si está Funded; disuelve (y
+ *  deja pendiente el reembolso) si venció el plazo. Devuelve si cambió algo. */
+async function syncFunding(room: AlephRoom, now: number): Promise<boolean> {
+  const c = await alephChain().readRoom(room.id);
+  let changed = false;
+  const dep = c.depositors.map(normAddr);
+  if (JSON.stringify(dep) !== JSON.stringify(room.deposited ?? [])) {
+    room.deposited = dep;
+    changed = true;
+  }
+  if (c.status === ALEPH_ESCROW_STATUS.Funded) {
+    startRoom(room, now);
+    return true;
+  }
+  if (c.status === ALEPH_ESCROW_STATUS.Refunded) {
+    // Alguien llamó refundUnfunded por su cuenta: nada que cancelar.
+    dissolveRoom(room, now);
+    room.chain = { attempts: 0, refundTx: "external" };
+    return true;
+  }
+  if (now >= room.fundingDeadline!) {
+    dissolveRoom(room, now);
+    room.chain = { attempts: 0, nextAttemptAt: now };
+    return true;
+  }
+  return changed;
+}
+
+/** Tabla en USDC + firma (una vez) y `settle` (con reintento). */
+async function settleOnchain(room: AlephRoom, now: number): Promise<boolean> {
+  const rec = room.chain!;
+  if (rec.nextAttemptAt !== undefined && now < rec.nextAttemptAt) return false;
+  rec.attempts += 1;
+  const seats = room.seats as Hex[];
+  try {
+    const chain = alephChain();
+    if (!rec.payoutSig) {
+      // La comisión se lee del CONTRATO: si difiriera del env, la suma no
+      // cerraría y el settle revertiría.
+      const feeBps = await chain.feeBps();
+      const { amounts } = usdcPayoutTable(seats, room.payouts!, stakeToUnits(room.stake), feeBps);
+      rec.feeBps = feeBps;
+      rec.payoutsUsdc = Object.fromEntries(seats.map((a, i) => [a, amounts[i].toString()]));
+      rec.payoutSig = await signAlephPayout(room.id, alephTableHash(seats, amounts));
+    }
+    const amounts = seats.map((a) => BigInt(rec.payoutsUsdc![a]));
+    rec.settleTx = await chain.settle(room.id, seats, amounts, rec.payoutSig);
+    rec.lastError = undefined;
+  } catch (e) {
+    const msg = (e as Error).message ?? String(e);
+    if (/not funded/i.test(msg)) {
+      // Ya no está Funded: o alguien presentó la tabla antes, o se reembolsó.
+      const c = await alephChain().readRoom(room.id);
+      rec.settleTx = c.status === ALEPH_ESCROW_STATUS.Settled ? "external" : `refunded:${c.status}`;
+    } else {
+      rec.lastError = msg;
+      rec.nextAttemptAt = now + backoffMs(rec.attempts);
+    }
+  }
+  return true;
+}
+
+/** `cancelRoom` para una sala disuelta con plata adentro (con reintento). */
+async function refundOnchain(room: AlephRoom, now: number): Promise<boolean> {
+  const rec = room.chain!;
+  if (rec.nextAttemptAt !== undefined && now < rec.nextAttemptAt) return false;
+  rec.attempts += 1;
+  try {
+    const chain = alephChain();
+    const c = await chain.readRoom(room.id);
+    if (c.status === ALEPH_ESCROW_STATUS.None) {
+      rec.refundTx = "none"; // nadie depositó: cancelar revertiría
+    } else if (c.status === ALEPH_ESCROW_STATUS.Refunded) {
+      rec.refundTx = "external";
+    } else if (c.status === ALEPH_ESCROW_STATUS.Settled) {
+      rec.refundTx = "settled"; // no debería pasar: queda anotado, no se insiste
+    } else {
+      rec.refundTx = await chain.cancelRoom(room.id);
+    }
+    rec.lastError = undefined;
+  } catch (e) {
+    rec.lastError = (e as Error).message;
+    rec.nextAttemptAt = now + backoffMs(rec.attempts);
+  }
+  return true;
 }
 
 // ---- Ticker -------------------------------------------------------------------
@@ -577,6 +856,7 @@ export function startAlephTicker(): void {
     } catch (e) {
       console.error("[aleph] tick:", (e as Error).message);
     }
+    alephChainTick().catch((e) => console.error("[aleph-chain] tick:", (e as Error).message));
   }, ALEPH_TICK_MS);
   ticker.unref?.();
 }
@@ -595,11 +875,17 @@ export function roomView(room: AlephRoom, address?: string): AlephRoomView {
     startedAt: room.startedAt,
     settledAt: room.settledAt,
     commit: room.commit,
+    escrow: room.stake > 0 ? alephEscrowAddress() : undefined,
   };
-  if (room.status === "lobby" || room.status === "dissolved") {
+  if (room.status === "lobby" || room.status === "funding" || room.status === "dissolved") {
+    const funding =
+      room.status === "funding" ||
+      (room.status === "dissolved" && room.fundingDeadline !== undefined);
     return {
       ...base,
-      closesAt: room.createdAt + ALEPH_LOBBY_MS,
+      closesAt: funding ? room.fundingDeadline : room.createdAt + ALEPH_LOBBY_MS,
+      fundingDeadline: funding ? room.fundingDeadline : undefined,
+      deposited: funding ? (room.deposited ?? []) : undefined,
       seats: room.seats.map((a) => ({ address: a, status: "alive" as SeatStatus, pocket: 0 })),
     };
   }
@@ -609,6 +895,11 @@ export function roomView(room: AlephRoom, address?: string): AlephRoomView {
     out.secretSeed = room.secretSeed;
     const a = address ? normAddr(address) : undefined;
     if (a && room.eloUpdates?.[a]) out.rating = room.eloUpdates[a];
+    if (room.chain) {
+      out.payoutsUsdc = room.chain.payoutsUsdc;
+      out.payoutSig = room.chain.payoutSig;
+      out.settleTx = room.chain.settleTx;
+    }
   }
   return out;
 }
@@ -632,7 +923,10 @@ export async function getAlephRoom(
   if (!room) return null;
   if (!address) return roomView(room);
   const seat = normAddr(address);
-  if (!auth?.signature) return roomView(room, AUTH_REQUIRED ? undefined : seat);
+  if (!auth?.signature) {
+    if (AUTH_REQUIRED) return roomView(room, undefined);
+    return withDeposit(room, roomView(room, seat), seat);
+  }
   try {
     await verifySigned(
       alephViewAuthMessage(room.id, seat, Number(auth.ts)),
@@ -644,7 +938,7 @@ export async function getAlephRoom(
   } catch {
     return roomView(room, undefined);
   }
-  return roomView(room, seat);
+  return withDeposit(room, roomView(room, seat), seat);
 }
 
 /** Salas vivas (lobby + en juego), para el relleno de la casa
@@ -656,22 +950,36 @@ export function liveAlephRooms(now = Date.now()): AlephRoom[] {
   return [...rooms.values()].filter((r) => r.status === "lobby" || r.status === "playing");
 }
 
+/** Lo que hay para sentarse o mirar: el lobby abierto de cada mesa y las salas
+ *  que están FONDEANDO (ya cerradas, pero todavía sin arrancar). */
 export function listAlephLobbies(now = Date.now()): LobbySummary[] {
   settleDue(now);
   const out: LobbySummary[] = [];
-  for (const id of openLobby.values()) {
-    const r = rooms.get(id);
-    if (!r || r.status !== "lobby") continue;
-    out.push({
-      roomId: r.id,
-      stake: r.stake,
-      seats: r.seats.length,
-      min: ALEPH_MIN_SEATS,
-      max: ALEPH_MAX_SEATS,
-      closesAt: r.createdAt + ALEPH_LOBBY_MS,
-    });
+  for (const r of rooms.values()) {
+    if (r.status === "lobby" && openLobby.get(r.stake) === r.id) {
+      out.push({
+        roomId: r.id,
+        stake: r.stake,
+        status: "lobby",
+        seats: r.seats.length,
+        min: ALEPH_MIN_SEATS,
+        max: ALEPH_MAX_SEATS,
+        closesAt: r.createdAt + ALEPH_LOBBY_MS,
+      });
+    } else if (r.status === "funding") {
+      out.push({
+        roomId: r.id,
+        stake: r.stake,
+        status: "funding",
+        seats: r.seats.length,
+        deposited: r.deposited?.length ?? 0,
+        min: ALEPH_MIN_SEATS,
+        max: ALEPH_MAX_SEATS,
+        closesAt: r.fundingDeadline!,
+      });
+    }
   }
-  return out;
+  return out.sort((a, b) => a.stake - b.stake || a.closesAt - b.closesAt);
 }
 
 /** Tests: vaciar todo en memoria (no toca el store). */
