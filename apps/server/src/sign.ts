@@ -102,16 +102,22 @@ export function alephDomain() {
   };
 }
 
-/** `keccak256(abi.encode(seats))`, lo que ata cada pase a la lista congelada. */
+/** `keccak256(abi.encode(seats))`, lo que ata cada pase a la lista congelada.
+ *  Cada address se normaliza a minúsculas antes de codificar (mismo valor de
+ *  20 bytes, evita el chequeo de checksum de viem ante una mayúscula que no
+ *  sea un EIP-55 válido; el contrato compara por valor, no por escritura). */
 export function alephSeatsHash(seats: Hex[]): Hex {
-  return keccak256(encodeAbiParameters([{ type: "address[]" }], [seats]));
+  const lower = seats.map((a) => a.toLowerCase() as Hex);
+  return keccak256(encodeAbiParameters([{ type: "address[]" }], [lower]));
 }
 
 /** `keccak256(abi.encode(seats, amounts))`: el contrato lo recompone desde el
- *  calldata, así la firma no depende del largo de la tabla. */
+ *  calldata, así la firma no depende del largo de la tabla. Mismo motivo que
+ *  `alephSeatsHash` para normalizar `seats` a minúsculas antes de codificar. */
 export function alephTableHash(seats: Hex[], amounts: bigint[]): Hex {
+  const lower = seats.map((a) => a.toLowerCase() as Hex);
   return keccak256(
-    encodeAbiParameters([{ type: "address[]" }, { type: "uint256[]" }], [seats, amounts]),
+    encodeAbiParameters([{ type: "address[]" }, { type: "uint256[]" }], [lower, amounts]),
   );
 }
 
