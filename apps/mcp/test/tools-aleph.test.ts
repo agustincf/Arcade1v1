@@ -241,30 +241,44 @@ test("aleph_deposit: sin rpcUrl explica qué falta; con la sala en juego no mand
   );
 });
 
-test("aleph_deposit: un error de RPC con la URL adentro no la deja pasar", async () => {
-  // Lo que tira el transporte HTTP de viem cuando el RPC del operador (RPC_URL)
+test("aleph_deposit: un error de RPC con la URL adentro no la deja pasar, sea cual sea el esquema", async () => {
+  // Lo que tira el transporte de viem cuando el RPC del operador (RPC_URL)
   // está caído, limitado o mal configurado: interpola la URL completa en el
   // mensaje — a veces con una API key en el path, como arman las suyas
   // Alchemy o Infura. No hace falta red real ni un rpcUrl de verdad: al
   // agente le alcanza con que `alephDeposit` tire ese mensaje (fix de review
   // sobre esta misma tarea; ver informe).
-  const leaky = new Error(
-    "HTTP request failed. URL: https://eth-sepolia.g.alchemy.com/v2/super-secreta Details: fetch failed",
-  );
-  const fakeAgent = {
-    alephDeposit: async () => {
-      throw leaky;
-    },
-  } as unknown as Parameters<typeof alephDepositTool>[0];
-  let caught: unknown;
-  try {
-    await alephDepositTool(fakeAgent, ROOM);
-  } catch (e) {
-    caught = e;
+  const schemes = [
+    "https", // el caso obvio: el RPC normal.
+    // Alchemy e Infura emiten endpoints wss:// junto a los https://: un
+    // RPC_URL wss:// es una config real (no un esquema inventado para el
+    // test), y como `createAgent` arma sus clientes con `http(opts.rpcUrl)`
+    // sin mirar el esquema, TODO pedido falla (fetch nativo no abre `wss:`)
+    // y viem envuelve el fallo con la URL entera en el mensaje igual. La
+    // ronda 1 de este fix solo enmascaraba `https?`, así que esto se le
+    // escapaba (hallazgo de review, ronda 2).
+    "wss",
+  ];
+  for (const scheme of schemes) {
+    const fakeAgent = {
+      alephDeposit: async () => {
+        throw new Error(
+          `HTTP request failed. URL: ${scheme}://eth-sepolia.g.alchemy.com/v2/super-secreta Details: fetch failed`,
+        );
+      },
+    } as unknown as Parameters<typeof alephDepositTool>[0];
+    let caught: unknown;
+    try {
+      await alephDepositTool(fakeAgent, ROOM);
+    } catch (e) {
+      caught = e;
+    }
+    assert.ok(caught instanceof Error, `(${scheme}) sigue siendo un error: no se traga el fallo`);
+    const msg = (caught as Error).message;
+    // Sin enumerar esquemas acá tampoco: cualquier "://" que sobreviva es una
+    // URL que se coló.
+    assert.doesNotMatch(msg, /:\/\//, `(${scheme}) ninguna URL sobrevive al resultado`);
+    assert.doesNotMatch(msg, /super-secreta/, `(${scheme}) tampoco la key embebida en la URL`);
+    assert.match(msg, /HTTP request failed/, `(${scheme}) el resto del motivo sigue llegando`);
   }
-  assert.ok(caught instanceof Error, "sigue siendo un error: no se traga el fallo");
-  const msg = (caught as Error).message;
-  assert.doesNotMatch(msg, /https?:\/\//i, "ninguna URL sobrevive al resultado");
-  assert.doesNotMatch(msg, /super-secreta/, "tampoco la key embebida en la URL");
-  assert.match(msg, /HTTP request failed/, "el resto del motivo sigue llegando al modelo");
 });

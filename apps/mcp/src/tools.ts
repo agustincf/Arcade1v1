@@ -168,7 +168,7 @@ export async function alephActTool(
 
 // Nunca dejar que una URL entera sobreviva al resultado de esta herramienta:
 // el RPC del operador (RPC_URL) puede traer una API key en el path, como
-// suelen armarse las URLs de Alchemy o Infura, y el transporte HTTP de viem
+// suelen armarse las URLs de Alchemy o Infura, y el transporte de viem
 // interpola la URL completa en el mensaje cuando el pedido falla (caído,
 // limitado, mal configurado) — el PRIMER pedido de red de `alephDeposit` es
 // justamente contra ese RPC. Los errores que agent-sdk arma a mano (ver
@@ -178,8 +178,18 @@ export async function alephActTool(
 // conviene) mantener una lista de mensajes "conocidos" que se desactualice
 // cada vez que `alephDeposit` sume un guard nuevo: se enmascara la FORMA
 // (una URL), no el contenido de un mensaje puntual.
+//
+// El esquema NO se enumera (nunca `https?` a secas): `createAgent` arma sus
+// dos clientes con `http(opts.rpcUrl)` sin mirar el esquema, así que un
+// RPC_URL `wss://` (Alchemy e Infura emiten esos endpoints junto a los
+// https://, así que es una config real, no rebuscada) hace que TODO pedido
+// falle —fetch nativo no abre `wss:`— y viem lo envuelve con la URL entera
+// en el mensaje igual. Enumerar "http, https" se queda corto ahí y con
+// cualquier esquema futuro que a nadie se le ocurra hoy; en cambio, la FORMA
+// genérica de un esquema de URI (RFC 3986: letra, luego letras/dígitos/+/-/.,
+// luego "://") cubre todos por igual sin lista que mantener.
 function withoutUrls(message: string): string {
-  return message.replace(/https?:\/\/\S+/gi, "[rpc url redacted]");
+  return message.replace(/[a-z][a-z0-9+.-]*:\/\/\S+/gi, "[rpc url redacted]");
 }
 
 export async function alephDepositTool(
@@ -195,7 +205,11 @@ export async function alephDepositTool(
     // `.message` (y cualquier otra propiedad de un error de viem, como
     // `.shortMessage` o `.details`) seguiría alcanzable desde `err.cause` con
     // la URL sin enmascarar. El motivo del fallo igual llega al modelo: solo
-    // se pierde la URL, nunca el resto del mensaje.
+    // se pierde la URL, nunca el resto del mensaje. Único uso de
+    // `preserve-caught-error` en el repo — `no-control-regex` en
+    // apps/server/src/agents.ts:134 es un disable del mismo ESTILO (una
+    // regla general, una excepción puntual con motivo en el propio
+    // comentario) pero para OTRA regla, no esta.
     // eslint-disable-next-line preserve-caught-error -- a propósito, no un olvido: `cause: e` reintroduciría la URL sin enmascarar (ver comentario arriba)
     throw new Error(withoutUrls(e instanceof Error ? e.message : String(e)));
   }
