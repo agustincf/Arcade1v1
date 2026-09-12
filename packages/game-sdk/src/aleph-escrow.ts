@@ -176,6 +176,16 @@ export const escrowAlephAbi = [
   },
   {
     type: "function",
+    name: "tableHashOf",
+    inputs: [
+      { name: "seats", type: "address[]" },
+      { name: "amounts", type: "uint256[]" },
+    ],
+    outputs: [{ type: "bytes32" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
     name: "seatDigest",
     inputs: [
       { name: "id", type: "bytes32" },
