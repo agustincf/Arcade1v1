@@ -3,8 +3,10 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {EscrowAleph} from "../src/EscrowAleph.sol";
 import {MockUSDC} from "./MockUSDC.sol";
+import {ReentrantUSDC} from "./ReentrantUSDC.sol";
 
 contract EscrowAlephTest is Test {
     EscrowAleph escrow;
@@ -544,5 +546,40 @@ contract EscrowAlephTest is Test {
         vm.prank(arbiter);
         vm.expectRevert(bytes("cant cancel"));
         escrow.cancelRoom(keccak256("nope"));
+    }
+
+    // --- Reentrancy -----------------------------------------------------------
+
+    function test_SettleIsGuardedAgainstReentrancy() public {
+        // Escrow aparte, con el token que reentra.
+        ReentrantUSDC evil = new ReentrantUSDC();
+        EscrowAleph esc = new EscrowAleph(address(evil), arbiter, platform, feeBps, owner);
+        vm.prank(owner);
+        esc.setAllowedStake(stake, true);
+        for (uint256 i = 0; i < 4; i++) {
+            evil.mint(seats4[i], stake);
+            vm.prank(seats4[i]);
+            evil.approve(address(esc), stake);
+        }
+        (uint64 fund, uint64 play) = _deadlines();
+        bytes32 seatsHash = keccak256(abi.encode(seats4));
+        for (uint256 i = 0; i < 4; i++) {
+            bytes32 digest = esc.seatDigest(roomId, seatsHash, stake, fund, play, seats4[i]);
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(arbiterPk, digest);
+            bytes memory sig = abi.encodePacked(r, s, v);
+            vm.prank(seats4[i]);
+            if (i == 0) esc.open(roomId, seats4, stake, fund, play, sig);
+            else esc.deposit(roomId, sig);
+        }
+        uint256[] memory amounts = _table4();
+        bytes32 pd = esc.payoutDigest(roomId, keccak256(abi.encode(seats4, amounts)));
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(arbiterPk, pd);
+        bytes memory paySig = abi.encodePacked(r2, s2, v2);
+
+        // Durante el primer transfer (a la plataforma), el token intenta
+        // cancelar la sala: el guard tiene que cortarlo ANTES de mirar quién llama.
+        evil.arm(address(esc), abi.encodeWithSelector(EscrowAleph.cancelRoom.selector, roomId));
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        esc.settle(roomId, seats4, amounts, paySig);
     }
 }
