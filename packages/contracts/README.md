@@ -64,8 +64,8 @@ firmada puede asignarle 0 a ese asiento — pero los tres reembolsos no: una sal
 en `Funding` con un depositante en blacklist dejaría su pozo trabado para
 siempre. El disparador exige que Circle ponga en blacklist a una dirección
 DESPUÉS de que depositó, así que la probabilidad es baja y el stake es de 2
-USDC. Es la misma propiedad que ya tiene `Escrow1v1`, desplegado con plata
-real, con un radio de impacto menor (2 asientos en vez de hasta 8).
+USDC. Es la misma propiedad que ya tiene `Escrow1v1`, hoy desplegado en
+testnet, con un radio de impacto menor (2 asientos en vez de hasta 8).
 
 Pruebas: `forge test --match-contract EscrowAlephTest -vv` (43 pruebas: fondeo,
 liquidación, tabla que no suma, address que no es asiento, firma ajena, doble
