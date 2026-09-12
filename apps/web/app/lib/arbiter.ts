@@ -333,6 +333,11 @@ export function getAlephLobbies(): Promise<AlephLobby[]> {
   return client.alephLobbies();
 }
 
+/** Lobbies (abiertos o fondeando) más las mesas que acepta el árbitro. */
+export function getAlephLobbiesInfo(): Promise<{ lobbies: AlephLobby[]; stakes: number[] }> {
+  return client.alephLobbiesInfo();
+}
+
 /** Vista pública de una sala (sin pase: nunca decisiones ajenas ni la semilla). */
 export function getAlephRoom(roomId: string): Promise<AlephRoomView> {
   return client.alephView(roomId);
@@ -354,6 +359,7 @@ export interface RecentAlephRoom {
   settledAt?: number;
   stages: number;
   payouts?: Record<string, number>;
+  settleTx?: string;
 }
 
 /** Salas terminadas recientes. No está en el cliente canónico del SDK (es una

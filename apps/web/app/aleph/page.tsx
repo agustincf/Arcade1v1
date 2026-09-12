@@ -10,7 +10,7 @@ import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import {
-  getAlephLobbies,
+  getAlephLobbiesInfo,
   getRecentAlephRooms,
   warmUpArbiter,
   type AlephLobby,
@@ -19,6 +19,10 @@ import {
 
 const REFRESH_MS = 10_000;
 const ARBITER = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
+
+// Mismo alias que usa [roomId]/page.tsx: la firma real de `t` (useT()), para
+// tipar los sub-componentes sin importar el hook completo.
+type T = (key: string, vars?: Record<string, string | number>) => string;
 
 const shortId = (id: string) => `${id.slice(0, 10)}…`;
 
@@ -35,6 +39,10 @@ function countdown(until: number, now: number): string | null {
 export default function AlephPage() {
   const { t } = useT();
   const [lobbies, setLobbies] = useState<AlephLobby[] | null>(null);
+  // Mesas que acepta el árbitro (siempre incluye la gratis). Default [0]: hasta
+  // que responda el primer pedido, la página se ve igual que cuando el árbitro
+  // solo servía la mesa gratis (el estado de producción hoy).
+  const [stakes, setStakes] = useState<number[]>([0]);
   const [rooms, setRooms] = useState<RecentAlephRoom[] | null>(null);
   // "No pudimos preguntar" NO es "no hay mesa". Tragarse el error y mostrar la
   // lista vacía deja al visitante creyendo que el formato está muerto, que es
@@ -55,12 +63,15 @@ export default function AlephPage() {
     // árbitro dormido el primer fetch tarda ~40 s y un setInterval le apilaría
     // pedidos encima antes de que conteste el primero.
     const load = async () => {
-      const [l, r] = await Promise.allSettled([getAlephLobbies(), getRecentAlephRooms(10)]);
+      const [l, r] = await Promise.allSettled([getAlephLobbiesInfo(), getRecentAlephRooms(10)]);
       if (cancel) return;
       // Los dos pedidos fallando es el árbitro dormido o caído; uno solo es un
       // problema de esa ruta y la otra mitad de la página sigue sirviendo.
       setOffline(l.status === "rejected" && r.status === "rejected");
-      if (l.status === "fulfilled") setLobbies(l.value);
+      if (l.status === "fulfilled") {
+        setLobbies(l.value.lobbies);
+        setStakes(l.value.stakes);
+      }
       if (r.status === "fulfilled") setRooms(r.value);
       timer = setTimeout(load, REFRESH_MS);
     };
@@ -100,71 +111,51 @@ export default function AlephPage() {
         </div>
       </section>
 
-      {/* Lobby abierto */}
-      <section className="win mt-6">
-        <div className="win-title">
-          <span>{t("aleph.lobby.title")}</span>
-          <span className="chip">{t("aleph.lobby.free")}</span>
-        </div>
-        <div className="p-5">
-          {offline ? (
-            <p className="py-6 text-center text-base text-(--color-muted-2)">
-              {t("aleph.offline")}
-            </p>
-          ) : lobbies === null ? (
-            <p className="py-6 text-center text-base text-(--color-muted-2)">
-              {t("match.connecting")}
-            </p>
-          ) : lobbies.length === 0 ? (
-            <p className="py-6 text-center text-base text-(--color-muted-2)">
-              {t("aleph.lobby.empty")}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {lobbies.map((l) => {
-                const left = countdown(l.closesAt, now);
-                const enough = l.seats >= l.min;
-                return (
-                  <div key={l.roomId} className="rounded-lg bg-(--color-surface-2) p-4">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="font-pixel text-sm text-(--color-gold)">
-                        {t("aleph.lobby.seats", { n: l.seats, max: l.max })}
-                      </span>
-                      <span className="font-mono text-sm text-(--color-muted-bright)">
-                        {left === null
-                          ? t("aleph.lobby.closing")
-                          : t("aleph.lobby.countdown", { time: left })}
-                      </span>
-                    </div>
-                    {/* Barra de asientos: llena hasta el mínimo en un color y
-                        hasta el máximo en otro, para que se lea de un vistazo
-                        si la mesa ya arranca o todavía se puede disolver. */}
-                    <div className="mt-3 flex gap-1" aria-hidden="true">
-                      {Array.from({ length: l.max }, (_, i) => (
-                        <span
-                          key={i}
-                          className={`h-2 flex-1 rounded-full ${
-                            i < l.seats
-                              ? "bg-(--color-accent)"
-                              : i < l.min
-                                ? "bg-(--color-muted-3)"
-                                : "bg-(--color-border)"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <p className="mt-3 text-sm leading-relaxed text-(--color-muted)">
-                      {enough
-                        ? t("aleph.lobby.willStart", { min: l.min })
-                        : t("aleph.lobby.needs", { n: l.min - l.seats, min: l.min })}
-                    </p>
-                  </div>
-                );
-              })}
+      {/* Lobby abierto: una sección por cada mesa que acepta el árbitro (la
+          gratis siempre está; la de plata solo si ALEPH_STAKES la trae). */}
+      {stakes.map((stake) => {
+        // `lobbies` puede seguir en null (todavía no respondió el primer
+        // pedido): sin este resguardo, el primer render de la página
+        // (stakes=[0] por default) reventaba con "lobbies is null" ANTES de
+        // llegar al chequeo de más abajo, que es el que decide qué mostrar.
+        const mine = (lobbies ?? []).filter((l) => l.stake === stake);
+        return (
+          <section key={stake} className="win mt-6">
+            <div className="win-title">
+              <span>{t("aleph.lobby.title")}</span>
+              <span className={`chip ${stake > 0 ? "chip--money" : ""}`}>
+                {stake === 0 ? t("aleph.lobby.free") : t("aleph.lobby.money", { stake })}
+              </span>
             </div>
-          )}
-        </div>
-      </section>
+            <div className="p-5">
+              {offline ? (
+                <p className="py-6 text-center text-base text-(--color-muted-2)">
+                  {t("aleph.offline")}
+                </p>
+              ) : lobbies === null ? (
+                <p className="py-6 text-center text-base text-(--color-muted-2)">
+                  {t("match.connecting")}
+                </p>
+              ) : mine.length === 0 ? (
+                <p className="py-6 text-center text-base text-(--color-muted-2)">
+                  {stake === 0 ? t("aleph.lobby.empty") : t("aleph.lobby.emptyMoney", { stake })}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {mine.map((l) => (
+                    <LobbyCard key={l.roomId} l={l} now={now} t={t} />
+                  ))}
+                </div>
+              )}
+              {stake > 0 && (
+                <p className="mt-4 text-sm leading-relaxed text-(--color-muted-3)">
+                  {t("aleph.lobby.moneyNote")}
+                </p>
+              )}
+            </div>
+          </section>
+        );
+      })}
 
       {/* Cómo se sienta un agente */}
       <section className="paper mt-6">
@@ -242,6 +233,76 @@ export default function AlephPage() {
   );
 }
 
+/** Una tarjeta de lobby: la mesa esperando asientos (link inerte, es de solo
+ *  lectura) o, si ya cerró y está fondeando, un link a la sala con la barra de
+ *  depósitos (ahí sí hay algo más para mirar). */
+function LobbyCard({ l, now, t }: { l: AlephLobby; now: number; t: T }) {
+  const left = countdown(l.closesAt, now);
+  if (l.status === "funding") {
+    const dep = l.deposited ?? 0;
+    return (
+      <Link
+        href={`/aleph/${l.roomId}`}
+        className="block rounded-lg bg-(--color-surface-2) p-4 transition hover:-translate-y-0.5"
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="font-pixel text-sm text-(--color-gold)">
+            {t("aleph.lobby.funding", { deposited: dep, seats: l.seats })}
+          </span>
+          <span className="font-mono text-sm text-(--color-muted-bright)">
+            {left === null
+              ? t("aleph.lobby.closing")
+              : t("aleph.lobby.fundingCountdown", { time: left })}
+          </span>
+        </div>
+        <div className="mt-3 flex gap-1" aria-hidden="true">
+          {Array.from({ length: l.seats }, (_, i) => (
+            <span
+              key={i}
+              className={`h-2 flex-1 rounded-full ${i < dep ? "bg-(--color-gold)" : "bg-(--color-border)"}`}
+            />
+          ))}
+        </div>
+      </Link>
+    );
+  }
+  const enough = l.seats >= l.min;
+  return (
+    <div className="rounded-lg bg-(--color-surface-2) p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="font-pixel text-sm text-(--color-gold)">
+          {t("aleph.lobby.seats", { n: l.seats, max: l.max })}
+        </span>
+        <span className="font-mono text-sm text-(--color-muted-bright)">
+          {left === null ? t("aleph.lobby.closing") : t("aleph.lobby.countdown", { time: left })}
+        </span>
+      </div>
+      {/* Barra de asientos: llena hasta el mínimo en un color y hasta el
+          máximo en otro, para que se lea de un vistazo si la mesa ya arranca
+          o todavía se puede disolver. */}
+      <div className="mt-3 flex gap-1" aria-hidden="true">
+        {Array.from({ length: l.max }, (_, i) => (
+          <span
+            key={i}
+            className={`h-2 flex-1 rounded-full ${
+              i < l.seats
+                ? "bg-(--color-accent)"
+                : i < l.min
+                  ? "bg-(--color-muted-3)"
+                  : "bg-(--color-border)"
+            }`}
+          />
+        ))}
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-(--color-muted)">
+        {enough
+          ? t("aleph.lobby.willStart", { min: l.min })
+          : t("aleph.lobby.needs", { n: l.min - l.seats, min: l.min })}
+      </p>
+    </div>
+  );
+}
+
 /** Mismo bloque de código que /agents: negro oficial, scroll propio. */
 function Code({ children }: { children: string }) {
   return (
@@ -254,7 +315,8 @@ function Code({ children }: { children: string }) {
 const MCP_SNIPPET = `# From any MCP client (Claude Desktop, for example):
 aleph_rules                 # the full rules, as text for your prompt
 aleph_lobbies               # is a table forming?
-aleph_join   { stake: 0 }   # take a seat (idempotent)
+aleph_join   { stake: 0 }   # take a seat (stake 2 = the money table; needs a funded wallet)
+aleph_deposit { roomId }    # money table only: deposit when the room is funding
 aleph_view   { roomId }     # your view: fragment, whispers, deadline
 aleph_act    { roomId, action: { type: "contribute" } }`;
 
