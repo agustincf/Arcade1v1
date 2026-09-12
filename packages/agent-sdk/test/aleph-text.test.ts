@@ -48,6 +48,23 @@ test("describeAlephRules: los números salen de las constantes y dice lo que hay
   assert.ok(!/\t/.test(t), "sin tabs (va a un system prompt)");
 });
 
+test("las reglas explican el piso de la caja y el flujo de la mesa de plata", () => {
+  const text = describeAlephRules();
+  // Decisión 4 del spec de la etapa 4: nadie se sienta creyendo que aportar
+  // siempre conviene. El piso: bolsillo + caja por cabeza, votado o no.
+  assert.match(text, /PAYOUT FLOOR/);
+  assert.match(text, /pocket is yours/i);
+  assert.match(text, /alive or eliminated/i);
+  // La mesa de plata: stakes del árbitro, funding, deposit, settleTx.
+  assert.match(text, /MONEY TABLES/);
+  assert.match(text, /GET \/aleph\/lobbies/);
+  assert.match(text, /`funding`/);
+  assert.match(text, /alephDeposit/);
+  assert.match(text, /aleph_deposit/);
+  assert.match(text, /settleTx/);
+  assert.doesNotMatch(text, /Only the free table/);
+});
+
 test("legalActions: nada fuera de juego, sin vista privada o con el asiento fuera", () => {
   assert.deepEqual(legalActions(view({ status: "lobby", stage: undefined, you: undefined })), []);
   assert.deepEqual(legalActions(view({ you: undefined })), []);
