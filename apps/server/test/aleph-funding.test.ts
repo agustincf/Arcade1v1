@@ -576,3 +576,25 @@ test("persistencia: una sala en fondeo restaura con su plazo, sus depósitos y s
   );
   C.setAlephChainForTest(undefined);
 });
+
+test("el verificador público recalcula la tabla en USDC y la compara con la publicada", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { ws, roomId } = await fundingRoom(T0);
+  for (const w of ws) chain.deposit(roomId, w.address, 4);
+  await V.alephChainTick(T0 + 1_000);
+  const end = await playToSettled(roomId, ws, T0 + 2_000);
+  await V.alephChainTick(end + 1);
+  const { verifyAlephLog } = await import("../../../scripts/aleph-verify.mjs");
+  const log = V.alephLog(roomId, end + 2);
+  const ok = await verifyAlephLog(log, V.ALEPH_PHASE_MS);
+  assert.equal(ok.ok, true, JSON.stringify(ok.checks));
+  assert.ok(ok.checks.some((c) => /USDC/.test(c.name) && c.ok));
+  // Una tabla adulterada no verifica.
+  const bad = structuredClone(log);
+  bad.usdc.table[ws[0].address] = String(BigInt(bad.usdc.table[ws[0].address]) + 1n);
+  const nok = await verifyAlephLog(bad, V.ALEPH_PHASE_MS);
+  assert.equal(nok.ok, false);
+  C.setAlephChainForTest(undefined);
+});
