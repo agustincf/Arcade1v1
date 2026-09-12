@@ -77,6 +77,51 @@ test("ESCROW_ADDRESS mal formada se rechaza", () => {
   );
 });
 
+test("ALEPH_STAKES con una mesa de plata exige ALEPH_ESCROW_ADDRESS bien formada", () => {
+  const sinEscrow = { ...OK, ESCROW_ADDRESS: undefined, ALEPH_STAKES: "0,2" } as NodeJS.ProcessEnv;
+  const errs = productionConfigErrors(sinEscrow);
+  assert.ok(
+    errs.some((e) => /ALEPH_ESCROW_ADDRESS/.test(e)),
+    errs.join("\n"),
+  );
+
+  const malFormada = {
+    ...OK,
+    ALEPH_STAKES: "0,2",
+    ALEPH_ESCROW_ADDRESS: "0x123",
+  } as NodeJS.ProcessEnv;
+  assert.ok(
+    productionConfigErrors(malFormada).some((e) => /ALEPH_ESCROW_ADDRESS mal formada/.test(e)),
+  );
+
+  const bien = {
+    ...OK,
+    ALEPH_STAKES: "0,2",
+    ALEPH_ESCROW_ADDRESS: "0x" + "c".repeat(40),
+  } as NodeJS.ProcessEnv;
+  assert.deepEqual(productionConfigErrors(bien), []);
+});
+
+test("solo el escrow de Aleph activo (sin el 1v1) también exige CHAIN_ID, llave y RPC", () => {
+  const soloAleph = {
+    NODE_ENV: "production",
+    ALEPH_STAKES: "0,2",
+    ALEPH_ESCROW_ADDRESS: "0x" + "c".repeat(40),
+    ALLOWED_ORIGIN: "https://arcade1v1.com",
+  } as NodeJS.ProcessEnv;
+  const errs = productionConfigErrors(soloAleph);
+  assert.ok(errs.some((e) => /CHAIN_ID/.test(e)));
+  assert.ok(errs.some((e) => /ARBITER_PRIVATE_KEY/.test(e)));
+  assert.ok(errs.some((e) => /RPC_URL/.test(e)));
+});
+
+test("la mesa gratis sola (ALEPH_STAKES=0 o ausente) no exige nada de Aleph", () => {
+  assert.deepEqual(
+    productionConfigErrors({ NODE_ENV: "production", ALEPH_STAKES: "0" } as NodeJS.ProcessEnv),
+    [],
+  );
+});
+
 test("parseTrustProxy: saltos, booleanos, IP y basura", () => {
   assert.equal(parseTrustProxy("1"), 1);
   assert.equal(parseTrustProxy("true"), true);

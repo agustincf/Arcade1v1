@@ -20,6 +20,14 @@ import { matchmakeAuthMessage, alephActionAuthMessage } from "@arcade1v1/game-sd
 process.env.REQUIRE_AUTH = "true";
 process.env.ALEPH_MAX_SEATS = "4";
 process.env.ALEPH_PHASE_MS = String(60 * 60_000);
+// Mesa de plata (2 USDC) además de la gratis, para el test de más abajo que
+// prueba que la casa NUNCA la completa. `aleph.js` lee ALEPH_STAKES al
+// importarse y `aleph-chain.js` captura ALEPH_ESCROW_ADDRESS en una constante
+// de módulo: tienen que estar seteadas ACÁ, antes del import de abajo, no
+// adentro del test. Los demás tests de este archivo siguen pidiendo stake 0 y
+// no se ven afectados.
+process.env.ALEPH_STAKES = "0,2";
+process.env.ALEPH_ESCROW_ADDRESS = "0x" + "e".repeat(40);
 
 const V = await import("../src/aleph.js");
 const H = await import("../src/aleph-house.js");
@@ -361,4 +369,41 @@ test("cerradura: el paso del relleno NO se reintenta en cada barrido", async () 
     console.error = original;
   }
   assert.deepEqual(gritos, [], "el barrido no vuelve a mandar el paso ya dado");
+});
+
+test("la casa NUNCA completa una mesa de plata: el lobby de 2 USDC vence solo y se disuelve", async () => {
+  // Decisión 6 del spec de la etapa 4: rellenar una mesa con plata sería la
+  // casa jugando con plata de terceros contra terceros. La guarda
+  // (`room.stake !== 0`) ya estaba en fillLobbies; este test la fija.
+  const { setAlephChainForTest } = await import("../src/aleph-chain.js");
+  setAlephChainForTest({
+    readRoom: async () => ({ status: 0, paidCount: 0, depositors: [] }),
+    feeBps: async () => 1500,
+    usdcAddress: async () => ("0x" + "1".padStart(40, "0")) as `0x${string}`,
+    cancelRoom: async () => "0x" as `0x${string}`,
+    settle: async () => "0x" as `0x${string}`,
+  });
+  try {
+    V.__resetAlephForTest();
+    const t0 = Date.now();
+    // Un agente de verdad pidiendo la mesa de 2 USDC (no `realAgent()`, que
+    // firma siempre para la gratis).
+    const privateKey = generatePrivateKey();
+    const account = privateKeyToAccount(privateKey);
+    const address = account.address.toLowerCase();
+    const signature = await account.signMessage({
+      message: matchmakeAuthMessage("aleph", 2, address, t0),
+    });
+    const room = await V.joinAleph(2, address, { signature, ts: t0 }, t0);
+    assert.equal(room.status, "lobby");
+    // A 1 minuto del cierre, con un agente real esperando: en la gratis la
+    // casa entraría; acá no.
+    await H.alephHouseTick(t0 + LOBBY_MS - 60_000);
+    const still = (await V.getAlephRoom(room.roomId, undefined, t0 + LOBBY_MS - 60_000))!;
+    assert.equal(still.seats.length, 1, "la casa no se sentó");
+    const gone = (await V.getAlephRoom(room.roomId, undefined, t0 + LOBBY_MS))!;
+    assert.equal(gone.status, "dissolved");
+  } finally {
+    setAlephChainForTest(undefined);
+  }
 });

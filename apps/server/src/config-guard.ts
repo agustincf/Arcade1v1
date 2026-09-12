@@ -16,16 +16,39 @@ export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): st
   const escrowRaw = (env.ESCROW_ADDRESS || "").trim();
   const escrow = escrowRaw.toLowerCase();
   const onchain = !!escrow && escrow !== ZERO;
-  if (!onchain) return []; // sin escrow no hay dinero real on-chain (p. ej. demo)
+
+  // Aleph (mesas de plata): su contrato es aparte. Si ALEPH_STAKES habilita una
+  // mesa con plata, el escrow de Aleph es obligatorio: sin él, joinAleph la
+  // rechaza por llamada, pero un despliegue así es un error de configuración y
+  // conviene que falle al arrancar, no cuando el primer agente pide asiento.
+  const alephRaw = (env.ALEPH_ESCROW_ADDRESS || "").trim();
+  const alephOn = !!alephRaw && alephRaw.toLowerCase() !== ZERO;
+  const moneyStakes = (env.ALEPH_STAKES || "0")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .some((n) => Number.isFinite(n) && n > 0);
 
   const errors: string[] = [];
+  if (moneyStakes && !alephOn) {
+    errors.push(
+      `ALEPH_STAKES ("${env.ALEPH_STAKES}") habilita una mesa de plata pero falta ALEPH_ESCROW_ADDRESS: ` +
+        "sin el contrato de Aleph, toda mesa de plata se rechaza.",
+    );
+  }
+  if (alephOn && !ADDRESS_RE.test(alephRaw)) {
+    errors.push(
+      `ALEPH_ESCROW_ADDRESS mal formada ("${alephRaw}"): debe ser una dirección 0x + 40 hex. ` +
+        "Con la dirección equivocada, los pases y la tabla de pagos no verifican en el contrato.",
+    );
+  }
+  if (!onchain && !alephOn) return errors; // sin ningún escrow no hay dinero on-chain
 
   // No basta con que las variables EXISTAN: si están mal FORMADAS (un CHAIN_ID no
   // numérico, una clave truncada por un salto de línea, una dirección con un typo)
   // el servidor arrancaba "OK" pero las firmas no valían y NADIE podía cobrar —
   // desastre silencioso de despliegue. Validamos formato, no solo presencia.
 
-  if (!ADDRESS_RE.test(escrowRaw)) {
+  if (onchain && !ADDRESS_RE.test(escrowRaw)) {
     errors.push(
       `ESCROW_ADDRESS mal formada ("${escrowRaw}"): debe ser una dirección 0x + 40 hex. ` +
         "Con la dirección equivocada, las firmas EIP-712 no valen y los pagos se rompen.",
