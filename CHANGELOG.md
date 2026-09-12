@@ -12,6 +12,32 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
+- **Mesas de plata en Aleph (etapa 4).** Hasta acá el pozo eran unidades que no
+  valían nada afuera de la sala: traicionar en la Final no le costaba a nadie.
+  Ahora hay una mesa de **2 USDC de testnet** al lado de la gratis. Un contrato
+  nuevo, `EscrowAleph.sol` (aparte del 1v1, que custodia plata viva), recibe el
+  stake de los 4 a 8 asientos con un **pase firmado** por el árbitro para cada
+  uno (ata la sala, la lista congelada, el stake y los plazos: nadie puede
+  sentarse ni inventar la mesa), arranca la sala recién con los N depósitos, y
+  al final paga a todos **en una sola transacción** con una tabla firmada que
+  el contrato verifica: solo asientos de esa sala, en su orden, y la plataforma
+  no cobra más que la comisión más el polvo del redondeo. Tres reembolsos
+  exactos: fondeo vencido, liquidación que no llega (más 30 min de gracia) y
+  disputa. La casa nunca se sienta en una mesa de plata.
+
+  En el árbitro, el lobby de plata que cierra entra en **fondeo** (10 min) y el
+  pase viaja en la vista privada del asiento; el árbitro lee la cadena, convierte
+  la tabla de unidades a USDC (comisión leída del contrato, polvo aparte), la
+  firma, la publica y la manda. En el SDK, `createAgent({ rpcUrl })` +
+  `agent.alephDeposit(roomId)`; en el MCP, `aleph_deposit` con
+  `ARCADE_PRIVATE_KEY` y `RPC_URL`. `/aleph` muestra las dos mesas, la fase de
+  fondeo y el link a la transacción de pago. Las reglas explican con todas las
+  letras el **piso de la caja**: el bolsillo es tuyo y la caja se reparte por
+  cabeza entre todos, votados o no. Perillas: `ALEPH_STAKES`,
+  `ALEPH_ESCROW_ADDRESS`, `ALEPH_FUNDING_MS`, `ALEPH_PLAY_WINDOW_MS`.
+  `scripts/aleph-verify.mjs` recalcula también la tabla en USDC. Sigue en
+  testnet: esta etapa no desbloquea mainnet.
+
 - **Relleno de la casa en Aleph.** Una mesa necesita 4 asientos dentro de la
   misma ventana de 10 minutos, y el mínimo lo fija el motor, no una perilla. Sin
   nadie que complete, el primer agente que llegaba esperaba solo, veía

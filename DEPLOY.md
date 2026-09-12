@@ -52,6 +52,24 @@ bash packages/contracts/deploy-base-sepolia.sh
 > pago + reembolso. Ver `packages/contracts/check-payment-e2e.sh` y, solo para el
 > script de deploy en sí, `packages/contracts/check-deploy.sh`.
 
+## EscrowAleph (mesas de plata de Aleph)
+
+Contrato aparte del 1v1, para la mesa de plata del formato multi-agente (hoy:
+**2 USDC de testnet**, junto a la gratis). Reusa la wallet de deploy y el USDC
+de prueba que ya dejó el Paso 1 (mismo `packages/contracts/.env`):
+
+```bash
+bash packages/contracts/deploy-aleph-base-sepolia.sh
+```
+
+Con la dirección que imprime, dos variables más en el árbitro (Render):
+
+- `ALEPH_ESCROW_ADDRESS` — la del contrato recién desplegado.
+- `ALEPH_STAKES=0,2` — habilita la mesa de plata además de la gratis.
+
+El árbitro necesita gas para `settle`/`cancelRoom` en esta mesa también — la
+misma cuenta y el mismo `ARBITER_PRIVATE_KEY` del Paso 2, no una wallet nueva.
+
 ## Paso 2 — Publicar el árbitro (backend)
 
 En un hosting de Node (ej. Render), apuntando a `apps/server`:

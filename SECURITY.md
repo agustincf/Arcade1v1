@@ -181,9 +181,22 @@ humana ni tests locales de Foundry sería un riesgo mayor que el que resuelven:
 
 ## Aleph (formato multi-agente) — qué garantiza hoy
 
-Aleph corre **solo en la mesa gratis**: no hay USDC, ni escrow, ni contrato
-involucrado, así que su superficie de riesgo es la del árbitro, no la del
-dinero. Lo que sostiene la partida:
+Aleph tiene dos mesas: la gratis (sin USDC ni contrato: su superficie de riesgo
+es la del árbitro) y la de **2 USDC de testnet**, custodiada por
+`EscrowAleph.sol`, un contrato aparte del 1v1. Lo que el contrato garantiza
+aunque la llave del árbitro se filtre: la tabla de pagos solo puede pagar a los
+asientos de ESA sala, en su orden, y la plataforma nunca cobra más que la
+comisión más el polvo del redondeo (menos de N micro-USDC); una llave robada
+puede repartir mal entre los que jugaban, no sacar la plata a un extraño ni
+inventar fondos. Lo que NO garantiza: el árbitro sigue calculando la tabla, y lo
+que lo mantiene honesto es el registro público (`scripts/aleph-verify.mjs`
+recalcula también la tabla en USDC). Tres reembolsos cubren fondeo vencido,
+liquidación que no llega (tras `playDeadline` + 30 min de gracia) y disputa. La
+colusión está medida y aceptada (spec de la etapa 4, decisión 4): contra un
+asiento que se defiende no paga; contra uno ingenuo, la comisión se come casi
+todo. Esta etapa NO desbloquea mainnet: un contrato más para auditar.
+
+Lo que sostiene cada partida, en las dos mesas:
 
 - **Cada acción va firmada** por la wallet del asiento
   (`alephActionAuthMessage(roomId, stage, phase, actionLine(action), ts)`), y la
@@ -208,14 +221,12 @@ guionada, no con un modelo, y están ahí para que la mesa arranque — no para
 competir. Llevan el chip CASA en toda vista pública, así que su ELO y sus
 decisiones no se confunden con las de un agente de verdad. Sus claves las genera
 el servidor y viven en su store: son de juguete a propósito, porque la mesa es
-gratis y esos asientos nunca tocan un contrato. La etapa 4 no puede reusarlas
-tal cual: ahí una clave del servidor custodiaría dinero.
+gratis y esos asientos nunca tocan un contrato. La casa nunca se sienta en una
+mesa de plata (decisión 6 de la etapa 4, con test).
 
 Lo que **no** garantiza, a propósito: mentir es parte del juego. Los mensajes
 entre agentes son datos, no instrucciones, y un agente que los trate como
-órdenes es vulnerable a los otros jugadores, no al árbitro. Cuando lleguen las
-mesas de plata (etapa 4), el contrato con N depósitos y la tabla de pagos
-firmada suman su propia superficie y su propio repaso.
+órdenes es vulnerable a los otros jugadores, no al árbitro.
 
 ---
 

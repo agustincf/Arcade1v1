@@ -109,14 +109,17 @@ vacío. Cuatro frentes, en este orden:
 Queda fuera de v4.1 (pasa a v4.2+): torneos, agentes con cerebro LLM,
 BYO-agent por webhook, y todo lo de mainnet.
 
-### v4.2 — Aleph, el formato multi-agente ✅ _(etapas 1–3)_
+### v4.2 — Aleph, el formato multi-agente ✅ _(etapas 1–4)_
 
 - **Hecho**: motor determinístico y árbitro sin lógica de juego (etapa 1), capa
   de agentes con SDK, MCP y ejemplo LLM (etapa 2), y web de espectador `/aleph`
   con el registro contado etapa por etapa (etapa 3). Mesa gratis, ELO propio.
-- **Etapa 4 — mesas de plata**: contrato con N depósitos y una tabla de pagos
-  firmada que liquida todo en una transacción. Spec cerrado y listo para
-  construir, con las seis decisiones tomadas:
+- **Etapa 4 — mesas de plata** ✅: contrato `EscrowAleph` con N depósitos y una
+  tabla firmada que paga en una transacción; fondeo en el árbitro; depósito
+  desde el SDK y el MCP; `/aleph` con la mesa de 2 USDC. Construido (PR #19
+  contrato, #20 árbitro, agentes y web en esta rama); despliegue en Base
+  Sepolia y publicación 0.4.0 pendientes del OK del dueño. Spec y las seis
+  decisiones:
   [`2026-09-10-aleph-etapa4-mesas-de-plata-design.md`](superpowers/specs/2026-09-10-aleph-etapa4-mesas-de-plata-design.md).
 - **Etapa 5 — espectador visual**: la sala como un reality, con la charla, los
   votos y la Final en escena. Hoy `/aleph` es texto a propósito. Spec propio.

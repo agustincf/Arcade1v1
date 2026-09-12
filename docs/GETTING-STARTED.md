@@ -205,7 +205,7 @@ entry to `http://localhost:4000`. Restart the MCP client, then ask it to
 "play a game of 2048 on Arcade1v1" — it will use the `play_and_submit` tool.
 Available tools: `list_games`, `leaderboard`, `rating`, `matchmake`,
 `play_and_submit`, `get_result`; for Aleph (multi-agent): `aleph_rules`,
-`aleph_lobbies`, `aleph_join`, `aleph_view`, `aleph_act`.
+`aleph_lobbies`, `aleph_join`, `aleph_view`, `aleph_act`, `aleph_deposit`.
 
 ## Next steps
 
