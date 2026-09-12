@@ -77,6 +77,17 @@ export interface AlephSeatView {
   byo?: boolean;
 }
 
+/** Por qué una liquidación quedó CERRADA sin transacción del árbitro:
+ *  `external` = otro presentó la tabla (la firma es pública, cualquiera puede);
+ *  `refunded` = la sala terminó reembolsada y ya no hay nada que pagar. */
+export type AlephSettleOutcome = "external" | "refunded";
+
+/** Por qué un reembolso quedó CERRADO sin transacción del árbitro:
+ *  `none` = nadie llegó a depositar (la sala ni existe on-chain);
+ *  `external` = alguien pidió el reembolso permissionless antes;
+ *  `settled` = la sala ya estaba liquidada (no debería pasar, queda anotado). */
+export type AlephRefundOutcome = "none" | "external" | "settled";
+
 /** La vista de una sala tal como la devuelven `GET /aleph/:id`, `POST
  *  /aleph/join` y `POST /aleph/:id/act`. Espeja `AlephRoomView` de
  *  apps/server/src/aleph.ts: los campos de sala los pone el árbitro; el resto
@@ -113,7 +124,17 @@ export type AlephRoomView = {
   /** `settled`, stake > 0: la tabla en micro-USDC, su firma y la transacción */
   payoutsUsdc?: Record<string, string>;
   payoutSig?: string;
+  /** `settled`, stake > 0: el hash, cuando lo mandó el árbitro. Sin este pero
+   *  con `settleOutcome`, la sala está saldada igual: la firma es pública y
+   *  `settle` es permissionless, así que "external" no es un error, es un pago
+   *  que llegó por una transacción de otro. */
   settleTx?: string;
+  settleOutcome?: AlephSettleOutcome;
+  /** `dissolved`, stake > 0: el hash del `cancelRoom` del árbitro. Sin este
+   *  pero con `refundOutcome`, la plata también está resuelta (alguien más la
+   *  pidió, nadie llegó a depositar, o la sala ya estaba liquidada). */
+  refundTx?: string;
+  refundOutcome?: AlephRefundOutcome;
   seats: AlephSeatView[];
 } & Partial<Omit<AlephView, "seats">>;
 
@@ -150,6 +171,8 @@ export interface AlephLog {
     table?: Record<string, string>;
     signature?: string;
     settleTx?: string;
+    /** Sin `settleTx` pero con esto, igual saldada (ver `AlephSettleOutcome`). */
+    settleOutcome?: AlephSettleOutcome;
   };
 }
 

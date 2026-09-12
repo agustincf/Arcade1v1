@@ -7,6 +7,8 @@ export type {
   AlephRoomStatus,
   AlephSeatView,
   AlephDeposit,
+  AlephSettleOutcome,
+  AlephRefundOutcome,
   AlephLobby,
   AlephLog,
   AlephViewPass,
