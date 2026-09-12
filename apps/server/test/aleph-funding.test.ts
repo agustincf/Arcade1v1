@@ -598,3 +598,37 @@ test("el verificador público recalcula la tabla en USDC y la compara con la pub
   assert.equal(nok.ok, false);
   C.setAlephChainForTest(undefined);
 });
+
+test("una liquidación presentada por otro (settleOutcome external, sin hash propio) igual verifica", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { ws, roomId } = await fundingRoom(T0);
+  for (const w of ws) chain.deposit(roomId, w.address, 4);
+  await V.alephChainTick(T0 + 1_000);
+  const end = await playToSettled(roomId, ws, T0 + 2_000);
+
+  // Otro presentó la tabla antes que el árbitro: su settle revierte "not
+  // funded", y como la cadena SÍ se puede leer, clasifica en el mismo tick
+  // (mismo camino que "un revert que ni se puede clasificar...", más arriba,
+  // pero sin la lectura caída: acá SÍ hay con qué clasificar de una).
+  chain.rooms.get(roomId)!.status = ALEPH_ESCROW_STATUS.Settled;
+  chain.failSettleTimes(99, "execution reverted: not funded");
+  await V.alephChainTick(end + 1);
+  const v = (await V.getAlephRoom(roomId, undefined, end + 1))!;
+  assert.equal(v.settleOutcome, "external");
+  assert.equal(v.settleTx, undefined);
+
+  const { verifyAlephLog } = await import("../../../scripts/aleph-verify.mjs");
+  const log = V.alephLog(roomId, end + 2);
+  assert.equal(log.usdc!.settleOutcome, "external");
+  assert.equal(log.usdc!.settleTx, undefined);
+  const ok = await verifyAlephLog(log, V.ALEPH_PHASE_MS);
+  assert.equal(ok.ok, true, JSON.stringify(ok.checks));
+  const settleCheck = ok.checks.find((c) => c.name.startsWith("USDC: la liquidación"));
+  assert.ok(
+    settleCheck?.ok,
+    "una liquidación externa (sin hash propio) también cuenta como liquidada",
+  );
+  C.setAlephChainForTest(undefined);
+});

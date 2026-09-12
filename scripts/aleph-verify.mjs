@@ -137,13 +137,25 @@ export async function verifyAlephLog(log, phaseMs = DEFAULT_PHASE_MS) {
         JSON.stringify(published) === JSON.stringify(expected),
         `USDC: la tabla firmada coincide con la conversión (comisión ${log.usdc.feeBps} bps, polvo ${t.dust})`,
       );
-      check(
-        !!log.usdc.settleTx,
-        `USDC: la liquidación salió a la cadena (${log.usdc.settleTx ?? "todavía no: la firma está publicada, cualquiera puede presentarla"})`,
-      );
     } catch (e) {
       check(false, `USDC: no se pudo recalcular la tabla (${e.message})`);
     }
+    // Aparte del try: no depende de la conversión (no puede tirar), y así una
+    // tabla que no cierra no tapa el estado de la liquidación, ni al revés.
+    // `settle` es permissionless y la firma se publica precisamente para que
+    // cualquiera pueda presentarla: "external" (otra transacción, sin hash
+    // propio) es una liquidación tan buena como una con `settleTx`. Solo la
+    // ausencia de las dos, o "refunded" (la sala se reembolsó en vez de
+    // pagarse), cuentan como no liquidada.
+    const settledOnchain = !!log.usdc.settleTx || log.usdc.settleOutcome === "external";
+    const settleNote = log.usdc.settleTx
+      ? log.usdc.settleTx
+      : log.usdc.settleOutcome === "external"
+        ? "sin hash propio: la presentó otra transacción con la misma firma"
+        : log.usdc.settleOutcome === "refunded"
+          ? "no se liquidó: la sala se reembolsó on-chain"
+          : "todavía no: la firma está publicada, cualquiera puede presentarla";
+    check(settledOnchain, `USDC: la liquidación salió a la cadena (${settleNote})`);
   }
   return { ok: checks.every((c) => c.ok), checks };
 }
