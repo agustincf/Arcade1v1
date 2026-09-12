@@ -808,6 +808,12 @@ export async function alephChainTick(now = Date.now()): Promise<void> {
  *  deja pendiente el reembolso) si venció el plazo. Devuelve si cambió algo. */
 async function syncFunding(room: AlephRoom, now: number): Promise<boolean> {
   const c = await alephChain().readRoom(room.id);
+  // Mientras la lectura viajaba, el reloj de cualquier request pudo disolver
+  // esta sala por la salida local del fondeo (`settleRoomDue`). Esa decisión
+  // es la última palabra: revivirla acá dejaría a un asiento ya liberado
+  // jugando en dos salas a la vez. La plata vuelve por el reembolso que quedó
+  // pedido, que lee el estado real (una sala fondeada se cancela igual).
+  if (room.status !== "funding") return false;
   let changed = false;
   const dep = c.depositors.map(normAddr);
   if (JSON.stringify(dep) !== JSON.stringify(room.deposited ?? [])) {

@@ -47,6 +47,8 @@ function fakeChain() {
     failReadsWith(message: string | undefined) {
       readsFail = message;
     },
+    /** Corre ANTES de contestar una lectura: para meterse mientras viaja. */
+    onRead: undefined as (() => void) | undefined,
     deposit(roomId: string, address: string, seatsTotal: number) {
       const r = rooms.get(roomId) ?? { status: ALEPH_ESCROW_STATUS.Funding, depositors: [] };
       r.depositors.push(address.toLowerCase());
@@ -55,6 +57,7 @@ function fakeChain() {
     },
     async readRoom(roomId: Hex) {
       f.roomReads++;
+      f.onRead?.();
       if (readsFail) throw new Error(readsFail);
       const r = rooms.get(roomId);
       return r
@@ -314,6 +317,66 @@ test("con la cadena ilegible, la sala en fondeo se disuelve igual pasada la grac
     ["cancelRoom"],
   );
   assert.equal(chain.roomReads, reads, "sala cerrada, cero lecturas nuevas");
+  C.setAlephChainForTest(undefined);
+});
+
+test("si el reembolso lo pidió otro, la sala se disuelve sin mandar nada y queda cerrada", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { ws, roomId } = await fundingRoom(T0);
+  for (const w of ws.slice(0, 2)) chain.deposit(roomId, w.address, 4);
+  // `refundUnfunded` es permissionless pasado el plazo: un asiento cansado lo
+  // llamó antes que el árbitro, así que la cadena ya está Refunded.
+  chain.rooms.get(roomId)!.status = ALEPH_ESCROW_STATUS.Refunded;
+  await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS);
+  assert.equal(
+    (await V.getAlephRoom(roomId, undefined, T0 + V.ALEPH_FUNDING_MS))!.status,
+    "dissolved",
+  );
+  // Es la ÚNICA vía que anota un motivo de reembolso sin pasar por
+  // `refundOnchain`: la sala queda cerrada ahí mismo, sin transacción y sin
+  // una lectura más por tick durante los 7 días que vive el registro.
+  const reads = chain.roomReads;
+  await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS + 5_000);
+  await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS + 10_000);
+  assert.deepEqual(chain.calls, [], "ya reembolsada: no hay nada que cancelar");
+  assert.equal(chain.roomReads, reads, "sala cerrada, cero lecturas nuevas");
+  // Y los asientos quedaron libres.
+  const next = await V.joinAleph(2, ws[0].address, undefined, T0 + V.ALEPH_FUNDING_MS + 11_000);
+  assert.notEqual(next.roomId, roomId);
+  C.setAlephChainForTest(undefined);
+});
+
+test("el reloj disuelve la sala mientras viaja la lectura: la respuesta tardía NO la revive", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { ws, roomId } = await fundingRoom(T0);
+  for (const w of ws) chain.deposit(roomId, w.address, 4); // la sala SÍ se fondeó
+  const dead = T0 + V.ALEPH_FUNDING_MS + V.ALEPH_FUNDING_GRACE_MS;
+  // El tick es asíncrono: mientras la lectura viaja, cualquier request corre el
+  // reloj y la salida local del fondeo disuelve la sala.
+  chain.onRead = () => {
+    chain.onRead = undefined;
+    V.listAlephLobbies(dead);
+  };
+  await V.alephChainTick(dead);
+
+  const v = (await V.getAlephRoom(roomId, undefined, dead + 1))!;
+  assert.equal(v.status, "dissolved", "disolver es la última palabra: no revive");
+  assert.equal(v.commit, undefined, "y no se sorteó ninguna semilla");
+  // Si reviviera, el asiento estaría jugando en dos salas a la vez: ya se
+  // sentó en otra mesa apenas quedó libre.
+  const next = await V.joinAleph(2, ws[0].address, undefined, dead + 2);
+  assert.notEqual(next.roomId, roomId);
+  // La plata igual vuelve: el reembolso quedó pedido y cancela la sala fondeada.
+  await V.alephChainTick(dead + 3);
+  assert.deepEqual(
+    chain.calls.map((c) => c.fn),
+    ["cancelRoom"],
+  );
+  assert.equal(chain.rooms.get(roomId)!.status, ALEPH_ESCROW_STATUS.Refunded);
   C.setAlephChainForTest(undefined);
 });
 
