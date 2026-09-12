@@ -898,7 +898,9 @@ async function settleOnchain(room: AlephRoom, now: number): Promise<boolean> {
       // redeploy manda SIGTERM y flushea): si la ventana perdida se lleva
       // también las últimas acciones, la sala restaurada re-simula a OTRA tabla
       // y la firma. Con el debounce de 20 s esa ventana dura 20 s; con este
-      // flush, cero. Cuesta una escritura por mesa de plata liquidada.
+      // flush queda en UN viaje al store, no en cero: el event loop sigue
+      // atendiendo requests mientras se espera, y `roomView` ya devuelve la
+      // firma desde memoria. Cuesta una escritura por mesa de plata liquidada.
       await persistNow();
     }
     const amounts = seats.map((a) => BigInt(rec.payoutsUsdc![a]));
