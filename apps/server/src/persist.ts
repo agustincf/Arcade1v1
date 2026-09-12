@@ -17,10 +17,26 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const ENABLED = process.env.ARCADE_PERSIST === "1" || process.env.ARCADE_PERSIST_MATCHES === "1";
+export type PersistenceBackend = "redis" | "file" | "off";
+
+/** Qué backend le toca a ESE entorno. Esta función es la única definición de la
+ *  regla: el módulo la aplica sobre `process.env` acá abajo, y config-guard la
+ *  evalúa sobre el env que le pasen para exigir Redis cuando hay mesas de plata
+ *  encendidas — un host de disco efímero no debería descubrirse en el primer
+ *  deploy que borra las salas, sino al arrancar. */
+export function persistenceBackendFor(env: NodeJS.ProcessEnv): PersistenceBackend {
+  const enabled = env.ARCADE_PERSIST === "1" || env.ARCADE_PERSIST_MATCHES === "1";
+  if (!enabled) return "off";
+  const url = (env.UPSTASH_REDIS_REST_URL ?? "").replace(/\/+$/, "");
+  const token = env.UPSTASH_REDIS_REST_TOKEN ?? "";
+  return url && token ? "redis" : "file";
+}
+
+export const persistenceBackend = persistenceBackendFor(process.env);
+const ENABLED = persistenceBackend !== "off";
+const USE_REDIS = persistenceBackend === "redis";
 const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL ?? "").replace(/\/+$/, "");
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
-const USE_REDIS = ENABLED && !!REDIS_URL && !!REDIS_TOKEN;
 
 const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 // AGRUPADOR DE ESCRITURAS. Cada escritura sube el blob ENTERO del store (~1,3 MB
@@ -34,14 +50,13 @@ const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 // cambio: si el proceso muere de golpe (crash/OOM, no un redeploy —ese manda
 // SIGTERM y dispara el flush de más abajo) se pierden hasta 20 s de cambios en
 // las partidas en curso. El dinero no: vive en el escrow on-chain.
+//
+// Lo que NO puede esperar al debounce se guarda con `flush()` en el acto: la
+// tabla de pagos firmada de una mesa de plata de Aleph (ver `settleOnchain` en
+// aleph.ts), porque su firma no lleva nonce y perderla haría firmar una
+// segunda, igual de válida.
 const DEBOUNCE_MS = Number(process.env.PERSIST_DEBOUNCE_MS ?? 20_000);
 const REDIS_TIMEOUT_MS = 10_000;
-
-export const persistenceBackend: "redis" | "file" | "off" = USE_REDIS
-  ? "redis"
-  : ENABLED
-    ? "file"
-    : "off";
 
 async function redisGet(key: string): Promise<string | null> {
   const r = await fetch(`${REDIS_URL}/get/${encodeURIComponent(key)}`, {

@@ -42,13 +42,20 @@ the top of `src/index.ts` before the Express app is created. It only acts when
 Aleph's escrow (`ALEPH_ESCROW_ADDRESS`) as two independent contracts that can
 each put real money in play.
 
-Two checks are Aleph-specific and fire regardless of the 1v1 escrow:
+Three checks are Aleph-specific and fire regardless of the 1v1 escrow:
 
 - `ALEPH_STAKES` lists a stake `> 0` (a money table) but `ALEPH_ESCROW_ADDRESS`
   is unset/zero — without it every money table would be rejected one seat at a
   time (`joinAleph`) instead of the server refusing to start.
 - `ALEPH_ESCROW_ADDRESS` is set but is not a well-formed `0x` + 40 hex address
   — passes and the payout table would not verify against the real contract.
+- `ALEPH_STAKES` lists a stake `> 0` but persistence is not on the Redis
+  backend (see [Persistence](#persistence-redis-vs-local-file)) — on an
+  ephemeral-disk host the local file is wiped on every deploy, and with it the
+  rooms still in `funding` (their deposits stay locked in the contract until
+  each seat calls `refundUnfunded` itself) and the settled rooms whose signed
+  payout table has not reached the chain yet (a paid-for game voided, refundable
+  only by `refundExpired` hours later).
 
 If **either** escrow is active (a non-zero `ESCROW_ADDRESS` or
 `ALEPH_ESCROW_ADDRESS` — they share the arbiter's wallet, chain and CORS
@@ -65,8 +72,8 @@ the following are set:
 
 With neither escrow active (both unset/zero — e.g. a pure off-chain demo),
 none of the shared checks apply and the server starts normally regardless of
-`NODE_ENV`; only the `ALEPH_STAKES`-without-`ALEPH_ESCROW_ADDRESS` check above
-can still fire.
+`NODE_ENV`; only the two `ALEPH_STAKES`-driven checks above (no Aleph escrow,
+no Redis) can still fire.
 
 ### Reverse proxy / CORS / rate limiting
 
@@ -107,6 +114,13 @@ can still fire.
 > that was deliberately switched off would come back up on its own. The
 > pre-deploy checklist lives in [`MIGRACION-aleph.md`](MIGRACION-aleph.md).
 
+**None of the `ALEPH_*` knobs are present in `apps/server/.env.example`** — the
+whole format runs on its defaults, so nothing has to be set to get the free
+table. The money ones (`ALEPH_STAKES`, `ALEPH_ESCROW_ADDRESS`,
+`ALEPH_FUNDING_MS`, `ALEPH_FUNDING_GRACE_MS`, `ALEPH_PLAY_WINDOW_MS`) must be
+set manually when enabling a money table, together with the two Upstash
+variables the fail-fast guard then requires.
+
 | Variable                   | Required                                                       | Default           | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | -------------------------- | -------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ALEPH_ENABLED`            | Optional                                                       | `true`            | Kill switch for the multi-agent rooms: `"false"` rejects new seats and dissolves lobbies when their time runs out (no new room ever starts), while rooms already in progress keep closing phases until they settle. Read per call in `src/aleph.ts`.                                                                                                                                                                                                                                                                                                                                  |
@@ -122,7 +136,7 @@ can still fire.
 | `ALEPH_HOUSE_SEATS`        | Optional                                                       | `6`               | How many seats the house owns (capped by the roster). A seat can only be in one live room at a time, so this decides how many tables the house can hold up at once: 6 seats and a minimum of 4 means two. Read in `src/aleph-house-seats.ts`.                                                                                                                                                                                                                                                                                                                                         |
 | `ALEPH_HOUSE_FILL_LEAD_MS` | Optional                                                       | `120000` (2 min)  | How long before a lobby closes the house steps in. It stays out while there is still real time for real agents to arrive. Read in `src/aleph-house.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `ALEPH_HOUSE_TICK_MS`      | Optional                                                       | `5000` (5 s)      | Cadence of the house sweep that fills lobbies and plays its seats. Read in `src/aleph-house.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `ALEPH_STAKES`             | Optional                                                       | `0`               | Tables allowed, in whole USDC, comma-separated. The free table (`0`) is always allowed even if left out of the list. Any stake `> 0` needs `ALEPH_ESCROW_ADDRESS`: `POST /aleph/join` rejects that stake per call without one, and the fail-fast guard above refuses a production start outright. Stage 4's planned Sepolia value is `0,2` (PR 3; not deployed by this PR). Read in `src/aleph.ts`.                                                                                                                                                                                   |
+| `ALEPH_STAKES`             | Optional                                                       | `0`               | Tables allowed, in whole USDC, comma-separated. The free table (`0`) is always allowed even if left out of the list. Any stake `> 0` needs `ALEPH_ESCROW_ADDRESS`: `POST /aleph/join` rejects that stake per call without one, and the fail-fast guard above refuses a production start outright. It also needs the Redis persistence backend, for the same fail-fast reason. Stage 4's planned Sepolia value is `0,2` (PR 3; not deployed by this PR). Read in `src/aleph.ts`.                                                                                                       |
 | `ALEPH_ESCROW_ADDRESS`     | **Required in production if `ALEPH_STAKES` lists a stake > 0** | none              | Address of `EscrowAleph` (the N-seat escrow; a separate contract from the 1v1 `ESCROW_ADDRESS`). Enables money tables: seat passes and the payout table are signed against it (`src/sign.ts`), deposits are read from it, and the payout table is settled on it — its fee is read from the contract at settlement, not from an env var. Reuses `RPC_URL`, `CHAIN_ID` and `ARBITER_PRIVATE_KEY` (same wallet as the 1v1 escrow). Read in `src/aleph-chain.ts`.                                                                                                                         |
 | `ALEPH_FUNDING_MS`         | Optional                                                       | `600000` (10 min) | How long the N seats have to deposit once a money-table lobby closes and the room enters `funding`. If a seat is still missing when the deadline passes, the room dissolves and the arbiter cancels on-chain — everyone who did deposit gets their stake back (see `ALEPH_FUNDING_GRACE_MS` for the backstop when the chain can't be read at all). Read in `src/aleph.ts`.                                                                                                                                                                                                            |
 | `ALEPH_FUNDING_GRACE_MS`   | Optional                                                       | `120000` (2 min)  | How much longer, past `ALEPH_FUNDING_MS`, the arbiter waits before dissolving a `funding` room locally, without ever having read the chain. The normal close reads the contract and lands right at `ALEPH_FUNDING_MS`; this is the backstop for when the chain can't be read at all (RPC down, or `ALEPH_ESCROW_ADDRESS` pulled while rooms are still live) — otherwise a dead RPC would leave the room in `funding` forever, permanently holding a slot under `ALEPH_MAX_ROOMS` (shared with the free table). A refund is queued once it dissolves this way. Read in `src/aleph.ts`. |
@@ -198,6 +212,14 @@ ratings, and in-progress matches are lost on every deploy/restart unless the
 two Upstash variables are set. If Redis is configured but unreachable at
 startup, the server intentionally fails to load (rather than silently
 starting empty and overwriting good data on the next save).
+
+With an Aleph money table enabled (`ALEPH_STAKES` listing a stake `> 0`) the
+file backend is not merely lossy, it strands money — so the fail-fast guard
+refuses to start a production server without Redis. Independently of the
+backend, Aleph's signed payout table is written through immediately
+(`flush()`, bypassing the 20 s debounce) the moment it is signed: its signature
+carries no nonce, so a table lost to a hard crash would be re-derived and
+re-signed as a _second_ valid payment order for the same room.
 
 ### Internal / dev-only scripts (not part of the running server)
 

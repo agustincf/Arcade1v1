@@ -348,6 +348,50 @@ test("si el reembolso lo pidió otro, la sala se disuelve sin mandar nada y qued
   C.setAlephChainForTest(undefined);
 });
 
+// Un fondeo incompleto es el final MÁS COMÚN de una mesa de plata: la casa no
+// completa mesas con plata, así que faltar un depósito es lo esperable. El
+// asiento que SÍ depositó tiene que poder ver qué pasó con su plata sin leer la
+// cadena a mano: la vista de la sala disuelta lo dice, igual que la liquidada
+// publica `settleTx`/`settleOutcome`.
+test("la sala disuelta PUBLICA su reembolso: el hash cuando lo mandó el árbitro, el motivo cuando no", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { ws, roomId } = await fundingRoom(T0);
+  for (const w of ws.slice(0, 2)) chain.deposit(roomId, w.address, 4);
+  await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS);
+
+  // Recién disuelta: el reembolso todavía no salió y no hay nada que publicar.
+  let v = (await V.getAlephRoom(roomId, undefined, T0 + V.ALEPH_FUNDING_MS))!;
+  assert.equal(v.status, "dissolved");
+  assert.equal(v.refundTx, undefined, "todavía en camino");
+  assert.equal(v.refundOutcome, undefined);
+
+  await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS + 5_000);
+  v = (await V.getAlephRoom(roomId, undefined, T0 + V.ALEPH_FUNDING_MS + 5_000))!;
+  assert.equal(
+    v.refundTx,
+    "0x" + "c".repeat(64),
+    "el hash del cancelRoom, linkeable al explorador",
+  );
+  assert.equal(v.refundOutcome, undefined, "salió con hash propio: no hace falta motivo");
+  // Y lo ve cualquiera, no solo el asiento: la vista privada trae lo mismo.
+  assert.equal(
+    (await seatView(roomId, ws[0], T0 + V.ALEPH_FUNDING_MS + 5_001)).refundTx,
+    v.refundTx,
+  );
+
+  // Sin depósitos no hay transacción, pero SÍ una explicación: `none`.
+  const vacia = await fundingRoom(T0 + V.ALEPH_FUNDING_MS + 10_000);
+  await V.alephChainTick(T0 + 2 * V.ALEPH_FUNDING_MS + 10_000);
+  await V.alephChainTick(T0 + 2 * V.ALEPH_FUNDING_MS + 15_000);
+  const v2 = (await V.getAlephRoom(vacia.roomId, undefined, T0 + 2 * V.ALEPH_FUNDING_MS + 15_000))!;
+  assert.equal(v2.status, "dissolved");
+  assert.equal(v2.refundTx, undefined, "los *Tx llevan SOLO hashes de verdad");
+  assert.equal(v2.refundOutcome, "none", "nadie depositó: no hay plata que devolver");
+  C.setAlephChainForTest(undefined);
+});
+
 test("el reloj disuelve la sala mientras viaja la lectura: la respuesta tardía NO la revive", async () => {
   V.__resetAlephForTest();
   const chain = fakeChain();
@@ -597,6 +641,25 @@ test("el verificador público recalcula la tabla en USDC y la compara con la pub
   const nok = await verifyAlephLog(bad, V.ALEPH_PHASE_MS);
   assert.equal(nok.ok, false);
   C.setAlephChainForTest(undefined);
+});
+
+// Este número SALE del árbitro: viaja en el bloque `deposit` de la vista privada
+// y en el registro público, y el SDK del agente lo usa para elegir a qué red
+// mandar la plata. Con NaN, el agente no puede depositar.
+test("CHAIN_ID mal formada cae al default, nunca a NaN", () => {
+  const real = process.env.CHAIN_ID;
+  try {
+    process.env.CHAIN_ID = "base-sepolia";
+    assert.equal(C.alephChainId(), 84532);
+    process.env.CHAIN_ID = "";
+    assert.equal(C.alephChainId(), 84532);
+    process.env.CHAIN_ID = "0";
+    assert.equal(C.alephChainId(), 84532);
+    process.env.CHAIN_ID = "8453";
+    assert.equal(C.alephChainId(), 8453);
+  } finally {
+    process.env.CHAIN_ID = real;
+  }
 });
 
 test("una liquidación presentada por otro (settleOutcome external, sin hash propio) igual verifica", async () => {

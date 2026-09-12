@@ -4,9 +4,15 @@
 // Va en un archivo aparte a propósito. `aleph-chain.ts` captura
 // ALEPH_ESCROW_ADDRESS en una constante de módulo al importarse, y `node --test`
 // corre un proceso por ARCHIVO: dentro de aleph-funding.test.ts —que la necesita
-// seteada para todo lo demás— esta rama no se puede ejercitar. Hoy esta línea es
-// la ÚNICA defensa: sin ella el árbitro abriría salas de plata que nadie puede
-// fondear (config-guard todavía no chequea las ALEPH_*).
+// seteada para todo lo demás— esta rama no se puede ejercitar.
+//
+// Son DOS defensas, y esta es la de adentro. La de afuera vive en
+// config-guard.ts (`ALEPH_STAKES` con plata exige ALEPH_ESCROW_ADDRESS bien
+// formada) y la fija config-guard.test.ts: en producción el servidor ni
+// arranca. Pero esa guarda solo corre con NODE_ENV=production y solo al
+// arrancar, así que fuera de producción —o si alguien saca la variable con el
+// proceso vivo— lo único que impide abrir salas de plata que nadie puede
+// fondear es este rechazo por llamada, que es lo que fija este archivo.
 // Correr: node --import tsx --test apps/server/test/aleph-funding-no-escrow.test.ts
 import "../src/offline-env.js";
 import { test } from "node:test";
@@ -14,10 +20,9 @@ import assert from "node:assert/strict";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 process.env.ALEPH_STAKES = "0,2";
-// Explícito, no "confío en que no esté": offline-env limpia ESCROW_ADDRESS y
-// CHAIN_ID del 1v1, pero todavía no esta (queda para la tarea de config-guard),
-// así que una variable exportada en la shell haría pasar el test por la razón
-// equivocada.
+// Explícito, aunque offline-env ya la limpie: esta línea es la PREMISA del
+// test, no un detalle: si alguien la sacara de offline-env, una variable
+// exportada en la shell haría pasar el test por la razón equivocada.
 delete process.env.ALEPH_ESCROW_ADDRESS;
 const V = await import("../src/aleph.js");
 

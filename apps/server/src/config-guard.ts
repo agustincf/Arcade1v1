@@ -6,6 +6,8 @@
 // Devuelve la lista de problemas (vacía = todo OK). Se mantiene como función pura
 // (recibe el env) para poder testearla sin tocar process.env real.
 
+import { persistenceBackendFor } from "./persist.js";
+
 const ZERO = "0x0000000000000000000000000000000000000000";
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const PRIVKEY_RE = /^0x[0-9a-fA-F]{64}$/;
@@ -39,6 +41,21 @@ export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): st
     errors.push(
       `ALEPH_ESCROW_ADDRESS mal formada ("${alephRaw}"): debe ser una dirección 0x + 40 hex. ` +
         "Con la dirección equivocada, los pases y la tabla de pagos no verifican en el contrato.",
+    );
+  }
+  // Mesa de plata SIN persistencia durable. En Render (y cualquier host de disco
+  // efímero) el backend "file" se borra entero en cada deploy: el árbitro
+  // olvidaría las salas en `funding` —los depósitos quedan trabados en el
+  // contrato hasta que cada asiento llame `refundUnfunded` por su cuenta— y las
+  // ya liquidadas que todavía no presentó, perdiendo la tabla firmada: partida
+  // pagada y anulada, recuperable recién con `refundExpired` horas después. Con
+  // la mesa gratis esto costaba un ranking; con plata adentro, no arranca.
+  const backend = persistenceBackendFor(env);
+  if (moneyStakes && backend !== "redis") {
+    errors.push(
+      `ALEPH_STAKES ("${env.ALEPH_STAKES}") habilita una mesa de plata pero la persistencia es "${backend}" ` +
+        "(faltan UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN): un deploy borraría las salas en fondeo " +
+        "y las liquidaciones todavía sin presentar, dejando la plata trabada en el contrato.",
     );
   }
   if (!onchain && !alephOn) return errors; // sin ningún escrow no hay dinero on-chain

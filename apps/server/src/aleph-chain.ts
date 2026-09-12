@@ -20,8 +20,14 @@ export function alephOnchainEnabled(): boolean {
 export function alephEscrowAddress(): Hex {
   return ESCROW;
 }
+/** La cadena de las mesas de plata. Misma convención que el resto de las
+ *  perillas (`envNum`): un valor mal formado cae al DEFAULT, nunca a `NaN`.
+ *  Importa porque este número SALE del árbitro — viaja en `AlephDeposit.chainId`
+ *  y en `alephLog().usdc.chainId`, y el SDK del agente lo usa para elegir la red
+ *  del depósito: con `NaN` ahí, el agente no sabe a qué cadena mandar la plata. */
 export function alephChainId(): number {
-  return Number(process.env.CHAIN_ID ?? 84532);
+  const n = Number(process.env.CHAIN_ID);
+  return Number.isFinite(n) && n > 0 ? n : 84532;
 }
 
 export interface AlephOnchainRoom {

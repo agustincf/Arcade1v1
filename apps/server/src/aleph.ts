@@ -179,6 +179,14 @@ export interface AlephChainRecord {
 const settleClosed = (c: AlephChainRecord) => !!(c.settleTx || c.settleOutcome);
 const refundClosed = (c: AlephChainRecord) => !!(c.refundTx || c.refundOutcome);
 
+/** ¿Esta sala todavía le debe algo a la cadena? Una mesa de plata terminada
+ *  arrastra una liquidación o un reembolso hasta que quede CERRADO (hash propio
+ *  o motivo). Mientras tanto no se puede borrar del store: borrarla es olvidar
+ *  la obligación en silencio, y el tick de cadena ya no la vuelve a intentar.
+ *  La mesa gratis nunca tiene `chain`, así que para ella esto es siempre false. */
+const chainPending = (room: AlephRoom) =>
+  !!room.chain && !(settleClosed(room.chain) || refundClosed(room.chain));
+
 export type AlephRoomView = {
   roomId: Hex;
   stake: number;
@@ -203,6 +211,8 @@ export type AlephRoomView = {
   payoutSig?: Hex; // `settled`, stake > 0: cualquiera puede presentar la tabla
   settleTx?: Hex; // `settled`, stake > 0: el hash, cuando lo mandó el árbitro
   settleOutcome?: AlephSettleOutcome; // `settled`, stake > 0: cerrada sin hash propio
+  refundTx?: Hex; // `dissolved`, stake > 0: el hash del `cancelRoom` del árbitro
+  refundOutcome?: AlephRefundOutcome; // `dissolved`, stake > 0: cerrado sin hash propio
   seats: { address: string; status: SeatStatus; pocket: number }[];
 } & Partial<Omit<AlephView, "seats">>;
 
@@ -259,6 +269,16 @@ export async function restoreAleph(): Promise<void> {
 
 function persist() {
   store$.save(serializeAleph);
+}
+
+/** Guarda YA, sin esperar el debounce de 20 s de persist.ts. Es para lo que no
+ *  se puede perder ni en una caída dura (OOM/crash): hoy, la tabla de pagos
+ *  firmada de una mesa de plata. Va `persist()` primero a propósito — `flush()`
+ *  escribe lo que haya PENDIENTE, y si otra sala ya lo consumió en este mismo
+ *  tick no quedaría nada por escribir. */
+async function persistNow(): Promise<void> {
+  persist();
+  await store$.flush();
 }
 
 /** Estado del motor de una sala, derivado del registro (con cache). */
@@ -526,7 +546,12 @@ function settleRoomDue(room: AlephRoom, now: number): boolean {
   if (
     (room.status === "settled" || room.status === "dissolved") &&
     room.settledAt !== undefined &&
-    now - room.settledAt > ALEPH_FINISHED_TTL_MS
+    now - room.settledAt > ALEPH_FINISHED_TTL_MS &&
+    // Ni siquiera vencida se borra una sala que todavía le debe plata a la
+    // cadena: el registro es lo único que sabe qué transacción falta mandar.
+    // Una sala así se queda más allá del TTL, reintentando con backoff, hasta
+    // que la liquidación o el reembolso cierren.
+    !chainPending(room)
   ) {
     rooms.delete(room.id);
     states.delete(room.id);
@@ -539,18 +564,29 @@ function settleRoomDue(room: AlephRoom, now: number): boolean {
  *  blob único: 200 registros completos (~200 kB cada uno) no entran en una
  *  escritura de Upstash, y cuando el SET falla solo se loguea — la persistencia
  *  se corta EN SILENCIO, también para las salas vivas. Se van las más viejas
- *  por `settledAt`. */
+ *  por `settledAt`, SALTEANDO las que todavía le deben plata a la cadena: este
+ *  barrido corre en cada request, así que sin el salteo cincuenta salas gratis
+ *  nuevas podían desalojar una mesa de plata cuya liquidación estaba en backoff
+ *  (hasta ~43 min) y el árbitro se olvidaba del pago sin una línea de log. Si
+ *  las candidatas más viejas están todas pendientes, se desaloja a la siguiente
+ *  en edad; si ninguna se puede desalojar, no se borra nada. */
 function purgeExcessFinished(): boolean {
   const finished = [...rooms.values()].filter(
     (r) => r.status === "settled" || r.status === "dissolved",
   );
-  if (finished.length <= ALEPH_MAX_SETTLED_KEPT) return false;
+  let excess = finished.length - ALEPH_MAX_SETTLED_KEPT;
+  if (excess <= 0) return false;
   finished.sort((a, b) => (a.settledAt ?? 0) - (b.settledAt ?? 0));
-  for (const r of finished.slice(0, finished.length - ALEPH_MAX_SETTLED_KEPT)) {
+  let purged = false;
+  for (const r of finished) {
+    if (excess <= 0) break;
+    if (chainPending(r)) continue;
     rooms.delete(r.id);
     states.delete(r.id);
+    excess--;
+    purged = true;
   }
-  return true;
+  return purged;
 }
 
 /** Vence lobbies (arranca con ≥ mínimo, disuelve si no), vence FASES con el
@@ -854,6 +890,16 @@ async function settleOnchain(room: AlephRoom, now: number): Promise<boolean> {
       rec.feeBps = feeBps;
       rec.payoutsUsdc = Object.fromEntries(seats.map((a, i) => [a, amounts[i].toString()]));
       rec.payoutSig = await signAlephPayout(room.id, alephTableHash(seats, amounts));
+      // LA TABLA FIRMADA SE GUARDA ANTES DE PUBLICARSE. Una sala firma UNA sola
+      // tabla en su vida: la firma no lleva nonce y `settle` es permissionless,
+      // así que dos tablas firmadas de la misma sala son dos órdenes de pago
+      // válidas y cobra la que alguien presente primero. Lo único que puede
+      // romper esa garantía es perder ESTA en una caída dura (OOM/crash; un
+      // redeploy manda SIGTERM y flushea): si la ventana perdida se lleva
+      // también las últimas acciones, la sala restaurada re-simula a OTRA tabla
+      // y la firma. Con el debounce de 20 s esa ventana dura 20 s; con este
+      // flush, cero. Cuesta una escritura por mesa de plata liquidada.
+      await persistNow();
     }
     const amounts = seats.map((a) => BigInt(rec.payoutsUsdc![a]));
     rec.settleTx = await chain.settle(room.id, seats, amounts, rec.payoutSig);
@@ -955,6 +1001,15 @@ export function roomView(room: AlephRoom, address?: string): AlephRoomView {
       closesAt: funding ? room.fundingDeadline : room.createdAt + ALEPH_LOBBY_MS,
       fundingDeadline: funding ? room.fundingDeadline : undefined,
       deposited: funding ? (room.deposited ?? []) : undefined,
+      // EL REEMBOLSO SE PUBLICA, simétrico a `settleTx`/`settleOutcome` en la
+      // rama `settled`. Un fondeo incompleto es el final MÁS común de una mesa
+      // de plata (la casa no las completa), y sin esto el asiento que depositó
+      // veía su sala "dissolved" y ni una palabra sobre su plata: ni el hash de
+      // la cancelación, ni el motivo por el que no hay hash (`none` = nadie
+      // depositó, `external` = lo pidió otro antes, `settled` = ya estaba
+      // liquidada). Mientras siga vacío, el reembolso todavía está en camino.
+      refundTx: room.chain?.refundTx,
+      refundOutcome: room.chain?.refundOutcome,
       seats: room.seats.map((a) => ({ address: a, status: "alive" as SeatStatus, pocket: 0 })),
     };
   }

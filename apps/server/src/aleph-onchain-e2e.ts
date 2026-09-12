@@ -374,6 +374,10 @@ async function unfundedScenario() {
   await alephChainTick(now + 1);
   v = (await getAlephRoom(roomId, undefined, now + 1))!;
   if (v.status !== "dissolved") fail(`esperaba dissolved, hay ${v.status}`);
+  // La sala PUBLICA su reembolso: sin esto, el que depositó ve "dissolved" y ni
+  // una palabra sobre su plata (la web de la etapa 3 linkea este hash).
+  if (!/^0x[0-9a-f]{64}$/.test(String(v.refundTx)))
+    fail(`la sala disuelta no publicó el hash del reembolso: ${JSON.stringify(v.refundTx)}`);
   const after = await Promise.all(seats.map((s) => bal(s.address)));
   for (let i = 0; i < seats.length; i++) {
     if (after[i] !== before[i]) fail(`asiento ${i}: ${usd(after[i])} vs ${usd(before[i])} antes`);

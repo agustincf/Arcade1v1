@@ -5,6 +5,8 @@
 #   - tests del contrato (forge) y los e2e en cadena local (anvil):
 #       * integración árbitro <-> contrato (el digest EIP-712 coincide)
 #       * pago completo (dos jugadores depositan, el árbitro firma, paga al ganador)
+#       * mesa de plata de Aleph (4 asientos depositan, el árbitro firma la tabla
+#         y el contrato paga a todos; después, un fondeo incompleto que se cancela)
 name: CI
 
 on:
