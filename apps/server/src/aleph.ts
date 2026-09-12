@@ -83,6 +83,11 @@ export const ALEPH_FINISHED_TTL_MS = envNum("ALEPH_FINISHED_TTL_MS", 7 * 24 * 60
 export const ALEPH_MAX_SETTLED_KEPT = envNum("ALEPH_MAX_SETTLED_KEPT", 50);
 /** Plazo para que los N asientos depositen, una vez cerrado el lobby. */
 export const ALEPH_FUNDING_MS = envNum("ALEPH_FUNDING_MS", 10 * 60_000);
+/** Margen DESPUÉS del plazo de fondeo tras el cual el árbitro disuelve la sala
+ *  aunque no haya podido leer la cadena ni una vez (ver `settleRoomDue`). Con
+ *  el tick cada 5 s son ~24 intentos: alcanza de sobra para que el camino
+ *  normal cierre primero y no se disuelva una sala fondeada sobre la hora. */
+export const ALEPH_FUNDING_GRACE_MS = envNum("ALEPH_FUNDING_GRACE_MS", 2 * 60_000);
 /** Ventana de juego que lleva el pase (playDeadline on-chain). El mazo tiene a
  *  lo sumo N+2 etapas, ~22 fases de 2 min: 3 h sobra, y pasada esa ventana más
  *  la gracia del contrato cualquiera puede pedir el reembolso. */
@@ -139,7 +144,23 @@ export interface AlephDeposit {
   seatSig: Hex;
 }
 
-/** Rastro de la cadena en una sala de plata. Todo string: va al store. */
+/** Por qué una liquidación quedó CERRADA sin transacción del árbitro:
+ *  `external` = otro presentó la tabla (la firma es pública, cualquiera puede);
+ *  `refunded` = la sala terminó reembolsada y ya no hay nada que pagar. */
+export type AlephSettleOutcome = "external" | "refunded";
+
+/** Por qué un reembolso quedó CERRADO sin transacción del árbitro:
+ *  `none` = nadie llegó a depositar (la sala ni existe on-chain);
+ *  `external` = alguien pidió el reembolso permissionless antes;
+ *  `settled` = la sala ya estaba liquidada (no debería pasar, queda anotado). */
+export type AlephRefundOutcome = "none" | "external" | "settled";
+
+/** Rastro de la cadena en una sala de plata. Todo string: va al store.
+ *
+ *  Los dos `*Tx` llevan SOLO hashes de transacción de verdad: la web los
+ *  publica como link al explorador, así que un centinela ahí sería un link
+ *  roto. El "por qué no hay hash" vive aparte, en los dos `*Outcome`. Una
+ *  liquidación (o un reembolso) está cerrada cuando tiene UNO de los dos. */
 export interface AlephChainRecord {
   attempts: number;
   nextAttemptAt?: number;
@@ -147,9 +168,16 @@ export interface AlephChainRecord {
   feeBps?: number;
   payoutsUsdc?: Record<string, string>; // micro-USDC por asiento
   payoutSig?: Hex;
-  settleTx?: string; // hash, o "external" si otro presentó la tabla
-  refundTx?: string; // hash, "external" (reembolso permissionless) o "none" (nadie depositó)
+  settleTx?: Hex; // hash de `settle`, solo si lo mandó el árbitro
+  settleOutcome?: AlephSettleOutcome; // cerrada sin hash propio
+  refundTx?: Hex; // hash de `cancelRoom`, solo si lo mandó el árbitro
+  refundOutcome?: AlephRefundOutcome; // cerrado sin hash propio
 }
+
+/** ¿La liquidación on-chain ya está cerrada? Con hash propio, o con un motivo
+ *  por el que nunca va a haberlo. Mientras no lo esté, el tick reintenta. */
+const settleClosed = (c: AlephChainRecord) => !!(c.settleTx || c.settleOutcome);
+const refundClosed = (c: AlephChainRecord) => !!(c.refundTx || c.refundOutcome);
 
 export type AlephRoomView = {
   roomId: Hex;
@@ -173,7 +201,8 @@ export type AlephRoomView = {
   escrow?: Hex; // stake > 0: el contrato
   payoutsUsdc?: Record<string, string>; // `settled`, stake > 0
   payoutSig?: Hex; // `settled`, stake > 0: cualquiera puede presentar la tabla
-  settleTx?: string; // `settled`, stake > 0, cuando la transacción salió
+  settleTx?: Hex; // `settled`, stake > 0: el hash, cuando lo mandó el árbitro
+  settleOutcome?: AlephSettleOutcome; // `settled`, stake > 0: cerrada sin hash propio
   seats: { address: string; status: SeatStatus; pocket: number }[];
 } & Partial<Omit<AlephView, "seats">>;
 
@@ -461,6 +490,27 @@ function settleRoomDue(room: AlephRoom, now: number): boolean {
     else dissolveRoom(room, now);
     return true;
   }
+  if (
+    room.status === "funding" &&
+    room.fundingDeadline !== undefined &&
+    now >= room.fundingDeadline + ALEPH_FUNDING_GRACE_MS
+  ) {
+    // SALIDA LOCAL del fondeo, que NO depende de poder leer la cadena. El
+    // camino normal lo cierra `syncFunding` justo al vencer el plazo; esto es
+    // para cuando el tick de cadena no puede: RPC caído, escrow mal
+    // configurado, o ALEPH_ESCROW_ADDRESS sacada con salas vivas en el store
+    // (ahí `alephChainTick` ni siquiera entra). Sin esta salida la sala se
+    // queda en `funding` para siempre: deja a sus asientos sin poder sentarse
+    // en NINGUNA mesa y ocupa un lugar del tope de salas vivas, que es
+    // compartido con la gratis — una caída de la cadena se llevaría puesto
+    // también el producto gratis. Se disuelve y queda pedido el reembolso:
+    // `refundOnchain` lee el estado real y decide (si nadie depositó, no manda
+    // nada). La gracia le da al tick de cadena ~24 intentos para ganar de mano
+    // y no disolver una sala que se fondeó sobre la hora.
+    dissolveRoom(room, now);
+    room.chain = { attempts: 0, nextAttemptAt: now };
+    return true;
+  }
   if (room.status === "playing" && room.phaseDeadline !== undefined && now >= room.phaseDeadline) {
     // Pueden vencer varias fases si el proceso estuvo dormido: cada cierre
     // lleva la hora de SU plazo (no `now`), así el registro es fiel.
@@ -678,6 +728,7 @@ export function alephLog(roomId: string, now = Date.now()) {
             table: room.chain?.payoutsUsdc,
             signature: room.chain?.payoutSig,
             settleTx: room.chain?.settleTx,
+            settleOutcome: room.chain?.settleOutcome,
           }
         : undefined,
   };
@@ -691,7 +742,7 @@ export interface RecentRoom {
   settledAt?: number;
   stages: number;
   payouts?: Record<string, number>;
-  settleTx?: string; // stake > 0: la transacción que pagó la tabla
+  settleTx?: Hex; // stake > 0: el hash de la transacción que pagó la tabla
 }
 
 /** Salas terminadas recientes (para la web y los agentes curiosos). */
@@ -738,9 +789,9 @@ export async function alephChainTick(now = Date.now()): Promise<void> {
       try {
         if (room.status === "funding") {
           if (await syncFunding(room, now)) dirty = true;
-        } else if (room.status === "settled" && room.chain && !room.chain.settleTx) {
+        } else if (room.status === "settled" && room.chain && !settleClosed(room.chain)) {
           if (await settleOnchain(room, now)) dirty = true;
-        } else if (room.status === "dissolved" && room.chain && !room.chain.refundTx) {
+        } else if (room.status === "dissolved" && room.chain && !refundClosed(room.chain)) {
           if (await refundOnchain(room, now)) dirty = true;
         }
       } catch (e) {
@@ -770,7 +821,7 @@ async function syncFunding(room: AlephRoom, now: number): Promise<boolean> {
   if (c.status === ALEPH_ESCROW_STATUS.Refunded) {
     // Alguien llamó refundUnfunded por su cuenta: nada que cancelar.
     dissolveRoom(room, now);
-    room.chain = { attempts: 0, refundTx: "external" };
+    room.chain = { attempts: 0, refundOutcome: "external" };
     return true;
   }
   if (now >= room.fundingDeadline!) {
@@ -803,14 +854,26 @@ async function settleOnchain(room: AlephRoom, now: number): Promise<boolean> {
     rec.lastError = undefined;
   } catch (e) {
     const msg = (e as Error).message ?? String(e);
+    let closed = false;
     if (/not funded/i.test(msg)) {
       // Ya no está Funded: o alguien presentó la tabla antes, o se reembolsó.
-      const c = await alephChain().readRoom(room.id);
-      rec.settleTx = c.status === ALEPH_ESCROW_STATUS.Settled ? "external" : `refunded:${c.status}`;
+      // Averiguar CUÁL es otra lectura, y esa lectura también puede fallar: si
+      // falla, esto sigue siendo un intento fallido y tiene que irse al backoff
+      // como cualquier otro. Sin este try la excepción se escapaba al catch por
+      // sala del tick con `attempts` ya incrementado pero SIN `nextAttemptAt`,
+      // y el tick siguiente reintentaba en el acto contra un RPC ya caído.
+      try {
+        const c = await alephChain().readRoom(room.id);
+        rec.settleOutcome = c.status === ALEPH_ESCROW_STATUS.Settled ? "external" : "refunded";
+        rec.lastError = undefined;
+        closed = true;
+      } catch (e2) {
+        rec.lastError = `${msg} | ${(e2 as Error).message}`;
+      }
     } else {
       rec.lastError = msg;
-      rec.nextAttemptAt = now + backoffMs(rec.attempts);
     }
+    if (!closed) rec.nextAttemptAt = now + backoffMs(rec.attempts);
   }
   return true;
 }
@@ -824,11 +887,11 @@ async function refundOnchain(room: AlephRoom, now: number): Promise<boolean> {
     const chain = alephChain();
     const c = await chain.readRoom(room.id);
     if (c.status === ALEPH_ESCROW_STATUS.None) {
-      rec.refundTx = "none"; // nadie depositó: cancelar revertiría
+      rec.refundOutcome = "none"; // nadie depositó: cancelar revertiría
     } else if (c.status === ALEPH_ESCROW_STATUS.Refunded) {
-      rec.refundTx = "external";
+      rec.refundOutcome = "external";
     } else if (c.status === ALEPH_ESCROW_STATUS.Settled) {
-      rec.refundTx = "settled"; // no debería pasar: queda anotado, no se insiste
+      rec.refundOutcome = "settled"; // no debería pasar: queda anotado, no se insiste
     } else {
       rec.refundTx = await chain.cancelRoom(room.id);
     }
@@ -899,6 +962,7 @@ export function roomView(room: AlephRoom, address?: string): AlephRoomView {
       out.payoutsUsdc = room.chain.payoutsUsdc;
       out.payoutSig = room.chain.payoutSig;
       out.settleTx = room.chain.settleTx;
+      out.settleOutcome = room.chain.settleOutcome;
     }
   }
   return out;
