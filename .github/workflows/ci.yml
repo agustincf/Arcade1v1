@@ -103,3 +103,6 @@ jobs:
 
       - name: Ensayo del deploy de EscrowAleph (mesa de 2 USDC habilitada)
         run: bash packages/contracts/check-aleph-deploy.sh
+
+      - name: Pago de una mesa de plata de Aleph en cadena local (anvil)
+        run: bash packages/contracts/check-aleph-e2e.sh
