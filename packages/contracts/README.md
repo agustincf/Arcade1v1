@@ -26,6 +26,63 @@ reglas. La comision (`feeBps`) tiene un tope duro de 20% (`MAX_FEE_BPS`).
 Las mesas (montos de apuesta permitidos) se habilitan una por una con
 `setAllowedStake` — los scripts de despliegue habilitan 1, 2, 5 y 10 USDC.
 
+## EscrowAleph — las mesas de plata de Aleph (N asientos)
+
+Contrato aparte para el formato multi-agente: entre 4 y 8 asientos depositan el
+mismo stake, el árbitro firma UNA tabla de pagos y el contrato paga a todos en
+una sola transacción. No toca `Escrow1v1`.
+
+- `open` — el PRIMER asiento en depositar abre la sala con la lista completa de
+  asientos (congelada por el árbitro), el stake y los plazos. Presenta su
+  **pase** (EIP-712 `Seat(roomId, seatsHash, stake, fundDeadline,
+playDeadline, player)`, firmado por el árbitro): sin pase no hay asiento, y el
+  pase ata la lista, el stake y los plazos, así que el que abre no puede
+  inventar la mesa.
+- `deposit` — cada uno de los demás asientos deposita con su pase. Con el
+  último, la sala queda `Funded` y el juego corre fuera de la cadena.
+- `settle` — con la firma del árbitro sobre `Payout(roomId, tableHash)`,
+  `tableHash = keccak256(abi.encode(seats, amounts))`, paga `amounts[i]` a cada
+  asiento (en el MISMO orden que la sala) y la comisión más el polvo del
+  redondeo a la plataforma. Exige `Σ amounts ≤ pozo − comisión` y que sobren
+  menos de N micro-USDC. Cualquiera puede presentarla.
+- `refundUnfunded` / `refundExpired` / `cancelRoom` — los tres reembolsos:
+  fondeo vencido (cualquiera), plazo de juego vencido más la gracia de 30 min
+  (cualquiera), o cancelación del árbitro/dueño. Cada uno recupera exactamente
+  su stake; el que no depositó no recibe nada.
+- `roomOf`, `depositors`, `paid` — vistas para el árbitro y los agentes;
+  `seatDigest`, `payoutDigest`, `seatsHashOf`, `tableHashOf` — los hashes tal
+  cual los calcula el contrato, para que el backend y los tests firmen lo mismo.
+
+Dominio EIP-712 propio: `Arcade1v1EscrowAleph` v1. Mesa habilitada por el
+script de despliegue: **2 USDC**.
+
+Propiedad conocida (a decidir antes de mainnet): el contrato paga empujando
+USDC a cada asiento. El USDC real de Circle revierte una transferencia a una
+dirección en su blacklist, así que un solo asiento en blacklist entre los 4 a 8
+haría revertir toda la liquidación. `settle` tiene una salida — la tabla
+firmada puede asignarle 0 a ese asiento — pero los tres reembolsos no: una sala
+en `Funding` con un depositante en blacklist dejaría su pozo trabado para
+siempre. El disparador exige que Circle ponga en blacklist a una dirección
+DESPUÉS de que depositó, así que la probabilidad es baja y el stake es de 2
+USDC. Es la misma propiedad que ya tiene `Escrow1v1`, hoy desplegado en
+testnet, con un radio de impacto menor (2 asientos en vez de hasta 8).
+
+Pruebas: `forge test --match-contract EscrowAlephTest -vv` (43 pruebas: fondeo,
+liquidación, tabla que no suma, address que no es asiento, firma ajena, doble
+liquidación, los tres reembolsos exactos, 8 asientos, gracia, reentrancy y la
+superficie de admin/constructor).
+
+Desplegar en Base Sepolia (reusa la wallet y el TestUSDC de `.env`):
+
+```bash
+cd packages/contracts
+bash deploy-aleph-base-sepolia.sh
+```
+
+Ensayo del deploy en anvil, sin gastar nada: `bash check-aleph-deploy.sh`.
+Todavía no se desplegó en ninguna red: el deploy real queda para el PR 3, con
+el OK del dueño.
+
 ## Correr las pruebas (local, sin gastar nada)
 
 ```bash
@@ -33,9 +90,8 @@ cd packages/contracts
 forge test -vv
 ```
 
-Estado actual: 9/9 pruebas pasando (`test/Escrow1v1.t.sol`), cubriendo el
-deposito, el pago con firma valida/invalida, los tres caminos de reembolso y
-las validaciones de mesa/jugador.
+Estado actual: 57 pruebas pasando — 14 de `Escrow1v1.t.sol` + 43 de
+`EscrowAleph.t.sol`.
 
 ## Desplegar en Base Sepolia (testnet)
 
@@ -83,7 +139,7 @@ Requiere `.env.mainnet` (copiado de `.env.mainnet.example`) con
 `PLATFORM_WALLET`, `FEE_BPS` y `OWNER_ADDRESS` (la wallet de hardware que
 firma y queda como dueña del contrato).
 
-> Estado: contrato probado (9/9 pruebas) y flujo completo verificado en Anvil
+> Estado: contrato probado (14/14 pruebas) y flujo completo verificado en Anvil
 > (deposito, pago y reembolso). Las direcciones de un entorno publicado y sus
 > secretos no se guardan en Git (`.env`, `.env.mainnet` y `broadcast/` estan
 > en `.gitignore`), por lo que deben verificarse en la configuracion de ese
