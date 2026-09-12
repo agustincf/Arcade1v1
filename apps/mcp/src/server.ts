@@ -16,6 +16,7 @@ import {
   alephJoinTool,
   alephViewTool,
   alephActTool,
+  alephDepositTool,
 } from "./tools";
 
 type Agent = ReturnType<typeof createAgent>;
@@ -25,7 +26,7 @@ const ok = (data: unknown) => ({
 
 export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpServer {
   const { agent, client } = deps;
-  const server = new McpServer({ name: "arcade1v1", version: "0.3.0" });
+  const server = new McpServer({ name: "arcade1v1", version: "0.4.0" });
 
   server.registerTool(
     "list_games",
@@ -144,7 +145,7 @@ export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpS
     {
       title: "Aleph: rules",
       description:
-        "Rules and playing protocol of Aleph, the 4–8 agent table with one pot (format id aleph). Read once before aleph_join. Only the free table exists.",
+        "Rules and playing protocol of Aleph, the 4–8 agent table with one pot (format id aleph). Read once before aleph_join.",
     },
     async () => ok(alephRulesTool()),
   );
@@ -168,7 +169,7 @@ export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpS
         stake: z
           .number()
           .describe(
-            "Use 0: the free table, the only one in this version (this server cannot deposit USDC).",
+            "0 = the free table. A money table (see aleph_lobbies `stakes`, e.g. 2 USDC on testnet) needs this server started with ARCADE_PRIVATE_KEY (a wallet holding the stake in USDC plus gas) and RPC_URL; the room then enters `funding` and you must call aleph_deposit before the deadline.",
           )
           .default(0),
       },
@@ -207,6 +208,17 @@ export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpS
     },
     async ({ roomId, action, stage, phase }) =>
       ok(await alephActTool(agent, roomId, action, { stage, phase })),
+  );
+
+  server.registerTool(
+    "aleph_deposit",
+    {
+      title: "Aleph: deposit my stake",
+      description:
+        "Money tables only. When aleph_view shows `mustDeposit: true` (the room is `funding` and you have not deposited), this sends your stake from this server's wallet to the escrow: approve if needed, then `open` (if you are the first) or `deposit`. Idempotent. Needs ARCADE_PRIVATE_KEY and RPC_URL in this server's environment. Then keep polling aleph_view: the room starts once every seat deposited, or dissolves (refunding everyone) if one is missing at the deadline.",
+      inputSchema: { roomId: z.string() },
+    },
+    async ({ roomId }) => ok(await alephDepositTool(agent, roomId)),
   );
 
   return server;

@@ -2,9 +2,15 @@
 // publicado). Crea un agente con wallet efímera por sesión (solo firma; Fase 1).
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ArbiterClient, createAgent } from "@arcade1v1/agent-sdk";
+import type { Hex } from "viem";
 import { buildServer } from "./server";
 
 const arbiterUrl = process.env.ARBITER_URL ?? "https://arcade1v1.onrender.com";
+// Wallet: efímera por sesión (solo firma) salvo que el operador ponga la suya.
+// Con ARCADE_PRIVATE_KEY + RPC_URL la wallet puede DEPOSITAR en una mesa de
+// plata de Aleph; sin ellas, solo la mesa gratis (como siempre).
+const privateKey = process.env.ARCADE_PRIVATE_KEY as Hex | undefined;
+const rpcUrl = process.env.RPC_URL;
 
 async function main() {
   // Calentamiento: el árbitro (Render free) se duerme por inactividad y tarda
@@ -18,7 +24,7 @@ async function main() {
   // baja al tope corto de régimen. Con un tope corto desde el vamos, la primera
   // herramienta contra un árbitro dormido falla siempre.
   const client = new ArbiterClient(arbiterUrl);
-  const agent = createAgent({ arbiterUrl, client });
+  const agent = createAgent({ arbiterUrl, client, privateKey, rpcUrl });
   const server = buildServer({ agent, client });
   await server.connect(new StdioServerTransport());
 }

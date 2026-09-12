@@ -9,6 +9,8 @@ import {
   createAgent,
   ALEPH_RULES_V,
   type AlephActBody,
+  type AlephDeposit,
+  type AlephRoomStatus,
   type AlephRoomView,
   type AlephViewPass,
 } from "@arcade1v1/agent-sdk";
@@ -18,6 +20,7 @@ import {
   alephJoinTool,
   alephViewTool,
   alephActTool,
+  alephDepositTool,
 } from "../src/tools";
 
 const ROOM = "0x" + "ab".repeat(32);
@@ -30,6 +33,11 @@ const DEADLINE = Date.now() + 90_000;
 class FakeAleph extends ArbiterClient {
   acts: AlephActBody[] = [];
   passes: (AlephViewPass | undefined)[] = [];
+  // Etapa 4 (mesa de plata): los tests que no los tocan quedan en el default
+  // de siempre (jugando, sin nada pendiente de depósito).
+  status: AlephRoomStatus = "playing";
+  deposited: string[] = [];
+  deposit?: AlephDeposit;
   constructor() {
     super("http://fake");
   }
@@ -37,12 +45,14 @@ class FakeAleph extends ArbiterClient {
     return {
       roomId: ROOM,
       stake: 0,
-      status: "playing",
+      status: this.status,
       rulesV: ALEPH_RULES_V,
       min: 4,
       max: 8,
       createdAt: 0,
       deadline: DEADLINE,
+      deposited: this.deposited,
+      deposit: this.deposit,
       // La address del asiento ya viene en minúsculas (normAddr, el árbitro
       // real normaliza en joinAleph) — así queda igual a `me`.
       seats: [{ address: address.toLowerCase(), status: "alive", pocket: 0 }],
@@ -184,5 +194,37 @@ test("alephActTool: firma para la etapa/fase que vio el modelo, no para la que e
     fake.passes.length,
     0,
     "con el ancla no hace falta releer la vista: se ahorra un GET del presupuesto",
+  );
+});
+
+test("aleph_view marca mustDeposit cuando la sala fondea y este asiento no depositó", async () => {
+  const fake = new FakeAleph();
+  const agent = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" });
+  fake.status = "funding";
+  fake.deposited = [];
+  fake.deposit = {
+    chainId: 31337,
+    escrow: "0x" + "e".repeat(40),
+    usdc: "0x" + "1".padStart(40, "0"),
+    stake: "2000000",
+    seats: [agent.address.toLowerCase()],
+    seatsHash: "0x" + "0".repeat(64),
+    fundDeadline: 1,
+    playDeadline: 2,
+    seatSig: "0x" + "0".repeat(130),
+  };
+  const v = await alephViewTool(agent, ROOM);
+  assert.equal(v.mustDeposit, true);
+  assert.deepEqual(v.legal, [], "sin acciones del motor mientras fondea");
+  fake.deposited = [agent.address.toLowerCase()];
+  assert.equal((await alephViewTool(agent, ROOM)).mustDeposit, false);
+});
+
+test("aleph_deposit: sin rpcUrl explica qué falta; con la sala en juego no manda nada", async () => {
+  const fake = new FakeAleph();
+  await assert.rejects(() => alephDepositTool(createAgent({ client: fake }), ROOM), /rpcUrl/);
+  await assert.rejects(
+    () => alephDepositTool(createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" }), ROOM),
+    /not funding/,
   );
 });

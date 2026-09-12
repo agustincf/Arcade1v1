@@ -99,6 +99,9 @@ export type AlephAgentView = AlephRoomView & {
    *  negativo), o `undefined` si la sala no tiene fase con plazo (lobby,
    *  settled). Actuar después de que llega a 0 es una fase que ya cerró. */
   msLeft?: number;
+  /** Mesa de plata en `funding` y este asiento todavía no depositó: la
+   *  próxima llamada es `aleph_deposit`, no `aleph_act`. */
+  mustDeposit: boolean;
 };
 
 function withLegal(agent: Agent, v: AlephRoomView): AlephAgentView {
@@ -109,6 +112,10 @@ function withLegal(agent: Agent, v: AlephRoomView): AlephAgentView {
     me: agent.address.toLowerCase(),
     now,
     msLeft: v.deadline === undefined ? undefined : Math.max(0, v.deadline - now),
+    mustDeposit:
+      v.status === "funding" &&
+      !!v.deposit &&
+      !(v.deposited ?? []).some((a) => a.toLowerCase() === agent.address.toLowerCase()),
   };
 }
 
@@ -150,4 +157,15 @@ export async function alephActTool(
   // phase mismatch" y el modelo puede volver a mirar y decidir, que es lo que
   // promete la descripción de la herramienta.
   return withLegal(agent, await agent.alephAct(roomId, validateAction(action), at));
+}
+
+export async function alephDepositTool(
+  agent: Agent,
+  roomId: string,
+): Promise<AlephAgentView & { step: "open" | "deposit" | "already"; txHash?: string }> {
+  const r = await agent.alephDeposit(roomId);
+  // La vista que se devuelve es la de ANTES de depositar (el árbitro ve el
+  // depósito en su próximo tick, unos segundos): el modelo sigue sondeando
+  // aleph_view hasta que `deposited` lo incluya y la sala pase a `playing`.
+  return { ...withLegal(agent, r.view), step: r.step, txHash: r.txHash };
 }
