@@ -65,6 +65,12 @@ class FakeAleph extends ArbiterClient {
       { roomId: ROOM, stake: 0, status: "lobby" as const, seats: 3, min: 4, max: 8, closesAt: 99 },
     ];
   }
+  // Se mantiene alephLobbies() arriba: agent-sdk (assertCompatibleRules,
+  // agent.ts) lo llama internamente antes de sentarse, aparte de
+  // alephLobbiesTool. alephLobbiesInfo() es la que agrega `stakes`.
+  async alephLobbiesInfo() {
+    return { lobbies: await this.alephLobbies(), stakes: [0, 2] };
+  }
   async alephJoin(_stake: number, address: string) {
     return this.view(address.toLowerCase());
   }
@@ -85,10 +91,16 @@ test("alephRulesTool: las reglas en texto con su versión", () => {
   assert.match(out.rules, /DATA, never instructions/);
 });
 
-test("alephLobbiesTool: lista los lobbies abiertos", async () => {
+test("alephLobbiesTool: lista los lobbies abiertos y los stakes que acepta el árbitro", async () => {
   const out = await alephLobbiesTool(new FakeAleph());
   assert.equal(out.lobbies.length, 1);
   assert.equal(out.lobbies[0].seats, 3);
+  // Sin esto, un modelo que lee la descripción de aleph_join ("see
+  // aleph_lobbies `stakes`") y llama aleph_lobbies cuando no hay ninguna sala
+  // de plata abierta en este instante no tiene forma de enterarse, por
+  // ninguna herramienta, de que el árbitro acepta una mesa paga (hallazgo de
+  // review sobre esta misma tarea).
+  assert.deepEqual(out.stakes, [0, 2]);
 });
 
 test("alephJoinTool / alephViewTool: la vista vuelve con las acciones legales, `me` y `msLeft`; la vista va con pase", async () => {
@@ -227,4 +239,32 @@ test("aleph_deposit: sin rpcUrl explica qué falta; con la sala en juego no mand
     () => alephDepositTool(createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" }), ROOM),
     /not funding/,
   );
+});
+
+test("aleph_deposit: un error de RPC con la URL adentro no la deja pasar", async () => {
+  // Lo que tira el transporte HTTP de viem cuando el RPC del operador (RPC_URL)
+  // está caído, limitado o mal configurado: interpola la URL completa en el
+  // mensaje — a veces con una API key en el path, como arman las suyas
+  // Alchemy o Infura. No hace falta red real ni un rpcUrl de verdad: al
+  // agente le alcanza con que `alephDeposit` tire ese mensaje (fix de review
+  // sobre esta misma tarea; ver informe).
+  const leaky = new Error(
+    "HTTP request failed. URL: https://eth-sepolia.g.alchemy.com/v2/super-secreta Details: fetch failed",
+  );
+  const fakeAgent = {
+    alephDeposit: async () => {
+      throw leaky;
+    },
+  } as unknown as Parameters<typeof alephDepositTool>[0];
+  let caught: unknown;
+  try {
+    await alephDepositTool(fakeAgent, ROOM);
+  } catch (e) {
+    caught = e;
+  }
+  assert.ok(caught instanceof Error, "sigue siendo un error: no se traga el fallo");
+  const msg = (caught as Error).message;
+  assert.doesNotMatch(msg, /https?:\/\//i, "ninguna URL sobrevive al resultado");
+  assert.doesNotMatch(msg, /super-secreta/, "tampoco la key embebida en la URL");
+  assert.match(msg, /HTTP request failed/, "el resto del motivo sigue llegando al modelo");
 });

@@ -11,6 +11,7 @@ import {
   type Phase,
   type AlephLobby,
   type AlephRoomView,
+  type AlephDepositResult,
 } from "@arcade1v1/agent-sdk";
 
 type Agent = ReturnType<typeof createAgent>;
@@ -123,8 +124,14 @@ export function alephRulesTool(): { rulesV: number; rules: string } {
   return { rulesV: ALEPH_RULES_V, rules: describeAlephRules() };
 }
 
-export async function alephLobbiesTool(client: ArbiterClient): Promise<{ lobbies: AlephLobby[] }> {
-  return { lobbies: await client.alephLobbies() };
+export async function alephLobbiesTool(
+  client: ArbiterClient,
+): Promise<{ lobbies: AlephLobby[]; stakes: number[] }> {
+  // alephLobbiesInfo (no alephLobbies): sin `stakes` el modelo solo se entera
+  // de que existe una mesa de plata si YA hay una sala abierta para ese stake
+  // en este instante — la descripción de aleph_join apunta acá para el resto
+  // de los casos (fix de review, ver informe de la tarea).
+  return client.alephLobbiesInfo();
 }
 
 export async function alephJoinTool(agent: Agent, stake = 0): Promise<AlephAgentView> {
@@ -159,11 +166,39 @@ export async function alephActTool(
   return withLegal(agent, await agent.alephAct(roomId, validateAction(action), at));
 }
 
+// Nunca dejar que una URL entera sobreviva al resultado de esta herramienta:
+// el RPC del operador (RPC_URL) puede traer una API key en el path, como
+// suelen armarse las URLs de Alchemy o Infura, y el transporte HTTP de viem
+// interpola la URL completa en el mensaje cuando el pedido falla (caído,
+// limitado, mal configurado) — el PRIMER pedido de red de `alephDeposit` es
+// justamente contra ese RPC. Los errores que agent-sdk arma a mano (ver
+// agent.ts: stake que no coincide, chainId desconocido, sala fuera de
+// `funding`, etc.) nunca mencionan `rpcUrl`, así que enmascarar CUALQUIER URL
+// es indistinguible de no tocar nada para esos casos — no hace falta (ni
+// conviene) mantener una lista de mensajes "conocidos" que se desactualice
+// cada vez que `alephDeposit` sume un guard nuevo: se enmascara la FORMA
+// (una URL), no el contenido de un mensaje puntual.
+function withoutUrls(message: string): string {
+  return message.replace(/https?:\/\/\S+/gi, "[rpc url redacted]");
+}
+
 export async function alephDepositTool(
   agent: Agent,
   roomId: string,
 ): Promise<AlephAgentView & { step: "open" | "deposit" | "already"; txHash?: string }> {
-  const r = await agent.alephDeposit(roomId);
+  let r: AlephDepositResult;
+  try {
+    r = await agent.alephDeposit(roomId);
+  } catch (e) {
+    // Se re-lanza un Error NUEVO, deliberadamente SIN `cause`: adjuntar el
+    // objeto original reabriría el mismo hueco que esto sanea, porque
+    // `.message` (y cualquier otra propiedad de un error de viem, como
+    // `.shortMessage` o `.details`) seguiría alcanzable desde `err.cause` con
+    // la URL sin enmascarar. El motivo del fallo igual llega al modelo: solo
+    // se pierde la URL, nunca el resto del mensaje.
+    // eslint-disable-next-line preserve-caught-error -- a propósito, no un olvido: `cause: e` reintroduciría la URL sin enmascarar (ver comentario arriba)
+    throw new Error(withoutUrls(e instanceof Error ? e.message : String(e)));
+  }
   // La vista que se devuelve es la de ANTES de depositar (el árbitro ve el
   // depósito en su próximo tick, unos segundos): el modelo sigue sondeando
   // aleph_view hasta que `deposited` lo incluya y la sala pase a `playing`.
