@@ -5,6 +5,8 @@
 #   - tests del contrato (forge) y los e2e en cadena local (anvil):
 #       * integración árbitro <-> contrato (el digest EIP-712 coincide)
 #       * pago completo (dos jugadores depositan, el árbitro firma, paga al ganador)
+#       * mesa de plata de Aleph (4 asientos depositan, el árbitro firma la tabla
+#         y el contrato paga a todos; después, un fondeo incompleto que se cancela)
 name: CI
 
 on:
@@ -103,3 +105,6 @@ jobs:
 
       - name: Ensayo del deploy de EscrowAleph (mesa de 2 USDC habilitada)
         run: bash packages/contracts/check-aleph-deploy.sh
+
+      - name: Pago de una mesa de plata de Aleph en cadena local (anvil)
+        run: bash packages/contracts/check-aleph-e2e.sh

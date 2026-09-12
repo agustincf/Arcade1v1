@@ -7,7 +7,10 @@
 //   3) cada acción del registro está firmada por su asiento (nadie habló por otro);
 //   4) los cierres de fase son legítimos: uno anticipado solo si el estado lo
 //      justifica, uno por plazo solo si pasó una fase entera desde el anterior;
-//   5) re-simular el registro con el motor público da la MISMA tabla de pagos.
+//   5) re-simular el registro con el motor público da la MISMA tabla de pagos;
+//   6) en una mesa de plata (con `usdc`), la tabla en USDC firmada sale de
+//      convertir la tabla en unidades con la comisión que el registro leyó
+//      del contrato (piso por asiento, polvo aparte para la plataforma).
 // Uso: node --import tsx scripts/aleph-verify.mjs <arbiterUrl> <roomId> [phaseMs]
 import { pathToFileURL } from "node:url";
 import { keccak256, recoverMessageAddress } from "viem";
@@ -18,6 +21,8 @@ import {
   phaseComplete,
   actionLine,
   ALEPH_RULES_V,
+  usdcPayoutTable,
+  stakeToUnits,
 } from "@arcade1v1/game-sdk/aleph";
 import { alephActionAuthMessage } from "@arcade1v1/game-sdk/auth";
 
@@ -118,6 +123,39 @@ export async function verifyAlephLog(log, phaseMs = DEFAULT_PHASE_MS) {
     );
     const total = Object.values(payouts).reduce((a, b) => a + b, 0);
     check(total === potInitial, `la tabla suma el total (${total} de ${potInitial})`);
+  }
+
+  // 6) Mesa de plata: la tabla en USDC que se firmó sale de la tabla en
+  //    unidades con la comisión del contrato (floor por asiento, polvo aparte).
+  //    Es el borde donde el árbitro convierte, así que es el borde a vigilar.
+  if (log.usdc && payouts) {
+    try {
+      const t = usdcPayoutTable(log.seats, payouts, stakeToUnits(log.stake), log.usdc.feeBps);
+      const published = log.seats.map((a) => String(log.usdc.table?.[a]));
+      const expected = t.amounts.map(String);
+      check(
+        JSON.stringify(published) === JSON.stringify(expected),
+        `USDC: la tabla firmada coincide con la conversión (comisión ${log.usdc.feeBps} bps, polvo ${t.dust})`,
+      );
+    } catch (e) {
+      check(false, `USDC: no se pudo recalcular la tabla (${e.message})`);
+    }
+    // Aparte del try: no depende de la conversión (no puede tirar), y así una
+    // tabla que no cierra no tapa el estado de la liquidación, ni al revés.
+    // `settle` es permissionless y la firma se publica precisamente para que
+    // cualquiera pueda presentarla: "external" (otra transacción, sin hash
+    // propio) es una liquidación tan buena como una con `settleTx`. Solo la
+    // ausencia de las dos, o "refunded" (la sala se reembolsó en vez de
+    // pagarse), cuentan como no liquidada.
+    const settledOnchain = !!log.usdc.settleTx || log.usdc.settleOutcome === "external";
+    const settleNote = log.usdc.settleTx
+      ? log.usdc.settleTx
+      : log.usdc.settleOutcome === "external"
+        ? "sin hash propio: la presentó otra transacción con la misma firma"
+        : log.usdc.settleOutcome === "refunded"
+          ? "no se liquidó: la sala se reembolsó on-chain"
+          : "todavía no: la firma está publicada, cualquiera puede presentarla";
+    check(settledOnchain, `USDC: la liquidación salió a la cadena (${settleNote})`);
   }
   return { ok: checks.every((c) => c.ok), checks };
 }

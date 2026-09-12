@@ -8,9 +8,19 @@
 // de que se cargue el módulo onchain.
 //
 // IMPORTANTE: importar JUSTO después de "dotenv/config" y ANTES de cualquier
-// módulo que lea estas variables (matchmaking -> onchain).
+// módulo que lea estas variables (matchmaking -> onchain; aleph -> aleph-chain
+// / sign).
 delete process.env.ESCROW_ADDRESS;
 delete process.env.CHAIN_ID;
+
+// Mismo riesgo, mismo remedio, para Aleph: ALEPH_ESCROW_ADDRESS lo captura
+// aleph-chain.ts en una constante de módulo al importarse (y sign.ts lo lee
+// para firmar el dominio EIP-712 de sus pases y su tabla de pagos), y
+// ALEPH_STAKES lo lee aleph.ts, también al importarse. Con las dos seteadas en
+// el .env local, el selftest intentaría hablar con la cadena para una mesa de
+// plata igual que le pasaría con ESCROW_ADDRESS arriba.
+delete process.env.ALEPH_ESCROW_ADDRESS;
+delete process.env.ALEPH_STAKES;
 
 // Mesas del selftest: incluye 3 y 7 para tener colas dedicadas por caso (el
 // default real del árbitro es 1,2,5,10, igual que el contrato).

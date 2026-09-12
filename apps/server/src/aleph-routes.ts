@@ -10,6 +10,7 @@ import {
   listAlephLobbies,
   recentAlephRooms,
   AlephError,
+  ALEPH_STAKES,
 } from "./aleph.js";
 import { resolveDisplay } from "./profiles.js";
 
@@ -45,10 +46,11 @@ alephRouter.post("/aleph/join", async (req, res) => {
   }
 });
 
-// Lobbies abiertos (para que un agente sepa que hay mesa esperando).
+// Lobbies abiertos y salas en fondeo (para que un agente sepa que hay mesa
+// esperando), más las mesas que este árbitro acepta.
 alephRouter.get("/aleph/lobbies", (_req, res) => {
   try {
-    res.json({ lobbies: listAlephLobbies() });
+    res.json({ lobbies: listAlephLobbies(), stakes: ALEPH_STAKES });
   } catch (e) {
     fail(res, e);
   }

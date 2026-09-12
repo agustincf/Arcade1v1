@@ -17,7 +17,7 @@ export function onchainEnabled(): boolean {
 }
 
 /** Red segun CHAIN_ID: 31337 anvil, 8453 Base mainnet, si no Base Sepolia. */
-function chain(): Chain {
+export function chain(): Chain {
   const id = Number(process.env.CHAIN_ID ?? 84532);
   if (id === 31337) return foundry;
   if (id === 8453) return base;
@@ -30,12 +30,12 @@ let pub: ReturnType<typeof createPublicClient> | null = null;
 /** Cliente de solo LECTURA. Va aparte del de escritura a propósito: leer el
  *  estado de una partida no necesita la llave del árbitro, y acoplarlas hacía
  *  que un despliegue sin `ARBITER_PRIVATE_KEY` reventara también las lecturas. */
-function readClient() {
+export function readClient() {
   if (!pub) pub = createPublicClient({ chain: chain(), transport: http(RPC) });
   return pub;
 }
 
-function clients() {
+export function writeClients() {
   if (!wallet) {
     const account = privateKeyToAccount(process.env.ARBITER_PRIVATE_KEY as Hex);
     wallet = createWalletClient({ account, chain: chain(), transport: http(RPC) });
@@ -119,7 +119,7 @@ export async function cancelMatchOnchain(matchId: Hex) {
     let ultimo: unknown;
     for (let intento = 1; intento <= REINTENTOS; intento++) {
       try {
-        const { wallet: w, pub: p } = clients();
+        const { wallet: w, pub: p } = writeClients();
         const { request } = await p.simulateContract({
           address: ESCROW,
           abi: escrowAbi,
