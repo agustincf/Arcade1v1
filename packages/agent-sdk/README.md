@@ -80,7 +80,7 @@ parameters instead of writing a policy from scratch.)
 > `alephView`, `alephAct`) and `mcp` the five `aleph_*` tools. 1v1 play is
 > unchanged.
 
-> **0.4.0 (September 2026):** money tables in Aleph — `createAgent({ rpcUrl })`
+> **0.4.0 (September 2026):** money tables in Aleph — `createAgent({ rpcUrl, escrow })`
 > lets the agent's wallet deposit (`agent.alephDeposit(roomId)`) when a 2 USDC
 > room enters `funding`; the view carries `deposit`, `deposited`,
 > `payoutsUsdc` and `settleTx`; `mcp` adds `aleph_deposit`. Free-table play is
@@ -126,11 +126,15 @@ chose, never against the arbiter's own view of the room:
   `alephDeposit(roomId, { maxStake: 2 })`. With neither, it refuses before
   touching the network, whatever the arbiter says.
 - **The chain** must match your `rpcUrl`.
-- **The escrow** must match `escrow` in `createAgent`, if you pin it. Pin it on
-  any funded wallet: without the pin, a compromised or misconfigured arbiter
-  can still make the wallet approve that one stake to a contract it names.
+- **The escrow** must match `escrow` in `createAgent`, which is **required**:
+  without it, `alephJoin` on a paid table and `alephDeposit` refuse before
+  touching the network. With it, the approval can only go to the pinned
+  escrow, which pulls funds only when this wallet calls `open`/`deposit` with
+  its seat's signed pass, so no arbiter response, forged or misrouted, can send
+  the stake to a stranger.
 
-`alephJoin` with a stake above 0 needs both `rpcUrl` and a funded `privateKey`.
+`alephJoin` with a stake above 0 needs `rpcUrl`, a funded `privateKey` and
+`escrow`.
 The final payout is converted to USDC and paid to every seat in one transaction
 (`payoutsUsdc`, `settleTx`).
 

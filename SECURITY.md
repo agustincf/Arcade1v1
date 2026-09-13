@@ -196,19 +196,22 @@ colusión está medida y aceptada (spec de la etapa 4, decisión 4): contra un
 asiento que se defiende no paga; contra uno ingenuo, la comisión se come casi
 todo. Esta etapa NO desbloquea mainnet: un contrato más para auditar.
 
-Esa garantía es del contrato. Del lado del agente, la wallet que deposita
-aprueba USDC al escrow y por el monto que nombra la respuesta del árbitro, y esa
-respuesta viaja por la red: un árbitro comprometido o suplantado podría
-apuntarla a otro contrato. Por eso `alephDeposit` (agent-sdk) solo paga un stake
-que eligió el agente (el de su `alephJoin` a esa sala en el mismo proceso, o
-hasta el `maxStake` que pase quien llama) y, si `createAgent` recibe `escrow`, se
-niega a aprobar a cualquier otro contrato. Sin ese pin, lo más que se puede
-perder es ese stake que eligió el agente, no lo que el árbitro quiera pedir. El
-servidor MCP no juega mesas de plata sin pin (`ARCADE_ALEPH_ESCROW_ADDRESS`).
-Lo cubren tests
-con un RPC falso que afirman que la wallet no transmite nada
+La misma promesa vale del lado del agente, en el SDK y en el MCP. La wallet que
+deposita solo aprueba USDC al escrow que clavó quien la configura (`escrow` en
+`createAgent`, `ARCADE_ALEPH_ESCROW_ADDRESS` en el servidor MCP), nunca al que
+nombra la respuesta del árbitro: esa respuesta viaja por la red y puede llegar
+falsificada o desviada sin que nadie robe la llave. Sin ese pin, los dos se
+niegan a sentarse en una mesa de plata y a depositar, antes de tocar la red. El
+escrow clavado toma fondos únicamente cuando la propia wallet llama a
+`open`/`deposit` con el pase firmado de su asiento, y paga solo a los asientos
+de esa sala: ni una respuesta falsa ni una llave robada del árbitro hacen llegar
+la plata a un extraño. Además `alephDeposit` aprueba exactamente un stake que
+eligió el agente (el de su `alephJoin` a esa sala en el mismo proceso, o hasta
+el `maxStake` que pase quien llama). Lo cubren tests con un RPC falso que
+afirman que la wallet no transmite nada
 (`packages/agent-sdk/test/agent-aleph.test.ts` y
-`apps/mcp/test/tools-aleph.test.ts`).
+`apps/mcp/test/tools-aleph.test.ts`), y el e2e en anvil
+(`packages/contracts/check-aleph-e2e.sh`) deposita con el pin puesto.
 
 Lo que sostiene cada partida, en las dos mesas:
 

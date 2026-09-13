@@ -55,10 +55,16 @@ export function walletFromEnv(env: Record<string, string | undefined>): WalletEn
     throw new Error("ARCADE_ALEPH_ESCROW_ADDRESS must be a 0x address (40 hex digits)");
   }
   const maxRaw = present(env.ARCADE_ALEPH_MAX_STAKE);
-  const maxStake = maxRaw === undefined ? undefined : Number(maxRaw);
-  if (maxStake !== undefined && !(Number.isFinite(maxStake) && maxStake > 0)) {
-    throw new Error("ARCADE_ALEPH_MAX_STAKE must be a positive number of USDC");
+  // Solo un decimal positivo LISO ("2", "2.5"). `Number()` acepta mucho más y lo
+  // convierte en silencio: "0x10" arrancaba con un tope de 16 USDC y "1e3" con
+  // uno de 1000, así que un error de tipeo cambiaba el tope en vez de frenar el
+  // arranque. Nada de signo, exponente, hexa, espacios ni separadores.
+  if (maxRaw !== undefined && !(/^\d+(\.\d+)?$/.test(maxRaw) && Number(maxRaw) > 0)) {
+    throw new Error(
+      "ARCADE_ALEPH_MAX_STAKE must be a plain positive decimal number of USDC, like 2 or 2.5",
+    );
   }
+  const maxStake = maxRaw === undefined ? undefined : Number(maxRaw);
   return {
     privateKey: present(env.ARCADE_PRIVATE_KEY) as Hex | undefined,
     rpcUrl,

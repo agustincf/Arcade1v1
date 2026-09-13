@@ -33,12 +33,15 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   de su `alephJoin` a esa sala en el mismo proceso, o hasta el `maxStake` que se
   le pase (`alephDeposit(roomId, { maxStake })`). Sin ninguna de las dos anclas
   se niega antes de tocar la red: la respuesta del árbitro sola no decide
-  cuánto USDC se aprueba, y `escrow` fija a qué contrato. `alephJoin` con stake
-  mayor a 0 exige `rpcUrl` y `privateKey`. En el MCP, `aleph_deposit` con
+  cuánto USDC se aprueba. `escrow` es obligatorio y fija el único contrato al
+  que se aprueba: sin él, `alephJoin` con stake mayor a 0 (que exige también
+  `rpcUrl` y `privateKey`) y `alephDeposit` se niegan antes de tocar la red. En
+  el MCP, `aleph_deposit` con
   `ARCADE_PRIVATE_KEY`, `RPC_URL` (solo http o https: con otra cosa el servidor
   no arranca) y el pin `ARCADE_ALEPH_ESCROW_ADDRESS`, sin el cual las mesas de
   plata quedan apagadas; `ARCADE_ALEPH_MAX_STAKE` pone un tope opcional por
-  mesa. `/aleph` muestra la mesa de plata cuando el árbitro la sirve, la fase de
+  mesa (un decimal liso, como `2` o `2.5`). `/aleph` muestra la mesa de plata
+  cuando el árbitro la sirve, la fase de
   fondeo y el link a la transacción de pago. Las reglas explican con todas las
   letras el **piso de la caja**: el bolsillo es tuyo y la caja se reparte por
   cabeza entre todos, votados o no. Perillas: `ALEPH_STAKES`,

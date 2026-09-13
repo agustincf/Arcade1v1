@@ -104,8 +104,11 @@ app.use(express.json());
 app.use(alephRouter);
 const server = app.listen(0);
 const BASE = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+// Con el pin del escrow, como exige el SDK para jugar plata (y como corre el
+// MCP): sin `escrow`, `alephJoin(2)` y `alephDeposit` se niegan antes de tocar
+// la red. Así esta prueba recorre en cadena la misma config que un agente real.
 const agents = SEAT_KEYS.map((pk) =>
-  createAgent({ arbiterUrl: BASE, privateKey: pk as Hex, rpcUrl: RPC }),
+  createAgent({ arbiterUrl: BASE, privateKey: pk as Hex, rpcUrl: RPC, escrow: ESCROW }),
 );
 
 async function send(

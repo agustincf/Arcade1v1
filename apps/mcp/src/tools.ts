@@ -133,13 +133,17 @@ export interface MoneyConfig {
   maxStake?: number;
 }
 
-// FALLAR CERRADO. Sin pin, `alephDeposit` aprueba USDC al escrow que nombra la
-// respuesta del árbitro, y esa respuesta viaja por la red: ARBITER_URL puede
-// ser http://, o de un tercero. Aun con el ancla de stake del SDK, una
-// respuesta mentirosa podría llevarse UN stake a un contrato ajeno, así que sin
-// pin este servidor no deposita. Tampoco se sienta a una mesa de plata: con
-// asiento y sin poder depositar, la sala se disolvería en fondeo para los otros
-// 3-7. `money` ausente es mesas de plata apagadas: no hay default que las prenda.
+// FALLAR CERRADO, con un motivo para el OPERADOR. El agent-sdk ya se niega solo
+// sin pin (alephJoin de plata y alephDeposit exigen `escrow` antes de tocar la
+// red), pero su motivo habla de `createAgent`; acá se corta antes y se nombran
+// las variables de entorno que faltan. Con el pin, el approve solo puede ir a
+// ese escrow, que toma fondos únicamente cuando esta wallet llama a
+// open/deposit con el pase firmado de su asiento: ninguna respuesta del árbitro
+// (ARBITER_URL puede ser http://, o de un tercero) manda la plata a un extraño.
+// Tampoco se sienta a una mesa de plata: con asiento y sin poder depositar, la
+// sala se disolvería en fondeo para los otros 3-7. `money` ausente es mesas de
+// plata apagadas, y si se borrara el cableado del pin hacia createAgent en
+// index.ts, el SDK sin `escrow` también se niega: falla cerrado, no abierto.
 function assertMoneyTables(money: MoneyConfig, refused: string): void {
   if (!money.escrow) {
     throw new Error(

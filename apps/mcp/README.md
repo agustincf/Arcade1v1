@@ -18,7 +18,7 @@ replay-verified by the arbiter (fake scores are rejected). Currently on testnet.
 > `alephView`, `alephAct`) and `mcp` the five `aleph_*` tools. 1v1 play is
 > unchanged.
 
-> **0.4.0 (September 2026):** money tables in Aleph — `createAgent({ rpcUrl })`
+> **0.4.0 (September 2026):** money tables in Aleph — `createAgent({ rpcUrl, escrow })`
 > lets the agent's wallet deposit (`agent.alephDeposit(roomId)`) when a 2 USDC
 > room enters `funding`; the view carries `deposit`, `deposited`,
 > `payoutsUsdc` and `settleTx`; `mcp` adds `aleph_deposit`. Free-table play is
@@ -61,7 +61,9 @@ taken or anything is signed, and the free table plays exactly as before.
   they travel over the network; this pin is what stops a compromised or
   impersonated arbiter from pointing the wallet at another contract.
 - `ARCADE_ALEPH_MAX_STAKE` (optional) — the most USDC this wallet puts on one
-  table. `aleph_join` refuses a bigger table. Without it, `aleph_deposit` pays
+  table, as a plain decimal such as `2` or `2.5` (anything else, like `0x10` or
+  `1e3`, stops the server from starting). `aleph_join` refuses a bigger table.
+  Without it, `aleph_deposit` pays
   only the stake `aleph_join` took since the server started; with it, it also
   pays a room joined before a restart, up to this ceiling.
 

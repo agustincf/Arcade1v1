@@ -37,7 +37,7 @@ test("walletFromEnv: http y https pasan tal cual; vacío o ausente es 'sin RPC'"
   assert.equal(walletFromEnv({}).rpcUrl, undefined);
 });
 
-test("walletFromEnv: el pin de escrow tiene que ser una address y el tope un número positivo", () => {
+test("walletFromEnv: el pin de escrow tiene que ser una address y el tope un decimal positivo liso", () => {
   const PIN = "0x" + "e".repeat(40);
   const w = walletFromEnv({ ARCADE_ALEPH_ESCROW_ADDRESS: PIN, ARCADE_ALEPH_MAX_STAKE: "2" });
   assert.equal(w.escrow, PIN);
@@ -46,10 +46,36 @@ test("walletFromEnv: el pin de escrow tiene que ser una address y el tope un nú
     () => walletFromEnv({ ARCADE_ALEPH_ESCROW_ADDRESS: "0x1234" }),
     /ARCADE_ALEPH_ESCROW_ADDRESS must be a 0x address/,
   );
-  for (const bad of ["abc", "0", "-2", "Infinity"]) {
+  for (const [good, value] of [
+    ["2.5", 2.5],
+    ["10", 10],
+    ["0.5", 0.5],
+  ] as const) {
+    assert.equal(walletFromEnv({ ARCADE_ALEPH_MAX_STAKE: good }).maxStake, value, good);
+  }
+  // `Number()` convertía en silencio las dos primeras: "0x10" eran 16 USDC y
+  // "1e3" eran 1000. Un error de tipeo tiene que frenar el arranque, no mover
+  // el tope. Lo mismo con signo, espacios, separadores o decimales a medias.
+  for (const bad of [
+    "0x10",
+    "1e3",
+    "+2",
+    " 2",
+    "2 ",
+    "2.",
+    ".5",
+    "1_000",
+    "1,5",
+    "abc",
+    "0",
+    "0.0",
+    "-2",
+    "Infinity",
+    "NaN",
+  ]) {
     assert.throws(
       () => walletFromEnv({ ARCADE_ALEPH_MAX_STAKE: bad }),
-      /ARCADE_ALEPH_MAX_STAKE must be a positive number/,
+      /ARCADE_ALEPH_MAX_STAKE must be a plain positive decimal/,
       bad,
     );
   }

@@ -58,28 +58,31 @@ export function createAgent(opts: {
   timeoutMs?: number;
   /** Reloj inyectable (tests): fecha los `ts` de las firmas y la edad del pase. */
   clock?: () => number;
-  /** RPC de la red del escrow. Con él, la wallet del agente puede DEPOSITAR en
-   *  una mesa de plata de Aleph (`alephDeposit`) y `alephJoin` acepta stake > 0.
-   *  La wallet tiene que tener el USDC del stake y gas. Sin `rpcUrl` el SDK
-   *  solo firma mensajes, como siempre. */
+  /** RPC de la red del escrow. Con él, una `privateKey` fondeada y `escrow`, la
+   *  wallet del agente puede DEPOSITAR en una mesa de plata de Aleph
+   *  (`alephDeposit`) y `alephJoin` acepta stake > 0. La wallet tiene que tener
+   *  el USDC del stake y gas. Sin `rpcUrl` el SDK solo firma mensajes, como
+   *  siempre. */
   rpcUrl?: string;
-  /** El contrato que SE ESPERA custodie las mesas de plata. Opcional en el
-   *  SDK, pero recomendado para una wallet con fondos: `alephDeposit` aprueba
-   *  gastar USDC al escrow que el árbitro indica EN SU RESPUESTA, y esa
-   *  respuesta viaja por la red. Sin pin, el ancla de stake de `alephDeposit`
-   *  acota lo que puede pedir un árbitro comprometido (o apuntado por error a
-   *  otro despliegue) a UN stake que eligió el agente, pero ese stake todavía
-   *  se aprobaría al contrato que él nombre. Clavándolo acá, el depósito falla
-   *  antes del approve. El servidor MCP no juega mesas de plata sin él. */
+  /** El EscrowAleph que custodia las mesas de plata, clavado por quien configura
+   *  el agente. OBLIGATORIO para jugar plata: sin él, `alephJoin` con stake > 0 y
+   *  `alephDeposit` se niegan antes de tocar la red. El árbitro también nombra un
+   *  escrow en su respuesta, pero esa respuesta viaja por la red y puede llegar
+   *  falsificada o desviada. Con el pin, el approve solo puede ir a ESTE
+   *  contrato, que toma fondos únicamente cuando esta misma wallet llama a
+   *  `open`/`deposit` con el pase firmado de su asiento: ninguna respuesta del
+   *  árbitro puede mandar la plata a un extraño. */
   escrow?: string;
 }): {
   address: Hex;
   client: ArbiterClient;
   matchmake(game: string, stake: number): Promise<MatchView>;
   playAndSubmit(args: { game: string; stake: number; strategy?: Strategy }): Promise<MatchView>;
-  /** Aleph: pedir asiento en la mesa gratis (firmado). Idempotente. Antes
-   *  de sentarse, mira la versión de reglas de la mesa abierta (si hay una) y
-   *  corta sin pedir asiento si no coincide. */
+  /** Aleph: pedir asiento (firmado). Stake 0 es la mesa gratis; una mesa de
+   *  plata exige `rpcUrl`, `privateKey` y `escrow` en `createAgent`, y sin ellos
+   *  se niega antes de tocar la red. Idempotente. Antes de sentarse, mira la
+   *  versión de reglas de la mesa abierta (si hay una) y corta sin pedir
+   *  asiento si no coincide. */
   alephJoin(stake?: number): Promise<AlephRoomView>;
   /** Aleph: TU vista privada, con pase de vista firmado (cacheado 8 min).
    *  Si el árbitro rechaza el pase en silencio (200 con la vista pública),
@@ -98,14 +101,15 @@ export function createAgent(opts: {
   ): Promise<AlephRoomView>;
   /** Aleph, mesa de plata: deposita el stake de ESTA wallet en la sala en
    *  `funding` (approve si hace falta, `open` si soy el primero, `deposit` si
-   *  no). Idempotente: si ya deposité, no manda nada. Exige `rpcUrl`.
+   *  no). Idempotente: si ya deposité, no manda nada. Exige `rpcUrl` y
+   *  `escrow` en `createAgent`: sin ellos se niega antes de tocar la red.
    *  Antes de aprobar un solo USDC valida lo que el árbitro pide contra lo que
-   *  eligió el AGENTE, nunca contra la vista del propio árbitro: el stake tiene
-   *  que ser exactamente el que se pidió con `alephJoin` para esa sala en este
-   *  proceso, o no pasar de `limits.maxStake` (USDC) si se da — y sin ninguna
-   *  de las dos anclas se niega antes de tocar la red; la red, contra el
-   *  `rpcUrl`; el escrow, contra el de `createAgent` si se clavó uno. Quien
-   *  deposita desde OTRO proceso (un reinicio, un script aparte) pasa su tope:
+   *  eligió quien configura el AGENTE, nunca contra la vista del propio
+   *  árbitro: el escrow, contra el clavado; el stake, exactamente el que se
+   *  pidió con `alephJoin` para esa sala en este proceso, o no más de
+   *  `limits.maxStake` (USDC) si se da, y sin ninguna de las dos anclas se niega
+   *  antes de tocar la red; la red, contra el `rpcUrl`. Quien deposita desde
+   *  OTRO proceso (un reinicio, un script aparte) pasa su tope:
    *  `alephDeposit(roomId, { maxStake: 2 })`. */
   alephDeposit(roomId: string, limits?: { maxStake?: number }): Promise<AlephDepositResult>;
 } {
@@ -121,7 +125,8 @@ export function createAgent(opts: {
   // on-chain, así que no puede depositar en una mesa de plata. Dejar pasar
   // stake > 0 crea una partida fantasma que nunca se fondea, y el humano que se
   // empareja del otro lado quema gas contra un contrato que revierte. Mejor
-  // fallar acá, claro. (En Aleph sí hay camino: `rpcUrl` + `alephDeposit`.)
+  // fallar acá, claro. (En Aleph sí hay camino: `rpcUrl`, `privateKey` y
+  // `escrow` + `alephDeposit`.)
   function assertFreeTable(stake: number): void {
     if (stake > 0) {
       throw new Error(
@@ -210,16 +215,28 @@ export function createAgent(opts: {
   // (`maxStake`) en vez de recuperar algo que el árbitro pueda reescribir.
   const joinedStakes = new Map<string, number>();
 
+  // Las opciones de `createAgent` que faltan para tocar plata, en el orden en que
+  // se piden. Solo NOMBRES, nunca valores: la clave y la URL del RPC son secretas.
+  function missingOptions(needed: readonly ("rpcUrl" | "privateKey" | "escrow")[]): string[] {
+    return needed.filter((name) => !opts[name]);
+  }
+
   async function alephJoin(stake = 0): Promise<AlephRoomView> {
-    // Una mesa de plata solo tiene sentido si esta wallet puede depositar: sin
-    // RPC, o con la wallet efímera que se sortea cuando no hay `privateKey`
-    // (nadie la fondeó ni puede fondearla a tiempo), se sentaría, la sala
-    // entraría en fondeo y se disolvería a los 10 min haciendo perder el
-    // tiempo a los otros 3-7 asientos.
-    if (stake > 0 && (!opts.rpcUrl || !opts.privateKey)) {
-      throw new Error(
-        `a money table (${stake} USDC) needs a wallet that can deposit: pass rpcUrl and a funded privateKey to createAgent, or use stake 0`,
-      );
+    // Una mesa de plata solo tiene sentido si esta wallet puede depositar sin
+    // quedar expuesta. Sin RPC, con la wallet efímera que se sortea cuando no hay
+    // `privateKey` (nadie la fondeó ni puede fondearla a tiempo), o sin `escrow`
+    // (sin el cual `alephDeposit` se niega), se sentaría para nada: la sala
+    // entraría en fondeo y se disolvería a los 10 min haciendo perder el tiempo
+    // a los otros 3-7 asientos. Se corta antes de tocar la red.
+    if (stake > 0) {
+      const missing = missingOptions(["rpcUrl", "privateKey", "escrow"]);
+      if (missing.length > 0) {
+        throw new Error(
+          `a money table (${stake} USDC) needs a wallet that can deposit safely: pass rpcUrl, a funded ` +
+            `privateKey and escrow (the EscrowAleph address you trust) to createAgent, or use stake 0 ` +
+            `— missing: ${missing.join(", ")}`,
+        );
+      }
     }
     await assertCompatibleRules(stake);
     const auth = await signMatchmake({
@@ -341,7 +358,23 @@ export function createAgent(opts: {
     roomId: string,
     limits: { maxStake?: number } = {},
   ): Promise<AlephDepositResult> {
-    if (!opts.rpcUrl) throw new Error("createAgent needs rpcUrl to deposit in a money table");
+    // SIN PIN DE ESCROW NO SE DEPOSITA, y se corta antes de hablar con el
+    // árbitro o con el RPC. Sin pin, todo lo que decide la plata sale de quien
+    // responde: el contrato al que se aprueba (`deposit.escrow`) y también cada
+    // control de idempotencia, porque la lista `deposited` es del árbitro y
+    // `roomOf`/`paid` se leen del escrow que él mismo nombra. Una respuesta
+    // falsa o desviada (el `arbiterUrl` por defecto es `http://`; no hace falta
+    // robar la llave del árbitro) cobraba así un approve a su contrato POR CADA
+    // llamada, no uno solo. Con el pin, el approve solo puede ir a ese contrato,
+    // que toma fondos únicamente cuando esta wallet llama a `open`/`deposit` con
+    // el pase firmado de su asiento.
+    const missing = missingOptions(["rpcUrl", "escrow"]);
+    if (missing.length > 0) {
+      throw new Error(
+        `alephDeposit needs rpcUrl and escrow (the EscrowAleph address you trust) in createAgent ` +
+          `— missing: ${missing.join(", ")}; not depositing`,
+      );
+    }
     // EL MONTO LO ANCLA EL AGENTE, NO EL ÁRBITRO. `deposit` llega en un JSON
     // por la red (el `arbiterUrl` por defecto es `http://`), y cruzar su
     // `stake` contra el `stake` de la misma vista no prueba nada: las dos
@@ -406,9 +439,10 @@ export function createAgent(opts: {
           `more than your maxStake of ${maxStake} USDC (${stakeToUnits(maxStake)} micro-USDC) — not depositing`,
       );
     }
-    // El escrow solo se puede clavar por configuración: es un dato del
-    // despliegue, no algo que el agente pueda derivar de la sala.
-    if (opts.escrow && opts.escrow.toLowerCase() !== escrow.toLowerCase()) {
+    // El escrow que nombra el árbitro tiene que ser el clavado (obligatorio, se
+    // exigió arriba): es un dato del despliegue, no algo que el agente pueda
+    // derivar de la sala. Sin pin, esta comparación también falla cerrada.
+    if (!opts.escrow || opts.escrow.toLowerCase() !== escrow.toLowerCase()) {
       throw new Error(
         `escrow mismatch in room ${roomId}: the arbiter points at ${escrow} but createAgent ` +
           `pinned ${opts.escrow} — not depositing`,

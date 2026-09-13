@@ -150,8 +150,9 @@ test("alephJoinTool / alephViewTool: la vista vuelve con las acciones legales, `
     () => alephJoinTool(agent, 5),
     /money tables are off.*ARCADE_ALEPH_ESCROW_ADDRESS/,
   );
-  // Con el pin puesto pero este agente sin wallet que deposite (sin rpcUrl ni
-  // privateKey), el que se niega es el SDK, también antes de sentarse.
+  // Con el pin en la config del servidor pero este agente sin wallet que
+  // deposite (sin rpcUrl, privateKey ni escrow), el que se niega es el SDK,
+  // también antes de sentarse.
   await assert.rejects(
     () => alephJoinTool(agent, 5, { escrow: PIN }),
     /needs a wallet that can deposit/,
@@ -267,7 +268,11 @@ test("aleph_deposit: sin pin se niega y dice qué configurar; con pin, sin rpcUr
   );
   await assert.rejects(
     () =>
-      alephDepositTool(createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" }), ROOM, money),
+      alephDepositTool(
+        createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1", escrow: PIN }),
+        ROOM,
+        money,
+      ),
     /not funding/,
   );
 });
@@ -355,13 +360,13 @@ test("aleph_deposit: después de depositar, `mustDeposit` vuelve en false aunque
 });
 
 // ---- La prueba del review, del lado del MCP ---------------------------------
-// El MCP armaba su agente con clave + RPC y SIN pin de escrow. El ancla de stake
-// del SDK sola no alcanza: con un aleph_join en esta sesión, o con el tope
-// ARCADE_ALEPH_MAX_STAKE del operador, el agente SÍ tiene ancla, y un árbitro
-// que miente todavía se llevaría ese stake a un contrato suyo. Por eso el MCP
-// falla cerrado sin pin. El RPC falso llega hasta `eth_sendRawTransaction`, así
-// que "no se transmitió nada" puede fallar de verdad: el último test es el
-// control positivo que lo demuestra por la misma herramienta.
+// El MCP armaba su agente con clave + RPC y SIN pin de escrow, y un árbitro que
+// miente se llevaba el stake a un contrato suyo. Hoy fallan cerradas las dos
+// capas: las herramientas, que sin ARCADE_ALEPH_ESCROW_ADDRESS no se sientan a
+// una mesa de plata ni depositan (con el motivo para el operador), y el
+// agent-sdk, que sin `escrow` en createAgent tampoco. El RPC falso llega hasta
+// `eth_sendRawTransaction`, así que "no se transmitió nada" puede fallar de
+// verdad: el último test es el control positivo por la misma herramienta.
 
 const ATTACKER = "0x" + "a7".repeat(20);
 const WHOLE_BALANCE = 750_000_000n; // 750 USDC: el saldo de una wallet es público
@@ -396,16 +401,16 @@ async function toolError(run: () => Promise<unknown>): Promise<Error> {
   return assert.fail("la herramienta no tenía que terminar bien");
 }
 
-test("aleph_deposit sin pin: un árbitro que miente no hace transmitir nada, ni con el tope del operador puesto", async () => {
+test("aleph_deposit sin pin: un árbitro que miente no hace transmitir nada, falte el pin en el servidor, en el agente o en los dos", async () => {
   const rpc = await fakeRpc("0x7a69", { balance: WHOLE_BALANCE });
   try {
-    // `{}` es la config exacta de la prueba del review (sin pin ni tope). La
-    // segunda le da ancla al SDK con un tope que cubre lo que pide el árbitro:
-    // ahí lo único que frena el approve es el pin del MCP.
+    // `{}` es la config exacta de la prueba del review (sin pin ni tope), con el
+    // agente que armaba el MCP antes del arreglo (clave + RPC, sin pin); la
+    // segunda suma el tope del operador. Frenan las dos capas, y el motivo que
+    // llega es el del operador.
     for (const money of [{}, { maxStake: 750 }]) {
       const fake = new FakeAleph();
       funding(fake, { stake: WHOLE_BALANCE, escrow: ATTACKER });
-      // El agente que armaba el MCP antes del arreglo: clave + RPC, sin pin.
       const agent = createAgent({
         client: fake,
         privateKey: generatePrivateKey(),
@@ -416,17 +421,54 @@ test("aleph_deposit sin pin: un árbitro que miente no hace transmitir nada, ni 
       assert.deepEqual(rpc.calls, [], "ni una lectura de la cadena");
       assert.match(e.message, /money tables are off.*ARCADE_ALEPH_ESCROW_ADDRESS/);
     }
+
+    // El guard del servidor, aislado: el agente SÍ podría depositar (trae pin, y
+    // el tope le da ancla contra un árbitro que apunta a ese mismo escrow), pero
+    // la plata del servidor está apagada. Sin el guard, saldría el approve.
+    const able = new FakeAleph();
+    funding(able, { stake: 2_000_000n, escrow: PIN });
+    const pinnedAgent = createAgent({
+      client: able,
+      privateKey: generatePrivateKey(),
+      rpcUrl: rpc.url,
+      escrow: PIN,
+    });
+    const off = await toolError(() => alephDepositTool(pinnedAgent, ROOM, { maxStake: 2 }));
+    assert.deepEqual(rpc.broadcasts, [], "con la plata apagada no se firma nada");
+    assert.deepEqual(rpc.calls, [], "ni una lectura de la cadena");
+    assert.match(off.message, /money tables are off.*ARCADE_ALEPH_ESCROW_ADDRESS/);
+
+    // Y al revés, como si se borrara el cableado del pin hacia createAgent en
+    // index.ts: el servidor tiene pin, el agente no. Falla cerrado igual, porque
+    // el agent-sdk exige `escrow` antes de tocar la red.
+    const liar = new FakeAleph();
+    funding(liar, { stake: 2_000_000n, escrow: ATTACKER });
+    const unwired = createAgent({
+      client: liar,
+      privateKey: generatePrivateKey(),
+      rpcUrl: rpc.url,
+    });
+    const sdk = await toolError(() =>
+      alephDepositTool(unwired, ROOM, { escrow: PIN, maxStake: 2 }),
+    );
+    assert.deepEqual(rpc.broadcasts, [], "sin pin en el agente tampoco se firma nada");
+    assert.deepEqual(rpc.calls, [], "ni una lectura de la cadena");
+    assert.equal(liar.passes.length, 0, "ni un pedido de vista al árbitro");
+    assert.match(sdk.message, /missing: escrow;/);
   } finally {
     rpc.close();
   }
 });
 
-test("aleph_join sin pin: una mesa de plata se rechaza antes de sentarse, aunque la wallet pueda depositar; con pin, respeta el tope", async () => {
+test("aleph_join sin pin en el servidor: una mesa de plata se rechaza antes de sentarse, aunque el agente pueda depositar; con pin, respeta el tope", async () => {
   const fake = new FakeAleph();
+  // El agente trae clave, RPC y pin propios: si el guard del servidor faltara,
+  // el agent-sdk lo dejaría sentarse. Así el test aísla la config del servidor.
   const agent = createAgent({
     client: fake,
     privateKey: generatePrivateKey(),
     rpcUrl: "http://127.0.0.1:1",
+    escrow: PIN,
   });
   await assert.rejects(
     () => alephJoinTool(agent, 2, { maxStake: 2 }),
