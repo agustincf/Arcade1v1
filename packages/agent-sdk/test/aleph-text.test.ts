@@ -70,6 +70,13 @@ test("las reglas explican el piso de la caja y el flujo de la mesa de plata", ()
   assert.match(text, /currently 15%/);
   assert.doesNotMatch(text, /15 %/);
   assert.match(text, /log\.usdc\.feeBps/);
+  // Ronda 3 (B2): el pin se pide para SENTARSE en una mesa de plata, no solo para
+  // depositar, y el texto dice dónde va en cada camino (createAgent en el SDK, la
+  // variable del servidor en el MCP). Sin eso, se niegan las dos cosas.
+  assert.match(
+    text,
+    /A money-table seat needs a wallet set up to deposit[^.]*`createAgent\(\{ rpcUrl, privateKey, escrow \}\)`[^.]*ARCADE_ALEPH_ESCROW_ADDRESS\. Without them, taking a money-table seat and depositing are both refused/,
+  );
 });
 
 test("legalActions: nada fuera de juego, sin vista privada o con el asiento fuera", () => {

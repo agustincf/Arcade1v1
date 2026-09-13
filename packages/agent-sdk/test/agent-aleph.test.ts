@@ -8,7 +8,7 @@
 // Correr: node --import tsx --test packages/agent-sdk/test/agent-aleph.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { recoverMessageAddress, type Hex } from "viem";
+import { getAddress, isAddress, recoverMessageAddress, type Hex } from "viem";
 import { generatePrivateKey } from "viem/accounts";
 import {
   matchmakeAuthMessage,
@@ -269,12 +269,13 @@ test("alephDeposit: con el escrow clavado en createAgent, otro escrow no se apru
     () => paying.alephDeposit(ROOM, { maxStake: 2 }),
     (e: Error) => /escrow mismatch/.test(e.message) && e.message.includes(pinned),
   );
-  // Con el escrow que sí corresponde (y otra capitalización) el control no
-  // estorba: el depósito sigue de largo hasta la cadena, que acá no existe.
+  // Con el escrow que sí corresponde (y otra capitalización: los 40 hex en
+  // mayúsculas, porque `0X` ya no es un pin) el control no estorba: el depósito
+  // sigue de largo hasta la cadena, que acá no existe.
   const ok = createAgent({
     client: fake,
     rpcUrl: "http://127.0.0.1:1",
-    escrow: fake.deposit!.escrow.toUpperCase(),
+    escrow: "0x" + fake.deposit!.escrow.slice(2).toUpperCase(),
   });
   await assert.rejects(
     () => ok.alephDeposit(ROOM, { maxStake: 2 }),
@@ -587,6 +588,127 @@ test("alephDeposit repetido contra un árbitro que miente: sin pin no transmite 
     }
   } finally {
     rpc.close();
+  }
+});
+
+// ---- El pin tiene que ser una dirección que el depósito pueda usar ----------
+// El guard de plata solo miraba si había ALGO en `escrow`: "0x", unos espacios o
+// la dirección cero contaban como pin puesto. El agente se sentaba a una mesa que
+// no podía pagar (cada depósito moría en "escrow mismatch" y la sala se disolvía
+// en fondeo para los demás), y si el árbitro servía la misma cero, firmaba un
+// approve a 0x000…000. Ahora `createAgent` tira al crearse, antes de tocar la
+// red, con un mensaje que no repite el valor.
+
+const PIN_ERROR =
+  "createAgent: escrow must be the EscrowAleph contract address — 0x followed by 40 hex digits, not the zero address (its value is not shown here)";
+/** Una dirección de contrato con dígitos y letras: la primera que despliega anvil. */
+const PIN_LOWER = "0x5fbdb2315678afecb367f032d93f642f64180aa3";
+const ZERO_ADDRESS = "0x" + "0".repeat(40);
+
+test("createAgent: un escrow que no es una dirección usable tira al crear el agente, sin repetir el valor ni tocar la red", () => {
+  const fake = new FakeAleph();
+  const privateKey = generatePrivateKey();
+  const unusable: [string, unknown][] = [
+    ["solo espacios", "   "],
+    ['"0x"', "0x"],
+    ["la dirección cero", ZERO_ADDRESS],
+    // La cero no tiene letras hexa: pasada a mayúsculas solo cambia la x.
+    ["la dirección cero en mayúsculas", ZERO_ADDRESS.toUpperCase()],
+    ["39 hex", PIN_LOWER.slice(0, -1)],
+    ["41 hex", PIN_LOWER + "a"],
+    ["40 caracteres que no son hex", "0x" + "zq".repeat(20)],
+    ["40 hex sin 0x", PIN_LOWER.slice(2)],
+    ["una dirección válida con espacios alrededor", ` ${PIN_LOWER} `],
+    ["0X y 40 hex", "0X" + PIN_LOWER.slice(2)],
+    ["un número", 1234567],
+    // No es un string, aunque su texto sea una dirección válida.
+    ["un String envuelto", new String(PIN_LOWER)],
+    // El motivo de no repetir el valor: una clave pegada en el campo equivocado.
+    ["una clave privada pegada por error", generatePrivateKey()],
+  ];
+  for (const [label, escrow] of unusable) {
+    assert.throws(
+      () =>
+        createAgent({
+          client: fake,
+          rpcUrl: "http://127.0.0.1:1",
+          privateKey,
+          escrow: escrow as string,
+        }),
+      (e: Error) => {
+        assert.equal(e.message, PIN_ERROR, label);
+        // Todo valor que no sea parte del texto fijo ("0x", espacios) tiene que
+        // faltar en el mensaje.
+        const shown = String(escrow).trim();
+        if (shown !== "" && !PIN_ERROR.includes(shown)) {
+          assert.ok(!e.message.includes(shown), `${label}: el mensaje no repite el valor`);
+        }
+        return true;
+      },
+      label,
+    );
+  }
+  assert.deepEqual(fake.calls, [], "tira al crear el agente: ni un pedido al árbitro");
+});
+
+test("createAgent: el escrow en minúsculas, con checksum, en mayúsculas o con un checksum inválido se acepta y el depósito sigue andando", async () => {
+  // El checksum EIP-55 no se exige (igual que ARCADE_ALEPH_ESCROW_ADDRESS en el
+  // MCP) y el cruce con el escrow que sirve el árbitro no distingue mayúsculas:
+  // las cuatro formas terminan en el mismo approve de un stake a ese escrow.
+  const checksum = getAddress(PIN_LOWER);
+  const upper = "0x" + PIN_LOWER.slice(2).toUpperCase();
+  const at = [...checksum].findIndex((ch, k) => k > 1 && /[a-f]/i.test(ch));
+  const letter = checksum.charAt(at);
+  const flipped = letter === letter.toUpperCase() ? letter.toLowerCase() : letter.toUpperCase();
+  const badChecksum = checksum.slice(0, at) + flipped + checksum.slice(at + 1);
+  assert.equal(isAddress(badChecksum), false, "la mixta de verdad tiene un checksum inválido");
+  const rpc = await fakeRpc("0x7a69", { balance: WHOLE_BALANCE });
+  try {
+    for (const [label, escrow] of [
+      ["minúsculas", PIN_LOWER],
+      ["checksum EIP-55", checksum],
+      ["mayúsculas", upper],
+      ["checksum inválido", badChecksum],
+    ]) {
+      // El árbitro sirve el escrow con checksum, como lo imprime el despliegue.
+      const fake = fundingFake(depositFixture({ escrow: checksum }));
+      const agent = createAgent({
+        client: fake,
+        privateKey: generatePrivateKey(),
+        rpcUrl: rpc.url,
+        escrow,
+      });
+      await agent.alephJoin(2);
+      const before = rpc.broadcasts.length;
+      await depositError(() => agent.alephDeposit(ROOM)); // el RPC falso nunca mina
+      const sent: Broadcast[] = rpc.broadcasts.slice(before);
+      assert.equal(sent.length, 1, `${label}: el approve sí se transmitió`);
+      assert.equal(sent[0].functionName, "approve", label);
+      assert.equal(String(sent[0].args[0]).toLowerCase(), PIN_LOWER, `${label}: al escrow`);
+      assert.equal(sent[0].args[1], 2_000_000n, `${label}: exactamente un stake`);
+    }
+  } finally {
+    rpc.close();
+  }
+});
+
+test('createAgent: escrow undefined o "" sigue siendo "sin pin": se crea el agente y la plata se niega con missing: escrow', async () => {
+  for (const escrow of [undefined, ""]) {
+    const fake = fundingFake();
+    const agent = createAgent({
+      client: fake,
+      rpcUrl: "http://127.0.0.1:1",
+      privateKey: generatePrivateKey(),
+      escrow,
+    });
+    const label = `escrow ${JSON.stringify(escrow)}`;
+    await assert.rejects(() => agent.alephJoin(2), /missing: escrow$/, label);
+    await assert.rejects(
+      () => agent.alephDeposit(ROOM, { maxStake: 2 }),
+      /missing: escrow;/,
+      label,
+    );
+    assert.deepEqual(fake.calls, [], `${label}: ni un pedido al árbitro`);
   }
 });
 

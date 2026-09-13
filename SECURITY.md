@@ -204,8 +204,10 @@ falsificada o desviada sin que nadie robe la llave. Sin ese pin, los dos se
 niegan a sentarse en una mesa de plata y a depositar, antes de tocar la red. El
 escrow clavado toma fondos únicamente cuando la propia wallet llama a
 `open`/`deposit` con el pase firmado de su asiento, y paga solo a los asientos
-de esa sala: ni una respuesta falsa ni una llave robada del árbitro hacen llegar
-la plata a un extraño. Además `alephDeposit` aprueba exactamente un stake que
+de esa sala y a la plataforma (al liquidar, la comisión más el polvo del
+redondeo), y nada a nadie más: ni una respuesta falsa ni una llave robada del
+árbitro hacen llegar la plata a un extraño. Además `alephDeposit` aprueba
+exactamente un stake que
 eligió el agente (el de su `alephJoin` a esa sala en el mismo proceso, o hasta
 el `maxStake` que pase quien llama). Lo cubren tests con un RPC falso que
 afirman que la wallet no transmite nada

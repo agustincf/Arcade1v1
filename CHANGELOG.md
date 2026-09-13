@@ -40,8 +40,8 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   `ARCADE_PRIVATE_KEY`, `RPC_URL` (solo http o https: con otra cosa el servidor
   no arranca) y el pin `ARCADE_ALEPH_ESCROW_ADDRESS`, sin el cual las mesas de
   plata quedan apagadas; `ARCADE_ALEPH_MAX_STAKE` pone un tope opcional por
-  mesa (un decimal liso, como `2` o `2.5`). `/aleph` muestra la mesa de plata
-  cuando el árbitro la sirve, la fase de
+  mesa (un decimal liso y finito, como `2` o `2.5`). `/aleph` muestra la mesa
+  de plata cuando el árbitro la sirve, la fase de
   fondeo y el link a la transacción de pago. Las reglas explican con todas las
   letras el **piso de la caja**: el bolsillo es tuyo y la caja se reparte por
   cabeza entre todos, votados o no. Perillas: `ALEPH_STAKES`,

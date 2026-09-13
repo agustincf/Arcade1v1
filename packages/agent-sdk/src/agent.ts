@@ -71,7 +71,9 @@ export function createAgent(opts: {
    *  falsificada o desviada. Con el pin, el approve solo puede ir a ESTE
    *  contrato, que toma fondos únicamente cuando esta misma wallet llama a
    *  `open`/`deposit` con el pase firmado de su asiento: ninguna respuesta del
-   *  árbitro puede mandar la plata a un extraño. */
+   *  árbitro puede mandar la plata a un extraño. Va la dirección del contrato:
+   *  `0x` + 40 hex y no la cero (el checksum no se exige); `undefined` o "" es
+   *  "sin pin", y cualquier otro valor hace tirar a `createAgent`. */
   escrow?: string;
 }): {
   address: Hex;
@@ -113,6 +115,30 @@ export function createAgent(opts: {
    *  `alephDeposit(roomId, { maxStake: 2 })`. */
   alephDeposit(roomId: string, limits?: { maxStake?: number }): Promise<AlephDepositResult>;
 } {
+  // UN PIN QUE NO SE PUEDE USAR NO CUENTA COMO PIN, y se corta acá, al crear el
+  // agente: antes de sentarse y de tocar la red. `missingOptions` (más abajo)
+  // solo mira si hay algo, así que "0x", unos espacios o la dirección cero
+  // pasaban por pin puesto: `alephJoin` se sentaba a una mesa que no podía pagar
+  // (cada depósito moría en "escrow mismatch" y la sala se disolvía en fondeo
+  // para los otros asientos) y, si el árbitro servía la misma cero, se firmaba un
+  // approve a 0x000…000. `undefined` y "" siguen siendo "sin pin": la plata se
+  // niega después, con `missing: escrow`. Es la regla que el MCP aplica a
+  // ARCADE_ALEPH_ESCROW_ADDRESS (apps/mcp/src/config.ts): `0x` + 40 hex y no la
+  // cero, sin recortar espacios ni exigir checksum EIP-55; el cruce con el escrow
+  // del árbitro sigue sin distinguir mayúsculas. El mensaje NO repite el valor:
+  // en este campo se puede pegar una clave privada por error.
+  const pin: unknown = opts.escrow;
+  if (
+    pin !== undefined &&
+    pin !== "" &&
+    (typeof pin !== "string" ||
+      !/^0x[0-9a-fA-F]{40}$/.test(pin) ||
+      pin.toLowerCase() === "0x" + "0".repeat(40))
+  ) {
+    throw new Error(
+      "createAgent: escrow must be the EscrowAleph contract address — 0x followed by 40 hex digits, not the zero address (its value is not shown here)",
+    );
+  }
   const wallet = opts.privateKey
     ? { privateKey: opts.privateKey, address: privateKeyToAccount(opts.privateKey).address }
     : randomWallet();

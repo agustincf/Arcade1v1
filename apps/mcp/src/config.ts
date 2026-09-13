@@ -50,16 +50,32 @@ export function walletFromEnv(env: Record<string, string | undefined>): WalletEn
   }
   const escrow = present(env.ARCADE_ALEPH_ESCROW_ADDRESS);
   // Un pin mal escrito no abre nada (cada depósito fallaría "escrow mismatch"),
-  // pero se descubriría recién con la sala en fondeo y el reloj corriendo.
-  if (escrow !== undefined && !/^0x[0-9a-fA-F]{40}$/.test(escrow)) {
-    throw new Error("ARCADE_ALEPH_ESCROW_ADDRESS must be a 0x address (40 hex digits)");
+  // pero se descubriría recién con la sala en fondeo y el reloj corriendo. La
+  // dirección cero tampoco es un pin: pasaba el formato, el servidor arrancaba
+  // con las mesas de plata prendidas, aleph_join se sentaba a una mesa que no
+  // podía pagar y, si el árbitro servía la misma cero, la wallet firmaba un
+  // approve a 0x000…000. El agent-sdk aplica la misma regla en createAgent.
+  if (
+    escrow !== undefined &&
+    (!/^0x[0-9a-fA-F]{40}$/.test(escrow) || escrow.toLowerCase() === "0x" + "0".repeat(40))
+  ) {
+    throw new Error(
+      "ARCADE_ALEPH_ESCROW_ADDRESS must be a 0x address (40 hex digits), not the zero address",
+    );
   }
   const maxRaw = present(env.ARCADE_ALEPH_MAX_STAKE);
   // Solo un decimal positivo LISO ("2", "2.5"). `Number()` acepta mucho más y lo
   // convierte en silencio: "0x10" arrancaba con un tope de 16 USDC y "1e3" con
   // uno de 1000, así que un error de tipeo cambiaba el tope en vez de frenar el
-  // arranque. Nada de signo, exponente, hexa, espacios ni separadores.
-  if (maxRaw !== undefined && !(/^\d+(\.\d+)?$/.test(maxRaw) && Number(maxRaw) > 0)) {
+  // arranque. Nada de signo, exponente, hexa, espacios ni separadores. Y FINITO:
+  // un decimal liso más grande que Number.MAX_VALUE (unos 309 dígitos) es
+  // `Infinity` para `Number()`, y con ese tope aleph_join se sentaba a cualquier
+  // mesa mientras cada aleph_deposit fallaba (el agent-sdk no acepta un maxStake
+  // infinito).
+  if (
+    maxRaw !== undefined &&
+    !(/^\d+(\.\d+)?$/.test(maxRaw) && Number.isFinite(Number(maxRaw)) && Number(maxRaw) > 0)
+  ) {
     throw new Error(
       "ARCADE_ALEPH_MAX_STAKE must be a plain positive decimal number of USDC, like 2 or 2.5",
     );

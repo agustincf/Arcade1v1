@@ -87,3 +87,33 @@ test("walletFromEnv: el pin de escrow tiene que ser una address y el tope un dec
     maxStake: undefined,
   });
 });
+
+test("walletFromEnv: la dirección cero no es un pin: no arranca, con el mensaje textual y sin repetir el valor", () => {
+  const ZERO = "0x" + "0".repeat(40);
+  // La cero no tiene letras hexa: pasada a mayúsculas solo cambia la x.
+  for (const pin of [ZERO, ZERO.toUpperCase()]) {
+    assert.throws(
+      () => walletFromEnv({ ARCADE_ALEPH_ESCROW_ADDRESS: pin }),
+      (e: Error) =>
+        e.message ===
+          "ARCADE_ALEPH_ESCROW_ADDRESS must be a 0x address (40 hex digits), not the zero address" &&
+        !e.message.includes(pin),
+      pin,
+    );
+  }
+});
+
+test("walletFromEnv: un tope que Number() lee como Infinity no arranca", () => {
+  // Decimales lisos más grandes que Number.MAX_VALUE. Con ese tope, aleph_join se
+  // sentaba a cualquier mesa y cada aleph_deposit fallaba. Los 310 dígitos son el
+  // caso del re-review.
+  for (const huge of ["9".repeat(400), "1" + "0".repeat(309)]) {
+    assert.throws(
+      () => walletFromEnv({ ARCADE_ALEPH_MAX_STAKE: huge }),
+      (e: Error) =>
+        e.message ===
+        "ARCADE_ALEPH_MAX_STAKE must be a plain positive decimal number of USDC, like 2 or 2.5",
+      `${huge.length} dígitos`,
+    );
+  }
+});
