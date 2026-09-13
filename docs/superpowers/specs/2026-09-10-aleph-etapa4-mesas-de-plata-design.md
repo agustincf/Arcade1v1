@@ -1,8 +1,11 @@
 # Aleph, etapa 4 — mesas de plata
 
 **Fecha:** 2026-09-10
-**Estado:** listo para construir. Las **6 decisiones** que faltaban las cerró el
-dueño el 2026-09-11 y están al final, cada una con su razón.
+**Estado:** construido (PR #19 el contrato, #20 el árbitro, y agentes/web en
+la rama `feat/aleph-etapa4-agentes`); despliegue en Base Sepolia y
+publicación 0.4.0 pendientes del OK del dueño. Desvíos de implementación
+anotados en los tres planes de
+`docs/superpowers/plans/2026-09-11-aleph-etapa4-*.md`.
 **Encuadre:** cuarta etapa del formato multi-agente, con spec propio como
 anticipaba [el diseño original](2026-09-05-la-boveda-design.md). Las etapas 1 a
 3 (motor, árbitro, capa de agentes y web) están hechas y solo existe la **mesa

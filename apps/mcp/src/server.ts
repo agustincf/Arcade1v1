@@ -16,6 +16,8 @@ import {
   alephJoinTool,
   alephViewTool,
   alephActTool,
+  alephDepositTool,
+  type MoneyConfig,
 } from "./tools";
 
 type Agent = ReturnType<typeof createAgent>;
@@ -23,9 +25,14 @@ const ok = (data: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
 });
 
-export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpServer {
-  const { agent, client } = deps;
-  const server = new McpServer({ name: "arcade1v1", version: "0.3.0" });
+export function buildServer(deps: {
+  agent: Agent;
+  client: ArbiterClient;
+  /** Las mesas de plata del operador (config.ts). Ausente = apagadas. */
+  money?: MoneyConfig;
+}): McpServer {
+  const { agent, client, money = {} } = deps;
+  const server = new McpServer({ name: "arcade1v1", version: "0.4.0" });
 
   server.registerTool(
     "list_games",
@@ -144,7 +151,7 @@ export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpS
     {
       title: "Aleph: rules",
       description:
-        "Rules and playing protocol of Aleph, the 4–8 agent table with one pot (format id aleph). Read once before aleph_join. Only the free table exists.",
+        "Rules and playing protocol of Aleph, the 4–8 agent table with one pot (format id aleph). Read once before aleph_join.",
     },
     async () => ok(alephRulesTool()),
   );
@@ -163,17 +170,17 @@ export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpS
     {
       title: "Aleph: take a seat",
       description:
-        "Take a seat with this session's wallet (signed). The room starts at 8 seats or after 10 minutes with at least 4; idempotent while you hold a seat. Returns your private view plus `legal` (the actions you may send now) and `me`, your own seat address (lowercase, like every address in `seats[]`) — never vote or whisper to it, and use it to tell your own `say` messages apart from everyone else's in `messages`. Then poll with aleph_view every few seconds and act with aleph_act before each phase's `deadline` (about 2 minutes), passing the `stage`/`phase` of the view you decided on. The wallet is ephemeral per MCP session: play the whole room in this session.",
+        "Take a seat with this session's wallet (signed). The room starts at 8 seats or after 10 minutes with at least 4; idempotent while you hold a seat. Returns your private view plus `legal` (the actions you may send now) and `me`, your own seat address (lowercase, like every address in `seats[]`) — never vote or whisper to it, and use it to tell your own `say` messages apart from everyone else's in `messages`. Then poll with aleph_view every few seconds and act with aleph_act before each phase's `deadline` (about 2 minutes), passing the `stage`/`phase` of the view you decided on. Unless the operator set ARCADE_PRIVATE_KEY, this server's wallet is ephemeral (a new one each time the server starts), so play the whole room without restarting it; with ARCADE_PRIVATE_KEY your seat is that fixed wallet.",
       inputSchema: {
         stake: z
           .number()
           .describe(
-            "Use 0: the free table, the only one in this version (this server cannot deposit USDC).",
+            "0 = the free table. A money table (see aleph_lobbies `stakes`, e.g. 2 USDC on testnet) is refused before you take a seat unless the operator started this server with ARCADE_PRIVATE_KEY (a dedicated wallet holding the stake in USDC plus gas), RPC_URL and ARCADE_ALEPH_ESCROW_ADDRESS (the escrow that wallet may pay into), and the stake is within ARCADE_ALEPH_MAX_STAKE if set. Once seated, the room enters `funding` and you must call aleph_deposit before the deadline, without restarting this server.",
           )
           .default(0),
       },
     },
-    async ({ stake }) => ok(await alephJoinTool(agent, stake)),
+    async ({ stake }) => ok(await alephJoinTool(agent, stake, money)),
   );
 
   server.registerTool(
@@ -207,6 +214,17 @@ export function buildServer(deps: { agent: Agent; client: ArbiterClient }): McpS
     },
     async ({ roomId, action, stage, phase }) =>
       ok(await alephActTool(agent, roomId, action, { stage, phase })),
+  );
+
+  server.registerTool(
+    "aleph_deposit",
+    {
+      title: "Aleph: deposit my stake",
+      description:
+        "Money tables only. When aleph_view shows `mustDeposit: true` (the room is `funding` and you have not deposited), this sends your stake from this server's wallet to the escrow: approve exactly the stake if needed, then `open` (if you are the first) or `deposit`. Idempotent. Refused unless the operator set ARCADE_PRIVATE_KEY, RPC_URL and ARCADE_ALEPH_ESCROW_ADDRESS. It pays only into that escrow, and only the stake you took the seat with via aleph_join since this server started (or up to ARCADE_ALEPH_MAX_STAKE, if the operator set it): an amount named only by the arbiter is refused. Then keep polling aleph_view: the room starts once every seat deposited, or dissolves (refunding everyone) if one is missing at the deadline.",
+      inputSchema: { roomId: z.string() },
+    },
+    async ({ roomId }) => ok(await alephDepositTool(agent, roomId, money)),
   );
 
   return server;

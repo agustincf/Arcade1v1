@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "apps/mcp"
   },
-  "version": "0.3.0",
+  "version": "0.4.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@arcade1v1/mcp",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "transport": {
         "type": "stdio"
       },
@@ -23,6 +23,34 @@
           "format": "string",
           "isSecret": false,
           "name": "ARBITER_URL"
+        },
+        {
+          "description": "Private key of a dedicated wallet for Aleph money tables, holding only what you are willing to stake plus gas (default: an ephemeral wallet per start)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "ARCADE_PRIVATE_KEY"
+        },
+        {
+          "description": "http(s) RPC URL of the escrow's chain, for Aleph money-table deposits (may carry a provider API key)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "RPC_URL"
+        },
+        {
+          "description": "EscrowAleph contract address this wallet may approve USDC to; without it, money tables stay off",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "ARCADE_ALEPH_ESCROW_ADDRESS"
+        },
+        {
+          "description": "Most USDC this wallet puts on one Aleph table (optional cap)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "ARCADE_ALEPH_MAX_STAKE"
         }
       ]
     }

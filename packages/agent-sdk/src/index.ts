@@ -6,12 +6,16 @@ export type {
   AlephRoomView,
   AlephRoomStatus,
   AlephSeatView,
+  AlephDeposit,
+  AlephSettleOutcome,
+  AlephRefundOutcome,
   AlephLobby,
   AlephLog,
   AlephViewPass,
   AlephActBody,
 } from "./client";
 export { createAgent, VIEW_PASS_MAX_AGE_MS } from "./agent";
+export type { AlephDepositResult } from "./agent";
 export { strategy2048, DEFAULT_STRATEGIES } from "./strategies";
 export type { Strategy, PlayResult } from "./strategies";
 export { randomWallet, signScore, signMatchmake, signAlephAction, signAlephView } from "./sign";

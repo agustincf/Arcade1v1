@@ -1,5 +1,7 @@
 // Lógica de cada herramienta MCP como funciones puras (reciben un ArbiterClient
-// inyectable). server.ts solo las envuelve en herramientas MCP. Sin on-chain.
+// inyectable). server.ts solo las envuelve en herramientas MCP. Lo único
+// on-chain (el depósito de una mesa de plata de Aleph) lo manda el agent-sdk, y
+// solo con la config de plata del operador (MoneyConfig, más abajo).
 import {
   ArbiterClient,
   createAgent,
@@ -11,6 +13,7 @@ import {
   type Phase,
   type AlephLobby,
   type AlephRoomView,
+  type AlephDepositResult,
 } from "@arcade1v1/agent-sdk";
 
 type Agent = ReturnType<typeof createAgent>;
@@ -99,6 +102,10 @@ export type AlephAgentView = AlephRoomView & {
    *  negativo), o `undefined` si la sala no tiene fase con plazo (lobby,
    *  settled). Actuar después de que llega a 0 es una fase que ya cerró. */
   msLeft?: number;
+  /** Mesa de plata en `funding` y este asiento todavía no depositó: la
+   *  próxima llamada es `aleph_deposit`, no `aleph_act`. En el resultado del
+   *  propio `aleph_deposit` siempre es false (ver alephDepositTool). */
+  mustDeposit: boolean;
 };
 
 function withLegal(agent: Agent, v: AlephRoomView): AlephAgentView {
@@ -109,18 +116,72 @@ function withLegal(agent: Agent, v: AlephRoomView): AlephAgentView {
     me: agent.address.toLowerCase(),
     now,
     msLeft: v.deadline === undefined ? undefined : Math.max(0, v.deadline - now),
+    mustDeposit:
+      v.status === "funding" &&
+      !!v.deposit &&
+      !(v.deposited ?? []).some((a) => a.toLowerCase() === agent.address.toLowerCase()),
   };
+}
+
+/** Las mesas de plata de ESTE servidor, fijadas por el operador al arrancar
+ *  (config.ts). Vienen del entorno, nunca de los argumentos de una herramienta:
+ *  el modelo no elige a qué contrato se aprueba USDC ni el tope por mesa. */
+export interface MoneyConfig {
+  /** ARCADE_ALEPH_ESCROW_ADDRESS: el mismo pin que recibe `createAgent`. */
+  escrow?: string;
+  /** ARCADE_ALEPH_MAX_STAKE: lo máximo, en USDC, que la wallet pone en una mesa. */
+  maxStake?: number;
+}
+
+// FALLAR CERRADO, con un motivo para el OPERADOR. El agent-sdk ya se niega solo
+// sin pin (alephJoin de plata y alephDeposit exigen `escrow` antes de tocar la
+// red), pero su motivo habla de `createAgent`; acá se corta antes y se nombran
+// las variables de entorno que faltan. Con el pin, el approve solo puede ir a
+// ese escrow, que toma fondos únicamente cuando esta wallet llama a
+// open/deposit con el pase firmado de su asiento: ninguna respuesta del árbitro
+// (ARBITER_URL puede ser http://, o de un tercero) manda la plata a un extraño.
+// Tampoco se sienta a una mesa de plata: con asiento y sin poder depositar, la
+// sala se disolvería en fondeo para los otros 3-7. `money` ausente es mesas de
+// plata apagadas, y si se borrara el cableado del pin hacia createAgent en
+// index.ts, el SDK sin `escrow` también se niega: falla cerrado, no abierto.
+function assertMoneyTables(money: MoneyConfig, refused: string): void {
+  if (!money.escrow) {
+    throw new Error(
+      `${refused}: money tables are off on this MCP server. Its operator has to set ` +
+        `ARCADE_ALEPH_ESCROW_ADDRESS (the EscrowAleph contract this wallet may approve USDC to), ` +
+        `together with ARCADE_PRIVATE_KEY and RPC_URL, and restart it. The free table (stake 0) needs none of them.`,
+    );
+  }
 }
 
 export function alephRulesTool(): { rulesV: number; rules: string } {
   return { rulesV: ALEPH_RULES_V, rules: describeAlephRules() };
 }
 
-export async function alephLobbiesTool(client: ArbiterClient): Promise<{ lobbies: AlephLobby[] }> {
-  return { lobbies: await client.alephLobbies() };
+export async function alephLobbiesTool(
+  client: ArbiterClient,
+): Promise<{ lobbies: AlephLobby[]; stakes: number[] }> {
+  // alephLobbiesInfo (no alephLobbies): sin `stakes` el modelo solo se entera
+  // de que existe una mesa de plata si YA hay una sala abierta para ese stake
+  // en este instante — la descripción de aleph_join apunta acá para el resto
+  // de los casos (fix de review, ver informe de la tarea).
+  return client.alephLobbiesInfo();
 }
 
-export async function alephJoinTool(agent: Agent, stake = 0): Promise<AlephAgentView> {
+export async function alephJoinTool(
+  agent: Agent,
+  stake = 0,
+  money: MoneyConfig = {},
+): Promise<AlephAgentView> {
+  if (stake > 0) {
+    const refused = `not taking a seat at the ${stake} USDC table`;
+    assertMoneyTables(money, refused);
+    if (money.maxStake !== undefined && stake > money.maxStake) {
+      throw new Error(
+        `${refused}: this server's operator caps a table at ${money.maxStake} USDC (ARCADE_ALEPH_MAX_STAKE)`,
+      );
+    }
+  }
   return withLegal(agent, await agent.alephJoin(stake));
 }
 
@@ -150,4 +211,68 @@ export async function alephActTool(
   // phase mismatch" y el modelo puede volver a mirar y decidir, que es lo que
   // promete la descripción de la herramienta.
   return withLegal(agent, await agent.alephAct(roomId, validateAction(action), at));
+}
+
+// Nunca dejar que una URL entera sobreviva al resultado de esta herramienta:
+// el RPC del operador (RPC_URL) puede traer una API key en el path, como
+// suelen armarse las URLs de Alchemy o Infura, y el transporte de viem
+// interpola la URL completa en el mensaje cuando el pedido falla (caído,
+// limitado, mal configurado) — el PRIMER pedido de red de `alephDeposit` es
+// justamente contra ese RPC. Los errores que agent-sdk arma a mano (ver
+// agent.ts: stake que no coincide, chainId desconocido, sala fuera de
+// `funding`, etc.) nunca mencionan `rpcUrl`, así que enmascarar CUALQUIER URL
+// es indistinguible de no tocar nada para esos casos — no hace falta (ni
+// conviene) mantener una lista de mensajes "conocidos" que se desactualice
+// cada vez que `alephDeposit` sume un guard nuevo: se enmascara la FORMA
+// (una URL), no el contenido de un mensaje puntual.
+//
+// El esquema NO se enumera (nunca `https?` a secas): `createAgent` arma sus
+// dos clientes con `http(opts.rpcUrl)` sin mirar el esquema, así que un
+// RPC_URL `wss://` (Alchemy e Infura emiten esos endpoints junto a los
+// https://, así que es una config real, no rebuscada) hace que TODO pedido
+// falle —fetch nativo no abre `wss:`— y viem lo envuelve con la URL entera
+// en el mensaje igual. Enumerar "http, https" se queda corto ahí y con
+// cualquier esquema futuro que a nadie se le ocurra hoy; en cambio, la FORMA
+// genérica de un esquema de URI (RFC 3986: letra, luego letras/dígitos/+/-/.,
+// luego "://") cubre todos por igual sin lista que mantener.
+function withoutUrls(message: string): string {
+  return message.replace(/[a-z][a-z0-9+.-]*:\/\/\S+/gi, "[rpc url redacted]");
+}
+
+export async function alephDepositTool(
+  agent: Agent,
+  roomId: string,
+  money: MoneyConfig = {},
+): Promise<AlephAgentView & { step: "open" | "deposit" | "already"; txHash?: string }> {
+  // Antes que nada y afuera del try: este motivo es para el operador y no trae
+  // ninguna URL, así que no pasa por la máscara.
+  assertMoneyTables(money, "not depositing");
+  let r: AlephDepositResult;
+  try {
+    // El tope del operador viaja como ancla de `alephDeposit`. Sin él, el SDK
+    // solo paga el stake con que ESTE proceso se sentó por aleph_join: después
+    // de un reinicio del servidor la sala queda sin ancla y no se deposita.
+    r = await agent.alephDeposit(roomId, { maxStake: money.maxStake });
+  } catch (e) {
+    // Se re-lanza un Error NUEVO, deliberadamente SIN `cause`: adjuntar el
+    // objeto original reabriría el mismo hueco que esto sanea, porque
+    // `.message` (y cualquier otra propiedad de un error de viem, como
+    // `.shortMessage` o `.details`) seguiría alcanzable desde `err.cause` con
+    // la URL sin enmascarar. El motivo del fallo igual llega al modelo: solo
+    // se pierde la URL, nunca el resto del mensaje. Único uso de
+    // `preserve-caught-error` en el repo — `no-control-regex` en
+    // apps/server/src/agents.ts:134 es un disable del mismo ESTILO (una
+    // regla general, una excepción puntual con motivo en el propio
+    // comentario) pero para OTRA regla, no esta.
+    // eslint-disable-next-line preserve-caught-error -- a propósito, no un olvido: `cause: e` reintroduciría la URL sin enmascarar (ver comentario arriba)
+    throw new Error(withoutUrls(e instanceof Error ? e.message : String(e)));
+  }
+  // La vista que se devuelve es la de ANTES de depositar (el árbitro ve el
+  // depósito en su próximo tick, unos segundos): el modelo sigue sondeando
+  // aleph_view hasta que `deposited` lo incluya y la sala pase a `playing`.
+  // Por eso `mustDeposit` va forzado a false: calculado sobre esa vista vieja,
+  // un `open` o `deposit` exitoso volvía diciendo "depositá ya" e invitaba al
+  // modelo a repetir la llamada, que en el mejor caso contesta `already` y en
+  // el peor choca con un RPC atrasado y un saldo que ya se gastó.
+  return { ...withLegal(agent, r.view), mustDeposit: false, step: r.step, txHash: r.txHash };
 }

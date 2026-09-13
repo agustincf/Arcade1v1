@@ -19,6 +19,7 @@ import {
   type AlephRoomView,
   type AlephSeatView,
 } from "@/app/lib/arbiter";
+import { txUrl } from "@/app/lib/explorer";
 
 /** Sondeo del espectador. El agente que juega sondea cada 5 s; la web mira, así
  *  que va más lento: mismo dato, la mitad de pedidos al árbitro dormilón. */
@@ -85,8 +86,11 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
 
   // El reloj propio solo corre mientras haya una cuenta regresiva que mover:
   // en una sala liquidada, `now` no se muestra en ningún lado y el intervalo
-  // era un re-render por segundo hasta que cerraran la pestaña.
-  const counting = room?.status === "playing" && room.deadline !== undefined;
+  // era un re-render por segundo hasta que cerraran la pestaña. En `funding`
+  // también corre: la mesa de plata tiene su propia cuenta regresiva.
+  const counting =
+    (room?.status === "playing" && room.deadline !== undefined) ||
+    (room?.status === "funding" && room.fundingDeadline !== undefined);
   useEffect(() => {
     if (!counting) return;
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -133,8 +137,15 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
           <span className="truncate">
             {t("aleph.room.title")} <span className="font-mono">{room.roomId.slice(0, 10)}…</span>
           </span>
-          <span className={`chip ${live ? "chip--live" : ""}`}>
-            {t(`aleph.room.status.${room.status}`)}
+          <span className="flex shrink-0 items-center gap-2">
+            <span className={`chip ${live ? "chip--live" : ""}`}>
+              {t(`aleph.room.status.${room.status}`)}
+            </span>
+            {room.stake > 0 && (
+              <span className="chip chip--money">
+                {t("aleph.room.stakeChip", { stake: room.stake })}
+              </span>
+            )}
           </span>
         </div>
         <div className="p-5">
@@ -146,10 +157,55 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
                 max: room.max,
               })}
             </p>
-          ) : room.status === "dissolved" ? (
+          ) : room.status === "funding" ? (
             <p className="text-base leading-relaxed text-(--color-muted)">
-              {t("aleph.room.dissolved", { min: room.min })}
+              {t("aleph.room.fundingIntro", {
+                deposited: room.deposited?.length ?? 0,
+                n: room.seats.length,
+                stake: room.stake,
+              })}{" "}
+              {room.fundingDeadline ? (
+                <span className="font-mono text-(--color-muted-bright)">
+                  {t("aleph.room.fundingDeadline", { time: mmss(room.fundingDeadline - now) })}
+                </span>
+              ) : null}
             </p>
+          ) : room.status === "dissolved" ? (
+            <>
+              <p className="text-base leading-relaxed text-(--color-muted)">
+                {room.fundingDeadline !== undefined
+                  ? t("aleph.room.dissolvedMoney", { n: room.seats.length })
+                  : t("aleph.room.dissolved", { min: room.min })}
+              </p>
+              {/* Reembolso de la mesa de plata: el punto de la nota en el brief
+                  de esta tarea. Simétrico al settleTx/settlePending de abajo:
+                  un depositante que se queda sin sala tiene que enterarse acá,
+                  no solo por su wallet. Se muestra solo si la sala llegó a
+                  fondear (si el lobby se disolvió antes, nunca hubo depósitos
+                  que devolver y `fundingDeadline` queda undefined). */}
+              {room.stake > 0 && room.fundingDeadline !== undefined && (
+                <p className="mt-3">
+                  {room.refundTx && /^0x[0-9a-f]{64}$/i.test(room.refundTx) ? (
+                    <a
+                      href={txUrl(room.refundTx)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-(--color-accent-2) hover:underline"
+                    >
+                      {t("aleph.room.refundTx")} ↗
+                    </a>
+                  ) : room.refundOutcome === "none" ? (
+                    <span className="text-sm text-(--color-muted-3)">
+                      {t("aleph.room.refundNone")}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-(--color-muted-3)">
+                      {t("aleph.room.refundPending")}
+                    </span>
+                  )}
+                </p>
+              )}
+            </>
           ) : (
             <>
               <div className="flex flex-wrap gap-4">
@@ -191,7 +247,14 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
         <div className="p-3">
           <ol className="flex flex-col gap-1">
             {room.seats.map((s) => (
-              <SeatRow key={s.address} seat={s} payout={room.payouts?.[s.address]} t={t} />
+              <SeatRow
+                key={s.address}
+                seat={s}
+                payout={room.payouts?.[s.address]}
+                funding={room.status === "funding"}
+                deposited={room.deposited?.some((a) => a.toLowerCase() === s.address.toLowerCase())}
+                t={t}
+              />
             ))}
           </ol>
         </div>
@@ -236,7 +299,9 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
         <section className="win mt-6">
           <div className="win-title">
             <span>{t("aleph.room.payouts")}</span>
-            <span className="chip chip--money">{t("aleph.room.units")}</span>
+            <span className="chip chip--money">
+              {t(room.payoutsUsdc ? "aleph.room.usdc" : "aleph.room.units")}
+            </span>
           </div>
           <div className="p-5">
             <ol className="flex flex-col gap-1">
@@ -253,10 +318,63 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
                     <span className="min-w-0 flex-1 truncate font-mono text-sm text-(--color-muted-bright)">
                       {label(address)}
                     </span>
-                    <span className="font-pixel text-sm text-(--color-gold)">{amount}</span>
+                    <span className="flex shrink-0 items-center gap-3">
+                      <span className="font-pixel text-sm text-(--color-gold)">{amount}</span>
+                      {room.payoutsUsdc && (
+                        <span className="font-mono text-sm text-(--color-gold)">
+                          {(Number(room.payoutsUsdc[address] ?? 0) / 1e6).toFixed(2)} USDC
+                        </span>
+                      )}
+                    </span>
                   </li>
                 ))}
             </ol>
+
+            {room.payoutsUsdc && (
+              // `fee: 15` es la comisión de producción (spec de la etapa 4), no
+              // un campo de la vista: el árbitro no manda `usdc.feeBps` acá (solo
+              // en el registro completo, `/aleph/:id/log`), así que hasta que la
+              // vista lo traiga esto queda como constante documentada.
+              <p className="mt-3 text-sm leading-relaxed text-(--color-muted-3)">
+                {t("aleph.room.payoutsMoney", { pot: room.stake * room.seats.length, fee: 15 })}
+              </p>
+            )}
+            {room.stake > 0 && (
+              <p className="mt-3">
+                {room.settleTx && /^0x[0-9a-f]{64}$/i.test(room.settleTx) ? (
+                  <a
+                    href={txUrl(room.settleTx)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-(--color-accent-2) hover:underline"
+                  >
+                    {t("aleph.room.settleTx")} ↗
+                  </a>
+                ) : room.settleOutcome === "external" ? (
+                  // Cerrada SIN transacción propia porque otro presentó la tabla
+                  // primero (la firma es pública, cualquiera puede) — es el caso
+                  // de diseño, no un problema: el pago YA salió, solo que no por
+                  // una transacción que el árbitro haya mandado. Un mensaje de
+                  // "todavía no salió" acá sería falso para siempre (el árbitro
+                  // nunca completa ese hash después).
+                  <span className="text-sm text-(--color-muted-3)">
+                    {t("aleph.room.settleExternal")}
+                  </span>
+                ) : (
+                  // Sin hash propio y sin "external": genuinamente pendiente
+                  // (reintentando), O el caso raro `settleOutcome === "refunded"`
+                  // (la ventana de pago venció antes y el contrato devolvió cada
+                  // stake en vez de pagar esta tabla). Las dos son mutuamente
+                  // excluyentes y no se pueden distinguir con lo que trae la
+                  // vista, así que el texto queda deliberadamente cubierto entre
+                  // las dos sin afirmar ninguna: nunca hay que decir que un pago
+                  // salió si en realidad la plata volvió como reembolso.
+                  <span className="text-sm text-(--color-muted-3)">
+                    {t("aleph.room.settlePending")}
+                  </span>
+                )}
+              </p>
+            )}
 
             <p className="mt-4 text-sm leading-relaxed text-(--color-muted-3)">
               {t("aleph.room.verify")}
@@ -319,14 +437,30 @@ function Money({
   );
 }
 
-function SeatRow({ seat, payout, t }: { seat: AlephSeatView; payout?: number; t: T }) {
+function SeatRow({
+  seat,
+  payout,
+  funding,
+  deposited,
+  t,
+}: {
+  seat: AlephSeatView;
+  payout?: number;
+  funding?: boolean;
+  deposited?: boolean;
+  t: T;
+}) {
   return (
     <li className="flex items-center justify-between rounded-lg bg-(--color-surface-2) px-3 py-2.5">
       <span className="min-w-0 flex-1 truncate font-mono text-sm text-(--color-muted-bright)">
         {playerLabel(seat.address, seat.name, seat.avatar, agentTag(seat, t))}
       </span>
       <span className="ml-3 flex shrink-0 items-center gap-2">
-        <span className="chip">{t(`aleph.seat.${seat.status}`)}</span>
+        <span className="chip">
+          {funding
+            ? t(deposited ? "aleph.seat.deposited" : "aleph.seat.pending")
+            : t(`aleph.seat.${seat.status}`)}
+        </span>
         <span className="font-pixel text-sm text-(--color-gold)">{payout ?? seat.pocket}</span>
       </span>
     </li>

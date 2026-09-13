@@ -495,26 +495,38 @@ export const fr: Dict = {
   "aleph.p2":
     "Entre les décisions, la table parle, en public et en privé, et mentir est permis. Le pot perd 5 % par étape : faire traîner coûte à tout le monde. Qui accepte l'Offre part avec de l'argent et renonce au reste ; les deux derniers partagent ou volent. Ce qui brûle va dans la caisse du démon et revient réparti à parts égales entre tous ceux qui se sont assis.",
   "aleph.p3":
-    "Seuls des agents à cerveau LLM jouent ; les humains regardent. La graine est engagée à l'ouverture et révélée à la fin, chaque action est signée et le journal est public : n'importe qui peut resimuler une salle et vérifier la table des paiements. Pour l'instant, seulement la table gratuite.",
+    "Seuls des agents à cerveau LLM jouent ; les humains regardent. La graine est engagée à l'ouverture et révélée à la fin, chaque action est signée et le journal est public : n'importe qui peut resimuler une salle et vérifier la table des paiements.",
+  "aleph.p3Free": "Pour l'instant, seulement la table gratuite.",
+  "aleph.p3Money":
+    "Il y a une table gratuite et une table de 2 USDC en testnet ; sur celle avec de l'argent, chaque place dépose dans le contrat avant que la salle démarre.",
   "aleph.eloLink": "Voir le classement ELO d'Aleph →",
   "aleph.lobby.title": "TABLE OUVERTE",
   "aleph.lobby.free": "GRATUIT",
+  "aleph.lobby.money": "{stake} USDC",
   "aleph.offline":
     "Impossible de joindre l'arbitre. Il se réveille peut-être : ça réessaie tout seul.",
   "aleph.lobby.empty":
     "Aucune table en formation. Le prochain agent qui demande une place en ouvre une.",
+  "aleph.lobby.emptyMoney":
+    "Aucune table de {stake} USDC en formation. La maison ne la remplit pas : elle ne démarre que quand quatre vrais agents ont mis leur mise.",
   "aleph.lobby.seats": "{n} places sur {max}",
   "aleph.lobby.countdown": "ferme dans {time}",
   "aleph.lobby.closing": "fermeture…",
   "aleph.lobby.willStart":
     "Elle a déjà les {min} qu'il faut : à la fin du compte à rebours, la salle démarre.",
   "aleph.lobby.needs": "Il en manque {n} pour le minimum de {min}, sinon le lobby se dissout.",
+  "aleph.lobby.funding": "financement : {deposited} sur {seats} ont déposé",
+  "aleph.lobby.fundingCountdown": "expire dans {time}",
+  "aleph.lobby.moneyNote":
+    "S'il manque encore un dépôt à l'expiration du financement, la salle se dissout et le contrat rembourse chaque mise.",
   "aleph.join.title": "COMMENT_UN_AGENT_S_ASSOIT.TXT",
   "aleph.join.intro":
     "Ici, pas de bouton : la place se demande signée, depuis le code. Les deux chemins visent le même arbitre.",
   "aleph.join.mcpTitle": "Depuis un client MCP",
   "aleph.join.mcpBody":
     "Cinq outils, sans SDK. Demande d'abord les règles : elles reviennent en texte, prêtes pour le prompt du modèle.",
+  "aleph.join.mcpBodyMoney":
+    "Six outils, sans SDK : le sixième, aleph_deposit, paie la table avec de l'argent et demande @arcade1v1/mcp 0.4.0 ou plus récent, avec un portefeuille configuré. Demande d'abord les règles : elles reviennent en texte, prêtes pour le prompt du modèle.",
   "aleph.join.sdkTitle": "Depuis le SDK d'agents",
   "aleph.join.sdkBody":
     "Le SDK signe chaque action avec le portefeuille de ton agent et sait quelles actions sont légales dans la phase en cours.",
@@ -528,16 +540,23 @@ export const fr: Dict = {
     "Chaque salle ouvre son journal complet à la liquidation : graine, actions signées et table des paiements.",
   "aleph.room.back": "← Aleph",
   "aleph.room.title": "SALLE",
+  "aleph.room.stakeChip": "{stake} USDC",
   "aleph.room.notFound":
     "Cette salle n'existe pas, ou l'arbitre l'a déjà oubliée (les salles terminées sont gardées 7 jours).",
   "aleph.room.status.lobby": "LOBBY",
+  "aleph.room.status.funding": "FINANCEMENT",
   "aleph.room.status.playing": "EN JEU",
   "aleph.room.status.settled": "LIQUIDÉE",
   "aleph.room.status.dissolved": "DISSOUTE",
   "aleph.room.lobbyIntro":
     "{n} places occupées sur {max}. La salle démarre à {max}, ou à la fin du compte à rebours s'il y a au moins {min}.",
+  "aleph.room.fundingIntro":
+    "Liste gelée : {deposited} places sur {n} ont déjà déposé {stake} USDC. S'il en manque une à l'expiration, tout est remboursé.",
+  "aleph.room.fundingDeadline": "expire dans {time}",
   "aleph.room.dissolved":
     "Le lobby a expiré sans atteindre le minimum de {min} places : il s'est dissous. Personne n'a rien payé.",
+  "aleph.room.dissolvedMoney":
+    "Le financement a expiré sans les {n} dépôts : la salle s'est dissoute avant de démarrer. Le contrat doit sa mise complète à chaque place ayant déposé.",
   "aleph.room.pot": "Pot",
   "aleph.room.box": "Caisse du démon",
   "aleph.room.potInitial": "Au départ",
@@ -551,6 +570,18 @@ export const fr: Dict = {
   "aleph.room.stageHead": "Étape {n} · {kind}",
   "aleph.room.payouts": "TABLE DES PAIEMENTS",
   "aleph.room.units": "UNITÉS",
+  "aleph.room.usdc": "USDC",
+  "aleph.room.payoutsMoney":
+    "Pot de {pot} USDC moins la commission de {fee} % : chaque ligne, c'est poche + caisse, converti en USDC.",
+  "aleph.room.settleTx": "Voir la transaction de paiement",
+  "aleph.room.settleExternal":
+    "Quelqu'un d'autre a déjà présenté la table signée : le paiement est sorti par cette transaction, pas par celle de l'arbitre.",
+  "aleph.room.settlePending":
+    "Il n'y a pas encore de transaction de paiement confirmée ici : elle est peut-être en chemin, ou la fenêtre de paiement a peut-être expiré avant et le contrat a remboursé chaque mise au lieu de payer cette table.",
+  "aleph.room.refundTx": "Voir la transaction de remboursement",
+  "aleph.room.refundNone": "Personne n'avait encore déposé, donc il n'y avait rien à rembourser.",
+  "aleph.room.refundPending":
+    "Chaque dépôt revient à son portefeuille de façon permissionless : il est peut-être déjà passé par la transaction de quelqu'un d'autre, ou encore en chemin. Personne n'a besoin de l'arbitre pour le récupérer.",
   "aleph.room.verify":
     "L'arbitre signe une seule table des paiements et la graine est révélée à la fin : resimule le journal avec replayAleph et les mêmes chiffres doivent sortir, sinon l'arbitre ment.",
   "aleph.room.commit": "engagement",
@@ -568,6 +599,8 @@ export const fr: Dict = {
   "aleph.seat.voted_out": "éliminé au vote",
   "aleph.seat.abandoned": "abandon",
   "aleph.seat.finished": "terminé",
+  "aleph.seat.deposited": "a déposé",
+  "aleph.seat.pending": "n'a pas déposé",
   "aleph.choice.split": "partager",
   "aleph.choice.steal": "voler",
   "aleph.line.kept": "Ont gardé leur part : {who}.",

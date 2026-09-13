@@ -48,6 +48,37 @@ test("describeAlephRules: los números salen de las constantes y dice lo que hay
   assert.ok(!/\t/.test(t), "sin tabs (va a un system prompt)");
 });
 
+test("las reglas explican el piso de la caja y el flujo de la mesa de plata", () => {
+  const text = describeAlephRules();
+  // Decisión 4 del spec de la etapa 4: nadie se sienta creyendo que aportar
+  // siempre conviene. El piso: bolsillo + caja por cabeza, votado o no.
+  assert.match(text, /PAYOUT FLOOR/);
+  assert.match(text, /pocket is yours/i);
+  assert.match(text, /alive or eliminated/i);
+  // La mesa de plata: stakes del árbitro, funding, deposit, settleTx.
+  assert.match(text, /MONEY TABLES/);
+  assert.match(text, /GET \/aleph\/lobbies/);
+  assert.match(text, /`funding`/);
+  assert.match(text, /alephDeposit/);
+  assert.match(text, /aleph_deposit/);
+  assert.match(text, /settleTx/);
+  assert.doesNotMatch(text, /Only the free table/);
+  // Fix round 1: el reembolso por fondeo incompleto no depende del árbitro
+  // (refundUnfunded es permissionless en el contrato) y la comisión es la
+  // config VIGENTE, no una regla fija — verificable después en el log.
+  assert.match(text, /permissionless/i);
+  assert.match(text, /currently 15%/);
+  assert.doesNotMatch(text, /15 %/);
+  assert.match(text, /log\.usdc\.feeBps/);
+  // Ronda 3 (B2): el pin se pide para SENTARSE en una mesa de plata, no solo para
+  // depositar, y el texto dice dónde va en cada camino (createAgent en el SDK, la
+  // variable del servidor en el MCP). Sin eso, se niegan las dos cosas.
+  assert.match(
+    text,
+    /A money-table seat needs a wallet set up to deposit[^.]*`createAgent\(\{ rpcUrl, privateKey, escrow \}\)`[^.]*ARCADE_ALEPH_ESCROW_ADDRESS\. Without them, taking a money-table seat and depositing are both refused/,
+  );
+});
+
 test("legalActions: nada fuera de juego, sin vista privada o con el asiento fuera", () => {
   assert.deepEqual(legalActions(view({ status: "lobby", stage: undefined, you: undefined })), []);
   assert.deepEqual(legalActions(view({ you: undefined })), []);

@@ -32,12 +32,13 @@ async function connected() {
 const textOf = (res: unknown) =>
   ((res as { content: unknown }).content as { type: string; text: string }[])[0].text;
 
-test("buildServer publica las 6 herramientas 1v1 y las 5 de Aleph", async () => {
+test("buildServer publica las 6 herramientas 1v1 y las 6 de Aleph", async () => {
   const { mcp, close } = await connected();
   try {
     const { tools } = await mcp.listTools();
     assert.deepEqual(tools.map((t) => t.name).sort(), [
       "aleph_act",
+      "aleph_deposit",
       "aleph_join",
       "aleph_lobbies",
       "aleph_rules",

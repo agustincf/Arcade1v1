@@ -71,15 +71,15 @@ entirely from the root.
 
 ## What each workspace actually has
 
-| Workspace             | Test files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Runner                 |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| `apps/mcp`            | `play.test.ts`, `server.test.ts`, `tools.test.ts`, `tools-aleph.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `node:test`            |
-| `apps/server`         | `agents-routes.test.ts`, `agents.test.ts`, `anti-espionage.test.ts`, `challenge-routes.test.ts`, `challenge.test.ts`, `cola-onchain.test.ts`, `config-guard.test.ts`, `deposito-onchain.test.ts`, `failed-attempts.test.ts`, `funnel-stats.test.ts`, `gas-monitor.test.ts`, `house-agents.test.ts`, `profiles-routes.test.ts`, `profiles.test.ts`, `ratings-multi.test.ts`, `rules-version.test.ts`, `stats.test.ts`, `tick-budget.test.ts`, `aleph-game.test.ts`, `aleph-lobby.test.ts`, `aleph-routes.test.ts`, `aleph-sdk-e2e.test.ts`, `webhook-*.test.ts` | `node:test`            |
-| `apps/web`            | `config-guard.test.ts`, `errors.test.ts`, `i18n.test.ts`, `lang-routing.test.ts`, `strict-mesa.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `node:test`            |
-| `packages/agent-sdk`  | `agent.test.ts`, `agent-aleph.test.ts`, `client.test.ts`, `racing-llm.test.ts`, `rules-guard.test.ts`, `sign.test.ts`, `strategies.test.ts`, `aleph-client.test.ts`, `aleph-llm.test.ts`, `aleph-sign.test.ts`, `aleph-text.test.ts`                                                                                                                                                                                                                                                                                                                           | `node:test`            |
-| `packages/game-sdk`   | `auth.test.ts`, `engines.test.ts`, `racing-fairness.test.ts`, `aleph.test.ts`, `aleph-invariants.test.ts`, `aleph-rules.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                               | `node:test`            |
-| `packages/strategies` | `strategies.test.ts`, `strategies-v2.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `node:test`            |
-| `packages/contracts`  | `Escrow1v1.t.sol` (9 tests)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Foundry (`forge test`) |
+| Workspace             | Test files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Runner                 |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `apps/mcp`            | `config.test.ts`, `manifest.test.ts`, `play.test.ts`, `server.test.ts`, `tools.test.ts`, `tools-aleph.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `node:test`            |
+| `apps/server`         | `agents-routes.test.ts`, `agents.test.ts`, `anti-espionage.test.ts`, `challenge-routes.test.ts`, `challenge.test.ts`, `cola-onchain.test.ts`, `config-guard.test.ts`, `deposito-onchain.test.ts`, `failed-attempts.test.ts`, `funnel-stats.test.ts`, `gas-monitor.test.ts`, `house-agents.test.ts`, `profiles-routes.test.ts`, `profiles.test.ts`, `ratings-multi.test.ts`, `rules-version.test.ts`, `stats.test.ts`, `tick-budget.test.ts`, `aleph-funding-no-escrow.test.ts`, `aleph-funding.test.ts`, `aleph-game.test.ts`, `aleph-house.test.ts`, `aleph-lobby.test.ts`, `aleph-money-durability.test.ts`, `aleph-routes.test.ts`, `aleph-sdk-e2e.test.ts`, `aleph-sign.test.ts`, `webhook-*.test.ts` | `node:test`            |
+| `apps/web`            | `config-guard.test.ts`, `errors.test.ts`, `i18n.test.ts`, `lang-routing.test.ts`, `strict-mesa.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `node:test`            |
+| `packages/agent-sdk`  | `agent.test.ts`, `agent-aleph.test.ts`, `client.test.ts`, `racing-llm.test.ts`, `rules-guard.test.ts`, `sign.test.ts`, `strategies.test.ts`, `aleph-client.test.ts`, `aleph-llm.test.ts`, `aleph-sign.test.ts`, `aleph-text.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `node:test`            |
+| `packages/game-sdk`   | `auth.test.ts`, `engines.test.ts`, `racing-fairness.test.ts`, `aleph.test.ts`, `aleph-invariants.test.ts`, `aleph-rules.test.ts`, `aleph-usdc.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `node:test`            |
+| `packages/strategies` | `strategies.test.ts`, `strategies-v2.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `node:test`            |
+| `packages/contracts`  | `Escrow1v1.t.sol` (14 tests), `EscrowAleph.t.sol` (43 tests)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Foundry (`forge test`) |
 
 **No tests exist for:**
 
@@ -134,16 +134,17 @@ a database, RPC endpoint, or live network connection. This is included in
 ## The contract's shell-based integration/E2E checks (`packages/contracts`)
 
 `packages/contracts` has no `package.json` — it's a Foundry project. Unit
-tests are Solidity files under `test/` (currently `Escrow1v1.t.sol`, 9 tests):
+tests are Solidity files under `test/`: `Escrow1v1.t.sol` (14 tests) and
+`EscrowAleph.t.sol` (43 tests):
 
 ```bash
 cd packages/contracts
 forge test -vv
 ```
 
-Beyond the Foundry unit tests, three bash scripts in `packages/contracts/`
+Beyond the Foundry unit tests, five bash scripts in `packages/contracts/`
 spin up a local `anvil` chain to exercise real cross-component paths.
-All three require Foundry (`forge`, `anvil`, `cast`) installed and the
+All five require Foundry (`forge`, `anvil`, `cast`) installed and the
 monorepo's Node dependencies installed (`npm install` at the repo root).
 
 - **`check-deploy.sh`** — Runs the real deploy script (`script/Deploy.s.sol`)
@@ -169,6 +170,25 @@ monorepo's Node dependencies installed (`npm install` at the repo root).
   ```bash
   bash packages/contracts/check-payment-e2e.sh
   ```
+- **`check-aleph-deploy.sh`** — Runs the real Aleph deploy script
+  (`script/DeployAleph.s.sol`) against a local `anvil` chain and verifies the
+  2 USDC table ends up enabled on the deployed `EscrowAleph`. Catches the same
+  "stake not allowed" failure mode as `check-deploy.sh`, for the Aleph
+  contract.
+  ```bash
+  bash packages/contracts/check-aleph-deploy.sh
+  ```
+- **`check-aleph-e2e.sh`** — Full Aleph money-table path on a local `anvil`
+  chain with the real arbiter: deploys `MockUSDC` + `EscrowAleph`, has 4
+  wallets deposit and play a room end to end, and confirms the signed payout
+  table pays everyone in one transaction (commission plus rounding dust to the
+  platform, escrow left at zero, and no seat left with a USDC allowance to the
+  escrow: the SDK approves exactly one stake); then repeats with an incomplete
+  funding that the arbiter cancels and confirms only the depositors are
+  refunded.
+  ```bash
+  bash packages/contracts/check-aleph-e2e.sh
+  ```
 
 Each script manages its own `anvil` process (kills any stray instance first,
 starts a fresh one, tears it down on exit) — they are not part of the
@@ -184,7 +204,8 @@ every pull request. Two jobs:
 - **`contracts`** — checks out pinned versions of `forge-std` and
   OpenZeppelin, installs Foundry, runs `forge test -vv` in
   `packages/contracts`, then (with Node 22 + `npm ci`) runs
-  `check-integration.sh`, `check-payment-e2e.sh`, and `check-deploy.sh` in
-  sequence. The arbiter's test signing key is injected from the
-  `ARBITER_PRIVATE_KEY` GitHub secret into a throwaway `apps/server/.env`
-  (no real funds involved — `anvil` accounts only).
+  `check-integration.sh`, `check-payment-e2e.sh`, `check-deploy.sh`,
+  `check-aleph-deploy.sh`, and `check-aleph-e2e.sh` in sequence. The arbiter's
+  test signing key is injected from the `ARBITER_PRIVATE_KEY` GitHub secret
+  into a throwaway `apps/server/.env` (no real funds involved — `anvil`
+  accounts only).

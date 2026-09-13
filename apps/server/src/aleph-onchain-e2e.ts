@@ -1,10 +1,15 @@
 // PAGO DE UNA MESA DE PLATA de punta a punta en cadena local (anvil), con el
-// árbitro REAL (funciones in-process): 4 wallets se sientan, reciben su pase,
-// abren/depositan en EscrowAleph, el árbitro ve los depósitos y arranca, juegan
-// hasta liquidar, el árbitro firma la tabla en USDC y la manda, y cada uno cobra
-// exactamente lo que dice la tabla. Después: un fondeo incompleto que vence y el
-// árbitro cancela on-chain. Antes de todo: los digests EIP-712 del árbitro (viem)
-// coinciden bit a bit con los del contrato.
+// árbitro REAL (sus rutas HTTP en un express local) y AGENTES REALES (el
+// agent-sdk, uno por asiento): 4 wallets se sientan, reciben su pase, abren o
+// depositan en EscrowAleph con `alephDeposit`, el árbitro ve los depósitos y
+// arranca, juegan hasta liquidar, el árbitro firma la tabla en USDC y la manda,
+// y cada uno cobra exactamente lo que dice la tabla. Después: un fondeo
+// incompleto que vence y el árbitro cancela on-chain. Antes de todo: los
+// digests EIP-712 del árbitro (viem) coinciden bit a bit con los del contrato.
+//
+// Los asientos entran por HTTP (el camino de un agente de verdad) y el reloj
+// del árbitro se sigue empujando in-process para el vencimiento del escenario 2:
+// las rutas y las funciones son el mismo módulo, así que las dos cosas conviven.
 //
 // Todos los tests del árbitro corren contra una cadena INYECTADA (`fakeChain`):
 // prueban que el árbitro es coherente consigo mismo, no que un contrato de
@@ -17,6 +22,8 @@
 // A propósito SIN "dotenv/config": todo lo que hace falta lo pasa el wrapper por
 // entorno, y así ningún .env del repo (que localmente puede tener la clave y el
 // RPC de una red de VERDAD) se cuela en una corrida contra anvil.
+import express from "express";
+import type { AddressInfo } from "node:net";
 import {
   createPublicClient,
   createWalletClient,
@@ -27,21 +34,15 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
-import { escrowAlephAbi, erc20MinimalAbi, usdcPayoutTable } from "@arcade1v1/game-sdk/aleph";
 import {
-  matchmakeAuthMessage,
-  alephViewAuthMessage,
-  alephActionAuthMessage,
-} from "@arcade1v1/game-sdk/auth";
-import { actionLine, type AlephAction } from "@arcade1v1/game-sdk/aleph";
-import {
-  joinAleph,
-  getAlephRoom,
-  actAleph,
-  alephChainTick,
-  alephLog,
-  ALEPH_FUNDING_MS,
-} from "./aleph.js";
+  escrowAlephAbi,
+  erc20MinimalAbi,
+  usdcPayoutTable,
+  type AlephAction,
+} from "@arcade1v1/game-sdk/aleph";
+import { createAgent, type AlephRoomView } from "@arcade1v1/agent-sdk";
+import { getAlephRoom, alephChainTick, alephLog, ALEPH_FUNDING_MS } from "./aleph.js";
+import { alephRouter } from "./aleph-routes.js";
 import {
   alephDomain,
   ALEPH_SEAT_TYPES,
@@ -90,12 +91,25 @@ const wallet = (k: string) =>
     transport: http(RPC),
   });
 const owner = wallet(OWNER_KEY);
-const seats = SEAT_KEYS.map((k) => ({
-  w: wallet(k),
-  pk: k as Hex,
-  address: privateKeyToAccount(k as Hex).address,
-}));
+// Los asientos ya no mandan transacciones a mano: cada uno tiene su agente del
+// SDK (abajo) y acá solo hace falta su address para mirar balances.
+const seats = SEAT_KEYS.map((k) => ({ address: privateKeyToAccount(k as Hex).address }));
 const low = (a: string) => a.toLowerCase() as Hex;
+
+// El árbitro real, servido por HTTP en un puerto efímero, y un agente del SDK
+// por asiento. Sin REQUIRE_AUTH el árbitro no exige firma, pero el SDK firma
+// igual: este e2e recorre el mismo camino que un agente en producción.
+const app = express();
+app.use(express.json());
+app.use(alephRouter);
+const server = app.listen(0);
+const BASE = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+// Con el pin del escrow, como exige el SDK para jugar plata (y como corre el
+// MCP): sin `escrow`, `alephJoin(2)` y `alephDeposit` se niegan antes de tocar
+// la red. Así esta prueba recorre en cadena la misma config que un agente real.
+const agents = SEAT_KEYS.map((pk) =>
+  createAgent({ arbiterUrl: BASE, privateKey: pk as Hex, rpcUrl: RPC, escrow: ESCROW }),
+);
 
 async function send(
   c: ReturnType<typeof wallet>,
@@ -128,37 +142,29 @@ function fail(msg: string): never {
   process.exit(1);
 }
 
-async function join(s: (typeof seats)[number], now: number) {
-  const acc = privateKeyToAccount(s.pk);
-  const signature = await acc.signMessage({
-    message: matchmakeAuthMessage("aleph", 2, low(s.address), now),
-  });
-  return joinAleph(2, s.address, { signature, ts: now }, now);
-}
-async function view(roomId: string, s: (typeof seats)[number], now: number) {
-  const acc = privateKeyToAccount(s.pk);
-  const signature = await acc.signMessage({
-    message: alephViewAuthMessage(roomId, low(s.address), now),
-  });
-  return (await getAlephRoom(roomId, s.address, now, { signature, ts: now }))!;
-}
-async function act(
-  roomId: string,
-  s: (typeof seats)[number],
-  stage: number,
-  phase: "talk" | "decide",
-  action: AlephAction,
-  now: number,
-) {
-  const acc = privateKeyToAccount(s.pk);
-  const signature = await acc.signMessage({
-    message: alephActionAuthMessage(roomId, stage, phase, actionLine(action), now),
-  });
-  return actAleph(roomId, s.address, { stage, phase, action, signature, ts: now }, now);
+/** Después de depositar, el permiso de USDC de cada asiento al escrow tiene que
+ *  haber vuelto a CERO: el SDK aprueba exactamente un stake y `open`/`deposit`
+ *  lo consume entero. Sin esta comprobación un approve ilimitado (o doble)
+ *  pasaba toda la suite, porque cada asiento tiene minteado justo un stake y
+ *  nada miraba el permiso que sobra. */
+async function assertAllowancesSpent(scenario: string) {
+  for (let i = 0; i < seats.length; i++) {
+    const left = (await pub.readContract({
+      address: USDC,
+      abi: erc20MinimalAbi,
+      functionName: "allowance",
+      args: [seats[i].address, ESCROW],
+    })) as bigint;
+    if (left !== 0n)
+      fail(
+        `${scenario}: al asiento ${i} le quedó un permiso de ${usd(left)} USDC al escrow, esperaba 0 (el approve es de exactamente un stake)`,
+      );
+  }
+  console.log(`✓ ${scenario}: ningún asiento dejó permiso de USDC al escrow`);
 }
 
 /** Misma política guionada que los tests: lleva la sala al final sin esperar plazos. */
-function policy(v: Awaited<ReturnType<typeof view>>, me: string): AlephAction {
+function policy(v: AlephRoomView, me: string): AlephAction {
   const st = v.stage!;
   if (st.phase === "talk") return { type: "ready" };
   const alive = v.seats.filter((x) => x.status === "alive");
@@ -249,64 +255,58 @@ async function prepare() {
     value: parseEther("1"),
     chain: foundry,
   });
-  for (const s of seats) {
-    await send(owner, USDC, erc20MinimalAbi, "mint", [s.address, STAKE]);
-    await send(s.w, USDC, erc20MinimalAbi, "approve", [ESCROW, STAKE]);
-  }
+  // Solo el USDC: el `approve` lo manda cada agente desde `alephDeposit` (con
+  // permiso por EXACTAMENTE un stake), que es lo que hay que probar acá.
+  for (const s of seats) await send(owner, USDC, erc20MinimalAbi, "mint", [s.address, STAKE]);
 }
 
 async function happyPath() {
   console.log("\n--- 1) Cuatro asientos fondean, juegan y cobran ---");
-  let now = Date.now();
-  let v;
-  for (const s of seats) v = await join(s, now);
-  if (v!.status !== "funding") fail(`esperaba funding, hay ${v!.status}`);
-  const roomId = v!.roomId;
+  let seated;
+  for (const a of agents) seated = await a.alephJoin(2);
+  if (seated!.status !== "funding") fail(`esperaba funding, hay ${seated!.status}`);
+  const roomId = seated!.roomId;
 
-  // Cada asiento deposita con su pase: el primero abre, los demás depositan.
-  for (let i = 0; i < seats.length; i++) {
-    const mine = await view(roomId, seats[i], now);
-    const d = mine.deposit;
-    if (!d) fail(`el asiento ${i} no recibió su pase`);
-    if (i === 0) {
-      await send(seats[0].w, ESCROW, escrowAlephAbi, "open", [
-        roomId,
-        d.seats,
-        BigInt(d.stake),
-        BigInt(d.fundDeadline),
-        BigInt(d.playDeadline),
-        d.seatSig,
-      ]);
-    } else {
-      await send(seats[i].w, ESCROW, escrowAlephAbi, "deposit", [roomId, d.seatSig]);
-    }
-  }
+  // LOS CUATRO A LA VEZ, a propósito: los cuatro leen la sala todavía sin abrir
+  // y los cuatro salen a hacer `open`. Anvil mina en orden, así que uno abre y
+  // los otros tres se topan con "room exists" y caen solos en `deposit`. Es la
+  // carrera real de una mesa de plata (nadie coordina quién abre) y así queda
+  // probada en cada corrida, sin un test aparte.
+  const deposits = await Promise.all(agents.map((a) => a.alephDeposit(roomId)));
+  deposits.forEach((r, i) => console.log(`✓ asiento ${i}: ${r.step} ${r.txHash}`));
+  const opens = deposits.filter((r) => r.step === "open").length;
+  if (opens !== 1) fail(`la carrera de open se resolvió mal: ${opens} abrieron, esperaba 1`);
+  if (deposits.some((r) => !r.txHash)) fail("algún asiento dijo haber depositado sin transacción");
+
   const inEscrow = await bal(ESCROW);
   if (inEscrow !== STAKE * 4n) fail(`el escrow tiene ${usd(inEscrow)} USDC, esperaba 8`);
   console.log("✓ 4 depósitos · escrow:", usd(inEscrow), "USDC (esperado 8)");
+  await assertAllowancesSpent("mesa de plata");
 
-  await alephChainTick(now);
-  v = (await getAlephRoom(roomId, undefined, now))!;
+  await alephChainTick();
+  let v = (await getAlephRoom(roomId))!;
   if (v.status !== "playing") fail(`el árbitro no vio los depósitos: ${v.status}`);
   console.log("✓ la sala arrancó al ver los N depósitos · commit:", v.commit);
 
-  // Jugar hasta el final.
+  // Jugar hasta el final, cada asiento con su agente (vista y acción firmadas).
   for (let guard = 0; guard < 400 && v.status !== "settled"; guard++) {
-    for (const s of seats) {
-      const mine = await view(roomId, s, now);
+    for (let i = 0; i < agents.length; i++) {
+      const mine = await agents[i].alephView(roomId);
       const you = mine.you;
       if (mine.status !== "playing" || !you || you.status !== "alive" || you.decided || you.ready)
         continue;
-      await act(roomId, s, mine.stage!.index, mine.stage!.phase, policy(mine, low(s.address)), now);
-      now += 50;
+      await agents[i].alephAct(roomId, policy(mine, low(seats[i].address)), {
+        stage: mine.stage!.index,
+        phase: mine.stage!.phase,
+      });
     }
-    v = (await getAlephRoom(roomId, undefined, now))!;
+    v = (await getAlephRoom(roomId))!;
   }
   if (v.status !== "settled") fail("la sala no terminó");
   console.log("✓ liquidada en unidades:", JSON.stringify(v.payouts));
 
-  await alephChainTick(now + 1);
-  v = (await getAlephRoom(roomId, undefined, now + 1))!;
+  await alephChainTick();
+  v = (await getAlephRoom(roomId))!;
   if (!v.settleTx || !/^0x[0-9a-f]{64}$/i.test(v.settleTx)) fail(`sin settleTx: ${v.settleTx}`);
   console.log("✓ settle enviado:", v.settleTx);
 
@@ -329,7 +329,7 @@ async function happyPath() {
   if ((await bal(ESCROW)) !== 0n) fail("el escrow no quedó en cero");
   console.log("✓ cada asiento cobró su fila; plataforma =", usd(p), "(comisión + polvo); escrow 0");
 
-  const log = alephLog(roomId, now + 2);
+  const log = alephLog(roomId);
   if (!log.usdc?.signature || !log.usdc.table)
     fail("el registro no publica la tabla en USDC ni su firma");
   console.log("\nPAGO DE UNA MESA DE PLATA VERIFICADO ✅");
@@ -339,32 +339,31 @@ async function unfundedScenario() {
   console.log(
     "\n--- 2) Fondeo incompleto: vence, el árbitro cancela, cada uno recupera lo suyo ---",
   );
-  // Los mismos 4 asientos (ya liberados). Solo dos depositan.
+  // Los mismos 4 asientos (ya liberados). Solo dos depositan. El `approve` de
+  // la ronda anterior lo consumió el escrow: acá el SDK vuelve a aprobar.
   for (const s of seats.slice(0, 2)) {
     await send(owner, USDC, erc20MinimalAbi, "mint", [s.address, STAKE]);
-    await send(s.w, USDC, erc20MinimalAbi, "approve", [ESCROW, STAKE]);
   }
   const before = await Promise.all(seats.map((s) => bal(s.address)));
-  let now = Date.now();
-  let v;
-  for (const s of seats) v = await join(s, now);
-  if (v!.status !== "funding") fail(`esperaba funding, hay ${v!.status}`);
-  const roomId = v!.roomId;
-  const d0 = (await view(roomId, seats[0], now)).deposit!;
-  await send(seats[0].w, ESCROW, escrowAlephAbi, "open", [
-    roomId,
-    d0.seats,
-    BigInt(d0.stake),
-    BigInt(d0.fundDeadline),
-    BigInt(d0.playDeadline),
-    d0.seatSig,
-  ]);
-  const d1 = (await view(roomId, seats[1], now)).deposit!;
-  await send(seats[1].w, ESCROW, escrowAlephAbi, "deposit", [roomId, d1.seatSig]);
+  let seated;
+  for (const a of agents) seated = await a.alephJoin(2);
+  if (seated!.status !== "funding") fail(`esperaba funding, hay ${seated!.status}`);
+  const roomId = seated!.roomId;
+  // Uno detrás del otro: acá no hay carrera, así que los pasos son fijos.
+  const r0 = await agents[0].alephDeposit(roomId);
+  if (r0.step !== "open") fail(`el primero tenía que ABRIR la sala, hizo ${r0.step}`);
+  const r1 = await agents[1].alephDeposit(roomId);
+  if (r1.step !== "deposit") fail(`el segundo tenía que DEPOSITAR, hizo ${r1.step}`);
+  console.log(`✓ asiento 0: ${r0.step} ${r0.txHash} · asiento 1: ${r1.step} ${r1.txHash}`);
+  // Idempotencia con plata de por medio: repetir no manda NADA (ni un approve).
+  const again = await agents[1].alephDeposit(roomId);
+  if (again.step !== "already" || again.txHash) fail(`repetir depositó de nuevo: ${again.step}`);
   if ((await bal(ESCROW)) !== STAKE * 2n) fail("esperaba 2 stakes en el escrow");
+  await assertAllowancesSpent("fondeo incompleto");
 
+  let now = Date.now();
   await alephChainTick(now);
-  v = (await getAlephRoom(roomId, undefined, now))!;
+  let v = (await getAlephRoom(roomId, undefined, now))!;
   if (v.status !== "funding" || v.deposited?.length !== 2)
     fail(`el árbitro no vio los 2 depósitos: ${JSON.stringify(v.deposited)}`);
 
@@ -392,6 +391,10 @@ async function main() {
   await prepare();
   await happyPath();
   await unfundedScenario();
+  // Las conexiones del SDK quedan vivas (keep-alive): sin cerrarlas el proceso
+  // se quedaría esperando el timeout del socket.
+  server.closeAllConnections();
+  server.close();
 }
 
 main().catch((e) => {

@@ -263,8 +263,9 @@ just documented:
 - `apps/mcp` (`@arcade1v1/mcp`) never talks HTTP itself: `server.ts` and
   `tools.ts` register MCP tools (`list_games`, `leaderboard`, `rating`,
   `matchmake`, `play_and_submit`, `get_result`, and `aleph_rules`,
-  `aleph_lobbies`, `aleph_join`, `aleph_view`, `aleph_act` for Aleph) that
-  call straight into an injected `agent-sdk` `ArbiterClient`/`Agent`. An MCP
+  `aleph_lobbies`, `aleph_join`, `aleph_view`, `aleph_act`, `aleph_deposit`
+  for Aleph) that call straight into an injected `agent-sdk`
+  `ArbiterClient`/`Agent`. An MCP
   client (e.g. Claude Desktop) running `npx @arcade1v1/mcp` is, transitively,
   using the same HTTP surface a human browser uses.
 - **Hosted agents** (`apps/server/src/agents.ts` + `agent-runner.ts`) are the
@@ -327,9 +328,10 @@ seats, events)`. All randomness comes from the seed, so the arbiter operates
   logic. It stores the signed log, decides when each phase closes (ticker), and
   settles: one payout table plus a separate ELO under the game id `aleph`
   (`applyMultiResult`, K/(N−1) against the whole table).
-- **Agent layer** — `ArbiterClient.aleph*` in `@arcade1v1/agent-sdk` and five
+- **Agent layer** — `ArbiterClient.aleph*` in `@arcade1v1/agent-sdk` and six
   MCP tools (`aleph_rules`, `aleph_lobbies`, `aleph_join`, `aleph_view`,
-  `aleph_act`). Same code path as the human API, exactly like section 6.
+  `aleph_act`, `aleph_deposit`). Same code path as the human API, exactly like
+  section 6.
 - **Web** (`apps/web/app/aleph/`) — spectator only, because only LLM agents
   play. `/aleph` shows the open lobby and recent rooms; `/aleph/[roomId]`
   narrates the log stage by stage. Both read the PUBLIC view (no view pass), so
@@ -343,6 +345,18 @@ seats, events)`. All randomness comes from the seed, so the arbiter operates
   table with money on it, and its seats carry the CASA chip. It goes through the
   same in-process `joinAleph` / `actAleph` as any external agent, with signed
   actions, so the public log verifies exactly the same way.
+
+- **Money tables** (stage 4) — three modules, one per side of the deposit:
+  `EscrowAleph.sol` (`packages/contracts/src`) custodies N stakes behind a
+  signed seat list and pays a signed payout table in one transaction;
+  `aleph-chain.ts` plus the `funding` phase in `aleph.ts` (`apps/server`) read
+  the chain, convert the units table to USDC and drive `settle`/`cancelRoom`;
+  `alephDeposit` in `@arcade1v1/agent-sdk` (wrapped by the MCP's
+  `aleph_deposit`) is the only transaction an agent ever sends. Room states:
+  `lobby → funding → playing → settled`, or `dissolved` (refunding every
+  depositor) if the lobby never fills or the funding deadline passes with a
+  seat missing. Not deployed to production yet (testnet only, pending the
+  owner's sign-off).
 
 The seed is committed when the room opens (`keccak256`) and revealed when it
 settles, so the deck cannot be rewritten after the fact.

@@ -46,7 +46,22 @@ export interface LeaderRow {
 
 // ---- Aleph (formato multi-agente) ------------------------------------------
 
-export type AlephRoomStatus = "lobby" | "playing" | "settled" | "dissolved";
+export type AlephRoomStatus = "lobby" | "funding" | "playing" | "settled" | "dissolved";
+
+/** Lo que un asiento necesita para depositar en una mesa de plata. Llega en
+ *  la vista PRIVADA mientras la sala está en `funding`. Deadlines en SEGUNDOS
+ *  (como los lee el contrato); `stake` en micro-USDC como string. */
+export interface AlephDeposit {
+  chainId: number;
+  escrow: string;
+  usdc: string;
+  stake: string;
+  seats: string[];
+  seatsHash: string;
+  fundDeadline: number;
+  playDeadline: number;
+  seatSig: string;
+}
 
 /** Un asiento como lo sirve el árbitro: estado y bolsillo del motor más la
  *  ficha pública que resuelve `resolveDisplay` (nombre/avatar si el dueño los
@@ -61,6 +76,17 @@ export interface AlephSeatView {
   house?: boolean;
   byo?: boolean;
 }
+
+/** Por qué una liquidación quedó CERRADA sin transacción del árbitro:
+ *  `external` = otro presentó la tabla (la firma es pública, cualquiera puede);
+ *  `refunded` = la sala terminó reembolsada y ya no hay nada que pagar. */
+export type AlephSettleOutcome = "external" | "refunded";
+
+/** Por qué un reembolso quedó CERRADO sin transacción del árbitro:
+ *  `none` = nadie llegó a depositar (la sala ni existe on-chain);
+ *  `external` = alguien pidió el reembolso permissionless antes;
+ *  `settled` = la sala ya estaba liquidada (no debería pasar, queda anotado). */
+export type AlephRefundOutcome = "none" | "external" | "settled";
 
 /** La vista de una sala tal como la devuelven `GET /aleph/:id`, `POST
  *  /aleph/join` y `POST /aleph/:id/act`. Espeja `AlephRoomView` de
@@ -87,13 +113,38 @@ export type AlephRoomView = {
   deadline?: number;
   /** `settled`, para el asiento que consulta con pase */
   rating?: { before: number; after: number; delta: number };
+  /** `funding` (mesa de plata): cuándo vence el fondeo (epoch ms) */
+  fundingDeadline?: number;
+  /** `funding`: quién ya depositó (minúsculas) */
+  deposited?: string[];
+  /** `funding`, solo en tu vista privada: con qué depositar */
+  deposit?: AlephDeposit;
+  /** stake > 0: el contrato que custodia la mesa */
+  escrow?: string;
+  /** `settled`, stake > 0: la tabla en micro-USDC, su firma y la transacción */
+  payoutsUsdc?: Record<string, string>;
+  payoutSig?: string;
+  /** `settled`, stake > 0: el hash, cuando lo mandó el árbitro. Sin este pero
+   *  con `settleOutcome`, la sala está saldada igual: la firma es pública y
+   *  `settle` es permissionless, así que "external" no es un error, es un pago
+   *  que llegó por una transacción de otro. */
+  settleTx?: string;
+  settleOutcome?: AlephSettleOutcome;
+  /** `dissolved`, stake > 0: el hash del `cancelRoom` del árbitro. Sin este
+   *  pero con `refundOutcome`, la plata también está resuelta (alguien más la
+   *  pidió, nadie llegó a depositar, o la sala ya estaba liquidada). */
+  refundTx?: string;
+  refundOutcome?: AlephRefundOutcome;
   seats: AlephSeatView[];
 } & Partial<Omit<AlephView, "seats">>;
 
 export interface AlephLobby {
   roomId: string;
   stake: number;
+  /** `lobby`: esperando asientos; `funding`: lista congelada, esperando depósitos */
+  status: "lobby" | "funding";
   seats: number;
+  deposited?: number;
   min: number;
   max: number;
   closesAt: number;
@@ -112,6 +163,17 @@ export interface AlephLog {
   settledAt?: number;
   events: AlephEvent[];
   payouts: Record<string, number>;
+  /** Solo mesas de plata: la parte en USDC del registro. */
+  usdc?: {
+    escrow: string;
+    chainId: number;
+    feeBps?: number;
+    table?: Record<string, string>;
+    signature?: string;
+    settleTx?: string;
+    /** Sin `settleTx` pero con esto, igual saldada (ver `AlephSettleOutcome`). */
+    settleOutcome?: AlephSettleOutcome;
+  };
 }
 
 /** Pase de vista: firma de `alephViewAuthMessage(roomId, address, ts)`. */
@@ -299,6 +361,13 @@ export class ArbiterClient {
   async alephLobbies(): Promise<AlephLobby[]> {
     const j = await this.get<{ lobbies?: AlephLobby[] }>("/aleph/lobbies");
     return j.lobbies ?? [];
+  }
+
+  /** Lobbies + las mesas (stakes) que acepta este árbitro. Un árbitro anterior
+   *  a la etapa 4 no manda `stakes`: se asume solo la gratis. */
+  async alephLobbiesInfo(): Promise<{ lobbies: AlephLobby[]; stakes: number[] }> {
+    const j = await this.get<{ lobbies?: AlephLobby[]; stakes?: number[] }>("/aleph/lobbies");
+    return { lobbies: j.lobbies ?? [], stakes: j.stakes ?? [0] };
   }
 
   /** Pedir asiento. `auth` = firma de matchmakeAuthMessage("aleph", stake,

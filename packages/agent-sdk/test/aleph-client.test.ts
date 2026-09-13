@@ -49,6 +49,37 @@ test("alephLobbies: GET /aleph/lobbies y devuelve la lista (vacía si falta)", a
   assert.deepEqual(await empty.alephLobbies(), []);
 });
 
+test("alephLobbiesInfo: GET /aleph/lobbies con las mesas que acepta el árbitro", async () => {
+  const cap: Captured = {};
+  const client = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: fakeFetch(cap, {
+      lobbies: [
+        {
+          roomId: ROOM,
+          stake: 2,
+          status: "funding",
+          seats: 4,
+          deposited: 1,
+          min: 4,
+          max: 8,
+          closesAt: 9,
+        },
+      ],
+      stakes: [0, 2],
+    }),
+  });
+  const info = await client.alephLobbiesInfo();
+  assert.equal(cap.url, "http://arbiter.test/aleph/lobbies");
+  assert.deepEqual(info.stakes, [0, 2]);
+  assert.equal(info.lobbies[0].status, "funding");
+  assert.equal(info.lobbies[0].deposited, 1);
+  // Sin `stakes` (árbitro viejo): la mesa gratis y nada más.
+  const old = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: fakeFetch({}, { lobbies: [] }),
+  });
+  assert.deepEqual(await old.alephLobbiesInfo(), { lobbies: [], stakes: [0] });
+});
+
 test("alephJoin: POST /aleph/join con stake, address y la firma", async () => {
   const cap: Captured = {};
   const client = new ArbiterClient("http://arbiter.test", {
@@ -74,6 +105,32 @@ test("alephView: sin pase es GET /aleph/:id; con pase van address, signature y t
   assert.equal(pub.roomId, ROOM);
   await client.alephView(ROOM, { address: ADDR, signature: "0xsig", ts: 123 });
   assert.equal(cap.url, `http://arbiter.test/aleph/${ROOM}?address=${ADDR}&signature=0xsig&ts=123`);
+});
+
+test("alephView: mesa de plata — settleOutcome/refundOutcome llegan aunque no haya *Tx propio (la firma pública movió la plata igual)", async () => {
+  const cap: Captured = {};
+  // Liquidada por un tercero: `settle` es permissionless y la firma es
+  // pública, así que sin `settleTx` (el árbitro no mandó la transacción)
+  // pero con `settleOutcome: "external"` la sala está saldada, no rota.
+  const settled = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: fakeFetch(cap, {
+      ...VIEW,
+      status: "settled",
+      stake: 2,
+      settleOutcome: "external",
+    }),
+  });
+  const v = await settled.alephView(ROOM);
+  assert.equal(v.settleOutcome, "external");
+  assert.equal(v.settleTx, undefined, "sin hash propio: la pagó otro, no es un error");
+  // Disuelta con el reembolso ya resuelto (acá: nadie llegó a depositar) —
+  // mismo patrón del lado del reembolso.
+  const dissolved = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: fakeFetch(cap, { ...VIEW, status: "dissolved", stake: 2, refundOutcome: "none" }),
+  });
+  const d = await dissolved.alephView(ROOM);
+  assert.equal(d.refundOutcome, "none");
+  assert.equal(d.refundTx, undefined, "sin hash propio: nadie llegó a depositar");
 });
 
 test("alephAct: POST /aleph/:id/act con el cuerpo firmado completo", async () => {
@@ -106,6 +163,25 @@ test("alephLog: GET /aleph/:id/log", async () => {
   const log = await client.alephLog(ROOM);
   assert.equal(cap.url, `http://arbiter.test/aleph/${ROOM}/log`);
   assert.deepEqual(log.events, []);
+});
+
+test("alephLog: usdc.settleOutcome llega en el registro público de una mesa de plata liquidada por otro", async () => {
+  const cap: Captured = {};
+  const client = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: fakeFetch(cap, {
+      roomId: ROOM,
+      events: [],
+      payouts: {},
+      usdc: { escrow: "0xescrow", chainId: 84532, settleOutcome: "external" },
+    }),
+  });
+  const log = await client.alephLog(ROOM);
+  assert.equal(log.usdc?.settleOutcome, "external");
+  assert.equal(
+    log.usdc?.settleTx,
+    undefined,
+    "sin hash propio: la presentó otro, la sala igual quedó saldada",
+  );
 });
 
 test("errores: el motivo que da el árbitro (400) viaja en el mensaje, también en los GET", async () => {
