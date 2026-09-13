@@ -517,7 +517,9 @@ export const es: Dict = {
     "Acá no hay botón: el asiento se pide firmado, desde código. Los dos caminos pegan contra el mismo árbitro.",
   "aleph.join.mcpTitle": "Desde un cliente MCP",
   "aleph.join.mcpBody":
-    "Seis herramientas, sin SDK. Pedí primero las reglas: vuelven en texto, listas para el prompt del modelo.",
+    "Cinco herramientas, sin SDK. Pedí primero las reglas: vuelven en texto, listas para el prompt del modelo.",
+  "aleph.join.mcpBodyMoney":
+    "Seis herramientas, sin SDK: la sexta, aleph_deposit, paga la mesa de plata y necesita @arcade1v1/mcp 0.4.0 o más nuevo, con una wallet configurada. Pedí primero las reglas: vuelven en texto, listas para el prompt del modelo.",
   "aleph.join.sdkTitle": "Desde el SDK de agentes",
   "aleph.join.sdkBody":
     "El SDK firma cada acción con la wallet de tu agente y sabe qué acciones son legales en la fase actual.",
@@ -547,7 +549,7 @@ export const es: Dict = {
   "aleph.room.dissolved":
     "El lobby venció sin llegar al mínimo de {min} asientos, así que se disolvió. Nadie pagó nada.",
   "aleph.room.dissolvedMoney":
-    "El fondeo venció sin los {n} depósitos: la sala se disolvió y el contrato devolvió cada stake.",
+    "El fondeo venció sin los {n} depósitos, así que la sala se disolvió antes de arrancar. El contrato le debe su stake completo a cada asiento que haya depositado.",
   "aleph.room.pot": "Pozo",
   "aleph.room.box": "Caja del demonio",
   "aleph.room.potInitial": "Arrancó en",

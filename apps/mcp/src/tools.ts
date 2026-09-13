@@ -1,5 +1,7 @@
 // Lógica de cada herramienta MCP como funciones puras (reciben un ArbiterClient
-// inyectable). server.ts solo las envuelve en herramientas MCP. Sin on-chain.
+// inyectable). server.ts solo las envuelve en herramientas MCP. Lo único
+// on-chain (el depósito de una mesa de plata de Aleph) lo manda el agent-sdk, y
+// solo con la config de plata del operador (MoneyConfig, más abajo).
 import {
   ArbiterClient,
   createAgent,
@@ -101,7 +103,8 @@ export type AlephAgentView = AlephRoomView & {
    *  settled). Actuar después de que llega a 0 es una fase que ya cerró. */
   msLeft?: number;
   /** Mesa de plata en `funding` y este asiento todavía no depositó: la
-   *  próxima llamada es `aleph_deposit`, no `aleph_act`. */
+   *  próxima llamada es `aleph_deposit`, no `aleph_act`. En el resultado del
+   *  propio `aleph_deposit` siempre es false (ver alephDepositTool). */
   mustDeposit: boolean;
 };
 
@@ -120,6 +123,33 @@ function withLegal(agent: Agent, v: AlephRoomView): AlephAgentView {
   };
 }
 
+/** Las mesas de plata de ESTE servidor, fijadas por el operador al arrancar
+ *  (config.ts). Vienen del entorno, nunca de los argumentos de una herramienta:
+ *  el modelo no elige a qué contrato se aprueba USDC ni el tope por mesa. */
+export interface MoneyConfig {
+  /** ARCADE_ALEPH_ESCROW_ADDRESS: el mismo pin que recibe `createAgent`. */
+  escrow?: string;
+  /** ARCADE_ALEPH_MAX_STAKE: lo máximo, en USDC, que la wallet pone en una mesa. */
+  maxStake?: number;
+}
+
+// FALLAR CERRADO. Sin pin, `alephDeposit` aprueba USDC al escrow que nombra la
+// respuesta del árbitro, y esa respuesta viaja por la red: ARBITER_URL puede
+// ser http://, o de un tercero. Aun con el ancla de stake del SDK, una
+// respuesta mentirosa podría llevarse UN stake a un contrato ajeno, así que sin
+// pin este servidor no deposita. Tampoco se sienta a una mesa de plata: con
+// asiento y sin poder depositar, la sala se disolvería en fondeo para los otros
+// 3-7. `money` ausente es mesas de plata apagadas: no hay default que las prenda.
+function assertMoneyTables(money: MoneyConfig, refused: string): void {
+  if (!money.escrow) {
+    throw new Error(
+      `${refused}: money tables are off on this MCP server. Its operator has to set ` +
+        `ARCADE_ALEPH_ESCROW_ADDRESS (the EscrowAleph contract this wallet may approve USDC to), ` +
+        `together with ARCADE_PRIVATE_KEY and RPC_URL, and restart it. The free table (stake 0) needs none of them.`,
+    );
+  }
+}
+
 export function alephRulesTool(): { rulesV: number; rules: string } {
   return { rulesV: ALEPH_RULES_V, rules: describeAlephRules() };
 }
@@ -134,7 +164,20 @@ export async function alephLobbiesTool(
   return client.alephLobbiesInfo();
 }
 
-export async function alephJoinTool(agent: Agent, stake = 0): Promise<AlephAgentView> {
+export async function alephJoinTool(
+  agent: Agent,
+  stake = 0,
+  money: MoneyConfig = {},
+): Promise<AlephAgentView> {
+  if (stake > 0) {
+    const refused = `not taking a seat at the ${stake} USDC table`;
+    assertMoneyTables(money, refused);
+    if (money.maxStake !== undefined && stake > money.maxStake) {
+      throw new Error(
+        `${refused}: this server's operator caps a table at ${money.maxStake} USDC (ARCADE_ALEPH_MAX_STAKE)`,
+      );
+    }
+  }
   return withLegal(agent, await agent.alephJoin(stake));
 }
 
@@ -195,10 +238,17 @@ function withoutUrls(message: string): string {
 export async function alephDepositTool(
   agent: Agent,
   roomId: string,
+  money: MoneyConfig = {},
 ): Promise<AlephAgentView & { step: "open" | "deposit" | "already"; txHash?: string }> {
+  // Antes que nada y afuera del try: este motivo es para el operador y no trae
+  // ninguna URL, así que no pasa por la máscara.
+  assertMoneyTables(money, "not depositing");
   let r: AlephDepositResult;
   try {
-    r = await agent.alephDeposit(roomId);
+    // El tope del operador viaja como ancla de `alephDeposit`. Sin él, el SDK
+    // solo paga el stake con que ESTE proceso se sentó por aleph_join: después
+    // de un reinicio del servidor la sala queda sin ancla y no se deposita.
+    r = await agent.alephDeposit(roomId, { maxStake: money.maxStake });
   } catch (e) {
     // Se re-lanza un Error NUEVO, deliberadamente SIN `cause`: adjuntar el
     // objeto original reabriría el mismo hueco que esto sanea, porque
@@ -216,5 +266,9 @@ export async function alephDepositTool(
   // La vista que se devuelve es la de ANTES de depositar (el árbitro ve el
   // depósito en su próximo tick, unos segundos): el modelo sigue sondeando
   // aleph_view hasta que `deposited` lo incluya y la sala pase a `playing`.
-  return { ...withLegal(agent, r.view), step: r.step, txHash: r.txHash };
+  // Por eso `mustDeposit` va forzado a false: calculado sobre esa vista vieja,
+  // un `open` o `deposit` exitoso volvía diciendo "depositá ya" e invitaba al
+  // modelo a repetir la llamada, que en el mejor caso contesta `already` y en
+  // el peor choca con un RPC atrasado y un saldo que ya se gastó.
+  return { ...withLegal(agent, r.view), mustDeposit: false, step: r.step, txHash: r.txHash };
 }

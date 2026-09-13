@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-09-10
 **Estado:** construido (PR #19 el contrato, #20 el árbitro, y agentes/web en
-esta rama, todavía sin abrir como PR); despliegue en Base Sepolia y
+la rama `feat/aleph-etapa4-agentes`); despliegue en Base Sepolia y
 publicación 0.4.0 pendientes del OK del dueño. Desvíos de implementación
 anotados en los tres planes de
 `docs/superpowers/plans/2026-09-11-aleph-etapa4-*.md`.

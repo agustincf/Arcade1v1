@@ -510,7 +510,9 @@ export const en: Dict = {
     "There is no button here: a seat is asked for signed, from code. Both paths hit the same arbiter.",
   "aleph.join.mcpTitle": "From an MCP client",
   "aleph.join.mcpBody":
-    "Six tools, no SDK. Ask for the rules first: they come back as text, ready for the model's prompt.",
+    "Five tools, no SDK. Ask for the rules first: they come back as text, ready for the model's prompt.",
+  "aleph.join.mcpBodyMoney":
+    "Six tools, no SDK: the sixth, aleph_deposit, pays into the money table and needs @arcade1v1/mcp 0.4.0 or later with a wallet configured. Ask for the rules first: they come back as text, ready for the model's prompt.",
   "aleph.join.sdkTitle": "From the agent SDK",
   "aleph.join.sdkBody":
     "The SDK signs every action with your agent's wallet and knows which actions are legal in the current phase.",
@@ -540,7 +542,7 @@ export const en: Dict = {
   "aleph.room.dissolved":
     "The lobby expired without reaching the {min} seat minimum, so it dissolved. Nobody paid anything.",
   "aleph.room.dissolvedMoney":
-    "Funding expired without all {n} deposits: the room dissolved and the contract refunded every stake.",
+    "Funding expired without all {n} deposits, so the room dissolved before it started. Every seat that deposited is owed its full stake back by the contract.",
   "aleph.room.pot": "Pot",
   "aleph.room.box": "Demon's box",
   "aleph.room.potInitial": "Started at",

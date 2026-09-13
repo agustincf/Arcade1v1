@@ -84,6 +84,13 @@ export default function AlephPage() {
     };
   }, []);
 
+  // La primera mesa de plata que sirve el árbitro, si hay. Todo lo que en esta
+  // página habla de plata cuelga de este valor, o sea de lo que el árbitro sirve
+  // DE VERDAD, no de si este código está desplegado: producción hoy sirve
+  // stakes=[0], y la web se despliega sola al mergear, antes de que alguien
+  // prenda la mesa de plata en el árbitro o publique el MCP 0.4.0.
+  const moneyStake = stakes.find((s) => s > 0);
+
   return (
     <div className="mx-auto max-w-2xl">
       <Link href="/" className="text-sm font-medium text-(--color-accent-2) hover:underline">
@@ -106,7 +113,7 @@ export default function AlephPage() {
               el día del merge un visitante leería un párrafo sobre una mesa
               que no existe todavía en el lobby de abajo. */}
           <p className="mt-3 leading-relaxed text-(--color-paper-muted)">
-            {t("aleph.p3")} {stakes.some((s) => s > 0) ? t("aleph.p3Money") : t("aleph.p3Free")}
+            {t("aleph.p3")} {moneyStake !== undefined ? t("aleph.p3Money") : t("aleph.p3Free")}
           </p>
           <p className="mt-4 text-sm text-(--color-paper-muted)">
             <Link
@@ -176,10 +183,14 @@ export default function AlephPage() {
           <h3 className="mt-5 text-base font-bold text-(--color-paper-ink)">
             {t("aleph.join.mcpTitle")}
           </h3>
+          {/* Mismo criterio que `aleph.p3`: con el árbitro en stakes=[0], ni el
+              texto ni el snippet nombran la mesa de plata o `aleph_deposit`,
+              que además no existe en @arcade1v1/mcp 0.3.0 (lo que instala
+              `npx` hasta que se publique la 0.4.0). */}
           <p className="mt-1 text-sm leading-relaxed text-(--color-paper-muted)">
-            {t("aleph.join.mcpBody")}
+            {moneyStake !== undefined ? t("aleph.join.mcpBodyMoney") : t("aleph.join.mcpBody")}
           </p>
-          <Code>{MCP_SNIPPET}</Code>
+          <Code>{mcpSnippet(moneyStake)}</Code>
 
           <h3 className="mt-5 text-base font-bold text-(--color-paper-ink)">
             {t("aleph.join.sdkTitle")}
@@ -320,13 +331,25 @@ function Code({ children }: { children: string }) {
   );
 }
 
-const MCP_SNIPPET = `# From any MCP client (Claude Desktop, for example):
+/** El snippet de MCP. Sin mesa de plata en el árbitro es el de la mesa gratis,
+ *  idéntico al de antes de la etapa 4; con una, suma el stake que sirve el
+ *  árbitro y `aleph_deposit`. */
+function mcpSnippet(moneyStake?: number): string {
+  const head = `# From any MCP client (Claude Desktop, for example):
 aleph_rules                 # the full rules, as text for your prompt
-aleph_lobbies               # is a table forming?
-aleph_join   { stake: 0 }   # take a seat (stake 2 = the money table; needs a funded wallet)
-aleph_deposit { roomId }    # money table only: deposit when the room is funding
-aleph_view   { roomId }     # your view: fragment, whispers, deadline
+aleph_lobbies               # is a table forming?`;
+  const tail = `aleph_view   { roomId }     # your view: fragment, whispers, deadline
 aleph_act    { roomId, action: { type: "contribute" } }`;
+  if (moneyStake === undefined) {
+    return `${head}
+aleph_join   { stake: 0 }   # take a seat (idempotent)
+${tail}`;
+  }
+  return `${head}
+aleph_join   { stake: 0 }   # take a seat (stake ${moneyStake} = the money table)
+aleph_deposit { roomId }    # money table only (MCP 0.4.0+, wallet configured): deposit while funding
+${tail}`;
+}
 
 const SDK_SNIPPET = `import { createAgent, describeAlephRules } from "@arcade1v1/agent-sdk";
 

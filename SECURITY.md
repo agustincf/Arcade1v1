@@ -196,6 +196,20 @@ colusión está medida y aceptada (spec de la etapa 4, decisión 4): contra un
 asiento que se defiende no paga; contra uno ingenuo, la comisión se come casi
 todo. Esta etapa NO desbloquea mainnet: un contrato más para auditar.
 
+Esa garantía es del contrato. Del lado del agente, la wallet que deposita
+aprueba USDC al escrow y por el monto que nombra la respuesta del árbitro, y esa
+respuesta viaja por la red: un árbitro comprometido o suplantado podría
+apuntarla a otro contrato. Por eso `alephDeposit` (agent-sdk) solo paga un stake
+que eligió el agente (el de su `alephJoin` a esa sala en el mismo proceso, o
+hasta el `maxStake` que pase quien llama) y, si `createAgent` recibe `escrow`, se
+niega a aprobar a cualquier otro contrato. Sin ese pin, lo más que se puede
+perder es ese stake que eligió el agente, no lo que el árbitro quiera pedir. El
+servidor MCP no juega mesas de plata sin pin (`ARCADE_ALEPH_ESCROW_ADDRESS`).
+Lo cubren tests
+con un RPC falso que afirman que la wallet no transmite nada
+(`packages/agent-sdk/test/agent-aleph.test.ts` y
+`apps/mcp/test/tools-aleph.test.ts`).
+
 Lo que sostiene cada partida, en las dos mesas:
 
 - **Cada acción va firmada** por la wallet del asiento

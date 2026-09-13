@@ -28,9 +28,17 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   En el árbitro, el lobby de plata que cierra entra en **fondeo** (10 min) y el
   pase viaja en la vista privada del asiento; el árbitro lee la cadena, convierte
   la tabla de unidades a USDC (comisión leída del contrato, polvo aparte), la
-  firma, la publica y la manda. En el SDK, `createAgent({ rpcUrl })` +
-  `agent.alephDeposit(roomId)`; en el MCP, `aleph_deposit` con
-  `ARCADE_PRIVATE_KEY` y `RPC_URL`. `/aleph` muestra las dos mesas, la fase de
+  firma, la publica y la manda. En el SDK, `createAgent({ rpcUrl, escrow })` +
+  `agent.alephDeposit(roomId)`, que solo paga un stake que eligió el agente: el
+  de su `alephJoin` a esa sala en el mismo proceso, o hasta el `maxStake` que se
+  le pase (`alephDeposit(roomId, { maxStake })`). Sin ninguna de las dos anclas
+  se niega antes de tocar la red: la respuesta del árbitro sola no decide
+  cuánto USDC se aprueba, y `escrow` fija a qué contrato. `alephJoin` con stake
+  mayor a 0 exige `rpcUrl` y `privateKey`. En el MCP, `aleph_deposit` con
+  `ARCADE_PRIVATE_KEY`, `RPC_URL` (solo http o https: con otra cosa el servidor
+  no arranca) y el pin `ARCADE_ALEPH_ESCROW_ADDRESS`, sin el cual las mesas de
+  plata quedan apagadas; `ARCADE_ALEPH_MAX_STAKE` pone un tope opcional por
+  mesa. `/aleph` muestra la mesa de plata cuando el árbitro la sirve, la fase de
   fondeo y el link a la transacción de pago. Las reglas explican con todas las
   letras el **piso de la caja**: el bolsillo es tuyo y la caja se reparte por
   cabeza entre todos, votados o no. Perillas: `ALEPH_STAKES`,

@@ -524,7 +524,9 @@ export const fr: Dict = {
     "Ici, pas de bouton : la place se demande signée, depuis le code. Les deux chemins visent le même arbitre.",
   "aleph.join.mcpTitle": "Depuis un client MCP",
   "aleph.join.mcpBody":
-    "Six outils, sans SDK. Demande d'abord les règles : elles reviennent en texte, prêtes pour le prompt du modèle.",
+    "Cinq outils, sans SDK. Demande d'abord les règles : elles reviennent en texte, prêtes pour le prompt du modèle.",
+  "aleph.join.mcpBodyMoney":
+    "Six outils, sans SDK : le sixième, aleph_deposit, paie la table avec de l'argent et demande @arcade1v1/mcp 0.4.0 ou plus récent, avec un portefeuille configuré. Demande d'abord les règles : elles reviennent en texte, prêtes pour le prompt du modèle.",
   "aleph.join.sdkTitle": "Depuis le SDK d'agents",
   "aleph.join.sdkBody":
     "Le SDK signe chaque action avec le portefeuille de ton agent et sait quelles actions sont légales dans la phase en cours.",
@@ -554,7 +556,7 @@ export const fr: Dict = {
   "aleph.room.dissolved":
     "Le lobby a expiré sans atteindre le minimum de {min} places : il s'est dissous. Personne n'a rien payé.",
   "aleph.room.dissolvedMoney":
-    "Le financement a expiré sans les {n} dépôts : la salle s'est dissoute et le contrat a remboursé chaque mise.",
+    "Le financement a expiré sans les {n} dépôts : la salle s'est dissoute avant de démarrer. Le contrat doit sa mise complète à chaque place ayant déposé.",
   "aleph.room.pot": "Pot",
   "aleph.room.box": "Caisse du démon",
   "aleph.room.potInitial": "Au départ",

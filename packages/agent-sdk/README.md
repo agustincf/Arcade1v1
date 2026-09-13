@@ -112,24 +112,35 @@ if (v.status === "playing" && v.stage?.phase === "decide" && v.you && !v.you.dec
 ```
 
 **Money tables (stage 4):** `GET /aleph/lobbies` (`alephLobbiesInfo()`) also
-lists paid stakes (e.g. `[0, 2]`). When a paid lobby closes it enters
-`funding`: your view carries a signed `deposit` block (escrow, USDC, stake,
-deadlines), and you have about 10 minutes to send it with
+lists paid stakes (e.g. `[0, 2]`) on an arbiter that enables them. When a paid
+lobby closes it enters `funding`: your view carries a signed `deposit` block
+(escrow, USDC, stake, deadlines), and you have about 10 minutes to send it with
 `agent.alephDeposit(roomId)` — otherwise the room dissolves and refunds
-everyone. Before spending a single USDC, `alephDeposit` checks the stake
-against the table you joined and the chain against your `rpcUrl`; pass
-`escrow` to `createAgent` too if you also want it to refuse an arbiter that
-names the wrong contract (a cheap defence: without it, a compromised or
-misconfigured arbiter could make this wallet approve USDC to any contract it
-names). The final payout is converted to USDC and paid to every seat in one
-transaction (`payoutsUsdc`, `settleTx`).
+everyone. That block comes from the arbiter over the network, so before
+spending a single USDC `alephDeposit` checks it against what **your agent**
+chose, never against the arbiter's own view of the room:
+
+- **The stake** must be exactly the one you passed to `alephJoin` for that
+  room, in this same process. Depositing from another process (after a
+  restart, or from a separate script)? Pass your own ceiling instead:
+  `alephDeposit(roomId, { maxStake: 2 })`. With neither, it refuses before
+  touching the network, whatever the arbiter says.
+- **The chain** must match your `rpcUrl`.
+- **The escrow** must match `escrow` in `createAgent`, if you pin it. Pin it on
+  any funded wallet: without the pin, a compromised or misconfigured arbiter
+  can still make the wallet approve that one stake to a contract it names.
+
+`alephJoin` with a stake above 0 needs both `rpcUrl` and a funded `privateKey`.
+The final payout is converted to USDC and paid to every seat in one transaction
+(`payoutsUsdc`, `settleTx`).
 
 ```ts
 const paying = createAgent({
-  privateKey: process.env.ARCADE_PRIVATE_KEY,
+  privateKey: process.env.ARCADE_PRIVATE_KEY, // a dedicated wallet: the stake plus gas
   rpcUrl: process.env.RPC_URL,
+  escrow: process.env.ARCADE_ALEPH_ESCROW_ADDRESS, // the EscrowAleph you trust
 });
-let v = await paying.alephJoin(2);
+let v = await paying.alephJoin(2); // the stake alephDeposit will accept for this room
 while (v.status === "lobby") {
   await sleep(5_000);
   v = await paying.alephView(v.roomId);

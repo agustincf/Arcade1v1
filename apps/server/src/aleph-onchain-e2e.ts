@@ -139,6 +139,27 @@ function fail(msg: string): never {
   process.exit(1);
 }
 
+/** Después de depositar, el permiso de USDC de cada asiento al escrow tiene que
+ *  haber vuelto a CERO: el SDK aprueba exactamente un stake y `open`/`deposit`
+ *  lo consume entero. Sin esta comprobación un approve ilimitado (o doble)
+ *  pasaba toda la suite, porque cada asiento tiene minteado justo un stake y
+ *  nada miraba el permiso que sobra. */
+async function assertAllowancesSpent(scenario: string) {
+  for (let i = 0; i < seats.length; i++) {
+    const left = (await pub.readContract({
+      address: USDC,
+      abi: erc20MinimalAbi,
+      functionName: "allowance",
+      args: [seats[i].address, ESCROW],
+    })) as bigint;
+    if (left !== 0n)
+      fail(
+        `${scenario}: al asiento ${i} le quedó un permiso de ${usd(left)} USDC al escrow, esperaba 0 (el approve es de exactamente un stake)`,
+      );
+  }
+  console.log(`✓ ${scenario}: ningún asiento dejó permiso de USDC al escrow`);
+}
+
 /** Misma política guionada que los tests: lleva la sala al final sin esperar plazos. */
 function policy(v: AlephRoomView, me: string): AlephAction {
   const st = v.stage!;
@@ -257,6 +278,7 @@ async function happyPath() {
   const inEscrow = await bal(ESCROW);
   if (inEscrow !== STAKE * 4n) fail(`el escrow tiene ${usd(inEscrow)} USDC, esperaba 8`);
   console.log("✓ 4 depósitos · escrow:", usd(inEscrow), "USDC (esperado 8)");
+  await assertAllowancesSpent("mesa de plata");
 
   await alephChainTick();
   let v = (await getAlephRoom(roomId))!;
@@ -334,6 +356,7 @@ async function unfundedScenario() {
   const again = await agents[1].alephDeposit(roomId);
   if (again.step !== "already" || again.txHash) fail(`repetir depositó de nuevo: ${again.step}`);
   if ((await bal(ESCROW)) !== STAKE * 2n) fail("esperaba 2 stakes en el escrow");
+  await assertAllowancesSpent("fondeo incompleto");
 
   let now = Date.now();
   await alephChainTick(now);

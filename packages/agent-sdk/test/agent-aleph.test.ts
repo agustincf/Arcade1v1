@@ -1,14 +1,14 @@
 // packages/agent-sdk/test/agent-aleph.test.ts
 // createAgent en Aleph: firma con su wallet lo que el árbitro exige, exige
-// rpcUrl para sentarse en una mesa de plata (donde su wallet SÍ deposita),
-// corta ante otra versión de reglas y reutiliza el pase de vista mientras
-// sirve (renovándolo antes de que venza).
+// rpcUrl y privateKey para sentarse en una mesa de plata (donde su wallet SÍ
+// deposita), deposita solo un stake que eligió el agente (nunca uno que nombra
+// únicamente el árbitro), corta ante otra versión de reglas y reutiliza el pase
+// de vista mientras sirve (renovándolo antes de que venza).
 // Correr: node --import tsx --test packages/agent-sdk/test/agent-aleph.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
 import { recoverMessageAddress, type Hex } from "viem";
+import { generatePrivateKey } from "viem/accounts";
 import {
   matchmakeAuthMessage,
   alephActionAuthMessage,
@@ -25,6 +25,7 @@ import {
   type AlephViewPass,
 } from "../src/client.ts";
 import { createAgent, VIEW_PASS_MAX_AGE_MS } from "../src/agent.ts";
+import { fakeRpc } from "./fake-rpc.ts";
 
 const ROOM = "0x" + "ee".repeat(32);
 const T0 = 1_800_000_000_000;
@@ -54,29 +55,6 @@ function fundingFake(deposit = depositFixture()): FakeAleph {
   fake.deposited = [];
   fake.deposit = deposit;
   return fake;
-}
-
-/** Un RPC de mentira que solo contesta `eth_chainId`, para probar el control de
- *  red sin levantar una cadena. Devuelve la url y cómo apagarlo. */
-async function fakeRpc(chainIdHex: string): Promise<{ url: string; close: () => void }> {
-  const server = createServer((req, res) => {
-    let body = "";
-    req.on("data", (c) => (body += c));
-    req.on("end", () => {
-      const { id } = JSON.parse(body) as { id: number };
-      res.setHeader("content-type", "application/json");
-      res.end(JSON.stringify({ jsonrpc: "2.0", id, result: chainIdHex }));
-    });
-  });
-  await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
-  const { port } = server.address() as AddressInfo;
-  return {
-    url: `http://127.0.0.1:${port}`,
-    close: () => {
-      server.closeAllConnections();
-      server.close();
-    },
-  };
 }
 
 /** Árbitro falso: captura lo que manda el agente y devuelve una vista fija.
@@ -149,13 +127,22 @@ test("alephJoin: firma matchmakeAuthMessage('aleph', 0, address, ts) con la wall
   assert.equal(fake.joins[1].stake, 0);
 });
 
-test("alephJoin: una mesa de plata exige rpcUrl (la wallet tiene que poder depositar); con rpcUrl firma stake 2", async () => {
+test("alephJoin: una mesa de plata exige rpcUrl y privateKey (la wallet tiene que poder depositar); con las dos firma stake 2", async () => {
   const fake = new FakeAleph();
   const agent = createAgent({ client: fake });
   await assert.rejects(() => agent.alephJoin(2), /rpcUrl/);
+  // Con RPC pero sin privateKey la wallet es la efímera que se sortea al crear
+  // el agente: nadie la fondeó, así que se sentaría para nada y la sala se
+  // disolvería en fondeo para los otros asientos.
+  const unfundable = createAgent({ client: fake, rpcUrl: "http://localhost:8545" });
+  await assert.rejects(() => unfundable.alephJoin(2), /privateKey/);
   assert.equal(fake.joins.length, 0, "no llegó a pedir asiento");
 
-  const paying = createAgent({ client: fake, rpcUrl: "http://localhost:8545" });
+  const paying = createAgent({
+    client: fake,
+    rpcUrl: "http://localhost:8545",
+    privateKey: generatePrivateKey(),
+  });
   await paying.alephJoin(2);
   assert.equal(fake.joins.length, 1);
   assert.equal(fake.joins[0].stake, 2);
@@ -189,7 +176,7 @@ test("alephDeposit: sin rpcUrl falla claro; con la sala fuera de funding no toca
   const agent = createAgent({ client: fake });
   await assert.rejects(() => agent.alephDeposit(ROOM), /rpcUrl/);
   const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" }); // nada escucha ahí
-  await assert.rejects(() => paying.alephDeposit(ROOM), /not funding \(playing\)/);
+  await assert.rejects(() => paying.alephDeposit(ROOM, { maxStake: 2 }), /not funding \(playing\)/);
 });
 
 test("alephDeposit: si ya figuro entre los depositados, no manda nada", async () => {
@@ -208,7 +195,7 @@ test("alephDeposit: si ya figuro entre los depositados, no manda nada", async ()
     playDeadline: 2,
     seatSig: "0x" + "0".repeat(130),
   };
-  const r = await paying.alephDeposit(ROOM);
+  const r = await paying.alephDeposit(ROOM, { maxStake: 2 });
   assert.equal(r.step, "already");
   assert.equal(r.txHash, undefined);
   assert.equal(r.view.roomId, ROOM, "devuelve la vista que leyó");
@@ -219,15 +206,20 @@ test("alephDeposit: si ya figuro entre los depositados, no manda nada", async ()
 // contrato, en qué red) se valida antes del approve: un árbitro comprometido,
 // mal configurado o suplantado no puede mover esta wallet a su gusto.
 
-test("alephDeposit: si el árbitro pide un stake distinto al de la mesa, no se aprueba nada", async () => {
+test("alephDeposit: si el árbitro pide otro stake que el de alephJoin, no se aprueba nada", async () => {
   const fake = fundingFake(depositFixture({ stake: "50000000" })); // 50 USDC en una mesa de 2
-  const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" });
+  const paying = createAgent({
+    client: fake,
+    rpcUrl: "http://127.0.0.1:1",
+    privateKey: generatePrivateKey(),
+  });
+  await paying.alephJoin(2); // la sala del fake es de 2 USDC: ese es el ancla
   await assert.rejects(
     () => paying.alephDeposit(ROOM),
     (e: Error) =>
       /deposit stake mismatch/.test(e.message) &&
       /50000000/.test(e.message) &&
-      /2 USDC table/.test(e.message) &&
+      /joined it at 2 USDC/.test(e.message) &&
       /2000000/.test(e.message),
   );
 });
@@ -237,7 +229,7 @@ test("alephDeposit: con el escrow clavado en createAgent, otro escrow no se apru
   const pinned = "0x" + "a".repeat(40);
   const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1", escrow: pinned });
   await assert.rejects(
-    () => paying.alephDeposit(ROOM),
+    () => paying.alephDeposit(ROOM, { maxStake: 2 }),
     (e: Error) => /escrow mismatch/.test(e.message) && e.message.includes(pinned),
   );
   // Con el escrow que sí corresponde (y otra capitalización) el control no
@@ -248,7 +240,7 @@ test("alephDeposit: con el escrow clavado en createAgent, otro escrow no se apru
     escrow: fake.deposit!.escrow.toUpperCase(),
   });
   await assert.rejects(
-    () => ok.alephDeposit(ROOM),
+    () => ok.alephDeposit(ROOM, { maxStake: 2 }),
     (e: Error) => !/escrow mismatch/.test(e.message),
   );
 });
@@ -256,7 +248,7 @@ test("alephDeposit: con el escrow clavado en createAgent, otro escrow no se apru
 test("alephDeposit: un chainId que el SDK no conoce se rechaza (no cae a una red por defecto)", async () => {
   const fake = fundingFake(depositFixture({ chainId: 12345 }));
   const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" });
-  await assert.rejects(() => paying.alephDeposit(ROOM), /unknown chainId 12345/);
+  await assert.rejects(() => paying.alephDeposit(ROOM, { maxStake: 2 }), /unknown chainId 12345/);
 });
 
 test("alephDeposit: si el RPC está en otra red que el escrow del árbitro, corta antes de gastar", async () => {
@@ -265,7 +257,7 @@ test("alephDeposit: si el RPC está en otra red que el escrow del árbitro, cort
   try {
     const paying = createAgent({ client: fake, rpcUrl: rpc.url });
     await assert.rejects(
-      () => paying.alephDeposit(ROOM),
+      () => paying.alephDeposit(ROOM, { maxStake: 2 }),
       (e: Error) =>
         /chain mismatch/.test(e.message) &&
         /on chain 8453/.test(e.message) &&
@@ -320,7 +312,7 @@ test("alephDeposit: con el pase rechazado en fondeo, el error habla del PASE, no
   const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" });
   fake.address = paying.address;
   fake.grantAt = 99; // nunca sirve dentro de este test
-  await assert.rejects(() => paying.alephDeposit(ROOM), /view pass rejected/);
+  await assert.rejects(() => paying.alephDeposit(ROOM, { maxStake: 2 }), /view pass rejected/);
   assert.equal(fake.calls, 2, "reintentó exactamente una vez antes de resignarse");
 });
 
@@ -329,9 +321,130 @@ test("alephDeposit: sin pase de depósito y sin asiento, el error lo dice (no 'l
   fake.deposit = undefined; // sala en fondeo, pero esta address no tiene asiento
   const paying = createAgent({ client: fake, rpcUrl: "http://127.0.0.1:1" });
   await assert.rejects(
-    () => paying.alephDeposit(ROOM),
+    () => paying.alephDeposit(ROOM, { maxStake: 2 }),
     (e: Error) => /no deposit pass/.test(e.message) && !/is not funding/.test(e.message),
   );
+});
+
+// ---- El ancla del stake: lo que la wallet aprueba lo elige el AGENTE -------
+// La prueba del review final, hecha test: con la config exacta que tenía el MCP
+// (clave + RPC, sin pin de escrow), un árbitro que miente COHERENTE (750 USDC en
+// la vista y en `deposit`, con el escrow del atacante) y un RPC que reporta ese
+// saldo hacían que la wallet firmara y transmitiera approve(atacante, 750 USDC)
+// sin haberse sentado a ninguna mesa. El RPC falso llega hasta
+// `eth_sendRawTransaction`, así que "no se transmitió nada" es una afirmación
+// que puede fallar: el último test es el control positivo que lo demuestra.
+
+const ATTACKER = "0x" + "a7".repeat(20);
+const WHOLE_BALANCE = 750_000_000n; // 750 USDC: el saldo de una wallet es público
+
+/** El árbitro mentiroso de la prueba: 750 en la vista Y en `deposit`, con el
+ *  escrow del atacante. Coherente a propósito: así mentía la prueba. */
+function lyingFake(): FakeAleph {
+  const fake = fundingFake(depositFixture({ stake: WHOLE_BALANCE.toString(), escrow: ATTACKER }));
+  fake.stake = 750;
+  return fake;
+}
+
+/** Corre un depósito que tiene que fallar y devuelve el error. Los tests miran
+ *  PRIMERO qué se transmitió y recién después el motivo: si una defensa se
+ *  cae, el fallo tiene que mostrar el approve que salió, no un mensaje distinto. */
+async function depositError(run: () => Promise<unknown>): Promise<Error> {
+  try {
+    await run();
+  } catch (e) {
+    return e as Error;
+  }
+  return assert.fail("el depósito no tenía que terminar bien");
+}
+
+test("alephDeposit: sin stake propio, un árbitro que miente no hace transmitir nada (la prueba del review)", async () => {
+  const rpc = await fakeRpc("0x7a69", { balance: WHOLE_BALANCE });
+  try {
+    const agent = createAgent({
+      client: lyingFake(),
+      privateKey: generatePrivateKey(),
+      rpcUrl: rpc.url,
+    });
+    const e = await depositError(() => agent.alephDeposit(ROOM)); // nunca se sentó
+    assert.deepEqual(rpc.broadcasts, [], "la wallet no firmó ni transmitió nada");
+    assert.deepEqual(rpc.calls, [], "ni una lectura: corta antes de tocar el RPC");
+    assert.match(e.message, /no stake of your own/);
+  } finally {
+    rpc.close();
+  }
+});
+
+test("alephDeposit: sentado a 2 USDC, un árbitro que después pide 750 no hace transmitir nada", async () => {
+  const rpc = await fakeRpc("0x7a69", { balance: WHOLE_BALANCE });
+  try {
+    const fake = fundingFake(); // la mesa a la que se sienta es de 2
+    const agent = createAgent({ client: fake, privateKey: generatePrivateKey(), rpcUrl: rpc.url });
+    await agent.alephJoin(2);
+    // ...y a la hora de depositar el árbitro miente coherente.
+    fake.stake = 750;
+    fake.deposit = depositFixture({ stake: WHOLE_BALANCE.toString(), escrow: ATTACKER });
+    const e = await depositError(() => agent.alephDeposit(ROOM));
+    assert.deepEqual(rpc.broadcasts, [], "la wallet no firmó ni transmitió nada");
+    assert.deepEqual(rpc.calls, [], "ni una lectura de la cadena");
+    assert.match(e.message, /deposit stake mismatch/);
+  } finally {
+    rpc.close();
+  }
+});
+
+test("alephDeposit: con maxStake, un árbitro que pide más no hace transmitir nada; un maxStake inválido corta antes de la red", async () => {
+  const rpc = await fakeRpc("0x7a69", { balance: WHOLE_BALANCE });
+  try {
+    const fake = lyingFake();
+    const agent = createAgent({ client: fake, privateKey: generatePrivateKey(), rpcUrl: rpc.url });
+    const e = await depositError(() => agent.alephDeposit(ROOM, { maxStake: 2 }));
+    assert.deepEqual(rpc.broadcasts, [], "la wallet no firmó ni transmitió nada");
+    assert.deepEqual(rpc.calls, [], "ni una lectura de la cadena");
+    assert.match(e.message, /deposit over maxStake/);
+    // Un tope que no es un número de USDC no se interpreta: ni 0 ("nunca"), ni
+    // negativo, ni NaN (un Number() de una variable mal escrita).
+    const views = fake.views.length;
+    for (const bad of [0, -2, Number.NaN, Number.POSITIVE_INFINITY]) {
+      await assert.rejects(
+        () => agent.alephDeposit(ROOM, { maxStake: bad }),
+        /maxStake must be a positive number/,
+      );
+    }
+    assert.equal(fake.views.length, views, "ni siquiera le preguntó al árbitro");
+  } finally {
+    rpc.close();
+  }
+});
+
+test("alephDeposit: con el ancla que corresponde sí llega a la cadena y aprueba exactamente el stake (control positivo)", async () => {
+  const rpc = await fakeRpc("0x7a69", { balance: WHOLE_BALANCE });
+  try {
+    const fake = fundingFake();
+    const agent = createAgent({
+      client: fake,
+      privateKey: generatePrivateKey(),
+      rpcUrl: rpc.url,
+      escrow: fake.deposit!.escrow,
+    });
+    await agent.alephJoin(2);
+    // Un modelo que vuelve a buscar su sala con la mesa por defecto (0) recibe
+    // del join idempotente la MISMA sala de 2 USDC: el ancla no se pisa.
+    await agent.alephJoin(0);
+    await depositError(() => agent.alephDeposit(ROOM)); // el RPC falso nunca mina
+    assert.equal(rpc.broadcasts.length, 1, "el approve sí se transmitió");
+    const [approve] = rpc.broadcasts;
+    assert.equal(approve.functionName, "approve");
+    assert.equal(
+      approve.to?.toLowerCase(),
+      fake.deposit!.usdc.toLowerCase(),
+      "al contrato de USDC",
+    );
+    assert.equal(String(approve.args[0]).toLowerCase(), fake.deposit!.escrow.toLowerCase());
+    assert.equal(approve.args[1], 2_000_000n, "exactamente un stake, nunca un permiso infinito");
+  } finally {
+    rpc.close();
+  }
 });
 
 test("alephJoin: si hay mesa abierta con otra versión de reglas, corta ANTES de pedir asiento", async () => {

@@ -63,12 +63,14 @@ export function createAgent(opts: {
    *  La wallet tiene que tener el USDC del stake y gas. Sin `rpcUrl` el SDK
    *  solo firma mensajes, como siempre. */
   rpcUrl?: string;
-  /** El contrato que SE ESPERA custodie las mesas de plata. Opcional, pero
-   *  recomendado para una wallet con fondos: `alephDeposit` aprueba gastar USDC
-   *  al escrow que el árbitro indica EN SU RESPUESTA, y esa respuesta viaja por
-   *  la red. Clavándolo acá, un árbitro comprometido (o apuntado por error a
-   *  otro despliegue) no puede hacer que esta wallet le dé permiso a un
-   *  contrato cualquiera: el depósito falla antes del approve. */
+  /** El contrato que SE ESPERA custodie las mesas de plata. Opcional en el
+   *  SDK, pero recomendado para una wallet con fondos: `alephDeposit` aprueba
+   *  gastar USDC al escrow que el árbitro indica EN SU RESPUESTA, y esa
+   *  respuesta viaja por la red. Sin pin, el ancla de stake de `alephDeposit`
+   *  acota lo que puede pedir un árbitro comprometido (o apuntado por error a
+   *  otro despliegue) a UN stake que eligió el agente, pero ese stake todavía
+   *  se aprobaría al contrato que él nombre. Clavándolo acá, el depósito falla
+   *  antes del approve. El servidor MCP no juega mesas de plata sin él. */
   escrow?: string;
 }): {
   address: Hex;
@@ -97,10 +99,15 @@ export function createAgent(opts: {
   /** Aleph, mesa de plata: deposita el stake de ESTA wallet en la sala en
    *  `funding` (approve si hace falta, `open` si soy el primero, `deposit` si
    *  no). Idempotente: si ya deposité, no manda nada. Exige `rpcUrl`.
-   *  Antes de aprobar un solo USDC valida lo que el árbitro pide: el stake
-   *  contra la mesa a la que el agente se sentó, la red contra el `rpcUrl`, y
-   *  el escrow contra el de `createAgent` si se clavó uno. */
-  alephDeposit(roomId: string): Promise<AlephDepositResult>;
+   *  Antes de aprobar un solo USDC valida lo que el árbitro pide contra lo que
+   *  eligió el AGENTE, nunca contra la vista del propio árbitro: el stake tiene
+   *  que ser exactamente el que se pidió con `alephJoin` para esa sala en este
+   *  proceso, o no pasar de `limits.maxStake` (USDC) si se da — y sin ninguna
+   *  de las dos anclas se niega antes de tocar la red; la red, contra el
+   *  `rpcUrl`; el escrow, contra el de `createAgent` si se clavó uno. Quien
+   *  deposita desde OTRO proceso (un reinicio, un script aparte) pasa su tope:
+   *  `alephDeposit(roomId, { maxStake: 2 })`. */
+  alephDeposit(roomId: string, limits?: { maxStake?: number }): Promise<AlephDepositResult>;
 } {
   const wallet = opts.privateKey
     ? { privateKey: opts.privateKey, address: privateKeyToAccount(opts.privateKey).address }
@@ -196,13 +203,22 @@ export function createAgent(opts: {
     }
   }
 
+  // El stake que ESTE agente pidió al sentarse, por sala (roomId en
+  // minúsculas). Es el ancla de `alephDeposit`: la única cifra del depósito que
+  // no sale de la respuesta del árbitro. Vive en la memoria del proceso a
+  // propósito: quien deposita desde otro proceso pasa su propio tope
+  // (`maxStake`) en vez de recuperar algo que el árbitro pueda reescribir.
+  const joinedStakes = new Map<string, number>();
+
   async function alephJoin(stake = 0): Promise<AlephRoomView> {
     // Una mesa de plata solo tiene sentido si esta wallet puede depositar: sin
-    // RPC se sentaría, la sala entraría en fondeo y se disolvería a los 10 min
-    // haciendo perder el tiempo a los otros 3-7 asientos.
-    if (stake > 0 && !opts.rpcUrl) {
+    // RPC, o con la wallet efímera que se sortea cuando no hay `privateKey`
+    // (nadie la fondeó ni puede fondearla a tiempo), se sentaría, la sala
+    // entraría en fondeo y se disolvería a los 10 min haciendo perder el
+    // tiempo a los otros 3-7 asientos.
+    if (stake > 0 && (!opts.rpcUrl || !opts.privateKey)) {
       throw new Error(
-        `a money table (${stake} USDC) needs a wallet that can deposit: pass rpcUrl (and a funded privateKey) to createAgent, or use stake 0`,
+        `a money table (${stake} USDC) needs a wallet that can deposit: pass rpcUrl and a funded privateKey to createAgent, or use stake 0`,
       );
     }
     await assertCompatibleRules(stake);
@@ -224,6 +240,13 @@ export function createAgent(opts: {
           `update @arcade1v1 packages (room ${v.roomId})`,
       );
     }
+    // Se anota solo si la sala que devolvió el árbitro es de la mesa pedida. El
+    // join es idempotente: con asiento en una sala de plata, pedir la gratis
+    // (el default de `aleph_join` en el MCP, que un modelo usa para volver a
+    // encontrar su sala) devuelve ESA sala, y pisar su ancla con 0 dejaría a
+    // un agente legítimo sin poder depositar, y la sala se disolvería para los
+    // demás. Una sala de otro stake no deja ancla: su depósito se niega.
+    if (v.stake === stake) joinedStakes.set(v.roomId.toLowerCase(), stake);
     return v;
   }
 
@@ -314,8 +337,35 @@ export function createAgent(opts: {
   }
 
   // La ÚNICA transacción que manda este SDK. Todo lo demás es firma.
-  async function alephDeposit(roomId: string): Promise<AlephDepositResult> {
+  async function alephDeposit(
+    roomId: string,
+    limits: { maxStake?: number } = {},
+  ): Promise<AlephDepositResult> {
     if (!opts.rpcUrl) throw new Error("createAgent needs rpcUrl to deposit in a money table");
+    // EL MONTO LO ANCLA EL AGENTE, NO EL ÁRBITRO. `deposit` llega en un JSON
+    // por la red (el `arbiterUrl` por defecto es `http://`), y cruzar su
+    // `stake` contra el `stake` de la misma vista no prueba nada: las dos
+    // cifras las escribe el árbitro. Uno comprometido, mal configurado o
+    // suplantado que mintiera coherente (750 en los dos campos, justo el saldo
+    // de la wallet, que es público) pasaba ese control y se llevaba un approve
+    // por todo, sin que el agente se hubiera sentado a ninguna mesa. Solo
+    // cuentan cifras que eligió el agente: el stake con que se sentó a ESTA
+    // sala en este proceso, o el tope que pasa quien llama. Sin ninguna no se
+    // deposita, y se corta acá: antes de hablar con el árbitro o con el RPC.
+    const { maxStake } = limits;
+    if (maxStake !== undefined && !(Number.isFinite(maxStake) && maxStake > 0)) {
+      throw new Error(
+        `maxStake must be a positive number of USDC (got ${maxStake}) — not depositing`,
+      );
+    }
+    const joined = joinedStakes.get(roomId.toLowerCase());
+    if (joined === undefined && maxStake === undefined) {
+      throw new Error(
+        `no stake of your own for room ${roomId}: this agent did not take that seat with alephJoin ` +
+          `in this process and no maxStake was given, so only the arbiter's response would decide ` +
+          `how much USDC to approve — not depositing (pass alephDeposit(roomId, { maxStake }))`,
+      );
+    }
     // Primero la vista: si la sala no está fondeando no hay nada que mandar, y
     // así el error es del árbitro (claro) y no del RPC (críptico).
     const view = await alephView(roomId);
@@ -342,17 +392,18 @@ export function createAgent(opts: {
     const stake = BigInt(d.stake);
     const id = roomId as Hex;
 
-    // LO QUE SE APRUEBA Y SE GASTA NO LO DECIDE SOLO EL ÁRBITRO. `deposit` llega
-    // en un JSON por la red (el `arbiterUrl` por defecto es `http://`): un
-    // árbitro comprometido, mal configurado o suplantado que conteste stake 50 y
-    // un escrow cualquiera haría que esta wallet apruebe 50 USDC a un contrato
-    // arbitrario y se los entregue. El stake se cruza contra la mesa a la que el
-    // agente se sentó, que es lo que aceptó pagar.
-    const agreed = stakeToUnits(view.stake);
-    if (stake !== agreed) {
+    // Las anclas de arriba contra lo que pide el árbitro. Con las dos, valen
+    // las dos: el stake con que se sentó manda, y el tope no se puede pasar.
+    if (joined !== undefined && stake !== stakeToUnits(joined)) {
       throw new Error(
         `deposit stake mismatch in room ${roomId}: the arbiter asks for ${stake} micro-USDC ` +
-          `but this is a ${view.stake} USDC table (${agreed} micro-USDC) — not depositing`,
+          `but this agent joined it at ${joined} USDC (${stakeToUnits(joined)} micro-USDC) — not depositing`,
+      );
+    }
+    if (maxStake !== undefined && stake > stakeToUnits(maxStake)) {
+      throw new Error(
+        `deposit over maxStake in room ${roomId}: the arbiter asks for ${stake} micro-USDC, ` +
+          `more than your maxStake of ${maxStake} USDC (${stakeToUnits(maxStake)} micro-USDC) — not depositing`,
       );
     }
     // El escrow solo se puede clavar por configuración: es un dato del

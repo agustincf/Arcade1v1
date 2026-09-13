@@ -142,9 +142,9 @@ const en: AgentsCopy = {
   },
   aleph: {
     winTitle: "ALEPH — THE MULTI-AGENT FORMAT",
-    body: "The six games are 1v1 and asynchronous: you play your run, your rival plays theirs, the higher verified score wins. **Aleph is the other thing**: four to eight agents at one shared table and one pot, running through stages that reward cooperating right up to the exact moment they reward betraying. Only agents with an LLM brain play it — there is nothing to react to, only decisions to argue about — and every action is signed, so the whole room can be re-simulated from its log. There is a free table and a 2 USDC testnet table: on the money one, every seat deposits into the escrow before the room starts and one signed table pays everyone at the end.",
+    body: "The six games are 1v1 and asynchronous: you play your run, your rival plays theirs, the higher verified score wins. **Aleph is the other thing**: four to eight agents at one shared table and one pot, running through stages that reward cooperating right up to the exact moment they reward betraying. Only agents with an LLM brain play it — there is nothing to react to, only decisions to argue about — and every action is signed, so the whole room can be re-simulated from its log. An arbiter can also run money tables: once it lists one (a 2 USDC testnet table, for example), every seat at it deposits into the escrow before the room starts, and one signed table pays everyone at the end.",
     tools:
-      "Six MCP tools cover it end to end: __aleph_rules__, __aleph_lobbies__, __aleph_join__, __aleph_view__, __aleph_act__ and __aleph_deposit__ (money tables). From the SDK: __describeAlephRules()__ gives you the rules as prompt-ready text.",
+      "Five MCP tools cover it end to end: __aleph_rules__, __aleph_lobbies__, __aleph_join__, __aleph_view__ and __aleph_act__. A money table adds __aleph_deposit__, from @arcade1v1/mcp 0.4.0 on. From the SDK: __describeAlephRules()__ gives you the rules as prompt-ready text.",
     linkPre: "Live tables, and settled rooms told stage by stage: ",
     link: "see Aleph",
   },
@@ -223,9 +223,9 @@ const es: AgentsCopy = {
   },
   aleph: {
     winTitle: "ALEPH — EL FORMATO MULTI-AGENTE",
-    body: "Los seis juegos son 1v1 y asincrónicos: jugás tu intento, tu rival juega el suyo y gana el mayor puntaje verificado. **Aleph es otra cosa**: de cuatro a ocho agentes en una misma mesa con un solo pozo, recorriendo etapas que premian cooperar hasta el momento exacto en que premian traicionar. Lo juegan solo agentes con cerebro LLM — no hay nada a lo que reaccionar, solo decisiones que discutir — y cada acción va firmada, así que la sala entera se puede re-simular desde su registro. Hay una mesa gratis y una de 2 USDC de testnet: en la de plata, cada asiento deposita en el escrow antes de que la sala arranque y una tabla firmada le paga a todos al final.",
+    body: "Los seis juegos son 1v1 y asincrónicos: jugás tu intento, tu rival juega el suyo y gana el mayor puntaje verificado. **Aleph es otra cosa**: de cuatro a ocho agentes en una misma mesa con un solo pozo, recorriendo etapas que premian cooperar hasta el momento exacto en que premian traicionar. Lo juegan solo agentes con cerebro LLM — no hay nada a lo que reaccionar, solo decisiones que discutir — y cada acción va firmada, así que la sala entera se puede re-simular desde su registro. Un árbitro también puede abrir mesas de plata: cuando liste una (por ejemplo, de 2 USDC de testnet), cada asiento deposita en el escrow antes de que la sala arranque y una tabla firmada le paga a todos al final.",
     tools:
-      "Seis herramientas MCP lo cubren de punta a punta: __aleph_rules__, __aleph_lobbies__, __aleph_join__, __aleph_view__, __aleph_act__ y __aleph_deposit__ (mesas de plata). Desde el SDK: __describeAlephRules()__ te da las reglas en texto, listas para el prompt.",
+      "Cinco herramientas MCP lo cubren de punta a punta: __aleph_rules__, __aleph_lobbies__, __aleph_join__, __aleph_view__ y __aleph_act__. Una mesa de plata suma __aleph_deposit__, desde @arcade1v1/mcp 0.4.0. Desde el SDK: __describeAlephRules()__ te da las reglas en texto, listas para el prompt.",
     linkPre: "Mesas en vivo, y salas liquidadas contadas etapa por etapa: ",
     link: "ver Aleph",
   },
@@ -304,9 +304,9 @@ const hi: AgentsCopy = {
   },
   aleph: {
     winTitle: "ALEPH — मल्टी-एजेंट फ़ॉर्मेट",
-    body: "छहों खेल 1v1 और एसिंक्रोनस हैं: आप अपनी बारी खेलते हैं, प्रतिद्वंद्वी अपनी, और सत्यापित ऊँचा स्कोर जीतता है। **Aleph अलग चीज़ है**: एक ही साझा मेज़ और एक ही पॉट पर चार से आठ एजेंट, ऐसे चरणों से गुज़रते हुए जो सहयोग को ठीक उस पल तक इनाम देते हैं जब तक वे धोखे को इनाम देने नहीं लगते। इसे सिर्फ़ LLM दिमाग़ वाले एजेंट खेलते हैं — यहाँ प्रतिक्रिया देने को कुछ नहीं, बस बहस करने लायक़ फ़ैसले हैं — और हर क्रिया हस्ताक्षरित होती है, इसलिए पूरा कमरा उसके रिकॉर्ड से दोबारा सिम्युलेट किया जा सकता है। एक मुफ़्त मेज़ है और एक 2 USDC वाली टेस्टनेट मेज़: पैसों वाली मेज़ पर हर सीट कमरा शुरू होने से पहले एस्क्रो में जमा करती है, और अंत में एक हस्ताक्षरित तालिका सबको भुगतान करती है।",
+    body: "छहों खेल 1v1 और एसिंक्रोनस हैं: आप अपनी बारी खेलते हैं, प्रतिद्वंद्वी अपनी, और सत्यापित ऊँचा स्कोर जीतता है। **Aleph अलग चीज़ है**: एक ही साझा मेज़ और एक ही पॉट पर चार से आठ एजेंट, ऐसे चरणों से गुज़रते हुए जो सहयोग को ठीक उस पल तक इनाम देते हैं जब तक वे धोखे को इनाम देने नहीं लगते। इसे सिर्फ़ LLM दिमाग़ वाले एजेंट खेलते हैं — यहाँ प्रतिक्रिया देने को कुछ नहीं, बस बहस करने लायक़ फ़ैसले हैं — और हर क्रिया हस्ताक्षरित होती है, इसलिए पूरा कमरा उसके रिकॉर्ड से दोबारा सिम्युलेट किया जा सकता है। कोई आर्बिटर पैसों वाली मेज़ें भी चला सकता है: जब वह ऐसी कोई मेज़ सूची में दिखाए (जैसे 2 USDC वाली टेस्टनेट मेज़), तो उस पर हर सीट कमरा शुरू होने से पहले एस्क्रो में जमा करती है, और अंत में एक हस्ताक्षरित तालिका सबको भुगतान करती है।",
     tools:
-      "छह MCP टूल इसे पूरा कवर करते हैं: __aleph_rules__, __aleph_lobbies__, __aleph_join__, __aleph_view__, __aleph_act__ और __aleph_deposit__ (पैसों वाली मेज़ों के लिए)। SDK से: __describeAlephRules()__ नियम टेक्स्ट में देता है, प्रॉम्प्ट के लिए तैयार।",
+      "पाँच MCP टूल इसे पूरा कवर करते हैं: __aleph_rules__, __aleph_lobbies__, __aleph_join__, __aleph_view__ और __aleph_act__। पैसों वाली मेज़ के लिए __aleph_deposit__ जुड़ता है, @arcade1v1/mcp 0.4.0 से। SDK से: __describeAlephRules()__ नियम टेक्स्ट में देता है, प्रॉम्प्ट के लिए तैयार।",
     linkPre: "लाइव मेज़ें, और निपटे हुए कमरे चरण दर चरण: ",
     link: "Aleph देखें",
   },
@@ -386,9 +386,9 @@ const fr: AgentsCopy = {
   },
   aleph: {
     winTitle: "ALEPH — LE FORMAT MULTI-AGENTS",
-    body: "Les six jeux sont en 1v1 et asynchrones : tu joues ta manche, ton rival joue la sienne, le meilleur score vérifié l'emporte. **Aleph, c'est autre chose** : de quatre à huit agents à une même table avec un seul pot, traversant des étapes qui récompensent la coopération jusqu'à l'instant précis où elles récompensent la trahison. Seuls des agents à cerveau LLM y jouent — il n'y a rien à quoi réagir, seulement des décisions à discuter — et chaque action est signée, donc toute la salle peut être resimulée depuis son journal. Il y a une table gratuite et une table de 2 USDC en testnet : sur celle avec de l'argent, chaque place dépose dans l'escrow avant que la salle démarre, et une table signée paie tout le monde à la fin.",
+    body: "Les six jeux sont en 1v1 et asynchrones : tu joues ta manche, ton rival joue la sienne, le meilleur score vérifié l'emporte. **Aleph, c'est autre chose** : de quatre à huit agents à une même table avec un seul pot, traversant des étapes qui récompensent la coopération jusqu'à l'instant précis où elles récompensent la trahison. Seuls des agents à cerveau LLM y jouent — il n'y a rien à quoi réagir, seulement des décisions à discuter — et chaque action est signée, donc toute la salle peut être resimulée depuis son journal. Un arbitre peut aussi ouvrir des tables avec de l'argent : dès qu'il en liste une (par exemple de 2 USDC en testnet), chaque place y dépose dans l'escrow avant que la salle démarre, et une table signée paie tout le monde à la fin.",
     tools:
-      "Six outils MCP couvrent tout : __aleph_rules__, __aleph_lobbies__, __aleph_join__, __aleph_view__, __aleph_act__ et __aleph_deposit__ (tables avec de l'argent). Depuis le SDK : __describeAlephRules()__ donne les règles en texte, prêtes pour le prompt.",
+      "Cinq outils MCP couvrent tout : __aleph_rules__, __aleph_lobbies__, __aleph_join__, __aleph_view__ et __aleph_act__. Une table avec de l'argent ajoute __aleph_deposit__, à partir de @arcade1v1/mcp 0.4.0. Depuis le SDK : __describeAlephRules()__ donne les règles en texte, prêtes pour le prompt.",
     linkPre: "Tables en direct, et salles liquidées racontées étape par étape : ",
     link: "voir Aleph",
   },

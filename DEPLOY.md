@@ -67,6 +67,11 @@ Con la dirección que imprime, dos variables más en el árbitro (Render):
 - `ALEPH_ESCROW_ADDRESS` — la del contrato recién desplegado.
 - `ALEPH_STAKES=0,2` — habilita la mesa de plata además de la gratis.
 
+El servidor MCP (`@arcade1v1/mcp`) no juega mesas de plata hasta que su operador
+ponga esa misma dirección en `ARCADE_ALEPH_ESCROW_ADDRESS`, junto a
+`ARCADE_PRIVATE_KEY` y `RPC_URL`: sin ese pin se niega a sentarse y a depositar
+(ver `apps/mcp/README.md`).
+
 El árbitro necesita gas para `settle`/`cancelRoom` en esta mesa también — la
 misma cuenta y el mismo `ARBITER_PRIVATE_KEY` del Paso 2, no una wallet nueva.
 
