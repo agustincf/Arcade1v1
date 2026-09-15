@@ -51,6 +51,7 @@ import {
   alephOnchainEnabled,
   alephEscrowAddress,
   alephChainId,
+  AlephTxRevertedError,
 } from "./aleph-chain.js";
 
 /** Error esperable (pedido inválido, sala cerrada, firma mala…): las rutas lo
@@ -909,8 +910,13 @@ async function settleOnchain(room: AlephRoom, now: number): Promise<boolean> {
   } catch (e) {
     const msg = (e as Error).message ?? String(e);
     let closed = false;
-    if (/not funded/i.test(msg)) {
-      // Ya no está Funded: o alguien presentó la tabla antes, o se reembolsó.
+    // Dos avisos de que la sala pudo dejar de estar Funded: la simulación dice
+    // "not funded", o la transacción se minó REVERTIDA. Un revert minado no
+    // trae un motivo confiable, así que en los dos casos decide la LECTURA de
+    // la sala, no el mensaje.
+    if (e instanceof AlephTxRevertedError || /not funded/i.test(msg)) {
+      // O alguien presentó la tabla antes, o se reembolsó, o (tras un revert
+      // minado) sigue Funded porque revirtió por otra cosa, como el gas.
       // Averiguar CUÁL es otra lectura, y esa lectura también puede fallar: si
       // falla, esto sigue siendo un intento fallido y tiene que irse al backoff
       // como cualquier otro. Sin este try la excepción se escapaba al catch por
@@ -918,9 +924,12 @@ async function settleOnchain(room: AlephRoom, now: number): Promise<boolean> {
       // y el tick siguiente reintentaba en el acto contra un RPC ya caído.
       try {
         const c = await alephChain().readRoom(room.id);
-        rec.settleOutcome = c.status === ALEPH_ESCROW_STATUS.Settled ? "external" : "refunded";
-        rec.lastError = undefined;
-        closed = true;
+        if (c.status === ALEPH_ESCROW_STATUS.Settled) rec.settleOutcome = "external";
+        else if (c.status === ALEPH_ESCROW_STATUS.Refunded) rec.settleOutcome = "refunded";
+        // Cualquier otro estado NO cierra: la plata sigue en el escrow y la
+        // tabla todavía hay que presentarla, así que se reintenta con backoff.
+        closed = rec.settleOutcome !== undefined;
+        rec.lastError = closed ? undefined : msg;
       } catch (e2) {
         rec.lastError = `${msg} | ${(e2 as Error).message}`;
       }

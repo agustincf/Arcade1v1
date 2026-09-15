@@ -4,8 +4,10 @@
 // depositan en EscrowAleph con `alephDeposit`, el árbitro ve los depósitos y
 // arranca, juegan hasta liquidar, el árbitro firma la tabla en USDC y la manda,
 // y cada uno cobra exactamente lo que dice la tabla. Después: un fondeo
-// incompleto que vence y el árbitro cancela on-chain. Antes de todo: los
-// digests EIP-712 del árbitro (viem) coinciden bit a bit con los del contrato.
+// incompleto que vence y el árbitro cancela on-chain. Al final: un asiento le
+// gana de mano el settle al árbitro, cuya transacción se mina REVERTIDA, y el
+// árbitro no la guarda como pago. Antes de todo: los digests EIP-712 del
+// árbitro (viem) coinciden bit a bit con los del contrato.
 //
 // Los asientos entran por HTTP (el camino de un agente de verdad) y el reloj
 // del árbitro se sigue empujando in-process para el vencimiento del escenario 2:
@@ -26,9 +28,11 @@ import express from "express";
 import type { AddressInfo } from "node:net";
 import {
   createPublicClient,
+  createTestClient,
   createWalletClient,
   http,
   parseEther,
+  parseGwei,
   hashTypedData,
   type Hex,
 } from "viem";
@@ -84,6 +88,8 @@ const seatsHashOfAbi = [
 ] as const;
 
 const pub = createPublicClient({ chain: foundry, transport: http(RPC) });
+// Control de anvil (minado automático y mempool): lo usa el escenario 3.
+const anvil = createTestClient({ mode: "anvil", chain: foundry, transport: http(RPC) });
 const wallet = (k: string) =>
   createWalletClient({
     account: privateKeyToAccount(k as Hex),
@@ -288,21 +294,7 @@ async function happyPath() {
   if (v.status !== "playing") fail(`el árbitro no vio los depósitos: ${v.status}`);
   console.log("✓ la sala arrancó al ver los N depósitos · commit:", v.commit);
 
-  // Jugar hasta el final, cada asiento con su agente (vista y acción firmadas).
-  for (let guard = 0; guard < 400 && v.status !== "settled"; guard++) {
-    for (let i = 0; i < agents.length; i++) {
-      const mine = await agents[i].alephView(roomId);
-      const you = mine.you;
-      if (mine.status !== "playing" || !you || you.status !== "alive" || you.decided || you.ready)
-        continue;
-      await agents[i].alephAct(roomId, policy(mine, low(seats[i].address)), {
-        stage: mine.stage!.index,
-        phase: mine.stage!.phase,
-      });
-    }
-    v = (await getAlephRoom(roomId))!;
-  }
-  if (v.status !== "settled") fail("la sala no terminó");
+  v = await playToSettled(roomId);
   console.log("✓ liquidada en unidades:", JSON.stringify(v.payouts));
 
   await alephChainTick();
@@ -386,11 +378,117 @@ async function unfundedScenario() {
   console.log("\nREEMBOLSO POR FONDEO INCOMPLETO VERIFICADO ✅");
 }
 
+/** Juega la sala hasta liquidarla, cada asiento con su agente (vista y acción firmadas). */
+async function playToSettled(roomId: string) {
+  let v = (await getAlephRoom(roomId))!;
+  for (let guard = 0; guard < 400 && v.status !== "settled"; guard++) {
+    for (let i = 0; i < agents.length; i++) {
+      const mine = await agents[i].alephView(roomId);
+      const you = mine.you;
+      if (mine.status !== "playing" || !you || you.status !== "alive" || you.decided || you.ready)
+        continue;
+      await agents[i].alephAct(roomId, policy(mine, low(seats[i].address)), {
+        stage: mine.stage!.index,
+        phase: mine.stage!.phase,
+      });
+    }
+    v = (await getAlephRoom(roomId))!;
+  }
+  if (v.status !== "settled") fail("la sala no terminó");
+  return v;
+}
+
+async function frontRunScenario() {
+  console.log(
+    "\n--- 3) Otro presenta la tabla mientras viaja el settle del árbitro: un revert minado no es un pago ---",
+  );
+  for (const s of seats) await send(owner, USDC, erc20MinimalAbi, "mint", [s.address, STAKE]);
+  let seated;
+  for (const a of agents) seated = await a.alephJoin(2);
+  if (seated!.status !== "funding") fail(`esperaba funding, hay ${seated!.status}`);
+  const roomId = seated!.roomId;
+  for (const a of agents) await a.alephDeposit(roomId);
+  await alephChainTick();
+  if ((await getAlephRoom(roomId))!.status !== "playing") fail("el árbitro no arrancó la sala");
+  await playToSettled(roomId);
+  const before = await Promise.all(seats.map((s) => bal(s.address)));
+
+  // Sin minado automático, el settle del árbitro se queda esperando en el
+  // mempool. Ahí un asiento presenta la MISMA tabla firmada (`settle` es
+  // permissionless) con más propina: anvil ordena por propina, así que las dos
+  // entran en el mismo bloque con la del asiento primero, y la del árbitro
+  // revierte "not funded" YA MINADA. Pasó la simulación: ese revert lo cuenta
+  // solamente el recibo.
+  const arbiter = low(privateKeyToAccount(process.env.ARBITER_PRIVATE_KEY as Hex).address);
+  let arbiterTx: Hex | undefined;
+  let tick: Promise<void> | undefined;
+  await anvil.setAutomine(false);
+  try {
+    tick = alephChainTick();
+    for (let i = 0; i < 300 && !arbiterTx; i++) {
+      const { pending } = await anvil.getTxpoolContent();
+      const [tx] = Object.entries(pending)
+        .filter(([from]) => from.toLowerCase() === arbiter)
+        .flatMap(([, byNonce]) => Object.values(byNonce));
+      arbiterTx = tx?.hash;
+      if (!arbiterTx) await new Promise((r) => setTimeout(r, 100));
+    }
+    if (!arbiterTx) throw new Error("el settle del árbitro nunca llegó al mempool");
+    const signed = (await getAlephRoom(roomId))!;
+    const list = seats.map((s) => low(s.address));
+    await wallet(SEAT_KEYS[0]).writeContract({
+      address: ESCROW,
+      abi: escrowAlephAbi,
+      functionName: "settle",
+      args: [
+        roomId as Hex,
+        list,
+        list.map((a) => BigInt(signed.payoutsUsdc![a])),
+        signed.payoutSig!,
+      ],
+      chain: foundry,
+      // Gas y fees fijos: nada se estima contra un bloque donde ya espera el
+      // settle del árbitro, y la propina alcanza de sobra para minarse primero.
+      gas: 1_000_000n,
+      maxFeePerGas: parseGwei("100"),
+      maxPriorityFeePerGas: parseGwei("100"),
+    });
+    await anvil.mine({ blocks: 1 });
+  } finally {
+    await anvil.setAutomine(true);
+  }
+  await tick;
+
+  const receipt = await pub.getTransactionReceipt({ hash: arbiterTx! });
+  if (receipt.status !== "reverted")
+    fail(`la carrera no se reprodujo: el settle del árbitro se minó con status ${receipt.status}`);
+  console.log("✓ el settle del árbitro se minó REVERTIDO:", arbiterTx);
+
+  const v = (await getAlephRoom(roomId))!;
+  if (v.settleTx) fail(`el árbitro guardó como pago una transacción revertida: ${v.settleTx}`);
+  if (v.settleOutcome !== "external")
+    fail(
+      `esperaba settleOutcome "external" (la pagó otro), hay ${JSON.stringify(v.settleOutcome)}`,
+    );
+  console.log("✓ sin settleTx: el árbitro leyó la sala y la cerró como external");
+
+  const after = await Promise.all(seats.map((s) => bal(s.address)));
+  for (let i = 0; i < seats.length; i++) {
+    const row = BigInt(v.payoutsUsdc![low(seats[i].address)]);
+    if (after[i] - before[i] !== row)
+      fail(`asiento ${i}: cobró ${usd(after[i] - before[i])}, esperaba ${usd(row)}`);
+  }
+  if ((await bal(ESCROW)) !== 0n) fail("el escrow no quedó en cero");
+  console.log("✓ la tabla que presentó el asiento pagó cada fila; escrow 0");
+  console.log("\nREVERT MINADO DEL SETTLE VERIFICADO ✅");
+}
+
 async function main() {
   await digestCheck();
   await prepare();
   await happyPath();
   await unfundedScenario();
+  await frontRunScenario();
   // Las conexiones del SDK quedan vivas (keep-alive): sin cerrarlas el proceso
   // se quedaría esperando el timeout del socket.
   server.closeAllConnections();
