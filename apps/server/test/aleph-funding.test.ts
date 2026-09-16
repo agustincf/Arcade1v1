@@ -6,10 +6,20 @@
 import "../src/offline-env.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { recoverTypedDataAddress, type Hex } from "viem";
+import {
+  ContractFunctionExecutionError,
+  ContractFunctionRevertedError,
+  recoverTypedDataAddress,
+  type Hex,
+} from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { alephViewAuthMessage } from "@arcade1v1/game-sdk/auth";
-import { ALEPH_ESCROW_STATUS, usdcPayoutTable, type AlephAction } from "@arcade1v1/game-sdk/aleph";
+import {
+  ALEPH_ESCROW_STATUS,
+  escrowAlephAbi,
+  usdcPayoutTable,
+  type AlephAction,
+} from "@arcade1v1/game-sdk/aleph";
 
 process.env.ALEPH_STAKES = "0,2";
 process.env.ALEPH_ESCROW_ADDRESS = "0x" + "e".repeat(40);
@@ -25,6 +35,48 @@ const wallets = () => {
   return { pk, address: privateKeyToAccount(pk).address.toLowerCase() as Hex };
 };
 
+/** Cómo se mina REVERTIDA una escritura del árbitro. `race`: lo que pasa en la
+ *  cadena mientras la transacción viaja (otra que se mina antes). `reason`: lo
+ *  que contesta el nodo al re-simular sobre ese bloque — el motivo del
+ *  contrato, un fallo que no es un revert (Error) o nada (la llamada pasaría,
+ *  como en un revert por falta de gas). */
+interface MinedRevert {
+  race?: () => void;
+  reason?: string | Error;
+}
+
+const REVERTED_TX = ("0x" + "b".repeat(64)) as Hex;
+
+/** Un nodo de mentira con la forma de viem: la simulación previa pasa, la
+ *  transacción sale (y ahí corre `race`) y el recibo vuelve "reverted". viem
+ *  no tira error por eso: devuelve el recibo, igual que acá. */
+function minedRevertNode({ race, reason }: MinedRevert) {
+  const pub = {
+    async simulateContract(p: { functionName: string; args: unknown[]; blockNumber?: bigint }) {
+      if (p.blockNumber !== undefined && reason instanceof Error) throw reason;
+      if (p.blockNumber !== undefined && reason) {
+        const { functionName, args } = p;
+        throw new ContractFunctionExecutionError(
+          new ContractFunctionRevertedError({ abi: escrowAlephAbi, functionName, message: reason }),
+          { abi: escrowAlephAbi, functionName, args },
+        );
+      }
+      return { request: p };
+    },
+    async waitForTransactionReceipt() {
+      return { status: "reverted" as const, blockNumber: 7n, transactionHash: REVERTED_TX };
+    },
+  };
+  const wallet = {
+    account: { address: ("0x" + "a".repeat(40)) as Hex },
+    async writeContract() {
+      race?.();
+      return REVERTED_TX;
+    },
+  };
+  return { pub, wallet };
+}
+
 /** Cadena falsa: recuerda depósitos por sala y las escrituras que le pidieron. */
 function fakeChain() {
   const rooms = new Map<string, { status: number; depositors: string[] }>();
@@ -32,6 +84,13 @@ function fakeChain() {
   let failSettle = 0;
   let settleError = "rpc down";
   let readsFail: string | undefined;
+  let mined: MinedRevert | undefined;
+  /** La escritura REAL (`sendAlephWrite`), contra un nodo que la mina revertida. */
+  const sendMined = (fn: "cancelRoom" | "settle", args: unknown[]) => {
+    const { pub, wallet } = minedRevertNode(mined!);
+    mined = undefined;
+    return C.sendAlephWrite(pub as never, wallet as never, fn, args);
+  };
   const f = {
     rooms,
     calls,
@@ -46,6 +105,10 @@ function fakeChain() {
     /** Un nodo que no contesta: `readRoom` rechaza hasta que se pase undefined. */
     failReadsWith(message: string | undefined) {
       readsFail = message;
+    },
+    /** La PRÓXIMA escritura (settle o cancelRoom) sale y se mina REVERTIDA. */
+    revertWhenMined(m: MinedRevert) {
+      mined = m;
     },
     /** Corre ANTES de contestar una lectura: para meterse mientras viaja. */
     onRead: undefined as (() => void) | undefined,
@@ -73,6 +136,7 @@ function fakeChain() {
     },
     async cancelRoom(roomId: Hex) {
       calls.push({ fn: "cancelRoom", args: [roomId] });
+      if (mined) return sendMined("cancelRoom", [roomId]);
       const r = rooms.get(roomId);
       if (!r) throw new Error("execution reverted: cant cancel");
       r.status = ALEPH_ESCROW_STATUS.Refunded;
@@ -80,6 +144,7 @@ function fakeChain() {
     },
     async settle(roomId: Hex, seats: Hex[], amounts: bigint[], signature: Hex) {
       calls.push({ fn: "settle", args: [roomId, seats, amounts, signature] });
+      if (mined) return sendMined("settle", [roomId, seats, amounts, signature]);
       if (failSettle > 0) {
         failSettle--;
         throw new Error(settleError);
@@ -574,6 +639,144 @@ test("un revert que ni se puede clasificar igual espera el backoff, y al clasifi
   // Y ya no se insiste nunca más.
   await V.alephChainTick(end + 5 * 60 * 60_000);
   assert.equal(settles(), 2);
+  C.setAlephChainForTest(undefined);
+});
+
+// UN REVERT MINADO NO ES UN ÉXITO. La simulación pasa, la transacción sale, y
+// mientras viaja otra transacción cambia la sala: la nuestra se mina REVERTIDA.
+// viem no tira error por eso (devuelve el recibo con status "reverted"), así
+// que sin mirarlo el árbitro guardaba ese hash como pago o reembolso hecho: no
+// reintentaba, no leía la sala para clasificarla y la web linkeaba una
+// transacción que no movió nada. Estos tests pasan por la escritura REAL
+// (`sendAlephWrite`), con un nodo de mentira.
+
+/** Una mesa de 2 fondeada y jugada hasta `settled`: la liquidación sale en el próximo tick. */
+async function settledRoom(chain: ReturnType<typeof fakeChain>) {
+  const { ws, roomId } = await fundingRoom(T0);
+  for (const w of ws) chain.deposit(roomId, w.address, 4);
+  await V.alephChainTick(T0 + 1_000);
+  const end = await playToSettled(roomId, ws, T0 + 2_000);
+  return { roomId, end, settles: () => chain.calls.filter((c) => c.fn === "settle").length };
+}
+
+test("un settle que se mina REVERTIDO no queda como pago: otro presentó la tabla mientras viajaba", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { roomId, end, settles } = await settledRoom(chain);
+
+  // `settle` es permissionless: un asiento presenta la tabla firmada y se mina
+  // antes que la nuestra, que revierte "not funded" ya dentro del bloque.
+  chain.revertWhenMined({
+    race: () => {
+      chain.rooms.get(roomId)!.status = ALEPH_ESCROW_STATUS.Settled;
+    },
+    reason: "not funded",
+  });
+  await V.alephChainTick(end + 1);
+  const v = (await V.getAlephRoom(roomId, undefined, end + 1))!;
+  assert.equal(settles(), 1);
+  assert.equal(v.settleTx, undefined, "un hash revertido no es un pago: la web lo linkearía");
+  assert.equal(v.settleOutcome, "external", "la pagó otro: cerrada en el mismo tick");
+  // Cerrada: no se insiste nunca más.
+  await V.alephChainTick(end + 5 * 60 * 60_000);
+  assert.equal(settles(), 1);
+  C.setAlephChainForTest(undefined);
+});
+
+test("tras un revert minado clasifica la CADENA, no el mensaje: sin motivo del nodo, lee la sala y cierra", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { roomId, end, settles } = await settledRoom(chain);
+
+  // La sala se reembolsó mientras viajaba la nuestra (`refundExpired` también
+  // es permissionless) y el nodo ni siquiera deja re-simular: el error NO dice
+  // "not funded". Igual se lee la sala en el acto, en vez de esperar al backoff
+  // para que el reintento se tope con el "not funded" en la simulación.
+  chain.revertWhenMined({
+    race: () => {
+      chain.rooms.get(roomId)!.status = ALEPH_ESCROW_STATUS.Refunded;
+    },
+    reason: new Error("rpc down"),
+  });
+  await V.alephChainTick(end + 1);
+  const v = (await V.getAlephRoom(roomId, undefined, end + 1))!;
+  assert.equal(v.settleTx, undefined);
+  assert.equal(v.settleOutcome, "refunded", "la plata volvió como reembolso: cerrada sin hash");
+  await V.alephChainTick(end + 5 * 60 * 60_000);
+  assert.equal(settles(), 1);
+  C.setAlephChainForTest(undefined);
+});
+
+test("un settle revertido con la sala todavía Funded NO se da por cerrado: backoff, y el reintento paga", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { roomId, end, settles } = await settledRoom(chain);
+
+  // Revierte por algo que no tocó la sala (sin gas, p. ej.): nadie pagó ni
+  // reembolsó, la plata sigue en el escrow y el pago todavía se debe.
+  chain.revertWhenMined({});
+  await V.alephChainTick(end + 1);
+  let v = (await V.getAlephRoom(roomId, undefined, end + 1))!;
+  assert.equal(v.settleTx, undefined);
+  assert.equal(
+    v.settleOutcome,
+    undefined,
+    "cerrarla como 'refunded' dejaría la tabla sin presentar y la plata trabada en el escrow",
+  );
+  await V.alephChainTick(end + 2);
+  assert.equal(settles(), 1, "backoff, como cualquier otro fallo");
+  await V.alephChainTick(end + 60 * 60_000);
+  v = (await V.getAlephRoom(roomId, undefined, end + 60 * 60_000))!;
+  assert.equal(settles(), 2);
+  assert.equal(
+    v.settleTx,
+    "0x" + "5".repeat(64),
+    "el reintento sí pagó: ese hash es el que se publica",
+  );
+  C.setAlephChainForTest(undefined);
+});
+
+test("un cancelRoom que se mina REVERTIDO no queda como reembolso: guarda hash y motivo, y al releer cierra", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { ws, roomId } = await fundingRoom(T0);
+  for (const w of ws.slice(0, 2)) chain.deposit(roomId, w.address, 4);
+  const cancels = () => chain.calls.filter((c) => c.fn === "cancelRoom").length;
+  await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS); // disuelve y deja pedido el reembolso
+
+  // Vencido el plazo, `refundUnfunded` es permissionless: un asiento cansado lo
+  // pide y se mina antes que nuestro cancelRoom, que revierte ya en el bloque.
+  chain.revertWhenMined({
+    race: () => {
+      chain.rooms.get(roomId)!.status = ALEPH_ESCROW_STATUS.Refunded;
+    },
+    reason: "cant cancel",
+  });
+  const t1 = T0 + V.ALEPH_FUNDING_MS + 5_000;
+  await V.alephChainTick(t1);
+  let v = (await V.getAlephRoom(roomId, undefined, t1))!;
+  assert.equal(cancels(), 1);
+  assert.equal(v.refundTx, undefined, "un hash revertido no es un reembolso: la web lo linkearía");
+  assert.equal(v.refundOutcome, undefined);
+  // El registro guarda POR QUÉ falló: el hash revertido y el motivo del contrato.
+  const saved = JSON.parse(V.serializeAleph()) as { id: string; chain?: { lastError?: string } }[];
+  const lastError = saved.find((r) => r.id === roomId)?.chain?.lastError ?? "";
+  assert.match(lastError, new RegExp(REVERTED_TX));
+  assert.match(lastError, /cant cancel/);
+
+  // Backoff como cualquier fallo; al volver, la lectura de la sala lo explica y
+  // no se manda otro cancelRoom.
+  await V.alephChainTick(t1 + 1);
+  assert.equal(cancels(), 1);
+  await V.alephChainTick(t1 + 60 * 60_000);
+  v = (await V.getAlephRoom(roomId, undefined, t1 + 60 * 60_000))!;
+  assert.equal(cancels(), 1, "ya reembolsada: no hay nada que cancelar");
+  assert.equal(v.refundTx, undefined);
+  assert.equal(v.refundOutcome, "external", "lo pidió otro: cerrado sin hash propio");
   C.setAlephChainForTest(undefined);
 });
 
