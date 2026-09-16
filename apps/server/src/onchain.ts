@@ -69,7 +69,15 @@ export const ONCHAIN_STATUS = {
  *  depositó hasta que venciera el plazo. */
 export async function readMatchOnchain(matchId: Hex): Promise<OnchainMatch | null> {
   if (!onchainEnabled()) return null;
-  const p = readClient();
+  return readMatch(readClient(), matchId);
+}
+
+/** El getter `matches`, decodificado. Recibe el cliente para que la
+ *  cancelación lea con el mismo nodo que le inyectan (ver `cancelMatchWithRetries`). */
+async function readMatch(
+  p: Pick<ReturnType<typeof readClient>, "readContract">,
+  matchId: Hex,
+): Promise<OnchainMatch> {
   const r = (await p.readContract({
     address: ESCROW,
     abi: escrowAbi,
@@ -105,6 +113,20 @@ export function enCola<T>(tarea: () => Promise<T>): Promise<T> {
 const REINTENTOS = 3;
 const ESPERA_REINTENTO_MS = 2_000;
 
+/** Lo que usa una cancelación de los clientes de viem. */
+export interface CancelClients {
+  pub: Pick<
+    ReturnType<typeof readClient>,
+    "simulateContract" | "waitForTransactionReceipt" | "readContract"
+  >;
+  wallet: Pick<ReturnType<typeof writeClients>["wallet"], "account" | "writeContract">;
+}
+
+/** Un cancelMatch que se MINÓ revertido. Va aparte de los demás fallos porque
+ *  la transacción salió (y pagó gas): lo que haya pasado lo dice la cadena, no
+ *  el mensaje. */
+class CancelMatchRevertedError extends Error {}
+
 /** En empate/disputa: el arbitro cancela y el contrato reembolsa a ambos.
  *  Se SIMULA primero: si la partida no existe on-chain o no es cancelable
  *  (nadie depositó, ya liquidada/reembolsada), no se manda la transacción y no
@@ -115,35 +137,78 @@ const ESPERA_REINTENTO_MS = 2_000;
  *  descubra /recover. */
 export async function cancelMatchOnchain(matchId: Hex) {
   if (!onchainEnabled()) return;
-  return enCola(async () => {
-    let ultimo: unknown;
-    for (let intento = 1; intento <= REINTENTOS; intento++) {
-      try {
-        const { wallet: w, pub: p } = writeClients();
-        const { request } = await p.simulateContract({
-          address: ESCROW,
-          abi: escrowAbi,
-          functionName: "cancelMatch",
-          args: [matchId],
-          account: w.account!,
-          chain: chain(),
-        });
-        const hash = await w.writeContract(request);
-        await p.waitForTransactionReceipt({ hash });
-        return;
-      } catch (e) {
-        ultimo = e;
-        const msg = (e as Error)?.message ?? "";
+  return enCola(() => cancelMatchWithRetries(writeClients, matchId));
+}
+
+/** El cancel con su reintento. Recibe los clientes y la espera por parámetro
+ *  para poder probarlo sin nodo (como `sendAlephWrite`); la cola la pone
+ *  `cancelMatchOnchain`. */
+export async function cancelMatchWithRetries(
+  clients: () => CancelClients,
+  matchId: Hex,
+  esperaMs = ESPERA_REINTENTO_MS,
+): Promise<void> {
+  let ultimo: unknown;
+  for (let intento = 1; intento <= REINTENTOS; intento++) {
+    try {
+      const { wallet: w, pub: p } = clients();
+      const { request } = await p.simulateContract({
+        address: ESCROW,
+        abi: escrowAbi,
+        functionName: "cancelMatch",
+        args: [matchId],
+        account: w.account!,
+        chain: chain(),
+      });
+      const hash = await w.writeContract(request);
+      const receipt = await p.waitForTransactionReceipt({ hash });
+      // Un revert MINADO no lanza: viem devuelve el recibo con status
+      // "reverted". Sin este control, un cancel que pasó la simulación y
+      // revirtió en el bloque (otra transacción cambió la partida mientras
+      // viajaba) pasaba por reembolso hecho: sin log, sin reintento, y
+      // `m.refundPromise` resolvía como si la plata hubiera vuelto. Es el
+      // mismo control que `sendAlephWrite` y el depósito del SDK.
+      if (receipt.status !== "success") {
+        throw new CancelMatchRevertedError(`cancelMatch reverted on-chain (tx ${hash})`);
+      }
+      return;
+    } catch (e) {
+      ultimo = e;
+      const msg = (e as Error)?.message ?? "";
+      if (e instanceof CancelMatchRevertedError) {
+        // Tras un revert minado decide la CADENA: el mensaje dice "reverted"
+        // y la regex de abajo cortaría siempre. Qué puede haber pasado
+        // mientras viajaba, según Escrow1v1:
+        //  - Otro CERRÓ la partida: un jugador con `refundUnfunded` o
+        //    `refundExpired` desde /recover, el dueño con su `cancelMatch`, o
+        //    un `settle`. Queda Refunded o Settled y no hay nada que cancelar:
+        //    se corta, con el hash en el error para que quede en el log.
+        //  - Sigue Open o Funded: revirtió por algo que no la cerró. Por
+        //    ejemplo, el `join` del rival la pasó de Open a Funded y el cancel,
+        //    con el gas estimado para devolver UN depósito, se quedó sin gas al
+        //    devolver dos. La plata sigue adentro: se reintenta, y el intento
+        //    siguiente vuelve a estimar.
+        // Si la lectura falla también se reintenta: la simulación del intento
+        // siguiente dice si todavía se puede cancelar.
+        const status = await readMatch(clients().pub, matchId).then(
+          (m) => m.status,
+          () => undefined,
+        );
+        if (status === ONCHAIN_STATUS.Refunded || status === ONCHAIN_STATUS.Settled) {
+          const closed = status === ONCHAIN_STATUS.Refunded ? "Refunded" : "Settled";
+          throw new CancelMatchRevertedError(`${msg}: match already ${closed}`);
+        }
+      } else if (/not cancelable|already|not found|reverted/i.test(msg)) {
         // Si el contrato dice que ya no se puede cancelar (ya liquidada,
         // reembolsada o inexistente), reintentar no cambia nada.
-        if (/not cancelable|already|not found|reverted/i.test(msg)) throw e;
-        if (intento < REINTENTOS) {
-          await new Promise((r) => setTimeout(r, ESPERA_REINTENTO_MS * intento));
-        }
+        throw e;
+      }
+      if (intento < REINTENTOS) {
+        await new Promise((r) => setTimeout(r, esperaMs * intento));
       }
     }
-    throw ultimo;
-  });
+  }
+  throw ultimo;
 }
 
 /** ¿Esta dirección puede enviar puntaje en esta partida, según la cadena?
