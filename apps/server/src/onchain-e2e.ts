@@ -365,7 +365,8 @@ async function raceTheCancel(matchId: Hex, ahead: () => Promise<Hex>, blockTimes
  *
  *  Depende de que anvil estime el gas justo, sin margen. Si una versión futura
  *  agregara margen, el cancel alcanzaría para devolver los dos y esto fallaría
- *  siempre con "la carrera no se reprodujo" (CI instala Foundry `stable`). */
+ *  siempre con "la carrera no se reprodujo". Por eso CI fija la versión de
+ *  Foundry (ci.yml): hay que revisar esto al subirla. */
 async function rivalJoinsWhileCancelTravels() {
   console.log("\n--- Revert minado: el rival se une mientras viaja el cancel del árbitro ---");
   const stake = 2_000_000n;
