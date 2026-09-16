@@ -70,8 +70,16 @@ jobs:
             https://github.com/OpenZeppelin/openzeppelin-contracts \
             packages/contracts/lib/openzeppelin-contracts
 
+      # Foundry también va en versión FIJA. Con `stable` (el default) cada corrida
+      # podía traer una release nueva de forge/anvil/cast, y los e2e dependen de
+      # detalles de anvil: que estime el gas justo (el revert minado del cancel
+      # del 1v1) y que ordene el mempool por propina (las carreras del 1v1 y de
+      # Aleph). Para actualizar: subir la versión en un PR y dejar que CI la
+      # valide. Releases: https://github.com/foundry-rs/foundry/releases
       - name: Instalar Foundry (forge, anvil, cast)
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.3
 
       - name: Tests del contrato (forge test)
         run: forge test -vv
