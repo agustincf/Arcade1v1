@@ -4,10 +4,11 @@
 // depositan en EscrowAleph con `alephDeposit`, el árbitro ve los depósitos y
 // arranca, juegan hasta liquidar, el árbitro firma la tabla en USDC y la manda,
 // y cada uno cobra exactamente lo que dice la tabla. Después: un fondeo
-// incompleto que vence y el árbitro cancela on-chain. Al final: un asiento le
+// incompleto que vence y el árbitro cancela on-chain. Después: un asiento le
 // gana de mano el settle al árbitro, cuya transacción se mina REVERTIDA, y el
-// árbitro no la guarda como pago. Antes de todo: los digests EIP-712 del
-// árbitro (viem) coinciden bit a bit con los del contrato.
+// árbitro no la guarda como pago. Al final: el `open` de un asiento todavía
+// pendiente en el pool no tira abajo el depósito de otro. Antes de todo: los
+// digests EIP-712 del árbitro (viem) coinciden bit a bit con los del contrato.
 //
 // Los asientos entran por HTTP (el camino de un agente de verdad) y el reloj
 // del árbitro se sigue empujando in-process para el vencimiento del escenario 2:
@@ -88,7 +89,7 @@ const seatsHashOfAbi = [
 ] as const;
 
 const pub = createPublicClient({ chain: foundry, transport: http(RPC) });
-// Control de anvil (minado automático y mempool): lo usa el escenario 3.
+// Control de anvil (minado automático y mempool): lo usan los escenarios 3 y 4.
 const anvil = createTestClient({ mode: "anvil", chain: foundry, transport: http(RPC) });
 const wallet = (k: string) =>
   createWalletClient({
@@ -483,12 +484,79 @@ async function frontRunScenario() {
   console.log("\nREVERT MINADO DEL SETTLE VERIFICADO ✅");
 }
 
+/** El `open` de otro asiento todavía PENDIENTE no puede tirar abajo un depósito.
+ *
+ *  viem no le pasa bloque a `eth_estimateGas`, y anvil estima sobre el bloque
+ *  pendiente (el último más lo que espera en el pool); la simulación, en
+ *  cambio, mira el último bloque minado. Así, con el `open` del asiento 0
+ *  aceptado pero sin minar, la estimación del `open` del asiento 1 ve "room
+ *  exists", el SDK pasa a `deposit`, y la simulación del `deposit` ve la sala
+ *  sin abrir: "not funding". En CI pasaba de a ratos en el escenario 1, cuando
+ *  los cuatro depositan a la vez; acá se arma a mano, sin minado automático.
+ *  Va último: deja la sala fondeada y sin jugar. */
+async function pendingOpenScenario() {
+  console.log("\n--- 4) El open de otro asiento todavía pendiente no tira abajo un depósito ---");
+  for (const s of seats) await send(owner, USDC, erc20MinimalAbi, "mint", [s.address, STAKE]);
+  let seated;
+  for (const a of agents) seated = await a.alephJoin(2);
+  if (seated!.status !== "funding") fail(`esperaba funding, hay ${seated!.status}`);
+  const roomId = seated!.roomId;
+  const escrowBefore = await bal(ESCROW);
+  // Los permisos de los asientos 0 y 1 van antes y aparte: sin minado
+  // automático, un `approve` del SDK se quedaría esperando su recibo.
+  for (const k of SEAT_KEYS.slice(0, 2)) {
+    await send(wallet(k), USDC, erc20MinimalAbi, "approve", [ESCROW, STAKE]);
+  }
+
+  const opener = low(seats[0].address);
+  let first: Promise<unknown> | undefined;
+  let second: Promise<Awaited<ReturnType<(typeof agents)[1]["alephDeposit"]>> | Error> | undefined;
+  await anvil.setAutomine(false);
+  try {
+    first = agents[0].alephDeposit(roomId);
+    let queued = false;
+    for (let i = 0; i < 300 && !queued; i++) {
+      const { pending } = await anvil.getTxpoolContent();
+      queued = Object.keys(pending).some((from) => from.toLowerCase() === opener);
+      if (!queued) await new Promise((r) => setTimeout(r, 100));
+    }
+    if (!queued) throw new Error("el open del asiento 0 nunca llegó al mempool");
+    second = agents[1].alephDeposit(roomId).then(
+      (r) => r,
+      (e: Error) => e,
+    );
+    // Tiempo para que el asiento 1 llegue a decidir con el open del 0 pendiente.
+    await Promise.race([second, new Promise((r) => setTimeout(r, 1_500))]);
+    await anvil.mine({ blocks: 1 });
+  } finally {
+    await anvil.setAutomine(true);
+    // Lo que haya entrado al pool entre el bloque de arriba y volver a prender
+    // el minado automático no se minaría solo.
+    await anvil.mine({ blocks: 1 });
+  }
+
+  const r1 = await second!;
+  if (r1 instanceof Error)
+    fail(`el asiento 1 no depositó con el open del 0 todavía pendiente: ${r1.message}`);
+  const r0 = (await first!) as { step: string };
+  const steps = [r0.step, r1.step].sort().join(" + ");
+  if (steps !== "deposit + open") fail(`esperaba un open y un deposit, hubo ${steps}`);
+  console.log(`✓ asiento 0: ${r0.step} · asiento 1: ${r1.step} (con el open del 0 pendiente)`);
+
+  for (const a of agents.slice(2)) await a.alephDeposit(roomId);
+  if ((await bal(ESCROW)) - escrowBefore !== STAKE * 4n)
+    fail("esperaba 4 stakes nuevos en el escrow");
+  await assertAllowancesSpent("open pendiente");
+  console.log("\nDEPÓSITO CON UN OPEN AJENO PENDIENTE VERIFICADO ✅");
+}
+
 async function main() {
   await digestCheck();
   await prepare();
   await happyPath();
   await unfundedScenario();
   await frontRunScenario();
+  await pendingOpenScenario();
   // Las conexiones del SDK quedan vivas (keep-alive): sin cerrarlas el proceso
   // se quedaría esperando el timeout del socket.
   server.closeAllConnections();

@@ -26,6 +26,13 @@ import {
  *  renovamos a los 8 para no quedar justo en el borde entre dos sondeos. */
 export const VIEW_PASS_MAX_AGE_MS = 8 * 60_000;
 
+/** Cuánto espera `alephDeposit` a ver minado el `open` de otro asiento antes
+ *  de depositar (ver el catch de `send("open")`): 60 lecturas cada 500 ms, 30 s
+ *  en total. Sobra para un bloque de Base. Si ese `open` no se mina en ese
+ *  tiempo, el `deposit` sale igual y falla con el motivo del contrato. */
+const ROOM_OPEN_POLL_MS = 500;
+const ROOM_OPEN_POLLS = 60;
+
 export interface AlephDepositResult {
   /** `open` (fui el primero: abrí la sala), `deposit`, o `already` (ya figuraba). */
   step: "open" | "deposit" | "already";
@@ -623,6 +630,28 @@ export function createAgent(opts: {
         }
       }
       if (!raced) throw e;
+      // El "room exists" puede venir de la ESTIMACIÓN de gas, no de la
+      // simulación. viem no le pasa bloque a `eth_estimateGas` y el nodo (anvil,
+      // al menos) estima sobre el bloque PENDIENTE, que ya incluye el `open` del
+      // otro asiento aunque siga en el pool. La simulación del `deposit`, en
+      // cambio, mira el último bloque minado, donde la sala todavía no existe:
+      // revertía "not funding". Pasaba de a ratos en CI, con los cuatro asientos
+      // depositando a la vez. Se espera a ver la sala abierta en ese bloque.
+      for (let i = 0; i < ROOM_OPEN_POLLS; i++) {
+        const open = await pub
+          .readContract({
+            address: escrow,
+            abi: escrowAlephAbi,
+            functionName: "roomOf",
+            args: [id],
+          })
+          .then(
+            (r) => Number(r[5]) !== ALEPH_ESCROW_STATUS.None,
+            () => false,
+          );
+        if (open) break;
+        await new Promise((r) => setTimeout(r, ROOM_OPEN_POLL_MS));
+      }
       step = "deposit";
       txHash = await send("deposit", [roomId, d.seatSig]);
     }

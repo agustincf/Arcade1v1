@@ -3,8 +3,10 @@
 # Prueba el PAGO de una mesa de plata de Aleph en cadena local (anvil) con el
 # árbitro real: despliega MockUSDC + EscrowAleph, 4 wallets fondean y juegan, el
 # árbitro firma la tabla y el contrato paga a todos; después, un fondeo
-# incompleto que el árbitro cancela; y al final, un settle del árbitro que se
-# mina REVERTIDO porque otro presentó la tabla antes (no puede quedar como pago).
+# incompleto que el árbitro cancela; un settle del árbitro que se mina REVERTIDO
+# porque otro presentó la tabla antes (no puede quedar como pago); y al final, el
+# open de un asiento todavía pendiente en el pool, que no tira abajo el depósito
+# de otro.
 # Requiere Foundry y el monorepo instalado.
 # Uso:  bash packages/contracts/check-aleph-e2e.sh
 set -euo pipefail
