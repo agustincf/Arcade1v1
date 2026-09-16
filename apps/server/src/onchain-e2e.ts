@@ -1,13 +1,31 @@
 // Prueba de PAGO de punta a punta en cadena local (anvil) del modelo ASINCRONICO
 // (open/join) usando el BACKEND real: emparejar -> P1 ABRE (deposita) -> P2 se
 // UNE (deposita) -> juegan + el arbitro firma -> el ganador cobra. Verifica
-// premio + comision, y el reembolso en empate.
+// premio + comision, y el reembolso en empate. Al final, dos cancels del
+// árbitro que se minan REVERTIDOS porque otra transacción se adelanta: uno que
+// hay que reintentar y otro en el que hay que cortar.
+//
+// A propósito SIN "dotenv/config": todo lo que hace falta lo pasa
+// check-payment-e2e.sh por entorno, y así ningún .env del repo (que localmente
+// puede tener la clave y el RPC de una red de VERDAD) se cuela en una corrida
+// contra anvil. Mismo criterio que aleph-onchain-e2e.ts.
 
-import "dotenv/config";
-import { createPublicClient, createWalletClient, http, parseEther, type Hex, type Abi } from "viem";
+import { randomBytes } from "node:crypto";
+import {
+  createPublicClient,
+  createTestClient,
+  createWalletClient,
+  http,
+  parseEther,
+  parseGwei,
+  type Hex,
+  type Abi,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
 import { matchmake, submitScore, onchainSettled } from "./matchmaking.js";
+import { cancelMatchOnchain, readMatchOnchain, ONCHAIN_STATUS } from "./onchain.js";
+import { signSeat } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { escrowAbi, erc20Abi } from "./abi.js";
 
@@ -142,6 +160,8 @@ async function main() {
 
   await drawScenario();
   await ghostScenario();
+  await rivalJoinsWhileCancelTravels();
+  await refundedWhileCancelTravels();
 }
 
 /** Empate: los dos juegan IGUAL -> el arbitro cancela on-chain y se reembolsa. */
@@ -244,6 +264,192 @@ async function ghostScenario() {
   );
 
   console.log("\nGUARDA DE DEPÓSITO ON-CHAIN VERIFICADA ✅");
+}
+
+// UN REVERT MINADO NO ES UN REEMBOLSO. Los tests del árbitro prueban la
+// decisión con un nodo de mentira; esto la cruza con un nodo de verdad. Se
+// llama a `cancelMatchOnchain` directo porque es ahí donde se decide: sus tres
+// llamadores (empate, mesa sin rival, partida vencida) solo loguean el error.
+//
+// Por lo mismo, estas partidas no pasan por `matchmake`: se abren con un id
+// nuevo y el asiento firmado directo. Emparejar dejaría a P1 esperando rival en
+// la cola del árbitro, y el próximo `matchmake` de P1 en esa mesa le devolvería
+// esa misma partida, ya reembolsada ("match exists" al abrir).
+
+// Control de anvil (minado automático, mempool y reloj).
+const anvil = createTestClient({ mode: "anvil", chain: foundry, transport: http(RPC) });
+const ARBITER = privateKeyToAccount(process.env.ARBITER_PRIVATE_KEY as Hex).address.toLowerCase();
+
+// `refundUnfunded` no está en el ABI del árbitro (él nunca la llama): acá sí,
+// para que el jugador se reembolse mientras viaja el cancel.
+const refundUnfundedAbi = [
+  {
+    type: "function",
+    name: "refundUnfunded",
+    inputs: [{ name: "id", type: "bytes32" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+] as const;
+
+function fail(msg: string): never {
+  console.log(`\n❌ ${msg}`);
+  process.exit(1);
+}
+
+const chainNow = async () => (await pub.getBlock()).timestamp;
+const freshMatchId = () => ("0x" + randomBytes(32).toString("hex")) as Hex;
+
+// Gas y fees fijos para la transacción que se adelanta: nada se estima contra
+// un bloque donde ya espera el cancel del árbitro, y la propina alcanza de
+// sobra para minarse primero.
+const AHEAD = {
+  gas: 300_000n,
+  maxFeePerGas: parseGwei("100"),
+  maxPriorityFeePerGas: parseGwei("100"),
+};
+
+/** Sin minado automático, el cancel del árbitro (ya simulado) se queda
+ *  esperando en el mempool. Ahí `ahead` manda la suya con más propina: anvil
+ *  ordena por propina, así que las dos entran en el mismo bloque con la de
+ *  `ahead` primero, y el cancel revierte YA MINADO. Devuelve el hash del cancel
+ *  y cómo terminó la llamada del árbitro (el error, o null si resolvió). */
+async function raceTheCancel(matchId: Hex, ahead: () => Promise<Hex>, blockTimestamp?: bigint) {
+  let arbiterTx: Hex | undefined;
+  let aheadTx: Hex;
+  let outcome: Promise<Error | null>;
+  await anvil.setAutomine(false);
+  try {
+    outcome = cancelMatchOnchain(matchId).then(
+      () => null,
+      (e: Error) => e,
+    );
+    for (let i = 0; i < 300 && !arbiterTx; i++) {
+      const { pending } = await anvil.getTxpoolContent();
+      const [tx] = Object.entries(pending)
+        .filter(([from]) => from.toLowerCase() === ARBITER)
+        .flatMap(([, byNonce]) => Object.values(byNonce));
+      arbiterTx = tx?.hash;
+      if (!arbiterTx) await new Promise((r) => setTimeout(r, 100));
+    }
+    if (!arbiterTx) throw new Error("el cancel del árbitro nunca llegó al mempool");
+    aheadTx = await ahead();
+    if (blockTimestamp !== undefined) {
+      await anvil.setNextBlockTimestamp({ timestamp: blockTimestamp });
+    }
+    await anvil.mine({ blocks: 1 });
+  } finally {
+    await anvil.setAutomine(true);
+  }
+
+  const first = await pub.getTransactionReceipt({ hash: aheadTx });
+  const cancel = await pub.getTransactionReceipt({ hash: arbiterTx });
+  if (
+    first.status !== "success" ||
+    cancel.status !== "reverted" ||
+    first.blockNumber !== cancel.blockNumber
+  ) {
+    fail(
+      `la carrera no se reprodujo: la que se adelanta ${first.status} (bloque ${first.blockNumber}), el cancel ${cancel.status} (bloque ${cancel.blockNumber})`,
+    );
+  }
+  console.log("✓ el cancel del árbitro se minó REVERTIDO:", arbiterTx);
+  return { arbiterTx, error: await outcome };
+}
+
+/** El rival se UNE mientras viaja el cancel: la partida sigue cancelable y
+ *  hay que insistir. El cancel se estimó con la partida Open (UN depósito que
+ *  devolver); el join entra antes, la deja Funded, y el cancel se queda sin gas
+ *  al devolver dos. Es la forma directa de producir en anvil un revert minado
+ *  que NO cierra la partida.
+ *
+ *  Depende de que anvil estime el gas justo, sin margen. Si una versión futura
+ *  agregara margen, el cancel alcanzaría para devolver los dos y esto fallaría
+ *  siempre con "la carrera no se reprodujo" (CI instala Foundry `stable`). */
+async function rivalJoinsWhileCancelTravels() {
+  console.log("\n--- Revert minado: el rival se une mientras viaja el cancel del árbitro ---");
+  const stake = 2_000_000n;
+  await send(owner, ESCROW, escrowAbi, "setAllowedStake", [stake, true]);
+  await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
+  await send(owner, USDC, erc20Abi, "mint", [P2, stake]);
+  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  const [b1, b2, bE] = await Promise.all([bal(P1), bal(P2), bal(ESCROW)]);
+
+  const id = freshMatchId();
+  const now = await chainNow();
+  const seat1 = await signSeat(id, P1);
+  await send(p1, ESCROW, escrowAbi, "open", [id, stake, now + 3600n, now + 7200n, seat1]);
+
+  const seat2 = await signSeat(id, P2);
+  const { error } = await raceTheCancel(id, () =>
+    p2.writeContract({
+      address: ESCROW,
+      abi: escrowAbi,
+      functionName: "join",
+      args: [id, seat2],
+      chain: foundry,
+      ...AHEAD,
+    }),
+  );
+  if (error) fail(`el árbitro no reintentó un reembolso que se seguía debiendo: ${error.message}`);
+  const status = (await readMatchOnchain(id))?.status;
+  if (status !== ONCHAIN_STATUS.Refunded) fail(`esperaba la partida Refunded, está en ${status}`);
+  if ((await bal(P1)) !== b1 || (await bal(P2)) !== b2 || (await bal(ESCROW)) !== bE) {
+    fail("reintento: los balances no vuelven al inicio");
+  }
+  console.log("✓ el árbitro vio la partida Funded, reintentó y reembolsó a los dos");
+  console.log("\nREVERT MINADO DEL CANCEL (SE REINTENTA) VERIFICADO ✅");
+}
+
+/** El jugador se REEMBOLSA mientras viaja el cancel: ya no hay nada que
+ *  cancelar y hay que cortar, pero sin tomarlo como reembolso propio. Es la
+ *  carrera más probable: el barrendero cancela la mesa sin rival al vencer la
+ *  espera (1 h) y /recover le habilita a P1 `refundUnfunded` al vencer el
+ *  plazo de fondeo (1 h desde que abrió): casi el mismo momento. */
+async function refundedWhileCancelTravels() {
+  console.log(
+    "\n--- Revert minado: el jugador se reembolsa mientras viaja el cancel del árbitro ---",
+  );
+  const stake = 2_000_000n;
+  await send(owner, ESCROW, escrowAbi, "setAllowedStake", [stake, true]);
+  await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
+  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  const [b1, bE] = await Promise.all([bal(P1), bal(ESCROW)]);
+
+  const id = freshMatchId();
+  // Plazo de fondeo corto, medido con el reloj de la cadena: el bloque de la
+  // carrera se mina ya vencido, que es cuando `refundUnfunded` vale.
+  const fund = (await chainNow()) + 60n;
+  const seat = await signSeat(id, P1);
+  await send(p1, ESCROW, escrowAbi, "open", [id, stake, fund, fund + 60n, seat]);
+
+  const { arbiterTx, error } = await raceTheCancel(
+    id,
+    () =>
+      p1.writeContract({
+        address: ESCROW,
+        abi: refundUnfundedAbi,
+        functionName: "refundUnfunded",
+        args: [id],
+        chain: foundry,
+        ...AHEAD,
+      }),
+    fund + 1n,
+  );
+  if (!error) fail("el árbitro tomó como reembolso propio un cancel que se minó revertido");
+  if (
+    !error.message.toLowerCase().includes(arbiterTx.toLowerCase()) ||
+    !/Refunded/.test(error.message)
+  ) {
+    fail(`el error tiene que decir el hash revertido y el estado: ${error.message}`);
+  }
+  console.log("✓ el cancel sale con error, con el hash y el estado:", error.message);
+  if ((await bal(P1)) !== b1 || (await bal(ESCROW)) !== bE) {
+    fail("corte: P1 no recuperó su depósito exactamente una vez");
+  }
+  console.log("✓ P1 recuperó su depósito una sola vez (el suyo); escrow sin cambios");
+  console.log("\nREVERT MINADO DEL CANCEL (SE CORTA) VERIFICADO ✅");
 }
 
 main().catch((e) => {
