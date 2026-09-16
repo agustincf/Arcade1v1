@@ -32,6 +32,8 @@ interface FakeChain {
   race?: (n: number) => void;
   /** El getter `matches` no contesta (un RPC caído). */
   readsFail?: boolean;
+  /** Un nodo del RPC atrasado: una lectura sin `blockNumber` ve este estado viejo. */
+  staleLatest?: number;
 }
 
 /** Un nodo con la forma de viem. La simulación aplica la regla del contrato
@@ -39,6 +41,7 @@ interface FakeChain {
  *  como diga `mined`: viem no tira error por un revert minado, igual que acá. */
 function fakeNode(chain: FakeChain) {
   let sent = 0;
+  const reads: { functionName: string; args: unknown[]; blockNumber?: bigint }[] = [];
   const pub = {
     async simulateContract(p: { functionName: string; args: unknown[] }) {
       if (chain.status !== Open && chain.status !== Funded) {
@@ -59,19 +62,16 @@ function fakeNode(chain: FakeChain) {
       if (status === "success") chain.status = Refunded;
       return { status, blockNumber: 7n, transactionHash: hash };
     },
-    async readContract() {
+    async readContract(p: { functionName: string; args: unknown[]; blockNumber?: bigint }) {
       if (chain.readsFail) throw new Error("rpc down");
+      const { functionName, args, blockNumber } = p;
+      reads.push({ functionName, args, blockNumber });
+      const status =
+        blockNumber === undefined && chain.staleLatest !== undefined
+          ? chain.staleLatest
+          : chain.status;
       // Getter `matches`: p1, p2, stake, p1Paid, p2Paid, fundDeadline, playDeadline, status.
-      return [
-        "0x" + "a".repeat(40),
-        "0x" + "b".repeat(40),
-        5_000_000n,
-        true,
-        true,
-        0n,
-        0n,
-        chain.status,
-      ];
+      return ["0x" + "a".repeat(40), "0x" + "b".repeat(40), 5_000_000n, true, true, 0n, 0n, status];
     },
   };
   const wallet = {
@@ -82,7 +82,7 @@ function fakeNode(chain: FakeChain) {
       return tx(sent);
     },
   };
-  return { clients: () => ({ pub, wallet }) as never, sent: () => sent };
+  return { clients: () => ({ pub, wallet }) as never, sent: () => sent, reads: () => reads };
 }
 
 for (const [name, closed] of [
@@ -105,6 +105,23 @@ for (const [name, closed] of [
     assert.equal(node.sent(), 1, "ya está cerrada: no hay nada que cancelar");
   });
 }
+
+test("la partida del cancel revertido se lee en el bloque donde se minó, no en un nodo atrasado", async () => {
+  // El RPC reparte los pedidos entre nodos: el recibo lo contesta uno que ya
+  // tiene el bloque, y la lectura puede caer en otro que todavía ve la
+  // partida Funded. Así se reintentaba de más, y el error final perdía el hash.
+  const chain: FakeChain = { status: Funded, mined: ["reverted"], staleLatest: Funded };
+  chain.race = () => (chain.status = Refunded);
+  const node = fakeNode(chain);
+
+  await assert.rejects(cancelMatchWithRetries(node.clients, MATCH, 0), /match already Refunded/);
+  assert.equal(node.sent(), 1);
+  assert.deepEqual(
+    node.reads(),
+    [{ functionName: "matches", args: [MATCH], blockNumber: 7n }],
+    "el getter `matches` de ESTA partida, en el bloque del recibo",
+  );
+});
 
 test("un cancel revertido con la partida todavía cancelable se reintenta: el rival se unió mientras viajaba", async () => {
   // El `join` del rival se mina antes: la partida pasa de Open a Funded y el

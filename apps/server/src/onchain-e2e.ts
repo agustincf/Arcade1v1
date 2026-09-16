@@ -361,7 +361,11 @@ async function raceTheCancel(matchId: Hex, ahead: () => Promise<Hex>, blockTimes
  *  hay que insistir. El cancel se estimó con la partida Open (UN depósito que
  *  devolver); el join entra antes, la deja Funded, y el cancel se queda sin gas
  *  al devolver dos. Es la forma directa de producir en anvil un revert minado
- *  que NO cierra la partida. */
+ *  que NO cierra la partida.
+ *
+ *  Depende de que anvil estime el gas justo, sin margen. Si una versión futura
+ *  agregara margen, el cancel alcanzaría para devolver los dos y esto fallaría
+ *  siempre con "la carrera no se reprodujo" (CI instala Foundry `stable`). */
 async function rivalJoinsWhileCancelTravels() {
   console.log("\n--- Revert minado: el rival se une mientras viaja el cancel del árbitro ---");
   const stake = 2_000_000n;

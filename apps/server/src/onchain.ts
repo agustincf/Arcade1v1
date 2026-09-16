@@ -73,16 +73,19 @@ export async function readMatchOnchain(matchId: Hex): Promise<OnchainMatch | nul
 }
 
 /** El getter `matches`, decodificado. Recibe el cliente para que la
- *  cancelación lea con el mismo nodo que le inyectan (ver `cancelMatchWithRetries`). */
+ *  cancelación lea con el mismo nodo que le inyectan (ver `cancelMatchWithRetries`),
+ *  y un bloque opcional: sin él, lee en `latest`. */
 async function readMatch(
   p: Pick<ReturnType<typeof readClient>, "readContract">,
   matchId: Hex,
+  blockNumber?: bigint,
 ): Promise<OnchainMatch> {
   const r = (await p.readContract({
     address: ESCROW,
     abi: escrowAbi,
     functionName: "matches",
     args: [matchId],
+    blockNumber,
   })) as readonly [string, string, bigint, boolean, boolean, bigint, bigint, number];
   return { p1: r[0], p2: r[1], stake: r[2], status: Number(r[7]) };
 }
@@ -124,8 +127,15 @@ export interface CancelClients {
 
 /** Un cancelMatch que se MINÓ revertido. Va aparte de los demás fallos porque
  *  la transacción salió (y pagó gas): lo que haya pasado lo dice la cadena, no
- *  el mensaje. */
-class CancelMatchRevertedError extends Error {}
+ *  el mensaje. Lleva el bloque donde se minó, que es donde hay que mirar. */
+class CancelMatchRevertedError extends Error {
+  constructor(
+    message: string,
+    readonly blockNumber: bigint,
+  ) {
+    super(message);
+  }
+}
 
 /** En empate/disputa: el arbitro cancela y el contrato reembolsa a ambos.
  *  Se SIMULA primero: si la partida no existe on-chain o no es cancelable
@@ -169,7 +179,10 @@ export async function cancelMatchWithRetries(
       // `m.refundPromise` resolvía como si la plata hubiera vuelto. Es el
       // mismo control que `sendAlephWrite` y el depósito del SDK.
       if (receipt.status !== "success") {
-        throw new CancelMatchRevertedError(`cancelMatch reverted on-chain (tx ${hash})`);
+        throw new CancelMatchRevertedError(
+          `cancelMatch reverted on-chain (tx ${hash})`,
+          receipt.blockNumber,
+        );
       }
       return;
     } catch (e) {
@@ -188,15 +201,19 @@ export async function cancelMatchWithRetries(
         //    con el gas estimado para devolver UN depósito, se quedó sin gas al
         //    devolver dos. La plata sigue adentro: se reintenta, y el intento
         //    siguiente vuelve a estimar.
-        // Si la lectura falla también se reintenta: la simulación del intento
-        // siguiente dice si todavía se puede cancelar.
-        const status = await readMatch(clients().pub, matchId).then(
+        // Se lee en el BLOQUE donde se minó, no en `latest`: si el RPC reparte
+        // los pedidos entre nodos, uno atrasado todavía la vería Funded y se
+        // reintentaba de más. Lo que diga ese bloque es firme, porque Refunded y
+        // Settled no tienen vuelta atrás. Si la lectura falla también se
+        // reintenta: la simulación del intento siguiente dice si todavía se
+        // puede cancelar.
+        const status = await readMatch(clients().pub, matchId, e.blockNumber).then(
           (m) => m.status,
           () => undefined,
         );
         if (status === ONCHAIN_STATUS.Refunded || status === ONCHAIN_STATUS.Settled) {
           const closed = status === ONCHAIN_STATUS.Refunded ? "Refunded" : "Settled";
-          throw new CancelMatchRevertedError(`${msg}: match already ${closed}`);
+          throw new CancelMatchRevertedError(`${msg}: match already ${closed}`, e.blockNumber);
         }
       } else if (/not cancelable|already|not found|reverted/i.test(msg)) {
         // Si el contrato dice que ya no se puede cancelar (ya liquidada,
