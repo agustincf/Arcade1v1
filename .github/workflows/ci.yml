@@ -85,15 +85,8 @@ jobs:
       - name: Instalar dependencias (para los e2e con tsx)
         run: npm ci
 
-      # El árbitro firma los resultados con esta clave de PRUEBA (sin fondos; en
-      # anvil no hay plata real). Vive como SECRET de GitHub, no escrita en el repo.
-      # Setear una vez con: gh secret set ARBITER_PRIVATE_KEY --body "0x..."
-      - name: Configurar clave de prueba del árbitro
-        env:
-          ARBITER_PRIVATE_KEY: ${{ secrets.ARBITER_PRIVATE_KEY }}
-        run: |
-          echo "ARBITER_PRIVATE_KEY=$ARBITER_PRIVATE_KEY" > apps/server/.env
-
+      # Ningún e2e lee una clave de un .env ni de un secret: el árbitro firma con
+      # cuentas públicas de anvil, fijas en cada script (sin valor fuera de anvil).
       - name: Integración árbitro <-> contrato (digest EIP-712)
         run: bash packages/contracts/check-integration.sh
 
