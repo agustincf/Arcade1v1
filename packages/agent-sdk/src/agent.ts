@@ -33,6 +33,16 @@ export const VIEW_PASS_MAX_AGE_MS = 8 * 60_000;
 const ROOM_OPEN_POLL_MS = 500;
 const ROOM_OPEN_POLLS = 60;
 
+/** Cuánto espera `alephDeposit` a ver en `latest` el permiso que acaba de
+ *  aprobar: 60 lecturas cada 500 ms, 30 s en total. El RPC público de Base da el
+ *  recibo apenas la transacción entra en el bloque que se está armando, ~2 s
+ *  antes de sellarlo, y viem lo da por minado; la simulación del depósito lee el
+ *  último bloque SELLADO, donde el permiso todavía no está, y revertía con
+ *  ERC20InsufficientAllowance. Si el permiso no aparece en ese tiempo, el
+ *  depósito sale igual y falla con el motivo del contrato. */
+const ALLOWANCE_POLL_MS = 500;
+const ALLOWANCE_POLLS = 60;
+
 export interface AlephDepositResult {
   /** `open` (fui el primero: abrí la sala), `deposit`, o `already` (ya figuraba). */
   step: "open" | "deposit" | "already";
@@ -552,6 +562,23 @@ export function createAgent(opts: {
       const receipt = await pub.waitForTransactionReceipt({ hash });
       if (receipt.status !== "success") {
         throw new Error(`USDC approve reverted on-chain: ${usdc} spender ${escrow} (tx ${hash})`);
+      }
+      // El recibo puede ser PRECONFIRMADO (ver ALLOWANCE_POLLS): se espera a ver
+      // el permiso en el bloque que va a leer la simulación.
+      for (let i = 0; i < ALLOWANCE_POLLS; i++) {
+        const seen = await pub
+          .readContract({
+            address: usdc,
+            abi: erc20MinimalAbi,
+            functionName: "allowance",
+            args: [account.address, escrow],
+          })
+          .then(
+            (a) => a >= stake,
+            () => false,
+          );
+        if (seen) break;
+        await new Promise((r) => setTimeout(r, ALLOWANCE_POLL_MS));
       }
     }
 

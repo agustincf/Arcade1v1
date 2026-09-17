@@ -6,11 +6,20 @@
 // eso un test puede afirmar "no se transmitió nada" y, en su control positivo,
 // ver exactamente qué se habría mandado: sin ese control, un "nada" también
 // podría querer decir que este fake no sabe llegar hasta el envío.
+// Con `preconfirm` SÍ mina, como el RPC público de Base (ver `fakeRpc`).
 // Lo usan packages/agent-sdk/test/agent-aleph.test.ts y
 // apps/mcp/test/tools-aleph.test.ts. No es un *.test.ts: `npm test` no lo corre.
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { decodeFunctionData, encodeFunctionResult, parseTransaction, type Hex } from "viem";
+import {
+  decodeFunctionData,
+  encodeErrorResult,
+  encodeFunctionResult,
+  keccak256,
+  parseAbi,
+  parseTransaction,
+  type Hex,
+} from "viem";
 import { escrowAlephAbi, erc20MinimalAbi } from "@arcade1v1/game-sdk/aleph";
 
 /** Una transacción firmada que llegó al RPC, ya decodificada. */
@@ -31,6 +40,25 @@ export interface FakeRpc {
 }
 
 const ABI = [...escrowAlephAbi, ...erc20MinimalAbi];
+
+/** El revert del USDC (ERC20 de OpenZeppelin) cuando el escrow quiere tomar el
+ *  stake sin permiso suficiente: el selector 0xfb8f41b2 que se vio en Sepolia. */
+const ERC20_ERRORS = parseAbi([
+  "error ERC20InsufficientAllowance(address spender, uint256 allowance, uint256 needed)",
+]);
+
+const hex = (n: number) => "0x" + n.toString(16);
+
+/** Una transacción minada en modo `preconfirm`. */
+interface Mined {
+  hash: Hex;
+  to?: string;
+  functionName: string;
+  args: readonly unknown[];
+  block: number;
+  /** Desde cuándo se ve en `latest` (antes, solo en `pending`). */
+  sealAt: number;
+}
 
 // Un bloque con `baseFeePerGas`: viem lo lee para armar la transacción
 // EIP-1559 antes de firmarla.
@@ -59,13 +87,31 @@ const BLOCK = {
 
 /** `chainIdHex` es lo que contesta `eth_chainId` (el control de red de
  *  `alephDeposit`). `chain` fija el saldo y el permiso de USDC de la wallet; la
- *  sala on-chain siempre figura sin abrir (status None) y sin pagos. */
+ *  sala on-chain siempre figura sin abrir (status None) y sin pagos.
+ *
+ *  `preconfirm` hace que las transacciones SE MINEN como en el RPC público de
+ *  Base: el recibo exitoso sale al instante, con el número del bloque que
+ *  todavía se está armando, pero lo que cambian (el permiso de un `approve`)
+ *  recién se ve en `latest` cuando ese bloque se sella, `sealMs` después; en
+ *  `pending` se ve enseguida. La simulación de `open` revierte como el USDC si
+ *  el permiso que se ve en el bloque consultado no cubre el stake. */
 export async function fakeRpc(
   chainIdHex: string,
-  chain: { balance?: bigint; allowance?: bigint } = {},
+  chain: { balance?: bigint; allowance?: bigint; preconfirm?: { sealMs: number } } = {},
 ): Promise<FakeRpc> {
   const calls: string[] = [];
   const broadcasts: Broadcast[] = [];
+  const BASE_BLOCK = Number(BLOCK.number);
+  const mined: Mined[] = [];
+  const sealed = (m: Mined) => Date.now() >= m.sealAt;
+  const visibleAllowance = (blockTag: unknown) => {
+    const approves = mined.filter(
+      (m) => m.functionName === "approve" && (blockTag === "pending" || sealed(m)),
+    );
+    return approves.length > 0
+      ? (approves[approves.length - 1].args[1] as bigint)
+      : (chain.allowance ?? 0n);
+  };
   const server = createServer((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
@@ -83,8 +129,8 @@ export async function fakeRpc(
           case "eth_chainId":
             return ok(chainIdHex);
           case "eth_call": {
-            const { data } = msg.params![0] as { data: Hex };
-            const { functionName } = decodeFunctionData({ abi: ABI, data });
+            const [{ data, to }, blockTag] = msg.params as [{ data: Hex; to: Hex }, unknown];
+            const { functionName, args } = decodeFunctionData({ abi: ABI, data });
             calls[calls.length - 1] = `eth_call:${functionName}`;
             if (functionName === "roomOf")
               return ok(
@@ -111,15 +157,53 @@ export async function fakeRpc(
                 encodeFunctionResult({
                   abi: erc20MinimalAbi,
                   functionName: "allowance",
-                  result: chain.allowance ?? 0n,
+                  result: visibleAllowance(blockTag),
                 }),
               );
+            if (functionName === "open" && chain.preconfirm) {
+              const allowance = visibleAllowance(blockTag);
+              const needed = args![2] as bigint;
+              if (allowance < needed)
+                return reply({
+                  error: {
+                    code: 3,
+                    message: "execution reverted",
+                    data: encodeErrorResult({
+                      abi: ERC20_ERRORS,
+                      errorName: "ERC20InsufficientAllowance",
+                      args: [to, allowance, needed],
+                    }),
+                  },
+                });
+              return ok("0x");
+            }
             return fail(`fake rpc: unhandled eth_call ${functionName}`);
           }
           case "eth_getTransactionCount":
             return ok("0x0");
           case "eth_blockNumber":
-            return ok(BLOCK.number);
+            return ok(hex(BASE_BLOCK + mined.filter(sealed).length));
+          case "eth_getTransactionReceipt": {
+            const m = mined.find((x) => x.hash === msg.params![0]);
+            if (!m) return ok(null);
+            // Preconfirmado: el recibo sale ya, con el bloque que todavía no se selló.
+            return ok({
+              transactionHash: m.hash,
+              transactionIndex: "0x0",
+              blockHash: BLOCK.hash,
+              blockNumber: hex(m.block),
+              from: "0x" + "00".repeat(20),
+              to: m.to ?? null,
+              cumulativeGasUsed: "0xc350",
+              gasUsed: "0xc350",
+              effectiveGasPrice: "0x1",
+              contractAddress: null,
+              logs: [],
+              logsBloom: BLOCK.logsBloom,
+              status: "0x1",
+              type: "0x2",
+            });
+          }
           case "eth_getBlockByNumber":
             return ok(BLOCK);
           case "eth_maxPriorityFeePerGas":
@@ -128,10 +212,22 @@ export async function fakeRpc(
           case "eth_estimateGas":
             return ok("0xc350");
           case "eth_sendRawTransaction": {
-            const tx = parseTransaction(msg.params![0] as Hex);
+            const raw = msg.params![0] as Hex;
+            const tx = parseTransaction(raw);
             const { functionName, args } = decodeFunctionData({ abi: ABI, data: tx.data! });
             broadcasts.push({ to: tx.to ?? undefined, functionName, args: args ?? [] });
-            return fail("fake rpc: signed transaction captured, never mined");
+            if (!chain.preconfirm)
+              return fail("fake rpc: signed transaction captured, never mined");
+            const hash = keccak256(raw);
+            mined.push({
+              hash,
+              to: tx.to ?? undefined,
+              functionName,
+              args: args ?? [],
+              block: BASE_BLOCK + mined.length + 1,
+              sealAt: Date.now() + chain.preconfirm.sealMs,
+            });
+            return ok(hash);
           }
           default:
             return fail(`fake rpc: unhandled ${msg.method}`);
