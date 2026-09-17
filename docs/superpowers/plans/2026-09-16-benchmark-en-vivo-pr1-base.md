@@ -177,8 +177,13 @@ test("drawsWithin predice exacto cuánto azar consume el juego en los próximos 
 test("drawsWithin no toca el motor, y da 0 sin arrancar o con la partida terminada", () => {
   const g = new FlappyEngine(7);
   assert.equal(g.drawsWithin(10_000), 0, "sin el primer aleteo los tubos no se mueven");
-  g.flap();
-  for (let t = 0; t < 100; t++) g.update(FLAPPY_DT);
+  // Un aleteo cada 36 ticks mantiene el vuelo estable: con uno solo, el pájaro
+  // cae al piso en el tick 54 y a los 100 la partida ya terminó.
+  for (let t = 0; t < 100; t++) {
+    if (t % 36 === 0) g.flap();
+    g.update(FLAPPY_DT);
+  }
+  assert.equal(g.over, false, "sigue vivo");
   const before = JSON.stringify(g);
   assert.ok(g.drawsWithin(600) > 0);
   assert.equal(JSON.stringify(g), before, "el motor quedó igual");
@@ -1420,6 +1425,15 @@ En cada uno de los seis helpers (`play2048`, `playTetris`, `playFlappy`, `playRa
 
 En la línea 253, reemplazar `play2048(sm.seed + 1, 200)` por `play2048(need(sm.seed) + 1, 200)`.
 
+En la tabla `games` (cerca de la línea 214), el tipo explícito del parámetro también cambia; si no, tsc marca la línea 228:
+
+```ts
+const games: {
+  name: "tetris" | "flappy" | "racing" | "snake" | "invaders";
+  play: (s: number | undefined) => { score: number; replay: unknown };
+}[] = [
+```
+
 Run: `npx tsc --noEmit -p apps/server/tsconfig.json`
 Expected: sin errores.
 
@@ -2346,7 +2360,7 @@ import { liveRouter } from "./live-routes.js";
 const liveLimit = rateLimiter(Number(process.env.RL_MAX_LIVE ?? 60));
 ```
 
-3. Después del handler de `app.post("/match/:id/score", …)`, agregar:
+3. Después del handler de `app.post("/match/:id/score", …)` y ANTES del comentario `// Completar la partida contra un bot (SOLO pruebas en solitario).` (ese comentario es de la ruta `/match/:id/bot` y tiene que quedar pegado a ella), agregar:
 
 ```ts
 // PARTIDAS EN VIVO: abrir el intento y comprometer jugadas (ver live.ts).
@@ -2741,10 +2755,10 @@ git push -u origin HEAD
 gh pr create --base main --title "feat: benchmark en vivo, PR 1 de 3 — la base apagada (motor y árbitro)" --body-file - <<'EOF'
 ## Qué es
 
-La base de las partidas en vivo del spec
-[`2026-09-16-benchmark-en-vivo-design.md`](docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md):
-el motor de Flappy toma su azar de una fuente inyectada, y el árbitro abre
-intentos y revela el azar de a poco a cambio de comprometer las jugadas.
+La base de las partidas en vivo del spec `docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md`
+(en el PR #27, junto con el plan de este PR): el motor de Flappy toma su azar de
+una fuente inyectada, y el árbitro abre intentos y revela el azar de a poco a
+cambio de comprometer las jugadas.
 
 ## Por qué no cambia nada en producción
 
