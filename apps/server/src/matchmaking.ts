@@ -12,6 +12,7 @@ import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
 import { verifyInvaders, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
+import { isLiveMatch } from "@arcade1v1/game-sdk/live";
 import {
   scoreAuthMessage,
   matchmakeAuthMessage,
@@ -123,7 +124,22 @@ export function isKnownGame(game: string): boolean {
   return game in VERIFIERS;
 }
 
-interface Match {
+/** El intento en vivo de un jugador, tal como se persiste con la partida. */
+export interface LiveAttempt {
+  /** sha256 (hex) del token vigente. El token en claro solo lo tiene el jugador. */
+  tokenHash: string;
+  startedAt: number;
+  /** Ticks comprometidos: el motor del árbitro va por acá. */
+  tick: number;
+  /** Aleteos comprometidos, en ticks absolutos. */
+  flaps: number[];
+  /** Cuántos valores al azar se revelaron. */
+  revealed: number;
+  over?: boolean;
+  score?: number;
+}
+
+export interface Match {
   id: Hex;
   game: string;
   stake: number;
@@ -148,6 +164,8 @@ interface Match {
   failedAttempts?: Record<string, number>;
   refundPromise?: Promise<void>; // cancelacion/reembolso on-chain en empate
   eloUpdate?: { p1: RatingUpdate; p2: RatingUpdate }; // cambio de rating al liquidar
+  /** Intentos EN VIVO por jugador (juegos en vivo; ver live.ts). */
+  live?: Record<string, LiveAttempt>;
 }
 
 // Comision (basis points) para calcular el PnL neto que se le informa al jugador.
@@ -459,19 +477,46 @@ export async function submitScore(
   // llega a serlo depositando (open/join transfieren la apuesta). No se exige
   // status Funded porque el modelo es asincrónico — el primero juega y envía su
   // puntaje antes de que exista rival, con la partida todavía en Open.
-  if (m.stake > 0 && onchainEnabled()) {
-    let enCadena;
-    try {
-      enCadena = await readMatchOnchain(m.id);
-    } catch (e) {
-      // El nodo no respondió. No aceptamos a ciegas un puntaje con plata en
-      // juego: se pide reintentar, que es recuperable, en vez de firmar algo
-      // que no pudimos verificar.
-      console.error("[onchain] no se pudo leer la partida:", (e as Error).message);
-      throw new Error("could not verify your deposit on-chain — retry in a moment", { cause: e });
+  await assertDepositOnchain(m, address);
+
+  // PARTIDA EN VIVO: el puntaje lo pone el árbitro al terminar el intento
+  // (live.ts), nunca un replay armado afuera: con la semilla oculta no hay
+  // replay honesto que mandar. Solo queda la RENDICIÓN (puntaje 0, sin jugadas y
+  // sin semilla), que ya usan la web y el runner, y cierra el intento con 0.
+  // `flaps` es de Flappy, el único juego en vivo del piloto.
+  if (isLiveMatch(m.game, m.rulesV)) {
+    const currentV = RULES_V[m.game] ?? 1;
+    if ((m.rulesV ?? 1) !== currentV) {
+      throw new Error(
+        `rules version mismatch (match v${m.rulesV ?? 1}, arbiter v${currentV}) — update @arcade1v1/mcp`,
+      );
     }
-    const motivo = razonRechazoDeposito(enCadena, address);
-    if (motivo) throw new Error(motivo);
+    const r = (replay ?? {}) as { seed?: unknown; ticks?: unknown; flaps?: unknown; v?: unknown };
+    const isForfeit =
+      score === 0 &&
+      r.seed === undefined &&
+      r.ticks === 0 &&
+      Array.isArray(r.flaps) &&
+      r.flaps.length === 0 &&
+      r.v === currentV;
+    if (!isForfeit) {
+      throw new Error(
+        `replay not allowed: ${m.game} is live — play through /match/:id/live/start and /live/commit`,
+      );
+    }
+    m.live ??= {};
+    const prev = m.live[address];
+    m.live[address] = {
+      tokenHash: prev?.tokenHash ?? "",
+      startedAt: prev?.startedAt ?? Date.now(),
+      tick: prev?.tick ?? 0,
+      flaps: prev?.flaps ?? [],
+      revealed: prev?.revealed ?? 0,
+      over: true,
+      score: 0,
+    };
+    await finishLiveAttempt(m, address, 0, { ticks: 0, flaps: [], v: currentV });
+    return view(m, address, { revealOwnScore: true });
   }
 
   let finalScore = Math.max(0, Math.floor(score));
@@ -528,6 +573,52 @@ export async function submitScore(
   // El que envía probó ser dueño de `address` (firma verificada arriba en prod):
   // su propia respuesta puede confirmarle su puntaje aunque no se haya decidido.
   return view(m, address, { revealOwnScore: true });
+}
+
+/** ¿Depositó de verdad? Solo mesas de plata con escrow activo. Lo usan el envío
+ *  de puntaje y la apertura de un intento en vivo. Tira el motivo si no. */
+export async function assertDepositOnchain(
+  m: { id: string; stake: number },
+  address: string,
+): Promise<void> {
+  if (m.stake <= 0 || !onchainEnabled()) return;
+  let enCadena;
+  try {
+    enCadena = await readMatchOnchain(m.id as Hex);
+  } catch (e) {
+    // El nodo no respondió. No aceptamos a ciegas con plata en juego: se pide
+    // reintentar, que es recuperable, en vez de seguir sin poder verificar.
+    console.error("[onchain] no se pudo leer la partida:", (e as Error).message);
+    throw new Error("could not verify your deposit on-chain — retry in a moment", { cause: e });
+  }
+  const motivo = razonRechazoDeposito(enCadena, address);
+  if (motivo) throw new Error(motivo);
+}
+
+// ---- Para live.ts (partidas en vivo) ----------------------------------------
+
+/** La partida en memoria, no una vista: live.ts trabaja sobre su intento. */
+export function matchRecord(id: string): Match | undefined {
+  return matches.get(id);
+}
+
+/** Guarda las partidas (con el debounce de siempre). */
+export function persistMatches(): void {
+  persist();
+}
+
+/** Cierra el intento en vivo de `address` con su puntaje y su replay, y liquida
+ *  si ya están los dos. */
+export async function finishLiveAttempt(
+  m: Match,
+  address: string,
+  score: number,
+  replay: unknown,
+): Promise<void> {
+  m.scores[address] = score;
+  m.replays[address] = replay;
+  await settleIfReady(m);
+  persist();
 }
 
 /** Si ya estan los dos puntajes, decide el ganador y firma (o marca empate). */
@@ -649,7 +740,11 @@ export interface MatchView {
   matchId: Hex;
   game: string;
   stake: number;
-  seed: number;
+  /** Ausente en juegos EN VIVO hasta que la partida se decide: con la semilla
+   *  se simula la partida entera antes de jugarla. */
+  seed?: number;
+  /** La partida se juega en vivo: /match/:id/live/start y /live/commit. */
+  live?: boolean;
   /** Versión de reglas del juego en esta partida (clientes nuevos la validan). */
   rulesV?: number;
   status: Status;
@@ -698,12 +793,14 @@ function view(m: Match, address?: string, opts?: { revealOwnScore?: boolean }): 
       ? { [address]: m.scores[address] }
       : {};
   const rival = address === m.p1 ? m.p2 : address === m.p2 ? m.p1 : undefined;
+  const live = isLiveMatch(m.game, m.rulesV);
 
   const v: MatchView = {
     matchId: m.id,
     game: m.game,
     stake: m.stake,
-    seed: m.seed,
+    seed: live && !decided ? undefined : m.seed,
+    live: live || undefined,
     rulesV: m.rulesV,
     status: m.status,
     role: address === m.p1 ? "p1" : address === m.p2 ? "p2" : undefined,

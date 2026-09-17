@@ -103,6 +103,12 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
   if (m.status === "ready" && m.scores[address] === undefined) {
     if (m.challengeTarget && !m.rivalSubmitted) return false;
 
+    // PARTIDA EN VIVO: el runner todavía no sabe jugarlas (llega en el PR 2 del
+    // benchmark en vivo). Mientras RULES_V no active ningún juego, en producción
+    // no pasa. Sin semilla tampoco hay replay de rendición de los de hoy.
+    const seed = m.seed;
+    if (m.live || seed === undefined) return false;
+
     // AGENTE BYO: el cerebro está afuera. El invariante clave es que una
     // partida ya emparejada SIEMPRE se cierra (juega o se rinde), pase lo que
     // pase con la notificación, la auto-pausa o el kill switch — si no, el
@@ -130,7 +136,7 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
             agentId: agent.id,
             matchId: m.matchId,
             game: m.game,
-            seed: m.seed,
+            seed,
             deadline,
           });
         } catch (e) {
@@ -151,7 +157,7 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
           m.matchId,
           address,
           0,
-          emptyReplay(m.game, m.seed),
+          emptyReplay(m.game, seed),
           signature,
         );
         // El dev no cumplió ESTA partida → una falla (el forfeit por kill
@@ -172,7 +178,7 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
 
     const { score, replay } = runStrategy(
       { game: agent.game, strategyId: agent.strategyId, params: agent.params },
-      m.seed,
+      seed,
     );
     const account = privateKeyToAccount(agent.privateKey);
     const signature = await account.signMessage({

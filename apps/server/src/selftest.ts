@@ -28,7 +28,14 @@ import { InvadersEngine, type InvaderAction } from "@arcade1v1/game-sdk/invaders
 import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 
-function play2048(seed: number, maxMoves = 500) {
+/** Estas pruebas juegan juegos que NO son en vivo: la vista trae la semilla. */
+function need(seed: number | undefined): number {
+  if (seed === undefined) throw new Error("selftest: match without seed (live game?)");
+  return seed;
+}
+
+function play2048(seedOrUndefined: number | undefined, maxMoves = 500) {
+  const seed = need(seedOrUndefined);
   const g = new Game2048(seed);
   const moves: Dir[] = [];
   const dirs: Dir[] = ["left", "up", "right", "down"];
@@ -40,7 +47,8 @@ function play2048(seed: number, maxMoves = 500) {
   return { score: g.score, replay: { seed, moves } };
 }
 
-function playTetris(seed: number) {
+function playTetris(seedOrUndefined: number | undefined) {
+  const seed = need(seedOrUndefined);
   const g = new TetrisEngine(seed);
   const inputs: { t: number; a: TetrisAction }[] = [];
   let t = 0;
@@ -55,7 +63,8 @@ function playTetris(seed: number) {
   return { score: g.score, replay: { seed, ticks: t, inputs } };
 }
 
-function playFlappy(seed: number) {
+function playFlappy(seedOrUndefined: number | undefined) {
+  const seed = need(seedOrUndefined);
   const g = new FlappyEngine(seed);
   const flaps: number[] = [];
   let t = 0;
@@ -70,7 +79,8 @@ function playFlappy(seed: number) {
   return { score: g.score, replay: { seed, ticks: t, flaps } };
 }
 
-function playRacing(seed: number) {
+function playRacing(seedOrUndefined: number | undefined) {
+  const seed = need(seedOrUndefined);
   const g = new RacingEngine(seed);
   const inputs: { t: number; a: RaceAction }[] = [];
   let t = 0;
@@ -88,7 +98,8 @@ function playRacing(seed: number) {
   return { score: g.score, replay: { seed, ticks: t, inputs, v: RACING_RULES_V } };
 }
 
-function playSnake(seed: number) {
+function playSnake(seedOrUndefined: number | undefined) {
+  const seed = need(seedOrUndefined);
   const g = new SnakeEngine(seed);
   let t = 0;
   while (!g.over && t < 2000) {
@@ -98,7 +109,8 @@ function playSnake(seed: number) {
   return { score: g.score, replay: { seed, ticks: t, inputs: [], v: SNAKE_RULES_V } };
 }
 
-function playInvaders(seed: number) {
+function playInvaders(seedOrUndefined: number | undefined) {
+  const seed = need(seedOrUndefined);
   const g = new InvadersEngine(seed);
   const inputs: { t: number; a: InvaderAction }[] = [];
   let t = 0;
@@ -201,7 +213,7 @@ async function main() {
   // 7) ANTI-TRAMPA en los juegos de TIEMPO REAL (paso fijo determinístico).
   const games: {
     name: "tetris" | "flappy" | "racing" | "snake" | "invaders";
-    play: (s: number) => { score: number; replay: unknown };
+    play: (s: number | undefined) => { score: number; replay: unknown };
   }[] = [
     { name: "tetris", play: playTetris },
     { name: "flappy", play: playFlappy },
@@ -250,7 +262,7 @@ async function main() {
   //    (Direcciones/mesas dedicadas para que el caso sea hermético.)
   const E = "0x3333333333333333333333333333333333333333";
   const sm = await matchmake("2048", 3, E);
-  const fake = play2048(sm.seed + 1, 200); // jugada válida, pero en OTRA semilla
+  const fake = play2048(need(sm.seed) + 1, 200); // jugada válida, pero en OTRA semilla
   let seedCheatRejected = false;
   try {
     await submitScore(sm.matchId, E, fake.score, fake.replay);
