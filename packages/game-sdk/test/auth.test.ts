@@ -7,7 +7,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { profileAuthMessage, challengeAuthMessage } from "@arcade1v1/game-sdk/auth";
+import {
+  profileAuthMessage,
+  challengeAuthMessage,
+  liveStartAuthMessage,
+} from "@arcade1v1/game-sdk/auth";
 
 test("profileAuthMessage: formato estable y address en minúsculas", () => {
   const msg = profileAuthMessage(
@@ -38,6 +42,23 @@ test("challengeAuthMessage: formato estable y addresses en minúsculas", () => {
       "Arcade1v1: desafío a un rival",
       "challenger: 0xaaa0000000000000000000000000000000000001",
       "target: 0xbbb0000000000000000000000000000000000002",
+      "ts: 1730000000000",
+    ].join("\n"),
+  );
+});
+
+test("liveStartAuthMessage: formato estable y address en minúsculas", () => {
+  const msg = liveStartAuthMessage(
+    "0x" + "ab".repeat(32),
+    "0xABCDef0000000000000000000000000000000001",
+    1730000000000,
+  );
+  assert.equal(
+    msg,
+    [
+      "Arcade1v1: empiezo mi partida en vivo",
+      `match: 0x${"ab".repeat(32)}`,
+      "player: 0xabcdef0000000000000000000000000000000001",
       "ts: 1730000000000",
     ].join("\n"),
   );

@@ -112,3 +112,15 @@ export function alephViewAuthMessage(roomId: string, address: string, ts: number
     `ts: ${ts}`,
   ].join("\n");
 }
+
+/** Mensaje a firmar para ABRIR (o retomar) el intento en vivo de una partida.
+ *  Ata: partida + jugador + momento (ts, válido MATCHMAKE_AUTH_TTL_MS). Sin
+ *  esto, cualquiera abriría el intento de otro, y el intento es único. */
+export function liveStartAuthMessage(matchId: string, address: string, ts: number): string {
+  return [
+    "Arcade1v1: empiezo mi partida en vivo",
+    `match: ${matchId}`,
+    `player: ${address.toLowerCase()}`,
+    `ts: ${ts}`,
+  ].join("\n");
+}
