@@ -49,3 +49,10 @@ export function groupByTick<A>(inputs: { t: number; a: A }[]): Map<number, A[]> 
   }
   return byTick;
 }
+
+/** De dónde saca un motor su azar: cada llamada devuelve un número en [0, 1).
+ *  Con una semilla es `mulberry32(seed)`, como siempre. En una partida en vivo
+ *  son los valores que el árbitro va revelando (ver `./live`). */
+export interface RandomSource {
+  next(): number;
+}
