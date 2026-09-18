@@ -6,6 +6,7 @@ import type { Hex } from "viem";
 import {
   scoreAuthMessage,
   matchmakeAuthMessage,
+  liveStartAuthMessage,
   alephActionAuthMessage,
   alephViewAuthMessage,
 } from "@arcade1v1/game-sdk/auth";
@@ -42,6 +43,22 @@ export async function signMatchmake(opts: {
   const account = privateKeyToAccount(opts.privateKey);
   const signature = await account.signMessage({
     message: matchmakeAuthMessage(opts.game, opts.stake, opts.address, ts),
+  });
+  return { signature, ts };
+}
+
+/** Firma "empiezo mi partida en vivo" (obligatoria en producción). Devuelve
+ *  también el `ts`: el árbitro lo exige para la ventana anti-replay. */
+export async function signLiveStart(opts: {
+  matchId: string;
+  address: string;
+  privateKey: Hex;
+  ts?: number;
+}): Promise<{ signature: Hex; ts: number }> {
+  const ts = opts.ts ?? Date.now();
+  const account = privateKeyToAccount(opts.privateKey);
+  const signature = await account.signMessage({
+    message: liveStartAuthMessage(opts.matchId, opts.address, ts),
   });
   return { signature, ts };
 }

@@ -149,7 +149,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           const v = await getMatch(challengeId, pidRef.current);
           if (!v) throw new Error("challenge not found");
           setMatchId(v.matchId);
-          setSeed(v.seed);
+          setSeed(v.seed ?? null);
           setRole(v.role ?? null);
         } catch {
           mmStarted.current = false;
@@ -184,7 +184,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       try {
         const v = await matchmake(game!.id, bet, pidRef.current, auth);
         setMatchId(v.matchId);
-        setSeed(v.seed);
+        setSeed(v.seed ?? null);
         setRole(v.role ?? null);
         setSeatSig(v.seatSig ?? null); // asiento para depositar (mesas de plata)
       } catch {

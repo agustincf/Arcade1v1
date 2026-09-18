@@ -197,6 +197,11 @@ export function createAgent(opts: {
     }
     const strat = args.strategy ?? DEFAULT_STRATEGIES[args.game];
     if (!strat) throw new Error(`no hay estrategia por defecto para el juego: ${args.game}`);
+    // Un juego en vivo no trae semilla: se juega distinto (llega en el camino
+    // en vivo de playAndSubmit).
+    if (m.seed === undefined) {
+      throw new Error(`the arbiter sent no seed for ${args.game}: this match is played live`);
+    }
     const { score, replay } = strat(m.seed);
     const signature = await signScore({
       matchId: m.matchId,

@@ -8,12 +8,22 @@ import type {
   AlephEvent,
   AlephView,
 } from "@arcade1v1/game-sdk/aleph";
+import type { FlappyLiveCommit, FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
 
 export interface MatchView {
   matchId: string;
   game: string;
   stake: number;
-  seed: number;
+  /** No viene en los juegos EN VIVO: su azar sale de un secreto (ver `secretHash`). */
+  seed?: number;
+  /** Juego en vivo: se juega con `liveStart`/`liveCommit` (o `playAndSubmit`,
+   *  que ya lo hace), porque el azar llega de a poco. */
+  live?: boolean;
+  /** En vivo: el SHA-256 del secreto del azar, público desde que se empareja. */
+  secretHash?: string;
+  /** En vivo y con la partida decidida: el secreto, para re-verificar con
+   *  `verifyFlappyLive` y comprobar que su hash es `secretHash`. */
+  secret?: string;
   /** Versión de reglas del juego en esta partida (el SDK nuevo la valida). */
   rulesV?: number;
   status: "waiting" | "ready" | "settled" | "draw";
@@ -42,6 +52,35 @@ export interface MatchView {
 export interface LeaderRow {
   address: string;
   rating: number;
+}
+
+/** Abrir (o retomar) un intento en vivo. Con `over: true` el intento ya estaba
+ *  cerrado: no hay token, solo el puntaje que quedó. */
+export type LiveStartView =
+  | {
+      over: false;
+      token: string;
+      tick: number;
+      flaps: number[];
+      reveal: number[];
+      revealed: number;
+    }
+  | { over: true; score: number; tick: number };
+
+/** Un compromiso con su token (el token sale de `liveStart`). */
+export type LiveCommitBody = FlappyLiveCommit & { token: string };
+
+/** La respuesta a un compromiso; con `conflict: true` hay que seguir desde `tick`. */
+export type LiveCommitView = FlappyLiveReply;
+
+/** Un 409 que no trae el conflicto del protocolo (un proxy, por ejemplo) no es
+ *  una resincronización: se deja pasar al error de siempre. */
+function parseOrUndefined(text: string): { conflict?: boolean } | undefined {
+  try {
+    return JSON.parse(text) as { conflict?: boolean };
+  } catch {
+    return undefined;
+  }
 }
 
 // ---- Aleph (formato multi-agente) ------------------------------------------
@@ -330,6 +369,35 @@ export class ArbiterClient {
     signature?: string,
   ): Promise<MatchView> {
     return this.post(`/match/${id}/score`, { address, score, replay, signature });
+  }
+
+  /** Abre o retoma TU intento en vivo. `auth` es la firma de
+   *  `liveStartAuthMessage(matchId, address, ts)`: obligatoria en producción. */
+  liveStart(
+    id: string,
+    address: string,
+    auth?: { signature: string; ts: number },
+  ): Promise<LiveStartView> {
+    return this.post<LiveStartView>(`/match/${id}/live/start`, { address, ...(auth ?? {}) });
+  }
+
+  /** Compromete las jugadas de `[from, to)` y devuelve el azar que sigue. Un 409
+   *  NO es un error: es el árbitro diciendo en qué tick está, con los valores
+   *  para resincronizar, y vuelve como `conflict: true`. */
+  async liveCommit(id: string, address: string, body: LiveCommitBody): Promise<LiveCommitView> {
+    const path = `/match/${id}/live/commit`;
+    const r = await this.fetchWithTimeout(`${this.base}${path}`, path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, ...body }),
+    });
+    const text = await r.text();
+    if (r.status === 409) {
+      const reply = parseOrUndefined(text);
+      if (reply?.conflict === true) return reply as LiveCommitView;
+    }
+    if (!r.ok) throw new Error(`arbiter ${path} ${r.status}: ${text}`);
+    return JSON.parse(text) as LiveCommitView;
   }
 
   async getMatch(id: string, address?: string): Promise<MatchView> {
