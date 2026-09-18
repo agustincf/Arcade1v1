@@ -8,3 +8,6 @@
 // IMPORTANTE: importar ANTES que cualquier módulo que lea el flag al cargarse
 // (matchmaking/ratings/agents importan persist.ts, que lo lee al importarse).
 process.env.ARCADE_PERSIST = "1";
+// Y el traspaso entre instancias (ver persist.ts): el servidor real no escribe
+// hasta tomar la posta. Los tests que prueban la persistencia sola no lo piden.
+process.env.ARCADE_PERSIST_HANDOVER = "1";

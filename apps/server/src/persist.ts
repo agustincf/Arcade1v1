@@ -13,6 +13,7 @@
 // tests y e2e corren sin tocar disco ni red, herméticos. Antes agents.ts y
 // ratings.ts persistían SIEMPRE y los tests pisaban los datos reales.
 
+import { randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -80,6 +81,105 @@ async function redisSet(key: string, value: string): Promise<void> {
   if (!r.ok) throw new Error(`redis SET ${key}: HTTP ${r.status}`);
 }
 
+// TRASPASO ENTRE INSTANCIAS (deploys sin cortes). Render arranca la instancia
+// nueva, le pasa el tráfico y recién DESPUÉS le manda SIGTERM a la vieja. Como
+// la nueva cargaba el estado al arrancar, se perdía todo lo que la vieja
+// cambiaba en ese rato, y las escrituras siguientes de la nueva pisaban el
+// flush final de la vieja. En una mesa de plata eso podía decidir una partida
+// dos veces, con dos firmas válidas de ganadores distintos.
+//
+// Ahora hay una POSTA en Redis: la instancia que escribe la tiene y la hace
+// latir; al recibir SIGTERM guarda todo y la suelta. La nueva recién carga
+// cuando la ve soltada (o sin latir, si la anterior se cayó), y mientras no la
+// tenga no escribe nada: nunca pisa el estado real con el suyo vacío.
+const LEASE_KEY = "arcade:lease";
+const LEASE_HEARTBEAT_MS = Number(process.env.LEASE_HEARTBEAT_MS ?? 60_000);
+
+/** Identidad de este proceso: cada deploy o reinicio es una instancia nueva. */
+export const INSTANCE_ID = randomUUID();
+
+interface Lease {
+  id: string;
+  at: number; // último latido
+  released: boolean;
+}
+
+/** ¿Esta instancia puede escribir? Sin Redis, siempre (hay una sola instancia).
+ *  Con Redis y el traspaso encendido (el servidor real, vía persist-on.ts),
+ *  recién cuando tomó la posta, y deja de poder si otra se la quitó. */
+let writable = !(USE_REDIS && process.env.ARCADE_PERSIST_HANDOVER === "1");
+
+async function readLease(): Promise<Lease | null> {
+  const raw = await redisGet(LEASE_KEY);
+  if (!raw) return null;
+  try {
+    const l = JSON.parse(raw) as Partial<Lease>;
+    return typeof l.id === "string" && typeof l.at === "number" ? (l as Lease) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeLease(released: boolean): Promise<void> {
+  await redisSet(
+    LEASE_KEY,
+    JSON.stringify({ id: INSTANCE_ID, at: Date.now(), released } satisfies Lease),
+  );
+}
+
+export type HandoverOutcome = "off" | "none" | "released" | "stale" | "timeout";
+
+/** Antes de cargar el estado: espera a que la instancia anterior lo guarde y
+ *  suelte la posta. No espera si no hay posta (primer arranque), si ya está
+ *  soltada, o si hace rato que no late (la anterior se cayó sin avisar). Con
+ *  `timeoutMs` de techo, por si la anterior quedó colgada. */
+export async function waitForHandover(
+  opts: { timeoutMs?: number; pollMs?: number; staleMs?: number } = {},
+): Promise<HandoverOutcome> {
+  if (!USE_REDIS) return "off";
+  const timeoutMs = opts.timeoutMs ?? 60_000;
+  const pollMs = opts.pollMs ?? 500;
+  const staleMs = opts.staleMs ?? 3 * LEASE_HEARTBEAT_MS;
+  const start = Date.now();
+  for (;;) {
+    const lease = await readLease();
+    if (!lease) return "none";
+    if (lease.released) return "released";
+    if (Date.now() - lease.at > staleMs) return "stale";
+    if (Date.now() - start >= timeoutMs) return "timeout";
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+}
+
+/** Tomar la posta: desde acá esta instancia es la que escribe. */
+export async function acquireLease(): Promise<void> {
+  if (!USE_REDIS) return;
+  await writeLease(false);
+  writable = true;
+}
+
+/** Latido de la posta. Si otra instancia la tomó (esta quedó colgada y la
+ *  nueva se cansó de esperar), esta deja de escribir para no pisarla. */
+export async function leaseHeartbeat(): Promise<void> {
+  if (!USE_REDIS || !writable) return;
+  const lease = await readLease();
+  if (lease && lease.id !== INSTANCE_ID) {
+    writable = false;
+    console.error("persist: otra instancia tomó la posta; esta deja de escribir");
+    return;
+  }
+  await writeLease(false);
+}
+
+/** El latido periódico de la posta (lo arranca index.ts después de cargar). */
+export function startLeaseHeartbeat(): void {
+  if (!USE_REDIS) return;
+  const timer = setInterval(() => {
+    leaseHeartbeat().catch((e) => console.error("persist lease:", (e as Error).message));
+  }, LEASE_HEARTBEAT_MS);
+  timer.unref?.();
+}
+
 export interface JsonStore {
   /** Carga el JSON guardado (una vez, al arrancar). En Redis, un error de red
    *  TIRA: mejor no arrancar que arrancar "limpio" y pisar los datos reales
@@ -107,6 +207,8 @@ export function jsonStore(name: string): JsonStore {
   let chain: Promise<void> = Promise.resolve();
 
   function writeNow(): Promise<void> {
+    // Sin la posta no se escribe: lo pendiente queda para cuando la tenga.
+    if (!writable) return USE_REDIS ? chain : Promise.resolve();
     const getJson = pending;
     pending = null;
     if (!getJson) return Promise.resolve();
@@ -175,13 +277,26 @@ export function jsonStore(name: string): JsonStore {
   return store;
 }
 
-// Apagado ordenado (SIGTERM/SIGINT, típico de un redeploy): un último flush de
-// TODOS los stores antes de salir. Centralizado acá para que ningún módulo
-// corte el proceso antes de que otro termine de escribir.
+/** Apagado ordenado: un último flush de TODOS los stores y, recién después,
+ *  soltar la posta (si todavía es de esta instancia) para que la nueva cargue
+ *  lo que quedó guardado. */
+export async function shutdownPersistence(): Promise<void> {
+  await Promise.allSettled(stores.map((s) => s.flush()));
+  if (!USE_REDIS || !writable) return;
+  const lease = await readLease();
+  if (lease && lease.id !== INSTANCE_ID) return;
+  await writeLease(true);
+  writable = false;
+}
+
+// SIGTERM/SIGINT (típico de un redeploy): centralizado acá para que ningún
+// módulo corte el proceso antes de que otro termine de escribir.
 if (ENABLED) {
   for (const sig of ["SIGTERM", "SIGINT"] as const) {
     process.once(sig, () => {
-      Promise.allSettled(stores.map((s) => s.flush())).finally(() => process.exit(0));
+      shutdownPersistence()
+        .catch((e) => console.error("persist shutdown:", (e as Error).message))
+        .finally(() => process.exit(0));
     });
   }
 }

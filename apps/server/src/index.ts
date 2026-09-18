@@ -25,7 +25,13 @@ import { alephRouter } from "./aleph-routes.js";
 import { restoreAleph, startAlephTicker } from "./aleph.js";
 import { restoreAlephHouse } from "./aleph-house-seats.js";
 import { startAlephHouse } from "./aleph-house.js";
-import { persistenceBackend } from "./persist.js";
+import {
+  persistenceBackend,
+  waitForHandover,
+  acquireLease,
+  startLeaseHeartbeat,
+} from "./persist.js";
+import { readinessGate, markReady } from "./readiness.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 import { agentsRouter } from "./agents-routes.js";
@@ -101,6 +107,10 @@ app.use((req, res, next) => {
   next();
 });
 app.options("/*splat", (_req, res) => res.sendStatus(204));
+
+// ARRANQUE EN DOS TIEMPOS: hasta tener el estado (traspaso y carga, al final de
+// este archivo), cualquier pedido salvo /health recibe 503 y reintenta.
+app.use(readinessGate());
 
 // Rate limiting simple por IP (anti-spam / DoS), en dos niveles:
 // - global: 120 pedidos cada 10s en cualquier ruta.
@@ -320,8 +330,34 @@ app.get("/rating/:address", (req, res) => {
   res.json({ address: req.params.address, ratings: ratingsOf(req.params.address) });
 });
 
-// Restaurar el estado persistido ANTES de escuchar: si Redis está configurado
-// y falla, mejor no arrancar que arrancar "vacío" y pisar los datos reales.
+// ESCUCHAR PRIMERO, ATENDER DESPUÉS: Render da por sana a esta instancia con
+// /health y recién ahí apaga la vieja, que guarda y suelta la posta. Hasta
+// tener el estado, readinessGate responde 503.
+const port = Number(process.env.PORT ?? 4000);
+app.listen(port, () => {
+  console.log(`Arbitro escuchando en http://localhost:${port}`);
+  console.log(`Direccion del arbitro: ${arbiterAddress()}`);
+  console.log(`Persistencia: ${persistenceBackend}`);
+  console.log(`Auth obligatoria (firma): ${AUTH_REQUIRED ? "SÍ" : "no"}`);
+  if (process.env.NODE_ENV === "production" && !AUTH_REQUIRED) {
+    console.warn(
+      "⚠️  PRODUCCIÓN SIN AUTH: REQUIRE_AUTH=false desactivó la firma obligatoria. " +
+        "Cualquiera podría enviar puntajes a nombre de otro. Quitá REQUIRE_AUTH (o ponelo en true).",
+    );
+  }
+});
+
+// TRASPASO: en un deploy sin cortes la instancia vieja sigue atendiendo hasta
+// que Render le pasa el tráfico a esta y le manda SIGTERM. Recién entonces
+// guarda y suelta la posta. Cargar antes perdía lo que cambiaba en ese rato
+// (ver persist.ts).
+const handover = await waitForHandover();
+await acquireLease();
+console.log(`Traspaso: ${handover}`);
+
+// Restaurar el estado persistido. Si Redis está configurado y falla, el proceso
+// termina sin haber atendido nada: mejor eso que atender "vacío" y pisar los
+// datos reales.
 await Promise.all([
   restoreMatches(),
   restoreRatings(),
@@ -350,16 +386,7 @@ startAlephTicker();
 // verdad adentro, y juega esos asientos. Sin esto una mesa casi nunca junta 4.
 startAlephHouse();
 
-const port = Number(process.env.PORT ?? 4000);
-app.listen(port, () => {
-  console.log(`Arbitro escuchando en http://localhost:${port}`);
-  console.log(`Direccion del arbitro: ${arbiterAddress()}`);
-  console.log(`Persistencia: ${persistenceBackend}`);
-  console.log(`Auth obligatoria (firma): ${AUTH_REQUIRED ? "SÍ" : "no"}`);
-  if (process.env.NODE_ENV === "production" && !AUTH_REQUIRED) {
-    console.warn(
-      "⚠️  PRODUCCIÓN SIN AUTH: REQUIRE_AUTH=false desactivó la firma obligatoria. " +
-        "Cualquiera podría enviar puntajes a nombre de otro. Quitá REQUIRE_AUTH (o ponelo en true).",
-    );
-  }
-});
+// La posta late mientras esta instancia la tenga; desde acá se atiende todo.
+startLeaseHeartbeat();
+markReady();
+console.log("Árbitro listo: estado cargado");
