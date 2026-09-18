@@ -10,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
-import { SecretSource, LIVE_LEAD_TICKS } from "@arcade1v1/game-sdk/live";
+import { SecretSource, LIVE_LEAD_TICKS, MAX_COMMIT_TICKS } from "@arcade1v1/game-sdk/live";
 import { playFlappyLive, verifyFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
 import { secretFor, flapPolicy, referenceArbiter, batch } from "./live-fixtures";
 
@@ -135,4 +135,62 @@ test("verifyFlappyLive: con el secreto publicado, cualquiera re-verifica el inte
     assert.equal(verifyFlappyLive(secretFor(n), replay), live.score, `secreto ${n}`);
   }
   assert.throws(() => verifyFlappyLive("nope", { ticks: 10, flaps: [] }), /invalid live secret/);
+});
+
+const failWith = (status: number | undefined, message: string) =>
+  Object.assign(new Error(message), status === undefined ? {} : { status });
+
+test("reintenta los errores pasajeros (red, 429, 5xx) y termina igual", async () => {
+  const arb = referenceArbiter(secretFor(12));
+  let calls = 0;
+  const live = await playFlappyLive({
+    start: arb.start,
+    decide: flapPolicy,
+    maxTicks: 3_000,
+    retryDelaysMs: [1, 1, 1],
+    commit: async (c) => {
+      calls += 1;
+      if (calls === 2) throw failWith(429, "too many requests");
+      if (calls === 3) throw failWith(undefined, "fetch failed");
+      if (calls === 4) throw failWith(503, "restarting");
+      return arb.commit(c);
+    },
+  });
+  assert.deepEqual(live, batch(secretFor(12), 3_000));
+});
+
+test("un rechazo del árbitro (4xx) corta enseguida con su motivo", async () => {
+  const arb = referenceArbiter(secretFor(13));
+  let calls = 0;
+  await assert.rejects(
+    playFlappyLive({
+      start: arb.start,
+      decide: flapPolicy,
+      maxTicks: 3_000,
+      retryDelaysMs: [1, 1, 1],
+      commit: async () => {
+        calls += 1;
+        throw failWith(400, "match expired");
+      },
+    }),
+    /match expired/,
+  );
+  assert.equal(calls, 1);
+});
+
+test("sin aletear nunca, el cierre se compromete en tramos de a lo sumo MAX_COMMIT_TICKS", async () => {
+  const arb = referenceArbiter(secretFor(14));
+  const sizes: number[] = [];
+  const live = await playFlappyLive({
+    start: arb.start,
+    decide: () => false,
+    maxTicks: 8_000,
+    commit: async (c) => {
+      sizes.push(c.to - c.from);
+      return arb.commit(c);
+    },
+  });
+  assert.ok(sizes.length >= 3, `tramos: ${sizes.join(", ")}`);
+  assert.ok(sizes.every((n) => n <= MAX_COMMIT_TICKS));
+  assert.deepEqual(live, { score: 0, ticks: 8_000 });
 });

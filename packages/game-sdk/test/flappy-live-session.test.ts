@@ -146,3 +146,48 @@ test("step sin azar disponible tira en vez de inventarlo", () => {
   }
   assert.throws(() => session.step(false), /no randomness/);
 });
+
+const rejectedWith = (status: number, message: string) =>
+  Object.assign(new Error(`arbiter /live/commit ${status}: ${message}`), { status });
+
+test("esperar antes del primer aleteo no suma ticks: arrancar un minuto después no rompe nada", async () => {
+  const arb = referenceArbiter(secretFor(8));
+  const t = delayed(arb.commit, 2);
+  const session = new FlappyLiveSession(arb.start, t.fn);
+  for (let i = 0; i < 5_000; i++) session.step(false); // el jugador mira sin tocar
+  assert.equal(session.tick, 0, "sin arrancar, el reloj no corre");
+  await loop(session, t.nextFrame, { speed: 1 });
+  assert.equal(session.error, undefined);
+  assert.deepEqual(session.result, batch(secretFor(8), 1_000_000));
+});
+
+test("un rechazo del árbitro (4xx) termina la sesión con su motivo, sin reintentar para siempre", async () => {
+  const arb = referenceArbiter(secretFor(6));
+  let calls = 0;
+  const t = delayed(async () => {
+    calls += 1;
+    throw rejectedWith(400, "bad token");
+  }, 1);
+  const session = new FlappyLiveSession(arb.start, t.fn);
+  await loop(session, t.nextFrame, { speed: 1 });
+  assert.match(String(session.error?.message), /bad token/);
+  assert.equal(calls, 1, "un rechazo no se reintenta");
+});
+
+test("un 429 o un 5xx del árbitro se reintentan y la partida termina igual", async () => {
+  const arb = referenceArbiter(secretFor(10));
+  let clock = 0;
+  let calls = 0;
+  const flaky: FlappyLiveCommitFn = (c) => {
+    calls += 1;
+    if (calls === 2) return Promise.reject(rejectedWith(429, "too many"));
+    if (calls === 3) return Promise.reject(rejectedWith(503, "restarting"));
+    return arb.commit(c);
+  };
+  const t = delayed(flaky, 1);
+  const session = new FlappyLiveSession(arb.start, t.fn, { now: () => clock, retryMs: 100 });
+  await loop(session, t.nextFrame, { speed: 1, onFrame: () => void (clock += 16) });
+  assert.equal(session.error, undefined);
+  assert.ok(calls > 3);
+  assert.deepEqual(session.result, batch(secretFor(10), 1_000_000));
+});
