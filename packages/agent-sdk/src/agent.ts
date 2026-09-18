@@ -12,6 +12,7 @@ import {
 import { randomWallet, signScore, signMatchmake, signAlephAction, signAlephView } from "./sign";
 import { DEFAULT_STRATEGIES, type Strategy } from "./strategies";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
+import { waitUntilSealed } from "@arcade1v1/game-sdk/chain";
 import {
   ALEPH_RULES_V,
   ALEPH_ESCROW_STATUS,
@@ -32,16 +33,6 @@ export const VIEW_PASS_MAX_AGE_MS = 8 * 60_000;
  *  tiempo, el `deposit` sale igual y falla con el motivo del contrato. */
 const ROOM_OPEN_POLL_MS = 500;
 const ROOM_OPEN_POLLS = 60;
-
-/** Cuánto espera `alephDeposit` a ver en `latest` el permiso que acaba de
- *  aprobar: 60 lecturas cada 500 ms, 30 s en total. El RPC público de Base da el
- *  recibo apenas la transacción entra en el bloque que se está armando, ~2 s
- *  antes de sellarlo, y viem lo da por minado; la simulación del depósito lee el
- *  último bloque SELLADO, donde el permiso todavía no está, y revertía con
- *  ERC20InsufficientAllowance. Si el permiso no aparece en ese tiempo, el
- *  depósito sale igual y falla con el motivo del contrato. */
-const ALLOWANCE_POLL_MS = 500;
-const ALLOWANCE_POLLS = 60;
 
 export interface AlephDepositResult {
   /** `open` (fui el primero: abrí la sala), `deposit`, o `already` (ya figuraba). */
@@ -563,23 +554,10 @@ export function createAgent(opts: {
       if (receipt.status !== "success") {
         throw new Error(`USDC approve reverted on-chain: ${usdc} spender ${escrow} (tx ${hash})`);
       }
-      // El recibo puede ser PRECONFIRMADO (ver ALLOWANCE_POLLS): se espera a ver
-      // el permiso en el bloque que va a leer la simulación.
-      for (let i = 0; i < ALLOWANCE_POLLS; i++) {
-        const seen = await pub
-          .readContract({
-            address: usdc,
-            abi: erc20MinimalAbi,
-            functionName: "allowance",
-            args: [account.address, escrow],
-          })
-          .then(
-            (a) => a >= stake,
-            () => false,
-          );
-        if (seen) break;
-        await new Promise((r) => setTimeout(r, ALLOWANCE_POLL_MS));
-      }
+      // El recibo puede ser PRECONFIRMADO: sin esperar a que se selle su bloque,
+      // la simulación de abajo lee `latest` sin el permiso y revierte con
+      // ERC20InsufficientAllowance (ver waitUntilSealed).
+      await waitUntilSealed(pub, receipt.blockNumber);
     }
 
     // Simular antes de mandar: un revert seguro no quema gas, y el motivo del
@@ -611,6 +589,10 @@ export function createAgent(opts: {
       });
       const hash = await w.writeContract({ ...request, gas: (gas * 5n) / 4n });
       const receipt = await pub.waitForTransactionReceipt({ hash });
+      // Con el recibo preconfirmado, `latest` todavía no tiene esta transacción
+      // ni la que la hizo revertir: el catch de abajo leería la sala sin abrir, y
+      // quien llame después vería un depósito que todavía no está.
+      await waitUntilSealed(pub, receipt.blockNumber);
       // Un revert MINADO no lanza: viem devuelve el recibo con status
       // "reverted" y el hash parece un éxito. Sin este control, un depósito que
       // nunca entró se reportaría como hecho y el agente esperaría una sala que
