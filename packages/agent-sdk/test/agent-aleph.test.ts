@@ -537,6 +537,65 @@ test("alephDeposit: con el ancla que corresponde sí llega a la cadena y aprueba
   }
 });
 
+test("alephDeposit: si el RPC da el recibo del approve antes de sellar el bloque (preconfirmación de Base), espera a ver el permiso y abre al primer intento", async () => {
+  // El RPC público de Base entrega el recibo apenas la transacción entra en el
+  // bloque que se está armando, y ese bloque se sella ~2 s después. viem da el
+  // approve por hecho con ese recibo, y la simulación de `open` lee `latest`,
+  // donde el permiso todavía no está: revertía con ERC20InsufficientAllowance
+  // (0xfb8f41b2). Les pasó a las 4 wallets del smoke en Base Sepolia.
+  const rpc = await fakeRpc("0x7a69", { balance: WHOLE_BALANCE, preconfirm: { sealMs: 600 } });
+  try {
+    const fake = fundingFake();
+    const agent = createAgent({
+      client: fake,
+      privateKey: generatePrivateKey(),
+      rpcUrl: rpc.url,
+      escrow: fake.deposit!.escrow,
+    });
+    await agent.alephJoin(2);
+    const result = await agent.alephDeposit(ROOM);
+    assert.equal(result.step, "open");
+    assert.deepEqual(
+      rpc.broadcasts.map((b) => b.functionName),
+      ["approve", "open"],
+      "un solo approve y un solo open",
+    );
+  } finally {
+    rpc.close();
+  }
+});
+
+test("alephDeposit: si otro asiento abre la sala primero en el mismo bloque sin sellar, el open propio revierte y cae a deposit en vez de tirar", async () => {
+  // Cuatro asientos que depositan a la vez leen la sala sin abrir y mandan
+  // `open`. Entra uno solo y los demás se minan revertidos ("room exists") en el
+  // mismo bloque. El recibo del revert llega preconfirmado, y la sala todavía no
+  // se veía en `latest` cuando el SDK iba a confirmar la carrera: alephDeposit
+  // tiraba en vez de depositar.
+  const rpc = await fakeRpc("0x7a69", {
+    balance: WHOLE_BALANCE,
+    preconfirm: { sealMs: 600, rivalOpensFirst: true },
+  });
+  try {
+    const fake = fundingFake();
+    const agent = createAgent({
+      client: fake,
+      privateKey: generatePrivateKey(),
+      rpcUrl: rpc.url,
+      escrow: fake.deposit!.escrow,
+    });
+    await agent.alephJoin(2);
+    const result = await agent.alephDeposit(ROOM);
+    assert.equal(result.step, "deposit");
+    assert.deepEqual(
+      rpc.broadcasts.map((b) => b.functionName),
+      ["approve", "open", "deposit"],
+      "el open perdido y después el deposit, sin un segundo approve",
+    );
+  } finally {
+    rpc.close();
+  }
+});
+
 test("alephDeposit repetido contra un árbitro que miente: sin pin no transmite nada; con pin nunca aprueba otro escrow ni más de un stake (sonda A del re-review)", async () => {
   const rpc = await fakeRpc("0x7a69", { balance: WHOLE_BALANCE });
   try {

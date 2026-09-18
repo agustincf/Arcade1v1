@@ -30,6 +30,7 @@ const ENTRIES = {
     "auth",
     "rules",
     "aleph",
+    "chain",
   ],
   "agent-sdk": ["index", "client", "sign", "strategies", "aleph"],
   // Dependencia del agent-sdk: si no está en npm, el agent-sdk publicado es

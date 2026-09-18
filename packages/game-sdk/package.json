@@ -34,7 +34,8 @@
     "./invaders": "./src/invaders.ts",
     "./auth": "./src/auth.ts",
     "./rules": "./src/rules.ts",
-    "./aleph": "./src/aleph.ts"
+    "./aleph": "./src/aleph.ts",
+    "./chain": "./src/chain.ts"
   },
   "scripts": {
     "release": "node ../../scripts/publish-sdk.mjs game-sdk"
