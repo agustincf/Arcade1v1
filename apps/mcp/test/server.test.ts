@@ -50,6 +50,14 @@ test("buildServer publica las 6 herramientas 1v1 y las 6 de Aleph", async () => 
       "play_and_submit",
       "rating",
     ]);
+    const mm = tools.find((t) => t.name === "matchmake")!;
+    assert.match(
+      String(mm.description),
+      /live: true/,
+      "avisa que un juego en vivo no trae semilla",
+    );
+    const play = tools.find((t) => t.name === "play_and_submit")!;
+    assert.match(String(play.description), /en vivo/);
     const act = tools.find((t) => t.name === "aleph_act")!;
     const schema = act.inputSchema as {
       properties: Record<string, unknown>;
