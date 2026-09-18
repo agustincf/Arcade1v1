@@ -49,8 +49,26 @@ test("waitUntilSealed: una lectura que falla cuenta como 'todavía no' y se sigu
   assert.equal(c.calls.length, 2);
 });
 
-test("waitUntilSealed: si el bloque nunca llega, devuelve false después de `polls` lecturas", async () => {
+test("waitUntilSealed: si el bloque nunca llega, devuelve false al vencer timeoutMs", async () => {
   const c = client([16n]);
-  assert.equal(await waitUntilSealed(c, 17n, { polls: 4, intervalMs: 1 }), false);
-  assert.equal(c.calls.length, 4);
+  const t0 = Date.now();
+  assert.equal(await waitUntilSealed(c, 17n, { intervalMs: 5, timeoutMs: 60 }), false);
+  const elapsed = Date.now() - t0;
+  assert.ok(elapsed >= 55 && elapsed < 260, `tardó ${elapsed} ms`);
+  assert.ok(c.calls.length >= 2, "sondeó más de una vez");
 });
+
+// Cada lectura de viem hereda sus reintentos (3) y su timeout (10 s): con un RPC
+// colgado, un tope por CANTIDAD de lecturas se estiraba a decenas de minutos, y
+// alephDeposit quedaba trabado en vez de fallar con el motivo real.
+test(
+  "waitUntilSealed: con un RPC que no contesta, igual devuelve false al vencer timeoutMs",
+  { timeout: 2_000 },
+  async () => {
+    const hung = { getBlockNumber: () => new Promise<bigint>(() => {}) };
+    const t0 = Date.now();
+    assert.equal(await waitUntilSealed(hung, 17n, { intervalMs: 5, timeoutMs: 80 }), false);
+    const elapsed = Date.now() - t0;
+    assert.ok(elapsed < 280, `tardó ${elapsed} ms`);
+  },
+);

@@ -17,18 +17,40 @@ export interface BlockNumberReader {
  *  En anvil el recibo ya es de un bloque minado y esto vuelve con una sola
  *  lectura.
  *
- *  Sondea sin caché, porque viem guarda el número de bloque un rato. Una lectura
- *  que falla cuenta como "todavía no". Devuelve false si se agotan las lecturas:
+ *  Sondea cada `intervalMs` y sin caché, porque viem guarda el número de bloque
+ *  un rato. Una lectura que falla, o que no contesta a tiempo, cuenta como
+ *  "todavía no". El tope es de TIEMPO (`timeoutMs`, 30 s), no de lecturas: cada
+ *  lectura de viem hereda sus reintentos y su timeout, y con un RPC colgado un
+ *  tope por cantidad se estiraba a decenas de minutos. Al vencer devuelve false:
  *  quien llama sigue igual, y si algo falla la cadena da el motivo. */
 export async function waitUntilSealed(
   client: BlockNumberReader,
   blockNumber: bigint,
-  { polls = 60, intervalMs = 500 }: { polls?: number; intervalMs?: number } = {},
+  { intervalMs = 500, timeoutMs = 30_000 }: { intervalMs?: number; timeoutMs?: number } = {},
 ): Promise<boolean> {
-  for (let i = 0; i < polls; i++) {
-    const latest = await client.getBlockNumber({ cacheTime: 0 }).catch(() => undefined);
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const latest = await within(client.getBlockNumber({ cacheTime: 0 }), deadline - Date.now());
     if (latest !== undefined && latest >= blockNumber) return true;
-    if (i < polls - 1) await new Promise((r) => setTimeout(r, intervalMs));
+    const left = deadline - Date.now();
+    if (left <= 0) return false;
+    await new Promise((r) => setTimeout(r, Math.min(intervalMs, left)));
   }
-  return false;
+}
+
+/** Lo que resuelve `p`, o undefined si falla o si no contesta en `ms`. */
+function within<T>(p: Promise<T>, ms: number): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(undefined), Math.max(0, ms));
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(undefined);
+      },
+    );
+  });
 }
