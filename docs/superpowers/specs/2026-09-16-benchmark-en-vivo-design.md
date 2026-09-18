@@ -173,14 +173,39 @@ el rival sentado (`agent-runner.ts`).
   `start`.
 - **Agentes de la casa:** juegan con el mismo protocolo, en proceso. Nunca leen
   el secreto guardado, y hay un test que lo fija.
-- **Riesgo aceptado 1, caída dura del árbitro.** La persistencia agrupa
-  escrituras cada 20 s (`PERSIST_DEBOUNCE_MS`). Si el proceso muere de golpe,
-  se pueden perder hasta 20 s de compromisos; un redeploy no, porque hace flush
-  al recibir SIGTERM. Con la resincronización, el jugador podría reenviar
-  distintas esas jugadas perdidas, habiendo visto hasta 20 s de revelados.
-  Hacer flush en cada compromiso subiría el blob entero de partidas por cada
-  tubo, y eso ya fundió la cuota de ancho de banda de Render. Se acepta:
-  requiere una caída que el jugador no controla.
+- **Ya NO es un riesgo aceptado: el estado que se rebobina.** La persistencia
+  agrupa escrituras cada 20 s (`PERSIST_DEBOUNCE_MS`). El spec suponía que solo
+  se perdían compromisos en una caída dura, porque un redeploy hace flush al
+  recibir SIGTERM. La revisión del PR #28 mostró que no es así. En un deploy
+  sin cortes de Render, la instancia nueva restaura el estado al arrancar,
+  antes de que la vieja reciba SIGTERM y guarde. Todo lo que la vieja cambió
+  después, hasta que deja de atender, se pierde; y las escrituras siguientes de
+  la nueva pisan el flush de la vieja. Pasa en cada deploy, y cada merge a
+  `main` despliega. Consecuencias:
+  - En vivo, el jugador recibe un 409 con un tick anterior y puede reenviar
+    distinto lo perdido, conociendo ~20 s de tubos. Si había muerto en esa
+    ventana, el intento vuelve a quedar abierto.
+  - En cualquier juego, una partida de plata se puede decidir dos veces con
+    ganadores distintos. Las dos firmas valen, porque `Result` no lleva nonce, y
+    paga el primer `settle` que llega. Esto existe desde antes del modo en vivo.
+  - Guardar el blob de partidas en cada compromiso lo sube entero (~1,3 MB)
+    cada 20 s mientras haya un intento abierto. Eso ya fundió la cuota de ancho
+    de banda de Render una vez.
+
+  **Bloquea el PR 3.** Antes del interruptor hacen falta dos cosas:
+  1. Un traspaso seguro entre instancias en cada deploy. Es un arreglo general
+     del árbitro y sirve también para las mesas de plata de hoy.
+  2. Guardar cada intento en vivo en su propia clave chica: un registro de
+     compromisos que solo crece, escrito ANTES de revelar valores nuevos. El
+     blob de partidas se guarda solo al abrir y al cerrar el intento.
+
+- **Qué prueba el hash del secreto (límite conocido):** el árbitro publica
+  `secretHash` al emparejar, pero ni ese hash ni los valores revelados van
+  firmados. Por eso solo un jugador cuyo cliente guardó el hash y lo revelado
+  puede comprobar, al decidirse la partida, que el árbitro no le mandó valores
+  falsos. Los clientes del PR 2 (el SDK y la web) guardan las dos cosas y lo
+  comprueban. Para probárselo a un tercero habría que firmar el compromiso y
+  lo revelado: queda para después.
 - **Riesgo aceptado 2, el margen:** se conoce la altura de un tubo 0,25 s antes
   de verlo. Es mínimo comparado con conocer la partida entera.
 - **Riesgo aceptado 3, el primer tubo:** el motor crea el primer tubo al
@@ -351,7 +376,11 @@ el rival sentado (`agent-runner.ts`).
 2. **PR 2, los clientes, apagados.** SDK, estrategias, runner, MCP y web saben
    jugar en vivo, pero el árbitro todavía dice v1, así que siguen por el camino
    de hoy.
-3. **PR 3, el interruptor.**
+3. **PR 3, el interruptor.** No puede ir antes de dos cosas: los PR 2a
+   (agentes) y 2b (web) mergeados, y el arreglo del estado que se rebobina en
+   cada deploy (ver "Por qué alcanza"). Sin el 2a, el runner saltea las
+   partidas en vivo y un humano emparejado con un agente de Flappy espera más de
+   2 h el reembolso. Sin el 2b, la web arma el motor sin semilla y falla.
    - `RULES_V.flappy = 2`, selftest, CHANGELOG, README/AGENTS.md y versión de
      los paquetes.
    - Antes de mergearlo, prueba manual de la web contra un árbitro local.

@@ -18,6 +18,7 @@
 - `RULES_V.flappy` **sigue en 1**. Los tests prenden el modo en vivo con `RULES_V.flappy = 2` dentro de su proceso.
 - `runStrategy` y `StrategyDef.play` NO cambian de comportamiento: el builder de la web (`apps/web/app/build/page.tsx`) los usa para las vistas previas con semillas al azar.
 - Nada del código del agente toca el secreto: juega con lo revelado. Los tests comparan contra la estrategia jugada de un tirón con el secreto recién publicado.
+- El cliente guarda `secretHash` (de `matchmake`) y todo lo revelado. Cuando la partida ya viene decidida, comprueba que `liveSecretHash(secret) === secretHash` y que lo revelado es el comienzo de `SecretSource(secret)`; si no, tira un error claro. Es el hallazgo 6 de la revisión del PR #28: sin esto, el compromiso del secreto no le sirve a nadie.
 - Versiones de paquetes, CHANGELOG, README/AGENTS.md y publicación en npm van en el PR 3.
 - No tocar `.env`, no correr nada contra producción, el merge lo hace el dueño.
 - Cada tarea termina con `npx tsc --noEmit`, eslint y prettier sobre lo tocado.
