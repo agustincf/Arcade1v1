@@ -26,6 +26,18 @@ export interface PlayResult {
   replay: unknown;
 }
 
+/** Cómo se juega EN VIVO: la misma estrategia, decidida tick a tick sobre lo
+ *  que muestra el motor, sin conocer el azar futuro (llega de a poco; ver
+ *  `@arcade1v1/game-sdk/live`). El motor va sin tipar acá para no atar el
+ *  contrato a un juego: cada estrategia sabe cuál es el suyo. */
+export interface LiveStep {
+  /** ¿Actuar en este tick? Recibe el motor ANTES de aplicar el tick. */
+  decide: (engine: unknown, tick: number) => boolean;
+  /** Si el jugador llega vivo a este tick, el intento se cierra (el mismo tope
+   *  que usa `play`). */
+  maxTicks: number;
+}
+
 export interface StrategyDef {
   /** Id estable, p. ej. "snake.greedy". Es lo que se persiste. */
   id: string;
@@ -37,6 +49,9 @@ export interface StrategyDef {
   params: ParamSpec[];
   /** Juega una partida completa headless con el motor real y devuelve el replay. */
   play(seed: number, params: Record<string, unknown>): PlayResult;
+  /** Solo juegos EN VIVO (hoy Flappy): la decisión tick a tick. `play` se queda
+   *  para las vistas previas locales con semillas al azar, que no rankean. */
+  step?(params: Record<string, unknown>): LiveStep;
 }
 
 /** La config de un agente creado en el builder: es JSON puro (lo guarda el
