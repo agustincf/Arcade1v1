@@ -194,6 +194,15 @@ export const en: Dict = {
   "g.tetris.keys": "Keyboard: ← → move · ↑/X rotate · ↓ down · Space = hard drop · P = pause",
   "g.flappy.hint": "Tap the screen or hit space to flap.",
   "g.flappy.tapHint": "▲ Tap to flap ▲",
+  "g.flappy.liveSign": "Sign in your wallet to start your live attempt…",
+  "g.flappy.liveConnecting": "connecting…",
+  "g.flappy.liveConfirming": "confirming your score…",
+  "g.flappy.liveError":
+    "The connection with the arbiter broke ({reason}). Your attempt is still open: reload to resume it.",
+  "g.flappy.liveReload": "RELOAD AND RESUME",
+  "match.liveAlreadyPlayed": "You already played this attempt: here's the result.",
+  "match.liveSecretMismatch":
+    "Heads up: the arbiter didn't publish the secret it committed to at the start, or it doesn't match what it showed you. Please tell us.",
   "g.racing.hint": "← → lanes · ↑ or Space to jump · on mobile: buttons or swipe up.",
   "g.2048.hint": "Arrow keys or swipe on the board.",
   "game.snake.name": "Snake",

@@ -13,6 +13,7 @@ import {
   BufferedRandom,
   SecretSource,
   liveSecretHash,
+  checkLiveReveals,
   NeedsReveal,
   isLiveMatch,
   LIVE_LEAD_TICKS,
@@ -70,6 +71,27 @@ test("liveSecretHash: el SHA-256 del secreto, que el árbitro publica al emparej
   assert.equal(
     liveSecretHash(SECRET),
     createHash("sha256").update(Buffer.from(SECRET, "hex")).digest("hex"),
+  );
+});
+
+test("checkLiveReveals: el secreto publicado tiene que ser el comprometido y explicar lo revelado", () => {
+  const hash = liveSecretHash(SECRET);
+  const reveals = new SecretSource(SECRET).slice(0, 7);
+  assert.equal(checkLiveReveals(SECRET, hash, reveals), true);
+  assert.equal(checkLiveReveals(SECRET, hash, []), true, "sin nada revelado, alcanza con el hash");
+  assert.equal(checkLiveReveals("80".repeat(32), hash, reveals), false, "otro secreto");
+  assert.equal(checkLiveReveals(SECRET, liveSecretHash("80".repeat(32)), reveals), false);
+  const tampered = [...reveals];
+  tampered[3] = 0.5;
+  assert.equal(
+    checkLiveReveals(SECRET, hash, tampered),
+    false,
+    "un valor que no salió del secreto",
+  );
+  assert.equal(
+    checkLiveReveals("nope", hash, reveals),
+    false,
+    "un secreto mal formado no tira: no verifica",
   );
 });
 

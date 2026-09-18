@@ -197,6 +197,15 @@ export const es: Dict = {
   "g.tetris.keys": "Teclado: ← → mover · ↑/X rotar · ↓ bajar · Espacio = caída rápida · P = pausa",
   "g.flappy.hint": "Tocá la pantalla o la barra espaciadora para aletear.",
   "g.flappy.tapHint": "▲ Tocá para aletear ▲",
+  "g.flappy.liveSign": "Firmá en tu wallet para empezar tu intento en vivo…",
+  "g.flappy.liveConnecting": "conectando…",
+  "g.flappy.liveConfirming": "confirmando tu puntaje…",
+  "g.flappy.liveError":
+    "Se cortó la conexión con el árbitro ({reason}). Tu intento sigue abierto: recargá para retomarlo.",
+  "g.flappy.liveReload": "RECARGAR Y RETOMAR",
+  "match.liveAlreadyPlayed": "Ya jugaste este intento: te mostramos el resultado.",
+  "match.liveSecretMismatch":
+    "Ojo: el árbitro no publicó el secreto que prometió al empezar, o no coincide con lo que te mostró. Avisanos.",
   "g.racing.hint":
     "← → carril · ↑ o Espacio para saltar · en el celu: botones o deslizá hacia arriba.",
   "g.2048.hint": "Flechas del teclado o deslizá en el tablero.",

@@ -6,11 +6,17 @@
 // cualquier jugador externo: firma, verificación de replay, ELO).
 
 import { privateKeyToAccount } from "viem/accounts";
-import { runStrategy } from "@arcade1v1/strategies";
-import { matchmakeAuthMessage, scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { runStrategy, getStrategy, validateParams } from "@arcade1v1/strategies";
+import {
+  liveStartAuthMessage,
+  matchmakeAuthMessage,
+  scoreAuthMessage,
+} from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
+import { playFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
 import {
   getMatch,
+  hasSubmittedScore,
   matchmake,
   peekWaiterAddress,
   submitScore,
@@ -29,6 +35,7 @@ import {
   type HostedAgent,
 } from "./agents.js";
 import { notifyWebhook, webhookAgentsEnabled } from "./webhook-fetch.js";
+import { liveStart, liveCommit, closeLiveAttempt } from "./live.js";
 
 // Kill switch + perillas de ritmo (por entorno, como el resto de la config).
 const ENABLED = process.env.AGENTS_ENABLED !== "false";
@@ -48,13 +55,15 @@ const WEBHOOK_PLAY_DEADLINE_MS = Number(process.env.WEBHOOK_PLAY_DEADLINE_MS ?? 
  *  `v` en los juegos v2+: sin ella, el guard de versión del árbitro rechazaría
  *  hasta la propia rendición (ausente = v1, y una rendición v1 en una partida
  *  v2 no matchea) — el rival quedaría colgado hasta el reembolso por expiración.
+ *  En un juego EN VIVO no hay semilla que declarar: su rendición va sin ella.
  */
-export function emptyReplay(game: string, seed: number): unknown {
+export function emptyReplay(game: string, seed: number | undefined): unknown {
   const rulesV = RULES_V[game] ?? 1;
   const v = rulesV !== 1 ? { v: rulesV } : {};
-  if (game === "2048") return { seed, moves: [], ...v };
-  if (game === "flappy") return { seed, ticks: 0, flaps: [], ...v };
-  return { seed, ticks: 0, inputs: [], ...v };
+  const s = seed === undefined ? {} : { seed };
+  if (game === "2048") return { ...s, moves: [], ...v };
+  if (game === "flappy") return { ...s, ticks: 0, flaps: [], ...v };
+  return { ...s, ticks: 0, inputs: [], ...v };
 }
 
 const normAddr = (a: string) => String(a).toLowerCase();
@@ -96,18 +105,23 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
     return false;
   }
 
-  // Con rival y sin nuestro puntaje: jugar ahora (la vista pre-decisión solo
-  // muestra el puntaje propio, así que esta lectura no filtra nada). En un
-  // DESAFÍO, el agente desafiado NO se compromete (ni gasta cómputo) hasta que el
-  // retador jugó: así un desafío abandonado no le cuesta nada (se suelta arriba).
-  if (m.status === "ready" && m.scores[address] === undefined) {
+  // Con rival y sin nuestro puntaje: jugar ahora. El "ya jugué" sale del
+  // registro interno: la vista pública no muestra puntajes hasta decidir
+  // (anti-espionaje), así que mirándola el agente volvía a jugar en cada tick y
+  // el envío rebotaba con "already submitted" (un BYO, además, soltaba la
+  // partida y perdía el resultado). En un DESAFÍO, el agente desafiado NO se
+  // compromete (ni gasta cómputo) hasta que el retador jugó: así un desafío
+  // abandonado no le cuesta nada (se suelta arriba).
+  const played = hasSubmittedScore(m.matchId, address);
+  if (m.status === "ready" && !played) {
     if (m.challengeTarget && !m.rivalSubmitted) return false;
 
-    // PARTIDA EN VIVO: el runner todavía no sabe jugarlas (llega en el PR 2 del
-    // benchmark en vivo). Mientras RULES_V no active ningún juego, en producción
-    // no pasa. Sin semilla tampoco hay replay de rendición de los de hoy.
+    // PARTIDA EN VIVO (hoy Flappy desde las reglas v2): la vista no trae semilla
+    // y se juega comprometiendo jugadas. Un juego que NO es en vivo sin semilla
+    // no existe, pero si pasara no hay nada que jugar.
+    const live = m.live === true;
     const seed = m.seed;
-    if (m.live || seed === undefined) return false;
+    if (!live && seed === undefined) return false;
 
     // AGENTE BYO: el cerebro está afuera. El invariante clave es que una
     // partida ya emparejada SIEMPRE se cierra (juega o se rinde), pase lo que
@@ -136,7 +150,9 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
             agentId: agent.id,
             matchId: m.matchId,
             game: m.game,
-            seed,
+            // En vivo no hay semilla: el dev abre su intento y el azar le llega
+            // de a poco. Con `secretHash` comprueba el secreto cuando se publique.
+            ...(live ? { live: true, secretHash: m.secretHash } : { seed }),
             deadline,
           });
         } catch (e) {
@@ -147,25 +163,26 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
 
       // Plazo vencido (o kill switch apagado): RENDICIÓN REAL (replay vacío
       // verificable) para que el rival cobre en minutos. Cerrar la partida es
-      // lo importante; la auto-pausa viene después.
+      // lo importante; la auto-pausa viene después. EN VIVO el plazo corre
+      // hasta terminar el intento: si el dev lo dejó a medio jugar, se cierra
+      // contando lo alcanzado; solo si nunca lo abrió se rinde con 0.
       try {
-        const account = privateKeyToAccount(agent.privateKey);
-        const signature = await account.signMessage({
-          message: scoreAuthMessage(m.matchId, address, 0),
-        });
-        const after = await submitScore(
-          m.matchId,
-          address,
-          0,
-          emptyReplay(m.game, seed),
-          signature,
-        );
+        let after: ReturnType<typeof getMatch>;
+        if (live && (await closeLiveAttempt(m.matchId, address))) {
+          after = getMatch(m.matchId, address);
+        } else {
+          const account = privateKeyToAccount(agent.privateKey);
+          const signature = await account.signMessage({
+            message: scoreAuthMessage(m.matchId, address, 0),
+          });
+          after = await submitScore(m.matchId, address, 0, emptyReplay(m.game, seed), signature);
+        }
         // El dev no cumplió ESTA partida → una falla (el forfeit por kill
         // switch no cuenta: no es su culpa). Ocurre tras cerrar la partida.
         if (!killed && recordWebhookFailure(agent)) {
           console.log(`webhook agent ${agent.id} auto-pausado (partidas sin responder)`);
         }
-        recordSettledResult(agent, after, address);
+        if (after) recordSettledResult(agent, after, address);
         return true; // el forfeit re-simuló un replay: cuenta para el throttle
       } catch (e) {
         // El match pudo expirar/purgarse entre medio: soltar el pending para no
@@ -176,6 +193,49 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
       }
     }
 
+    // AGENTE DE LA CASA EN VIVO: juega por el mismo protocolo que cualquiera,
+    // en proceso (sin HTTP) y sin ver el secreto, que ni está en su vista.
+    // Firma la apertura con su clave, como firma el puntaje.
+    if (live) {
+      const def = getStrategy(agent.strategyId);
+      const step =
+        def && def.game === m.game ? def.step?.(validateParams(def, agent.params)) : undefined;
+      const account = privateKeyToAccount(agent.privateKey);
+      if (!step || m.game !== "flappy") {
+        // No sabe jugar este juego en vivo: rendirse para no colgar al rival.
+        const signature = await account.signMessage({
+          message: scoreAuthMessage(m.matchId, address, 0),
+        });
+        const after = await submitScore(
+          m.matchId,
+          address,
+          0,
+          emptyReplay(m.game, seed),
+          signature,
+        );
+        recordSettledResult(agent, after, address);
+        return true;
+      }
+      const ts = Date.now();
+      const signature = await account.signMessage({
+        message: liveStartAuthMessage(m.matchId, address, ts),
+      });
+      const start = await liveStart(m.matchId, address, { signature, ts });
+      if (!start.over) {
+        const token = start.token;
+        await playFlappyLive({
+          start,
+          decide: step.decide,
+          commit: (c) => liveCommit(m.matchId, address, { ...c, token }),
+          maxTicks: step.maxTicks,
+        });
+      }
+      const after = getMatch(m.matchId, address);
+      if (after) recordSettledResult(agent, after, address);
+      return true;
+    }
+
+    if (seed === undefined) return false;
     const { score, replay } = runStrategy(
       { game: agent.game, strategyId: agent.strategyId, params: agent.params },
       seed,

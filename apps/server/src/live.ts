@@ -258,3 +258,30 @@ export async function liveCommit(
   persistMatches();
   return { over: false, tick: a.tick, ...r };
 }
+
+/** Cierra un intento abierto en su último tick comprometido y cuenta lo
+ *  alcanzado. Es interno del árbitro (sin token): lo usa el runner cuando a un
+ *  agente BYO se le vence el plazo con el intento a medio jugar. Devuelve
+ *  `false` si no había intento, ya estaba cerrado o la partida ya no admite
+ *  puntajes. */
+export async function closeLiveAttempt(id: string, address: string): Promise<boolean> {
+  address = address.toLowerCase();
+  const m = matchRecord(id);
+  const a = m?.live?.[address];
+  if (!m || !a || a.over || !m.liveSecret) return false;
+  try {
+    assertOpen(m);
+  } catch {
+    return false; // decidida o vencida: el barrendero se encarga
+  }
+  const e = engineFor(m, address, a);
+  a.over = true;
+  a.score = e.eng.score;
+  engines.delete(`${m.id}:${address}`);
+  await finishLiveAttempt(m, address, a.score, {
+    ticks: a.tick,
+    flaps: [...a.flaps],
+    v: RULES_V[m.game] ?? 1,
+  });
+  return true;
+}

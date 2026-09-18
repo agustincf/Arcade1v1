@@ -3,6 +3,9 @@ export type {
   ArbiterClientOptions,
   MatchView,
   LeaderRow,
+  LiveStartView,
+  LiveCommitBody,
+  LiveCommitView,
   AlephRoomView,
   AlephRoomStatus,
   AlephSeatView,
@@ -15,10 +18,17 @@ export type {
   AlephActBody,
 } from "./client";
 export { createAgent, VIEW_PASS_MAX_AGE_MS } from "./agent";
-export type { AlephDepositResult } from "./agent";
-export { strategy2048, DEFAULT_STRATEGIES } from "./strategies";
-export type { Strategy, PlayResult } from "./strategies";
-export { randomWallet, signScore, signMatchmake, signAlephAction, signAlephView } from "./sign";
+export type { AlephDepositResult, LiveReceipt } from "./agent";
+export { strategy2048, DEFAULT_STRATEGIES, defaultLiveStrategy } from "./strategies";
+export type { Strategy, PlayResult, LiveStrategy } from "./strategies";
+export {
+  randomWallet,
+  signScore,
+  signMatchmake,
+  signLiveStart,
+  signAlephAction,
+  signAlephView,
+} from "./sign";
 export {
   describeAlephRules,
   legalActions,

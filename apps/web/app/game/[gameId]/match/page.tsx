@@ -14,7 +14,11 @@ import { moneyTableBlocked } from "@/app/lib/config-guard";
 import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
 import { failureText } from "@/app/lib/errors";
 import { useSignMessage } from "wagmi";
-import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
+import {
+  scoreAuthMessage,
+  matchmakeAuthMessage,
+  liveStartAuthMessage,
+} from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import {
   matchmake,
@@ -23,11 +27,24 @@ import {
   playBot,
   playerId,
   warmUpArbiter,
+  liveStart,
+  liveCommit,
   type MatchView,
 } from "@/app/lib/arbiter";
+import {
+  forfeitReplay,
+  rememberLiveMatch,
+  readLiveMatch,
+  forgetLiveMatch,
+  liveSecretHolds,
+} from "@/app/lib/live";
 import { ReplayPlayer } from "@/app/components/replay/ReplayPlayer";
 import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
-import { FlappyGame, type FlappyResult } from "@/app/games/flappy/FlappyGame";
+import {
+  FlappyGame,
+  type FlappyResult,
+  type FlappyLiveController,
+} from "@/app/games/flappy/FlappyGame";
 import { RacingGame, type RacingResult } from "@/app/games/racing/RacingGame";
 import { Game2048Component, type Result2048 } from "@/app/games/g2048/Game2048";
 import { SnakeGame, type SnakeResult } from "@/app/games/snake/SnakeGame";
@@ -35,6 +52,25 @@ import { InvadersGame, type InvadersResult } from "@/app/games/invaders/Invaders
 
 type Outcome = "win" | "lose" | "draw" | null;
 const rnd = () => Math.floor(Math.random() * 1e9);
+
+/** Por qué no se pudo abrir un intento en vivo: la etapa decide el texto. */
+class LiveOpenError extends Error {
+  constructor(
+    readonly stage: "sign" | "server" | "done",
+    readonly original?: unknown,
+  ) {
+    super(stage);
+  }
+}
+
+/** localStorage, si el navegador deja usarlo (en modo privado estricto, no). */
+function liveStore(): Storage | undefined {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
+}
 
 export default function MatchPage({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = use(params);
@@ -114,6 +150,14 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [rivalReplay, setRivalReplay] = useState<unknown>(null);
   const [showRival, setShowRival] = useState(false);
   const [claimState, setClaimState] = useState<"idle" | "claiming" | "done" | "error">("idle");
+  // PARTIDA EN VIVO (Flappy desde las reglas v2): no trae semilla. El intento se
+  // abre al empezar, con firma, y el puntaje lo confirma el árbitro.
+  const [live, setLive] = useState(false);
+  const [secretHash, setSecretHash] = useState<string | null>(null);
+  const [rivalSecret, setRivalSecret] = useState<string | null>(null);
+  const [secretMismatch, setSecretMismatch] = useState(false);
+  const liveTokenRef = useRef("");
+  const liveRevealsRef = useRef<number[] | null>(null);
   const pidRef = useRef<string>("");
   const lastRunRef = useRef<{ score: number; replay?: unknown } | null>(null);
   // Evita disparar DOS pedidos de firma/emparejamiento a la vez (pasaba en
@@ -142,6 +186,31 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     mmStarted.current = true;
     pidRef.current = playerId(address ?? null);
     (async () => {
+      // RETOMAR un intento EN VIVO abierto (una recarga a mitad de partida):
+      // emparejar de nuevo crearía otra partida y dejaría huérfana esta.
+      const store = liveStore();
+      const resume =
+        !challengeId && store ? readLiveMatch(store, game!.id, bet, pidRef.current) : null;
+      if (resume && store) {
+        try {
+          const v = await getMatch(resume.matchId, pidRef.current);
+          if (v.live && v.role && v.status !== "settled" && v.status !== "draw") {
+            setMatchId(v.matchId);
+            setLive(true);
+            // El compromiso que se guardó al emparejar, no el que muestre ahora
+            // la vista: el secreto final se comprueba contra ese.
+            setSecretHash(resume.secretHash);
+            setRole(v.role);
+            // Solo se recuerda un intento ya abierto, y abrirlo exigió el
+            // depósito (el árbitro lo vuelve a mirar al retomar).
+            setDeposited(true);
+            return;
+          }
+        } catch {
+          /* sin árbitro: se sigue con el emparejamiento normal */
+        }
+        forgetLiveMatch(store, game!.id, bet, pidRef.current);
+      }
       // MODO DESAFÍO: la partida ya existe (la creó el botón "Desafiar"); no se
       // empareja, se carga y se juega como una ladder gratis rankeada.
       if (challengeId) {
@@ -149,7 +218,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           const v = await getMatch(challengeId, pidRef.current);
           if (!v) throw new Error("challenge not found");
           setMatchId(v.matchId);
-          setSeed(v.seed);
+          setSeed(v.seed ?? null);
+          setLive(v.live === true);
+          setSecretHash(v.secretHash ?? null);
           setRole(v.role ?? null);
         } catch {
           mmStarted.current = false;
@@ -184,7 +255,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       try {
         const v = await matchmake(game!.id, bet, pidRef.current, auth);
         setMatchId(v.matchId);
-        setSeed(v.seed);
+        setSeed(v.seed ?? null);
+        setLive(v.live === true);
+        setSecretHash(v.secretHash ?? null);
         setRole(v.role ?? null);
         setSeatSig(v.seatSig ?? null); // asiento para depositar (mesas de plata)
       } catch {
@@ -202,7 +275,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
 
   // Si "Conectando…" se estira (el hosting gratuito del árbitro despierta de a
   // poco), lo decimos: sin este aviso parecía colgado.
-  const searching = !free && seed === null && !error && !needsWallet;
+  const searching = !free && seed === null && !live && !error && !needsWallet;
   useEffect(() => {
     if (!searching) {
       setSlowHint(false);
@@ -318,6 +391,13 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       setRatingDelta(v.ratingDelta ?? 0);
     }
     if (v.rivalReplay) setRivalReplay(v.rivalReplay);
+    if (v.secret) setRivalSecret(v.secret);
+    // El compromiso del árbitro: decidida, la partida en vivo tiene que
+    // publicar el secreto que prometió al emparejar, y ese secreto tiene que
+    // explicar todo lo que nos reveló. Sin secreto (o sin hash), también alarma.
+    if (live && !liveSecretHolds(v.secret, secretHash, liveRevealsRef.current)) {
+      setSecretMismatch(true);
+    }
   }
 
   // UNA sola acción para entrar a la partida: aprueba el USDC (solo la 1ra vez;
@@ -454,6 +534,24 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     }
   }
 
+  // Fin de un intento EN VIVO: el árbitro ya tiene el puntaje (no hay envío ni
+  // firma). Decidida, se muestra el resultado; si no, a esperar al rival.
+  async function finishLive(score: number, reveals: number[] | null) {
+    setPlaying(false);
+    setYouScore(score);
+    if (reveals) liveRevealsRef.current = reveals;
+    const store = liveStore();
+    if (store) forgetLiveMatch(store, game!.id, bet, pidRef.current);
+    if (!matchId) return;
+    try {
+      const v = await getMatch(matchId, pidRef.current);
+      if (v.status === "settled" || v.status === "draw") applyResult(v);
+      else setWaiting(true);
+    } catch {
+      setWaiting(true); // el sondeo de la espera reintenta
+    }
+  }
+
   async function tryBot() {
     if (!matchId) return;
     try {
@@ -474,17 +572,15 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // hasta el reembolso por expiración. Best-effort: si falla (red caída, firma
   // cancelada), la partida expira y se reembolsa como antes.
   async function submitForfeit() {
-    if (!matchId || seed === null) return;
+    if (!matchId || (seed === null && !live)) return;
     // v2+: hay que declarar `v` o el guard de versión del árbitro rechaza
     // hasta la propia rendición (espejo exacto de emptyReplay en el server:
-    // apps/server/src/agent-runner.ts).
-    const rulesV = RULES_V[gameId] ?? 1;
-    const emptyReplay =
-      game!.id === "2048"
-        ? { seed, moves: [], ...(rulesV > 1 ? { v: rulesV } : {}) }
-        : game!.id === "flappy"
-          ? { seed, ticks: 0, flaps: [], ...(rulesV > 1 ? { v: rulesV } : {}) }
-          : { seed, ticks: 0, inputs: [], ...(rulesV > 1 ? { v: rulesV } : {}) };
+    // apps/server/src/agent-runner.ts). En vivo va sin semilla.
+    const emptyReplay = forfeitReplay(game!.id, seed, RULES_V[gameId] ?? 1);
+    if (live) {
+      const store = liveStore();
+      if (store) forgetLiveMatch(store, game!.id, bet, pidRef.current);
+    }
     try {
       let signature: string | undefined;
       if (address) {
@@ -547,6 +643,59 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // Solo en mesas de plata porque son las únicas que exigen depósito on-chain:
   // el cliente es siempre este navegador, nunca un agente headless.
   const gameProps = { onStarted: () => setPlaying(true), strict: needsDeposit };
+
+  // EN VIVO: FlappyGame abre el intento con su firma (la del puntaje final ya no
+  // hace falta: siguen siendo dos firmas por partida) y compromete jugadas con
+  // el token del intento.
+  const liveController: FlappyLiveController | undefined =
+    live && matchId
+      ? {
+          async open() {
+            let auth: { signature: string; ts: number } | undefined;
+            if (address) {
+              try {
+                await ensureChain();
+                const ts = Date.now();
+                const signature = await signMessageAsync({
+                  message: liveStartAuthMessage(matchId, pidRef.current, ts),
+                });
+                auth = { signature, ts };
+              } catch (e) {
+                if (!devMode) throw new LiveOpenError("sign", e);
+                /* en dev se juega sin firma */
+              }
+            }
+            let s;
+            try {
+              s = await liveStart(matchId, pidRef.current, auth);
+            } catch (e) {
+              throw new LiveOpenError("server", e);
+            }
+            if (s.over) {
+              // Este intento ya se cerró (otra pestaña, o volvió después): no
+              // hay nada que jugar, se va directo al resultado.
+              void finishLive(s.score, null);
+              throw new LiveOpenError("done");
+            }
+            liveTokenRef.current = s.token;
+            const store = liveStore();
+            // Sin el hash del compromiso no se podría comprobar el secreto al
+            // retomar: esa partida no se recuerda (y al decidirse, alarma).
+            if (store && secretHash) {
+              rememberLiveMatch(store, game.id, bet, pidRef.current, { matchId, secretHash });
+            }
+            return s;
+          },
+          commit: (c) => liveCommit(matchId, pidRef.current, { ...c, token: liveTokenRef.current }),
+          describeError(e) {
+            if (e instanceof LiveOpenError) {
+              if (e.stage === "done") return { key: "match.liveAlreadyPlayed" };
+              return failureText(e.stage, e.original);
+            }
+            return failureText("server", e);
+          },
+        }
+      : undefined;
 
   // ¿Hay un premio ganado que TODAVÍA no se cobró? Mientras lo haya, "Cobrar" es
   // la única acción destacada del modal: "Revancha"/"Inicio" bajan a enlaces
@@ -643,7 +792,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                 </p>
               )}
             </div>
-          ) : seed === null ? (
+          ) : seed === null && !live ? (
             <div className="py-10 text-center">
               <p className="text-base font-medium text-(--color-accent-2)">
                 {t("match.connecting")}
@@ -694,42 +843,47 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           ) : game.id === "tetris" ? (
             <TetrisGame
               key={round}
-              seed={seed}
+              seed={seed!}
               {...gameProps}
               onFinish={(r: TetrisResult) => finishMatch(r.score, r.replay)}
             />
           ) : game.id === "flappy" ? (
             <FlappyGame
               key={round}
-              seed={seed}
+              {...(live ? { live: liveController } : { seed: seed! })}
               {...gameProps}
-              onFinish={(r: FlappyResult) => finishMatch(r.score, r.replay)}
+              // El árbitro cerró el intento: el puntaje ya está anotado, así que
+              // "Salir" deja de ser una rendición.
+              onAttemptClosed={() => setPlaying(false)}
+              onFinish={(r: FlappyResult) =>
+                r.live ? void finishLive(r.score, r.live.reveals) : finishMatch(r.score, r.replay)
+              }
             />
           ) : game.id === "racing" ? (
             <RacingGame
               key={round}
-              seed={seed}
+              seed={seed!}
               {...gameProps}
               onFinish={(r: RacingResult) => finishMatch(r.score, r.replay)}
             />
           ) : game.id === "snake" ? (
             <SnakeGame
               key={round}
-              seed={seed}
+              seed={seed!}
               {...gameProps}
               onFinish={(r: SnakeResult) => finishMatch(r.score, r.replay)}
             />
           ) : game.id === "invaders" ? (
             <InvadersGame
               key={round}
-              seed={seed}
+              seed={seed!}
               {...gameProps}
               onFinish={(r: InvadersResult) => finishMatch(r.score, r.replay)}
             />
           ) : (
             <Game2048Component
               key={round}
-              seed={seed}
+              seed={seed!}
               {...gameProps}
               onFinish={(r: Result2048) => finishMatch(r.score, r.replay)}
             />
@@ -830,6 +984,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                   ? t("match.lose")
                   : t("match.draw")}
           </h2>
+          {secretMismatch && (
+            <p className="mt-2 text-sm text-(--color-lose)">{t("match.liveSecretMismatch")}</p>
+          )}
 
           {forfeit ? (
             <p className="mt-4 text-base leading-relaxed text-(--color-muted)">
@@ -979,7 +1136,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       {/* Replay del rival (feedback rico: mirá cómo jugó para aprender) */}
       {showRival && rivalReplay != null && (
         <Modal title={t("match.rivalRun")}>
-          <ReplayPlayer game={game.id} replay={rivalReplay} />
+          <ReplayPlayer game={game.id} replay={rivalReplay} secret={rivalSecret ?? undefined} />
           <button onClick={() => setShowRival(false)} className="btn3d btn3d--magenta mt-4 w-full">
             {t("close")}
           </button>
