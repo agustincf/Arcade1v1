@@ -18,6 +18,7 @@ const NOW = Date.now();
 beforeEach(() => {
   fake.kv.clear();
   fake.failWith = null;
+  fake.failCommands.clear();
   L.resetLeaseForTests();
 });
 
@@ -32,6 +33,25 @@ test("tomar la posta: INCR da la época y su registro queda activo", async () =>
   assert.equal(rec(1).id, L.INSTANCE_ID);
   assert.equal(rec(1).state, "active");
   assert.equal(L.classifyLease(await L.readLease()), "held");
+});
+
+test("si falla el registro después del INCR, NO queda como dueña; reintentar saca otra época", async () => {
+  fake.failCommands.add("SET");
+  try {
+    await assert.rejects(L.acquireLease());
+  } finally {
+    fake.failCommands.delete("SET");
+  }
+  assert.equal(L.isHolder(), false);
+  assert.equal(L.myEpoch(), null);
+  assert.equal(await L.acquireLease(), 2, "la época 1 quedó huérfana: nadie la sostiene");
+  assert.equal(L.isHolder(), true);
+});
+
+test("dos tomas a la vez devuelven cada una su propia época", async () => {
+  const [a, b] = await Promise.all([L.acquireLease(), L.acquireLease()]);
+  assert.notEqual(a, b);
+  assert.deepEqual([a, b].sort(), [1, 2]);
 });
 
 test("viva es 'held'; soltada, 'released'; sin latir o sin registro, 'stale'", () => {

@@ -11,6 +11,8 @@ export interface FakeUpstash {
   log: string[][];
   /** Con un número, TODO pedido responde ese status de error (Upstash caído). */
   failWith: number | null;
+  /** Comandos (nombre en mayúsculas) que fallan a propósito mientras estén en el conjunto. */
+  failCommands: Set<string>;
   close(): Promise<void>;
 }
 
@@ -21,6 +23,7 @@ export async function startFakeUpstash(): Promise<FakeUpstash> {
   function run(cmd: string[]): unknown {
     const [raw, ...args] = cmd;
     const name = raw.toUpperCase();
+    if (fake.failCommands.has(name)) throw new Error(`fake-upstash: ${name} falla a propósito`);
     log.push([name, args[0] ?? ""]);
     switch (name) {
       case "GET":
@@ -80,6 +83,7 @@ export async function startFakeUpstash(): Promise<FakeUpstash> {
     kv,
     log,
     failWith: null,
+    failCommands: new Set<string>(),
     close: () => new Promise<void>((ok) => server.close(() => ok())),
   };
   return fake;

@@ -133,16 +133,20 @@ function recordNow(state: LeaseRecord["state"]): string {
 }
 
 /** Tomar la posta: una época nueva. Si había una posta del #33, la marca como
- *  nuestra: una instancia con ese código deja de escribir en su próximo latido. */
+ *  nuestra: una instancia con ese código deja de escribir en su próximo latido.
+ *  Si alguna escritura falla, TIRA y esta instancia NO queda como dueña: la época
+ *  sacada queda huérfana, sin registro, así que otras instancias la ven como
+ *  stale y el llamador reintenta con una época nueva. */
 export async function acquireLease(view?: LeaseView): Promise<number> {
-  epoch = Number(await redisCommand(["INCR", EPOCH_KEY]));
-  holding = true;
-  await redisCommand(["SET", recordKey(epoch), recordNow("active")]);
+  const e = Number(await redisCommand(["INCR", EPOCH_KEY]));
+  await redisCommand(["SET", recordKey(e), recordNow("active")]);
   if (view?.legacy) {
     const mine: LegacyLease = { id: INSTANCE_ID, at: Date.now(), released: false };
     await redisCommand(["SET", LEGACY_KEY, JSON.stringify(mine)]);
   }
-  return epoch;
+  epoch = e;
+  holding = true;
+  return e;
 }
 
 export const isHolder = (): boolean => holding;
