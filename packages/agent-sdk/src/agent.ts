@@ -24,7 +24,7 @@ import {
   type Strategy,
 } from "./strategies";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
-import { checkLiveReveals } from "@arcade1v1/game-sdk/live";
+import { checkLiveReveals, isLiveMatch } from "@arcade1v1/game-sdk/live";
 import { playFlappyLive, type FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
 import {
   ALEPH_RULES_V,
@@ -45,6 +45,11 @@ export interface LiveReceipt {
   secretHash: string;
   reveals: number[];
 }
+
+/** Cuántas veces `playAndSubmit` retoma un intento en vivo que se cortó a mitad
+ *  de partida (se agotaron los reintentos, un token viejo, una desincronización):
+ *  cada vez abre de nuevo con firma, y el árbitro le devuelve su progreso. */
+const MAX_LIVE_RESUMES = 2;
 
 /** El árbitro acepta un pase de vista por MATCHMAKE_AUTH_TTL_MS (10 min). Lo
  *  renovamos a los 8 para no quedar justo en el borde entre dos sondeos. */
@@ -220,6 +225,9 @@ export function createAgent(opts: {
     strategy?: Strategy;
     liveStrategy?: LiveStrategy;
   }): Promise<MatchView & { liveReceipt?: LiveReceipt }> {
+    // Un juego en vivo se valida ANTES de emparejar: si esta llamada no puede
+    // jugarlo, emparejar dejaría una partida que se pierde por no jugarla.
+    if (isLiveMatch(args.game, RULES_V[args.game])) liveStrategyFor(args);
     const m = await matchmake(args.game, args.stake);
     // Guard de versión: si el árbitro corre otras reglas, avisar YA (antes de
     // jugar), con el remedio. El árbitro repite este control en el submit.
@@ -243,12 +251,12 @@ export function createAgent(opts: {
     return client.submitScore(m.matchId, wallet.address, score, replay, signature);
   }
 
-  // EN VIVO: no hay semilla. Se abre el intento con una firma y se juega con
-  // playFlappyLive, que compromete las jugadas y consume el azar revelado.
-  async function playLive(
-    m: MatchView,
-    args: { game: string; strategy?: Strategy; liveStrategy?: LiveStrategy },
-  ): Promise<MatchView & { liveReceipt: LiveReceipt }> {
+  // Con qué se juega en vivo `args.game`, o por qué esta llamada no puede.
+  function liveStrategyFor(args: {
+    game: string;
+    strategy?: Strategy;
+    liveStrategy?: LiveStrategy;
+  }): LiveStrategy {
     if (args.strategy) {
       throw new Error(
         `${args.game} is played live: its randomness only arrives after each commit — ` +
@@ -260,31 +268,53 @@ export function createAgent(opts: {
     }
     const live = args.liveStrategy ?? defaultLiveStrategy(args.game);
     if (!live) throw new Error(`no default live strategy for ${args.game}`);
-    const auth = await signLiveStart({
-      matchId: m.matchId,
-      address: wallet.address,
-      privateKey: wallet.privateKey,
-      ts: clock(),
-    });
-    const start = await client.liveStart(m.matchId, wallet.address, auth);
-    // Todo lo revelado, en orden: cada respuesta trae los valores desde el
-    // `have` que mandó el driver, así que concatenarlas reconstruye la serie.
-    const reveals: number[] = [];
-    let confirmed = start.over ? start.score : 0;
-    if (!start.over) {
-      reveals.push(...start.reveal);
-      const token = start.token;
-      const result = await playFlappyLive({
-        start,
-        decide: live.decide,
-        commit: async (c): Promise<FlappyLiveReply> => {
-          const reply = await client.liveCommit(m.matchId, wallet.address, { ...c, token });
-          reveals.push(...reply.reveal);
-          return reply;
-        },
-        maxTicks: live.maxTicks,
+    return live;
+  }
+
+  // EN VIVO: no hay semilla. Se abre el intento con una firma y se juega con
+  // playFlappyLive, que compromete las jugadas y consume el azar revelado.
+  async function playLive(
+    m: MatchView,
+    args: { game: string; strategy?: Strategy; liveStrategy?: LiveStrategy },
+  ): Promise<MatchView & { liveReceipt: LiveReceipt }> {
+    const live = liveStrategyFor(args);
+    // Todo lo revelado, en orden: la apertura trae los valores desde el
+    // primero y cada compromiso los que siguen al `have` que mandó el driver,
+    // así que concatenarlos reconstruye la serie.
+    let reveals: number[] = [];
+    let confirmed: number;
+    for (let resumes = 0; ; resumes++) {
+      const auth = await signLiveStart({
+        matchId: m.matchId,
+        address: wallet.address,
+        privateKey: wallet.privateKey,
+        ts: clock(),
       });
-      confirmed = result.score;
+      const start = await client.liveStart(m.matchId, wallet.address, auth);
+      if (start.over) {
+        confirmed = start.score;
+        break;
+      }
+      reveals = [...start.reveal];
+      const token = start.token;
+      try {
+        const result = await playFlappyLive({
+          start,
+          decide: live.decide,
+          commit: async (c): Promise<FlappyLiveReply> => {
+            const reply = await client.liveCommit(m.matchId, wallet.address, { ...c, token });
+            reveals.push(...reply.reveal);
+            return reply;
+          },
+          maxTicks: live.maxTicks,
+        });
+        confirmed = result.score;
+        break;
+      } catch (e) {
+        // Retomar nunca reinicia el intento: el árbitro devuelve dónde quedó.
+        // Si la partida ya no admite jugadas, la apertura lo dice y sale ese error.
+        if (resumes >= MAX_LIVE_RESUMES) throw e;
+      }
     }
     // El puntaje lo confirma el árbitro al cerrar el intento. La vista pública
     // no muestra puntajes hasta decidir (anti-espionaje), así que el propio se
@@ -295,6 +325,15 @@ export function createAgent(opts: {
     const scores =
       view.scores[me] === undefined ? { ...view.scores, [me]: confirmed } : view.scores;
     const liveReceipt: LiveReceipt = { secretHash: m.secretHash ?? "", reveals };
+    // Decidida, la partida tiene que mostrar su secreto: sin él no hay cómo
+    // comprobarla, y eso también es una alarma (no un "no se sabe").
+    const decided = view.status === "settled" || view.status === "draw";
+    if (decided && view.secret === undefined) {
+      throw new Error(
+        `live match ${m.matchId} was decided but the arbiter did not publish its secret: ` +
+          `it cannot be verified`,
+      );
+    }
     if (
       view.secret !== undefined &&
       !checkLiveReveals(view.secret, liveReceipt.secretHash, reveals)

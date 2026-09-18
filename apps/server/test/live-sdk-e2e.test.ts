@@ -13,7 +13,7 @@ import express from "express";
 import type { AddressInfo } from "node:net";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
-import { SecretSource, liveSecretHash } from "@arcade1v1/game-sdk/live";
+import { SecretSource, checkLiveReveals, liveSecretHash } from "@arcade1v1/game-sdk/live";
 import { ArbiterClient, createAgent } from "@arcade1v1/agent-sdk";
 import { getStrategy, defaultParams } from "@arcade1v1/strategies";
 
@@ -103,10 +103,78 @@ test("si el árbitro publica un secreto que no es el comprometido, el SDK lo dic
   );
 });
 
-test("una estrategia de semilla en un juego en vivo se rechaza con el motivo", async () => {
-  const c = createAgent({ arbiterUrl: BASE });
+/** Un fetch que cuenta los pedidos por ruta y deja tocar cada uno antes de
+ *  mandarlo (`edit`) o la respuesta antes de devolverla (`reply`). */
+function spyFetch(
+  opts: {
+    edit?: (path: string, body: Record<string, unknown>) => void;
+    reply?: (path: string, body: Record<string, unknown>) => void;
+  } = {},
+) {
+  const calls: string[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const path = new URL(String(input)).pathname;
+    calls.push(path);
+    let body = init?.body;
+    if (opts.edit && typeof body === "string") {
+      const parsed = JSON.parse(body) as Record<string, unknown>;
+      opts.edit(path, parsed);
+      body = JSON.stringify(parsed);
+    }
+    const r = await fetch(input, { ...init, body });
+    if (!opts.reply || !r.ok) return r;
+    const parsed = (await r.json()) as Record<string, unknown>;
+    opts.reply(path, parsed);
+    return new Response(JSON.stringify(parsed), { status: r.status });
+  };
+  return { calls, fetchImpl };
+}
+
+test("una estrategia de semilla en un juego en vivo se rechaza con el motivo, ANTES de emparejar", async () => {
+  const spy = spyFetch();
+  const c = createAgent({ client: new ArbiterClient(BASE, { fetchImpl: spy.fetchImpl }) });
   await assert.rejects(
     c.playAndSubmit({ game: "flappy", stake: 0, strategy: () => ({ score: 0, replay: {} }) }),
     /played live/,
+  );
+  assert.deepEqual(spy.calls, [], "no dejó una partida emparejada sin jugar");
+});
+
+test("si un compromiso se rechaza a mitad de partida, retoma el intento y termina igual", async () => {
+  // El tercer compromiso sale con un token viejo (como si otro proceso de la
+  // misma wallet hubiera reabierto el intento): el árbitro lo rechaza de verdad.
+  let commits = 0;
+  const spy = spyFetch({
+    edit: (path, body) => {
+      if (path.endsWith("/live/commit") && ++commits === 3) body.token = "0".repeat(64);
+    },
+  });
+  const a = createAgent({ client: new ArbiterClient(BASE, { fetchImpl: spy.fetchImpl }) });
+  const b = createAgent({ arbiterUrl: BASE });
+
+  const va = await a.playAndSubmit({ game: "flappy", stake: 0 });
+  assert.equal(spy.calls.filter((p) => p.endsWith("/live/start")).length, 2, "retomó una vez");
+  const vb = await b.playAndSubmit({ game: "flappy", stake: 0 });
+  assert.equal(vb.matchId, va.matchId);
+  const expected = batchWithSecret(vb.secret!);
+  assert.equal(vb.scores[a.address.toLowerCase()], expected, "el corte no cambió la partida");
+  assert.ok(
+    checkLiveReveals(vb.secret!, va.secretHash!, va.liveReceipt!.reveals),
+    "el recibo sigue siendo la serie revelada, en orden",
+  );
+});
+
+test("si la partida se decide y el árbitro no publica el secreto, el SDK lo dice", async () => {
+  const honest = createAgent({ arbiterUrl: BASE });
+  await honest.playAndSubmit({ game: "flappy", stake: 0 });
+  const hiding = spyFetch({
+    reply: (path, body) => {
+      if (!path.includes("/live/")) delete body.secret;
+    },
+  });
+  const victim = createAgent({ client: new ArbiterClient(BASE, { fetchImpl: hiding.fetchImpl }) });
+  await assert.rejects(
+    victim.playAndSubmit({ game: "flappy", stake: 0 }),
+    /did not publish its secret/,
   );
 });

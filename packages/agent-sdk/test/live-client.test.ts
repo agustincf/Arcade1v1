@@ -78,3 +78,20 @@ test("signLiveStart firma el mensaje de apertura con la wallet del agente", asyn
   });
   assert.equal(signer.toLowerCase(), w.address.toLowerCase());
 });
+
+test("los errores del árbitro llevan el código HTTP en `status` (para saber si reintentar)", async () => {
+  const { client } = clientWith([
+    { status: 400, body: { error: "bad token" } },
+    { status: 429, body: { error: "too many requests" } },
+    { status: 503, body: { error: "starting" } },
+  ]);
+  const body = { token: "tk", from: 0, to: 30, flaps: [], have: 1 };
+  const statusOf = (p: Promise<unknown>) =>
+    p.then(
+      () => undefined,
+      (e: { status?: number }) => e.status,
+    );
+  assert.equal(await statusOf(client.liveCommit("0xmatch", "0xme", body)), 400);
+  assert.equal(await statusOf(client.liveCommit("0xmatch", "0xme", body)), 429);
+  assert.equal(await statusOf(client.liveStart("0xmatch", "0xme")), 503);
+});

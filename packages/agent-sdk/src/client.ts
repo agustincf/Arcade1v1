@@ -73,6 +73,13 @@ export type LiveCommitBody = FlappyLiveCommit & { token: string };
 /** La respuesta a un compromiso; con `conflict: true` hay que seguir desde `tick`. */
 export type LiveCommitView = FlappyLiveReply;
 
+/** Un error del árbitro con su código HTTP en `status`. Quien juega en vivo lo
+ *  usa para separar lo pasajero (429, 5xx), que se reintenta, de un rechazo
+ *  (ver `isRetriableLiveError` en `@arcade1v1/game-sdk/flappy-live`). */
+function arbiterError(message: string, status: number): Error {
+  return Object.assign(new Error(message), { status });
+}
+
 /** Un 409 que no trae el conflicto del protocolo (un proxy, por ejemplo) no es
  *  una resincronización: se deja pasar al error de siempre. */
 function parseOrUndefined(text: string): { conflict?: boolean } | undefined {
@@ -329,7 +336,7 @@ export class ArbiterClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!r.ok) throw new Error(`arbiter ${path} ${r.status}: ${await r.text()}`);
+    if (!r.ok) throw arbiterError(`arbiter ${path} ${r.status}: ${await r.text()}`, r.status);
     return (await r.json()) as T;
   }
 
@@ -345,7 +352,7 @@ export class ArbiterClient {
     const label = path.split("?")[0];
     const r = await this.fetchWithTimeout(`${this.base}${path}`, label);
     if (!r.ok) {
-      throw new Error(`arbiter ${label} ${r.status}: ${await r.text()}`);
+      throw arbiterError(`arbiter ${label} ${r.status}: ${await r.text()}`, r.status);
     }
     return (await r.json()) as T;
   }
@@ -396,14 +403,14 @@ export class ArbiterClient {
       const reply = parseOrUndefined(text);
       if (reply?.conflict === true) return reply as LiveCommitView;
     }
-    if (!r.ok) throw new Error(`arbiter ${path} ${r.status}: ${text}`);
+    if (!r.ok) throw arbiterError(`arbiter ${path} ${r.status}: ${text}`, r.status);
     return JSON.parse(text) as LiveCommitView;
   }
 
   async getMatch(id: string, address?: string): Promise<MatchView> {
     const q = address ? `?address=${address}` : "";
     const r = await this.fetchWithTimeout(`${this.base}/match/${id}${q}`, `get /match/${id}`);
-    if (!r.ok) throw new Error(`arbiter get ${r.status}`);
+    if (!r.ok) throw arbiterError(`arbiter get ${r.status}`, r.status);
     return (await r.json()) as MatchView;
   }
 
@@ -412,14 +419,14 @@ export class ArbiterClient {
       `${this.base}/leaderboard/${game}?limit=${limit}`,
       `leaderboard/${game}`,
     );
-    if (!r.ok) throw new Error(`arbiter leaderboard ${r.status}`);
+    if (!r.ok) throw arbiterError(`arbiter leaderboard ${r.status}`, r.status);
     const j = (await r.json()) as { top?: LeaderRow[] };
     return j.top ?? [];
   }
 
   async rating(address: string): Promise<Record<string, number>> {
     const r = await this.fetchWithTimeout(`${this.base}/rating/${address}`, `rating/${address}`);
-    if (!r.ok) throw new Error(`arbiter rating ${r.status}`);
+    if (!r.ok) throw arbiterError(`arbiter rating ${r.status}`, r.status);
     const j = (await r.json()) as { ratings?: Record<string, number> };
     return j.ratings ?? {};
   }
