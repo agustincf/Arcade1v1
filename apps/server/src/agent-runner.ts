@@ -6,9 +6,14 @@
 // cualquier jugador externo: firma, verificación de replay, ELO).
 
 import { privateKeyToAccount } from "viem/accounts";
-import { runStrategy } from "@arcade1v1/strategies";
-import { matchmakeAuthMessage, scoreAuthMessage } from "@arcade1v1/game-sdk/auth";
+import { runStrategy, getStrategy, validateParams } from "@arcade1v1/strategies";
+import {
+  liveStartAuthMessage,
+  matchmakeAuthMessage,
+  scoreAuthMessage,
+} from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
+import { playFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
 import {
   getMatch,
   matchmake,
@@ -29,6 +34,7 @@ import {
   type HostedAgent,
 } from "./agents.js";
 import { notifyWebhook, webhookAgentsEnabled } from "./webhook-fetch.js";
+import { liveStart, liveCommit } from "./live.js";
 
 // Kill switch + perillas de ritmo (por entorno, como el resto de la config).
 const ENABLED = process.env.AGENTS_ENABLED !== "false";
@@ -48,13 +54,15 @@ const WEBHOOK_PLAY_DEADLINE_MS = Number(process.env.WEBHOOK_PLAY_DEADLINE_MS ?? 
  *  `v` en los juegos v2+: sin ella, el guard de versión del árbitro rechazaría
  *  hasta la propia rendición (ausente = v1, y una rendición v1 en una partida
  *  v2 no matchea) — el rival quedaría colgado hasta el reembolso por expiración.
+ *  En un juego EN VIVO no hay semilla que declarar: su rendición va sin ella.
  */
-export function emptyReplay(game: string, seed: number): unknown {
+export function emptyReplay(game: string, seed: number | undefined): unknown {
   const rulesV = RULES_V[game] ?? 1;
   const v = rulesV !== 1 ? { v: rulesV } : {};
-  if (game === "2048") return { seed, moves: [], ...v };
-  if (game === "flappy") return { seed, ticks: 0, flaps: [], ...v };
-  return { seed, ticks: 0, inputs: [], ...v };
+  const s = seed === undefined ? {} : { seed };
+  if (game === "2048") return { ...s, moves: [], ...v };
+  if (game === "flappy") return { ...s, ticks: 0, flaps: [], ...v };
+  return { ...s, ticks: 0, inputs: [], ...v };
 }
 
 const normAddr = (a: string) => String(a).toLowerCase();
@@ -103,11 +111,12 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
   if (m.status === "ready" && m.scores[address] === undefined) {
     if (m.challengeTarget && !m.rivalSubmitted) return false;
 
-    // PARTIDA EN VIVO: el runner todavía no sabe jugarlas (llega en el PR 2 del
-    // benchmark en vivo). Mientras RULES_V no active ningún juego, en producción
-    // no pasa. Sin semilla tampoco hay replay de rendición de los de hoy.
+    // PARTIDA EN VIVO (hoy Flappy desde las reglas v2): la vista no trae semilla
+    // y se juega comprometiendo jugadas. Un juego que NO es en vivo sin semilla
+    // no existe, pero si pasara no hay nada que jugar.
+    const live = m.live === true;
     const seed = m.seed;
-    if (m.live || seed === undefined) return false;
+    if (!live && seed === undefined) return false;
 
     // AGENTE BYO: el cerebro está afuera. El invariante clave es que una
     // partida ya emparejada SIEMPRE se cierra (juega o se rinde), pase lo que
@@ -136,7 +145,9 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
             agentId: agent.id,
             matchId: m.matchId,
             game: m.game,
-            seed,
+            // En vivo no hay semilla: el dev abre su intento y el azar le llega
+            // de a poco. Con `secretHash` comprueba el secreto cuando se publique.
+            ...(live ? { live: true, secretHash: m.secretHash } : { seed }),
             deadline,
           });
         } catch (e) {
@@ -176,6 +187,49 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
       }
     }
 
+    // AGENTE DE LA CASA EN VIVO: juega por el mismo protocolo que cualquiera,
+    // en proceso (sin HTTP) y sin ver el secreto, que ni está en su vista.
+    // Firma la apertura con su clave, como firma el puntaje.
+    if (live) {
+      const def = getStrategy(agent.strategyId);
+      const step =
+        def && def.game === m.game ? def.step?.(validateParams(def, agent.params)) : undefined;
+      const account = privateKeyToAccount(agent.privateKey);
+      if (!step || m.game !== "flappy") {
+        // No sabe jugar este juego en vivo: rendirse para no colgar al rival.
+        const signature = await account.signMessage({
+          message: scoreAuthMessage(m.matchId, address, 0),
+        });
+        const after = await submitScore(
+          m.matchId,
+          address,
+          0,
+          emptyReplay(m.game, seed),
+          signature,
+        );
+        recordSettledResult(agent, after, address);
+        return true;
+      }
+      const ts = Date.now();
+      const signature = await account.signMessage({
+        message: liveStartAuthMessage(m.matchId, address, ts),
+      });
+      const start = await liveStart(m.matchId, address, { signature, ts });
+      if (!start.over) {
+        const token = start.token;
+        await playFlappyLive({
+          start,
+          decide: step.decide,
+          commit: (c) => liveCommit(m.matchId, address, { ...c, token }),
+          maxTicks: step.maxTicks,
+        });
+      }
+      const after = getMatch(m.matchId, address);
+      if (after) recordSettledResult(agent, after, address);
+      return true;
+    }
+
+    if (seed === undefined) return false;
     const { score, replay } = runStrategy(
       { game: agent.game, strategyId: agent.strategyId, params: agent.params },
       seed,
