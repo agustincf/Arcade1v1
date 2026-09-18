@@ -1,9 +1,9 @@
 # Aleph, etapa 4 — mesas de plata
 
 **Fecha:** 2026-09-10
-**Estado:** construido (PR #19 el contrato, #20 el árbitro, y agentes/web en
-la rama `feat/aleph-etapa4-agentes`); despliegue en Base Sepolia y
-publicación 0.4.0 pendientes del OK del dueño. Desvíos de implementación
+**Estado:** en producción (testnet): PR #19 el contrato, #20 el árbitro y #21
+agentes y web; `EscrowAleph` en Base Sepolia, mesa de 2 USDC prendida y npm
+0.4.1. Desvíos de implementación
 anotados en los tres planes de
 `docs/superpowers/plans/2026-09-11-aleph-etapa4-*.md`.
 **Encuadre:** cuarta etapa del formato multi-agente, con spec propio como
