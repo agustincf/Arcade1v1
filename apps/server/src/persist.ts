@@ -17,6 +17,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { redisGet, redisSet } from "./redis.js";
 
 export type PersistenceBackend = "redis" | "file" | "off";
 
@@ -36,8 +37,11 @@ export function persistenceBackendFor(env: NodeJS.ProcessEnv): PersistenceBacken
 export const persistenceBackend = persistenceBackendFor(process.env);
 const ENABLED = persistenceBackend !== "off";
 const USE_REDIS = persistenceBackend === "redis";
-const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL ?? "").replace(/\/+$/, "");
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
+
+/** ¿Hay traspaso entre instancias? Solo con Redis y en el servidor real (lo
+ *  enciende persist-on.ts). Sin traspaso (tests, dev con archivo) hay UNA
+ *  instancia y siempre escribe. */
+export const handoverEnabled = USE_REDIS && process.env.ARCADE_PERSIST_HANDOVER === "1";
 
 const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 // AGRUPADOR DE ESCRITURAS. Cada escritura sube el blob ENTERO del store (~1,3 MB
@@ -57,29 +61,6 @@ const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 // aleph.ts), porque su firma no lleva nonce y perderla haría firmar una
 // segunda, igual de válida.
 const DEBOUNCE_MS = Number(process.env.PERSIST_DEBOUNCE_MS ?? 20_000);
-const REDIS_TIMEOUT_MS = 10_000;
-
-async function redisGet(key: string): Promise<string | null> {
-  const r = await fetch(`${REDIS_URL}/get/${encodeURIComponent(key)}`, {
-    headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
-    signal: AbortSignal.timeout(REDIS_TIMEOUT_MS),
-  });
-  if (!r.ok) throw new Error(`redis GET ${key}: HTTP ${r.status}`);
-  const body = (await r.json()) as { result: string | null };
-  return body.result;
-}
-
-async function redisSet(key: string, value: string): Promise<void> {
-  // El valor va en el BODY (no en la URL): el JSON de partidas con replays
-  // puede medir cientos de KB y reventaría el largo máximo de una URL.
-  const r = await fetch(`${REDIS_URL}/set/${encodeURIComponent(key)}`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
-    body: value,
-    signal: AbortSignal.timeout(REDIS_TIMEOUT_MS),
-  });
-  if (!r.ok) throw new Error(`redis SET ${key}: HTTP ${r.status}`);
-}
 
 // TRASPASO ENTRE INSTANCIAS (deploys sin cortes). Render arranca la instancia
 // nueva, le pasa el tráfico y recién DESPUÉS le manda SIGTERM a la vieja. Como
@@ -107,7 +88,7 @@ interface Lease {
 /** ¿Esta instancia puede escribir? Sin Redis, siempre (hay una sola instancia).
  *  Con Redis y el traspaso encendido (el servidor real, vía persist-on.ts),
  *  recién cuando tomó la posta, y deja de poder si otra se la quitó. */
-let writable = !(USE_REDIS && process.env.ARCADE_PERSIST_HANDOVER === "1");
+let writable = !handoverEnabled;
 
 async function readLease(): Promise<Lease | null> {
   const raw = await redisGet(LEASE_KEY);
