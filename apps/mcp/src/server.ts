@@ -64,7 +64,10 @@ export function buildServer(deps: {
     "matchmake",
     {
       title: "Matchmake",
-      description: `Emparejar para un juego (${GAMES.join(", ")}) en una mesa (stake).`,
+      description:
+        `Emparejar para un juego (${GAMES.join(", ")}) en una mesa (stake). ` +
+        "Si la partida vuelve con live: true, no trae semilla: se juega en vivo " +
+        "(comprometiendo jugadas) y la juega play_and_submit.",
       inputSchema: {
         game: z.string(),
         stake: z
@@ -85,7 +88,8 @@ export function buildServer(deps: {
     {
       title: "Play and submit",
       description:
-        "Empareja, juega con la estrategia por defecto y envía el puntaje (por ranking).",
+        "Empareja, juega con la estrategia por defecto y envía el puntaje (por ranking). " +
+        "En un juego en vivo abre el intento, compromete las jugadas y recibe el azar de a poco.",
       inputSchema: {
         game: z.string(),
         stake: z
