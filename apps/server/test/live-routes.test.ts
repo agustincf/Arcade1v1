@@ -1,12 +1,14 @@
 // Rutas HTTP de las partidas en vivo: la capa fina sobre live.ts traduce los
-// errores del protocolo a 400 y el conflicto de tick a 409.
+// errores del protocolo a 400 y el conflicto de tick a 409. Abrir va con el
+// limitador estricto (recupera una firma y lee la cadena) y comprometer con el
+// de las partidas en vivo (va una vez por tubo).
 //
 // Correr: node --import tsx --test apps/server/test/live-routes.test.ts
 
 import "../src/offline-env.js";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import express from "express";
+import express, { type RequestHandler } from "express";
 import type { AddressInfo } from "node:net";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { matchmake } from "../src/matchmaking.js";
@@ -14,9 +16,17 @@ import { liveRouter } from "../src/live-routes.js";
 
 RULES_V.flappy = 2;
 
+const hits = { start: 0, commit: 0 };
+const counting =
+  (k: keyof typeof hits): RequestHandler =>
+  (_req, _res, next) => {
+    hits[k] += 1;
+    next();
+  };
+
 const app = express();
 app.use(express.json());
-app.use(liveRouter((_req, _res, next) => next()));
+app.use(liveRouter({ start: counting("start"), commit: counting("commit") }));
 const server = app.listen(0);
 const BASE = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 after(() => server.close());
@@ -88,4 +98,22 @@ test("abrir 200, comprometer 200, from desfasado 409 y errores del protocolo 400
     have: 1,
   });
   assert.equal(notArray.status, 400);
+});
+
+test("abrir pasa por el limitador estricto y comprometer por el de las partidas en vivo", async () => {
+  const p1 = addr();
+  const { matchId } = await matchmake("flappy", 0, p1);
+  await matchmake("flappy", 0, addr());
+  const before = { ...hits };
+  const start = await post(`/match/${matchId}/live/start`, { address: p1 });
+  assert.deepEqual(hits, { start: before.start + 1, commit: before.commit });
+  await post(`/match/${matchId}/live/commit`, {
+    address: p1,
+    token: String(start.body.token),
+    from: 0,
+    to: 10,
+    flaps: [0],
+    have: 1,
+  });
+  assert.deepEqual(hits, { start: before.start + 1, commit: before.commit + 1 });
 });

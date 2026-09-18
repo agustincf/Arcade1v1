@@ -3,7 +3,7 @@
 // la API exige firmas para emparejar/enviar puntaje.
 
 import { createHash, timingSafeEqual } from "node:crypto";
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type RequestHandler, type Response } from "express";
 import { recoverMessageAddress, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import {
@@ -58,6 +58,18 @@ async function checkAuth(opts: {
 }
 
 export const agentsRouter = Router();
+
+/** Limitador de los POST de /agents (lo monta index.ts). Casi todos son caros
+ *  —crean agentes, recuperan firmas, re-simulan replays— y van con el estricto.
+ *  Comprometer jugadas en vivo es barato y un agente BYO lo hace una vez por
+ *  tubo: con el estricto (12 cada 10 s) se cortaba en plena partida. */
+export function agentsPostLimit(strict: RequestHandler, live: RequestHandler): RequestHandler {
+  return (req, res, next) => {
+    if (req.method !== "POST") return next();
+    if (/^\/[^/]+\/live\/commit$/.test(req.path)) return live(req, res, next);
+    return strict(req, res, next);
+  };
+}
 
 // Catálogo de estrategias del builder: juegos, controles y defaults. Público:
 // la web dibuja el wizard con esto (una sola fuente de verdad, el registro).

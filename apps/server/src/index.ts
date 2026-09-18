@@ -29,7 +29,7 @@ import { startAlephHouse } from "./aleph-house.js";
 import { persistenceBackend } from "./persist.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
-import { agentsRouter } from "./agents-routes.js";
+import { agentsRouter, agentsPostLimit } from "./agents-routes.js";
 import { gasSnapshot, startGasMonitor } from "./gas-monitor.js";
 import "./agent-runner.js"; // runner de agentes hosteados (juegan solos)
 
@@ -248,7 +248,7 @@ app.post("/match/:id/score", strictLimit, async (req, res) => {
 });
 
 // PARTIDAS EN VIVO: abrir el intento y comprometer jugadas (ver live.ts).
-app.use(liveRouter(liveLimit));
+app.use(liveRouter({ start: strictLimit, commit: liveLimit }));
 
 // Completar la partida contra un bot (SOLO pruebas en solitario).
 // Apagado en produccion salvo que se active con ENABLE_TEST_BOT=true.
@@ -291,10 +291,9 @@ app.get("/match/:id/replay", (req, res) => {
 
 // AGENTES HOSTEADOS: catálogo de estrategias + CRUD firmado + historial.
 // Las mutaciones (POST) pasan por el límite estricto: generan claves y
-// recuperan firmas; las lecturas (GET) quedan con el límite global.
-app.use("/agents", (req, res, next) =>
-  req.method === "POST" ? strictLimit(req, res, next) : next(),
-);
+// recuperan firmas; las lecturas (GET) quedan con el límite global. La
+// excepción es comprometer jugadas en vivo (una vez por tubo): liveLimit.
+app.use("/agents", agentsPostLimit(strictLimit, liveLimit));
 app.use(agentsRouter);
 
 // PERFILES humanos: editar (POST) recupera una firma -> límite estricto; leer libre.

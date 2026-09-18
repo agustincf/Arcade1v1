@@ -13,12 +13,14 @@ function fail(res: Response, e: unknown): void {
   res.status(500).json({ error: "internal error" });
 }
 
-/** `limit`: el limitador de pedidos que pone index.ts (los tests pasan uno vacío). */
-export function liveRouter(limit: RequestHandler): Router {
+/** Los limitadores los pone index.ts (los tests pasan otros). `start` recupera
+ *  una firma y lee la cadena en las mesas de plata: va con el estricto, como el
+ *  envío de puntaje. `commit` es barato y va una vez por tubo: tiene el suyo. */
+export function liveRouter(limits: { start: RequestHandler; commit: RequestHandler }): Router {
   const router = Router();
 
   // Abrir o retomar el intento. En producción, firmado: liveStartAuthMessage.
-  router.post("/match/:id/live/start", limit, async (req, res) => {
+  router.post("/match/:id/live/start", limits.start, async (req, res) => {
     const { address, signature, ts } = req.body ?? {};
     if (!address) return res.status(400).json({ error: "missing address" });
     try {
@@ -30,7 +32,7 @@ export function liveRouter(limit: RequestHandler): Router {
   });
 
   // Comprometer aleteos en [from, to) y recibir el azar de los próximos 15 ticks.
-  router.post("/match/:id/live/commit", limit, async (req, res) => {
+  router.post("/match/:id/live/commit", limits.commit, async (req, res) => {
     const { address, token, from, to, flaps, have, final } = req.body ?? {};
     if (!address) return res.status(400).json({ error: "missing address" });
     if (!Array.isArray(flaps)) return res.status(400).json({ error: "invalid flaps" });

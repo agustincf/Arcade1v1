@@ -7,7 +7,7 @@
 import "../src/offline-env.js";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import express from "express";
+import express, { type RequestHandler } from "express";
 import type { AddressInfo } from "node:net";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { agentAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
@@ -16,7 +16,7 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 process.env.REQUIRE_AUTH = "true";
 process.env.MAX_AGENTS_PER_OWNER = "100";
 RULES_V.flappy = 2;
-const { agentsRouter } = await import("../src/agents-routes.js");
+const { agentsRouter, agentsPostLimit } = await import("../src/agents-routes.js");
 const { getAgent, setAgentPending } = await import("../src/agents.js");
 const { matchmake } = await import("../src/matchmaking.js");
 
@@ -111,4 +111,34 @@ test("BYO en vivo: abre y compromete con el secreto; secreto malo 401 y partida 
     auth,
   );
   assert.equal(otherMatch.status, 409);
+});
+
+test("límites de /agents: comprometer en vivo va por el limitador en vivo; los demás POST, por el estricto", async () => {
+  const hits = { strict: 0, live: 0 };
+  const counting =
+    (k: keyof typeof hits): RequestHandler =>
+    (_req, _res, next) => {
+      hits[k] += 1;
+      next();
+    };
+  const limited = express();
+  limited.use("/agents", agentsPostLimit(counting("strict"), counting("live")));
+  limited.use((_req, res) => {
+    res.json({ ok: true });
+  });
+  const srv = limited.listen(0);
+  const url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+  try {
+    const call = (method: string, path: string) => fetch(`${url}${path}`, { method });
+    await call("POST", "/agents/a1/live/commit");
+    assert.deepEqual(hits, { strict: 0, live: 1 });
+    await call("POST", "/agents/a1/live/start");
+    await call("POST", "/agents/a1/play");
+    await call("POST", "/agents");
+    assert.deepEqual(hits, { strict: 3, live: 1 });
+    await call("GET", "/agents/a1");
+    assert.deepEqual(hits, { strict: 3, live: 1 }, "las lecturas no pasan por ninguno");
+  } finally {
+    srv.close();
+  }
 });
