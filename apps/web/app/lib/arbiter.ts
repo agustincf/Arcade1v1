@@ -45,6 +45,16 @@ const client = new ArbiterClient(BASE, {
   timeoutMs: FETCH_TIMEOUT_MS,
 });
 
+// Un compromiso EN VIVO sale con el árbitro ya despierto (lo despertó abrir el
+// intento) y con el pájaro congelado esperándolo: si tarda, es un pedido
+// perdido y conviene cortarlo y reintentar (la sesión reintenta los errores sin
+// código HTTP), no esperar los 75 s del arranque en frío.
+const LIVE_COMMIT_TIMEOUT_MS = 10_000;
+const liveClient = new ArbiterClient(BASE, {
+  fetchImpl: fetchWithTimeout,
+  timeoutMs: LIVE_COMMIT_TIMEOUT_MS,
+});
+
 /** Despierta al árbitro (hosting gratuito que duerme) sin bloquear la UI.
  * Se llama al entrar a la mesa, así el server ya está listo al buscar rival. */
 export function warmUpArbiter(): void {
@@ -95,7 +105,7 @@ export function liveStart(id: string, address: string, auth?: { signature: strin
 /** Comprometer jugadas en vivo. Un conflicto de tick vuelve como respuesta
  *  (`conflict: true`), no como error. */
 export function liveCommit(id: string, address: string, body: LiveCommitBody) {
-  return client.liveCommit(id, address, body);
+  return liveClient.liveCommit(id, address, body);
 }
 
 /** Pide que un bot juegue por el rival (modo práctica). No forma parte del

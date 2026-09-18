@@ -57,6 +57,7 @@ export function FlappyGame({
   live,
   onFinish,
   onStarted,
+  onAttemptClosed,
   strict,
 }: {
   /** Práctica o partida que no es en vivo. */
@@ -65,6 +66,9 @@ export function FlappyGame({
   live?: FlappyLiveController;
   onFinish: (result: FlappyResult) => void;
   onStarted?: () => void;
+  /** En vivo: el árbitro cerró el intento (el puntaje ya quedó anotado), antes
+   *  de que el jugador confirme el cartel de fin. */
+  onAttemptClosed?: () => void;
   /** Mesa de plata: sin pausa y con puesta al día tras un alt-tab. */
   strict?: boolean;
 }) {
@@ -89,6 +93,8 @@ export function FlappyGame({
   connectingRef.current = t("g.flappy.liveConnecting");
   const confirmingRef = useRef(t("g.flappy.liveConfirming"));
   confirmingRef.current = t("g.flappy.liveConfirming");
+  const onAttemptClosedRef = useRef(onAttemptClosed);
+  onAttemptClosedRef.current = onAttemptClosed;
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
@@ -142,6 +148,7 @@ export function FlappyGame({
     // En vivo: desde cuándo falta el azar del próximo tick, y qué aviso mostrar.
     let stalledSince: number | null = null;
     let liveNotice: "connecting" | "confirming" | null = null;
+    let closedNotified = false;
 
     function burst(x: number, y: number, colors: string[], n: number) {
       for (let i = 0; i < n; i++) {
@@ -500,6 +507,10 @@ export function FlappyGame({
       }
       // En vivo: compromete en segundo plano; al morir, pide el cierre.
       session?.pump();
+      if (session?.result && !closedNotified) {
+        closedNotified = true;
+        onAttemptClosedRef.current?.();
+      }
       liveNotice =
         !session || session.error
           ? null
@@ -527,10 +538,15 @@ export function FlappyGame({
           sfx.crash();
         }
         deathWait -= 1;
-        // En vivo el cartel espera el cierre del árbitro: su puntaje manda.
-        if (deathWait <= 0 && (!session || session.result || session.error)) {
+        // En vivo el cartel espera el cierre del árbitro: su puntaje manda. Si
+        // la sesión se cortó, no hay puntaje que confirmar: el intento sigue
+        // abierto en el árbitro y se retoma recargando (ver el aviso de abajo).
+        if (deathWait <= 0 && session?.error) {
+          setLiveError(session.error.message);
+          return;
+        }
+        if (deathWait <= 0 && (!session || session.result)) {
           if (session?.result) setScore(session.result.score);
-          if (session?.error) setLiveError(session.error.message);
           setOver(true);
           return;
         }
@@ -637,9 +653,14 @@ export function FlappyGame({
       </div>
 
       {liveError && (
-        <p className="text-center text-sm text-(--color-lose)">
-          {t("g.flappy.liveError", { reason: liveError })}
-        </p>
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-center text-sm text-(--color-lose)">
+            {t("g.flappy.liveError", { reason: liveError })}
+          </p>
+          <button className="btn3d btn3d--cyan" onClick={() => window.location.reload()}>
+            {t("g.flappy.liveReload")}
+          </button>
+        </div>
       )}
       <p className="font-screen text-center text-base text-(--color-muted-3)">
         {t("g.flappy.hint")}

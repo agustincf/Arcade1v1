@@ -20,7 +20,6 @@ import {
   liveStartAuthMessage,
 } from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
-import { checkLiveReveals } from "@arcade1v1/game-sdk/live";
 import {
   matchmake,
   submitScore,
@@ -32,7 +31,13 @@ import {
   liveCommit,
   type MatchView,
 } from "@/app/lib/arbiter";
-import { forfeitReplay, rememberLiveMatch, readLiveMatch, forgetLiveMatch } from "@/app/lib/live";
+import {
+  forfeitReplay,
+  rememberLiveMatch,
+  readLiveMatch,
+  forgetLiveMatch,
+  liveSecretHolds,
+} from "@/app/lib/live";
 import { ReplayPlayer } from "@/app/components/replay/ReplayPlayer";
 import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
 import {
@@ -184,15 +189,17 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       // RETOMAR un intento EN VIVO abierto (una recarga a mitad de partida):
       // emparejar de nuevo crearía otra partida y dejaría huérfana esta.
       const store = liveStore();
-      const resumeId =
+      const resume =
         !challengeId && store ? readLiveMatch(store, game!.id, bet, pidRef.current) : null;
-      if (resumeId && store) {
+      if (resume && store) {
         try {
-          const v = await getMatch(resumeId, pidRef.current);
+          const v = await getMatch(resume.matchId, pidRef.current);
           if (v.live && v.role && v.status !== "settled" && v.status !== "draw") {
             setMatchId(v.matchId);
             setLive(true);
-            setSecretHash(v.secretHash ?? null);
+            // El compromiso que se guardó al emparejar, no el que muestre ahora
+            // la vista: el secreto final se comprueba contra ese.
+            setSecretHash(resume.secretHash);
             setRole(v.role);
             // Solo se recuerda un intento ya abierto, y abrirlo exigió el
             // depósito (el árbitro lo vuelve a mirar al retomar).
@@ -384,14 +391,12 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       setRatingDelta(v.ratingDelta ?? 0);
     }
     if (v.rivalReplay) setRivalReplay(v.rivalReplay);
-    if (v.secret) {
-      setRivalSecret(v.secret);
-      // El compromiso del árbitro: el secreto publicado tiene que ser el que
-      // prometió al emparejar y explicar todo lo que nos reveló.
-      const reveals = liveRevealsRef.current;
-      if (secretHash && reveals && !checkLiveReveals(v.secret, secretHash, reveals)) {
-        setSecretMismatch(true);
-      }
+    if (v.secret) setRivalSecret(v.secret);
+    // El compromiso del árbitro: decidida, la partida en vivo tiene que
+    // publicar el secreto que prometió al emparejar, y ese secreto tiene que
+    // explicar todo lo que nos reveló. Sin secreto (o sin hash), también alarma.
+    if (live && !liveSecretHolds(v.secret, secretHash, liveRevealsRef.current)) {
+      setSecretMismatch(true);
     }
   }
 
@@ -674,7 +679,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
             }
             liveTokenRef.current = s.token;
             const store = liveStore();
-            if (store) rememberLiveMatch(store, game.id, bet, pidRef.current, matchId);
+            // Sin el hash del compromiso no se podría comprobar el secreto al
+            // retomar: esa partida no se recuerda (y al decidirse, alarma).
+            if (store && secretHash) {
+              rememberLiveMatch(store, game.id, bet, pidRef.current, { matchId, secretHash });
+            }
             return s;
           },
           commit: (c) => liveCommit(matchId, pidRef.current, { ...c, token: liveTokenRef.current }),
@@ -843,6 +852,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
               key={round}
               {...(live ? { live: liveController } : { seed: seed! })}
               {...gameProps}
+              // El árbitro cerró el intento: el puntaje ya está anotado, así que
+              // "Salir" deja de ser una rendición.
+              onAttemptClosed={() => setPlaying(false)}
               onFinish={(r: FlappyResult) =>
                 r.live ? void finishLive(r.score, r.live.reveals) : finishMatch(r.score, r.replay)
               }
