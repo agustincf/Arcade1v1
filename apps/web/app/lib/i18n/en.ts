@@ -198,6 +198,7 @@ export const en: Dict = {
   "g.flappy.liveConnecting": "connecting…",
   "g.flappy.liveConfirming": "confirming your score…",
   "g.flappy.liveError": "Lost sync with the arbiter ({reason}).",
+  "match.liveAlreadyPlayed": "You already played this attempt: here's the result.",
   "match.liveSecretMismatch":
     "Heads up: the secret the arbiter published doesn't match the one it committed to at the start. Please tell us.",
   "g.racing.hint": "← → lanes · ↑ or Space to jump · on mobile: buttons or swipe up.",

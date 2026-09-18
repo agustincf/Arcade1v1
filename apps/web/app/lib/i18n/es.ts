@@ -201,6 +201,7 @@ export const es: Dict = {
   "g.flappy.liveConnecting": "conectando…",
   "g.flappy.liveConfirming": "confirmando tu puntaje…",
   "g.flappy.liveError": "Se perdió la sincronización con el árbitro ({reason}).",
+  "match.liveAlreadyPlayed": "Ya jugaste este intento: te mostramos el resultado.",
   "match.liveSecretMismatch":
     "Ojo: el secreto que publicó el árbitro no coincide con el que prometió al empezar. Avisanos.",
   "g.racing.hint":

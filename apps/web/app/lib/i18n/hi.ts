@@ -198,6 +198,7 @@ export const hi: Dict = {
   "g.flappy.liveConnecting": "कनेक्ट हो रहा है…",
   "g.flappy.liveConfirming": "तुम्हारा स्कोर पक्का हो रहा है…",
   "g.flappy.liveError": "आर्बिटर से तालमेल टूट गया ({reason})।",
+  "match.liveAlreadyPlayed": "तुम यह प्रयास पहले ही खेल चुके हो: नतीजा यह रहा।",
   "match.liveSecretMismatch":
     "ध्यान दो: आर्बिटर ने जो सीक्रेट प्रकाशित किया, वह शुरुआत में वादा किए गए सीक्रेट से मेल नहीं खाता। हमें बताओ।",
   "g.racing.hint": "← → लेन · कूदने के लिए ↑ या Space · मोबाइल पर: बटन या ऊपर स्वाइप करें।",
