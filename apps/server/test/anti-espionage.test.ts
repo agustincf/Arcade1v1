@@ -10,7 +10,7 @@
 import "../src/offline-env.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { matchmake, submitScore, getMatch } from "../src/matchmaking.js";
+import { matchmake, submitScore, getMatch, hasSubmittedScore } from "../src/matchmaking.js";
 import { runStrategy, getStrategy, defaultParams } from "@arcade1v1/strategies";
 
 // Addresses hex válidas y únicas por corrida.
@@ -63,4 +63,18 @@ test("submitScore SÍ confirma tu propio puntaje a quien lo envió (camino proba
   const resp = await submitScore(m1.matchId, p1, run.score, run.replay);
   assert.equal(resp.status, "ready", "el rival aún no jugó");
   assert.equal(resp.scores[p1], run.score, "tu propia respuesta confirma tu puntaje");
+});
+
+test("hasSubmittedScore dice quién ya jugó sin mostrar ningún puntaje", async () => {
+  const p1 = addr();
+  const p2 = addr();
+  const m = await matchmake("2048", 0, p1);
+  await matchmake("2048", 0, p2);
+  assert.equal(hasSubmittedScore(m.matchId, p1), false);
+  const run = play2048(m.seed);
+  await submitScore(m.matchId, p1, run.score, run.replay);
+  assert.equal(hasSubmittedScore(m.matchId, p1), true);
+  assert.equal(hasSubmittedScore(m.matchId, p1.toUpperCase().replace("0X", "0x")), true);
+  assert.equal(hasSubmittedScore(m.matchId, p2), false);
+  assert.equal(hasSubmittedScore("no-existe", p1), false);
 });

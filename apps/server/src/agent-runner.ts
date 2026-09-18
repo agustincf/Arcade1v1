@@ -16,7 +16,7 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { playFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
 import {
   getMatch,
-  matchRecord,
+  hasSubmittedScore,
   matchmake,
   peekWaiterAddress,
   submitScore,
@@ -112,7 +112,7 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
   // partida y perdía el resultado). En un DESAFÍO, el agente desafiado NO se
   // compromete (ni gasta cómputo) hasta que el retador jugó: así un desafío
   // abandonado no le cuesta nada (se suelta arriba).
-  const played = matchRecord(m.matchId)?.scores[address] !== undefined;
+  const played = hasSubmittedScore(m.matchId, address);
   if (m.status === "ready" && !played) {
     if (m.challengeTarget && !m.rivalSubmitted) return false;
 

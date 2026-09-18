@@ -621,6 +621,12 @@ export async function assertDepositOnchain(
   if (motivo) throw new Error(motivo);
 }
 
+/** ¿`address` ya tiene puntaje en la partida? Es para el runner, que no puede
+ *  saberlo por la vista: no muestra puntajes hasta decidir (anti-espionaje). */
+export function hasSubmittedScore(id: string, address: string): boolean {
+  return matches.get(id)?.scores[address.toLowerCase()] !== undefined;
+}
+
 // ---- Para live.ts (partidas en vivo) ----------------------------------------
 
 /** La partida en memoria, no una vista: live.ts trabaja sobre su intento. */
