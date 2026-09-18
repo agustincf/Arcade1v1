@@ -435,6 +435,10 @@ export async function matchmake(
   return attachSeat(createWaiting(k, game, stake, address), address);
 }
 
+/** ¿Ya se decidió? En función aparte a propósito: después de un `await`, TS
+ *  sigue creyendo el estado que vio antes, y justo ese estado pudo cambiar. */
+const isDecided = (m: Match) => m.status === "settled" || m.status === "draw";
+
 export async function submitScore(
   id: string,
   address: string,
@@ -493,6 +497,13 @@ export async function submitScore(
   // status Funded porque el modelo es asincrónico — el primero juega y envía su
   // puntaje antes de que exista rival, con la partida todavía en Open.
   await assertDepositOnchain(m, address);
+
+  // SE VUELVE A MIRAR DESPUÉS DE LA CADENA: mientras se leía el depósito, la
+  // partida pudo decidirse, o este mismo jugador pudo mandar otro envío o
+  // cerrar su intento en vivo. Sin esto, el envío que llegaba tarde pisaba un
+  // puntaje ya guardado (y hasta el replay de una victoria ya firmada).
+  if (isDecided(m)) throw new Error("match already decided");
+  if (m.scores[address] !== undefined) throw new Error("score already submitted");
 
   // PARTIDA EN VIVO: el puntaje lo pone el árbitro al terminar el intento
   // (live.ts), nunca un replay armado afuera: con la semilla oculta no hay
