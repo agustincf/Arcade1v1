@@ -13,6 +13,7 @@ import {
   forgetLiveMatch,
   flappyReplaySource,
   liveSecretHolds,
+  liveErrorReason,
 } from "../app/lib/live.js";
 
 function fakeStorage() {
@@ -108,5 +109,24 @@ test("el secreto de una partida en vivo decidida se comprueba cerrado: sin secre
     liveSecretHolds(secret, hash, tampered),
     false,
     "un valor revelado que no salía del secreto",
+  );
+});
+
+test("el motivo de un corte en vivo sale corto: lo que dijo el árbitro, sin la ruta ni el id", () => {
+  const id = "0x" + "4b".repeat(32);
+  assert.equal(
+    liveErrorReason(
+      `live: the arbiter rejected the commit: arbiter /match/${id}/live/commit 400: {"error":"bad token"}`,
+    ),
+    "bad token",
+  );
+  assert.equal(
+    liveErrorReason("live desync at tick 12: the arbiter revealed only 3 values"),
+    "live desync at tick 12: the arbiter revealed only 3 values",
+  );
+  assert.equal(liveErrorReason("live: too many commit conflicts"), "too many commit conflicts");
+  assert.equal(
+    liveErrorReason(`live: the arbiter rejected the commit: arbiter /x 400: {no es json`),
+    "the arbiter rejected the commit: arbiter /x 400: {no es json",
   );
 });

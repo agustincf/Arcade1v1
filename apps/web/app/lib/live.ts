@@ -115,3 +115,19 @@ export function liveSecretHolds(
 ): boolean {
   return checkLiveReveals(secret ?? "", secretHash ?? "", reveals ?? []);
 }
+
+/** El motivo de un corte en vivo, corto para la pantalla: el `error` que
+ *  devolvió el árbitro (sin la ruta, que lleva el id de la partida) o, si no
+ *  vino de una respuesta suya, el mensaje de la sesión sin el prefijo "live:". */
+export function liveErrorReason(message: string): string {
+  const i = message.indexOf("{");
+  if (i >= 0) {
+    try {
+      const e = (JSON.parse(message.slice(i)) as { error?: unknown } | null)?.error;
+      if (typeof e === "string" && e) return e;
+    } catch {
+      /* no era la respuesta del árbitro: va el mensaje entero */
+    }
+  }
+  return message.replace(/^live:\s*/, "");
+}

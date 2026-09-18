@@ -17,6 +17,7 @@ import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { dtCap } from "@/app/games/_shared/strict";
+import { liveErrorReason } from "@/app/lib/live";
 
 const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
 const GROUND_Y = HEIGHT - GROUND_H;
@@ -542,7 +543,7 @@ export function FlappyGame({
         // la sesión se cortó, no hay puntaje que confirmar: el intento sigue
         // abierto en el árbitro y se retoma recargando (ver el aviso de abajo).
         if (deathWait <= 0 && session?.error) {
-          setLiveError(session.error.message);
+          setLiveError(liveErrorReason(session.error.message));
           return;
         }
         if (deathWait <= 0 && (!session || session.result)) {
@@ -654,7 +655,7 @@ export function FlappyGame({
 
       {liveError && (
         <div className="flex flex-col items-center gap-2">
-          <p className="text-center text-sm text-(--color-lose)">
+          <p className="text-center text-sm wrap-anywhere text-(--color-lose)">
             {t("g.flappy.liveError", { reason: liveError })}
           </p>
           <button className="btn3d btn3d--cyan" onClick={() => window.location.reload()}>
