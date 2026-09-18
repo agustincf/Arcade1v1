@@ -1,7 +1,7 @@
 // PARTIDAS EN VIVO del 1v1 (piloto: Flappy). El jugador abre un intento con su
 // firma, compromete sus jugadas por tramos y recibe el azar que el juego va a
-// consumir en los próximos LIVE_LEAD_TICKS. La semilla nunca sale de acá hasta
-// que la partida se decide.
+// consumir en los próximos LIVE_LEAD_TICKS. El azar sale del secreto de la
+// partida (SecretSource), que no sale de acá hasta que la partida se decide.
 // Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
@@ -9,7 +9,7 @@ import { recoverMessageAddress, type Hex } from "viem";
 import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
 import {
   isLiveMatch,
-  SeededSource,
+  SecretSource,
   LIVE_LEAD_TICKS,
   MAX_COMMIT_TICKS,
 } from "@arcade1v1/game-sdk/live";
@@ -65,7 +65,7 @@ export interface LiveCommitBody {
 // registro (después de un reinicio, o si quedaron desfasados). El tope evita que
 // los intentos abandonados acumulen memoria.
 const MAX_CACHED_ENGINES = 500;
-const engines = new Map<string, { eng: FlappyEngine; src: SeededSource; tick: number }>();
+const engines = new Map<string, { eng: FlappyEngine; src: SecretSource; tick: number }>();
 
 /** Tests: simula un reinicio del árbitro (se pierde el caché, no el intento). */
 export function __clearLiveEnginesForTest(): void {
@@ -78,7 +78,7 @@ function engineFor(m: Match, address: string, a: LiveAttempt) {
   const key = `${m.id}:${address}`;
   const cached = engines.get(key);
   if (cached && cached.tick === a.tick) return cached;
-  const src = new SeededSource(m.seed);
+  const src = new SecretSource(m.liveSecret!);
   const eng = new FlappyEngine(src);
   const flapSet = new Set(a.flaps);
   for (let t = 0; t < a.tick && !eng.over; t++) {
@@ -105,6 +105,8 @@ function liveMatchFor(id: string, address: string): Match {
   if (!isLiveMatch(m.game, m.rulesV)) {
     throw new LiveError(`live play not allowed: ${m.game} is not a live game`);
   }
+  // Una partida en vivo nace con su secreto (matchmaking.ts): sin él no hay azar.
+  if (!m.liveSecret) throw new LiveError("live play not allowed: this match has no live secret");
   const currentV = RULES_V[m.game] ?? 1;
   if ((m.rulesV ?? 1) !== currentV) {
     throw new LiveError(
@@ -121,7 +123,7 @@ function assertOpen(m: Match): void {
 
 /** Revela lo que el motor va a consumir en los próximos LIVE_LEAD_TICKS y
  *  devuelve los valores desde `have`. */
-function reveal(a: LiveAttempt, e: { eng: FlappyEngine; src: SeededSource }, have: number) {
+function reveal(a: LiveAttempt, e: { eng: FlappyEngine; src: SecretSource }, have: number) {
   a.revealed = Math.max(a.revealed, e.src.consumed + e.eng.drawsWithin(LIVE_LEAD_TICKS));
   const from = Math.min(Math.max(0, have), a.revealed);
   return { reveal: e.src.slice(from, a.revealed), revealed: a.revealed };

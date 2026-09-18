@@ -1,22 +1,25 @@
 // El driver de Flappy en vivo contra un árbitro de referencia en memoria (las
 // mismas reglas que apps/server/src/live.ts, sin HTTP ni firmas). Prueba que
-// jugar en vivo da exactamente lo mismo que jugar con la semilla, que se
-// recupera si el árbitro pierde compromisos, y la propiedad central: nunca se
-// revela un valor que el juego vaya a usar más de LIVE_LEAD_TICKS después de lo
-// comprometido.
+// jugar en vivo da exactamente lo mismo que jugar de corrido con la misma fuente
+// de azar, que se recupera si el árbitro pierde compromisos, y la propiedad
+// central: nunca se revela un valor que el juego vaya a usar más de
+// LIVE_LEAD_TICKS después de lo comprometido.
 //
 // Correr: node --import tsx --test packages/game-sdk/test/flappy-live-driver.test.ts
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FlappyEngine, FLAPPY_DT, FLAPPY_CONST } from "@arcade1v1/game-sdk/flappy";
-import { SeededSource, LIVE_LEAD_TICKS } from "@arcade1v1/game-sdk/live";
+import { SecretSource, LIVE_LEAD_TICKS } from "@arcade1v1/game-sdk/live";
 import {
   playFlappyLive,
+  verifyFlappyLive,
   type FlappyLiveCommit,
   type FlappyLiveReply,
 } from "@arcade1v1/game-sdk/flappy-live";
-import { mulberry32 } from "../src/replay";
+
+/** Un secreto de prueba por número (el árbitro sortea 32 bytes al azar). */
+const secretFor = (n: number) => n.toString(16).padStart(64, "0");
 
 function flapPolicy(g: FlappyEngine, t: number): boolean {
   if (t === 0) return true;
@@ -28,8 +31,8 @@ function flapPolicy(g: FlappyEngine, t: number): boolean {
 
 /** Árbitro de referencia. `rollbackOnCommit`: en ese compromiso "se cae" y
  *  pierde los últimos 40 ticks comprometidos, como una caída dura. */
-function referenceArbiter(seed: number, rollbackOnCommit?: number) {
-  let src = new SeededSource(seed);
+function referenceArbiter(secret: string, rollbackOnCommit?: number) {
+  let src = new SecretSource(secret);
   let eng = new FlappyEngine(src);
   let tick = 0;
   let revealed = 0;
@@ -48,7 +51,7 @@ function referenceArbiter(seed: number, rollbackOnCommit?: number) {
     if (seen === rollbackOnCommit && tick > 0) {
       const back = Math.max(0, tick - 40);
       flaps = flaps.filter((f) => f < back);
-      src = new SeededSource(seed);
+      src = new SecretSource(secret);
       eng = new FlappyEngine(src);
       const set = new Set(flaps);
       for (let t = 0; t < back; t++) {
@@ -78,9 +81,9 @@ function referenceArbiter(seed: number, rollbackOnCommit?: number) {
   return { start, commit, log, flaps: () => flaps };
 }
 
-/** La misma partida jugada con la semilla, de corrido. */
-function batch(seed: number, maxTicks: number) {
-  const g = new FlappyEngine(seed);
+/** La misma partida jugada de corrido, con la fuente de azar completa. */
+function batch(secret: string, maxTicks: number) {
+  const g = new FlappyEngine(new SecretSource(secret));
   let t = 0;
   for (; t < maxTicks && !g.over; t++) {
     if (flapPolicy(g, t)) g.flap();
@@ -89,34 +92,34 @@ function batch(seed: number, maxTicks: number) {
   return { score: g.score, ticks: t };
 }
 
-test("jugar en vivo da el mismo puntaje y los mismos ticks que jugar con la semilla", async () => {
-  for (let seed = 1; seed <= 40; seed++) {
-    const arb = referenceArbiter(seed);
+test("jugar en vivo da el mismo puntaje y los mismos ticks que jugar de corrido", async () => {
+  for (let n = 1; n <= 40; n++) {
+    const arb = referenceArbiter(secretFor(n));
     const live = await playFlappyLive({
       start: arb.start,
       decide: flapPolicy,
       commit: arb.commit,
       maxTicks: 3_000,
     });
-    assert.deepEqual(live, batch(seed, 3_000), `seed ${seed}`);
+    assert.deepEqual(live, batch(secretFor(n), 3_000), `secreto ${n}`);
   }
 });
 
 test("si el árbitro pierde compromisos, el driver reenvía desde donde quedó y termina igual", async () => {
-  for (let seed = 1; seed <= 20; seed++) {
-    const arb = referenceArbiter(seed, 4);
+  for (let n = 1; n <= 20; n++) {
+    const arb = referenceArbiter(secretFor(n), 4);
     const live = await playFlappyLive({
       start: arb.start,
       decide: flapPolicy,
       commit: arb.commit,
       maxTicks: 3_000,
     });
-    assert.deepEqual(live, batch(seed, 3_000), `seed ${seed}`);
+    assert.deepEqual(live, batch(secretFor(n), 3_000), `secreto ${n}`);
   }
 });
 
 test("si se pierde una respuesta ya aplicada, el reintento se resuelve con el conflicto", async () => {
-  const arb = referenceArbiter(5);
+  const arb = referenceArbiter(secretFor(5));
   let dropped = false;
   const live = await playFlappyLive({
     start: arb.start,
@@ -134,12 +137,12 @@ test("si se pierde una respuesta ya aplicada, el reintento se resuelve con el co
     },
   });
   assert.equal(dropped, true);
-  assert.deepEqual(live, batch(5, 3_000));
+  assert.deepEqual(live, batch(secretFor(5), 3_000));
 });
 
 test("propiedad central: ningún valor revelado se usa más de LIVE_LEAD_TICKS después de lo comprometido", async () => {
-  for (let seed = 1; seed <= 30; seed++) {
-    const arb = referenceArbiter(seed, seed % 3 === 0 ? 4 : undefined);
+  for (let n = 1; n <= 30; n++) {
+    const arb = referenceArbiter(secretFor(n), n % 3 === 0 ? 4 : undefined);
     const live = await playFlappyLive({
       start: arb.start,
       decide: flapPolicy,
@@ -147,13 +150,13 @@ test("propiedad central: ningún valor revelado se usa más de LIVE_LEAD_TICKS d
       maxTicks: 3_000,
     });
     // En qué tick se consume cada valor en la partida real (-1: al construir el motor).
-    const rng = mulberry32(seed);
+    const src = new SecretSource(secretFor(n));
     const consumedAt: number[] = [];
     let now = -1;
     const g = new FlappyEngine({
       next: () => {
         consumedAt.push(now);
-        return rng();
+        return src.next();
       },
     });
     const set = new Set(arb.flaps());
@@ -165,7 +168,7 @@ test("propiedad central: ningún valor revelado se usa más de LIVE_LEAD_TICKS d
       for (let i = 0; i < entry.revealed && i < consumedAt.length; i++) {
         assert.ok(
           consumedAt[i] <= entry.to + LIVE_LEAD_TICKS,
-          `seed ${seed}: valor ${i} usado en el tick ${consumedAt[i]} y revelado con to=${entry.to}`,
+          `secreto ${n}: valor ${i} usado en el tick ${consumedAt[i]} y revelado con to=${entry.to}`,
         );
       }
     }
@@ -173,19 +176,19 @@ test("propiedad central: ningún valor revelado se usa más de LIVE_LEAD_TICKS d
 });
 
 test("al llegar a maxTicks vivo, cierra con final y el puntaje alcanzado", async () => {
-  const arb = referenceArbiter(39);
+  const arb = referenceArbiter(secretFor(39));
   const live = await playFlappyLive({
     start: arb.start,
     decide: flapPolicy,
     commit: arb.commit,
     maxTicks: 400,
   });
-  assert.deepEqual(live, batch(39, 400));
+  assert.deepEqual(live, batch(secretFor(39), 400));
   assert.equal(live.ticks, 400, "llegó vivo al tope: cerró con final");
 });
 
 test("si el árbitro no revela lo que el motor necesita, corta con un error claro en vez de colgarse", async () => {
-  const arb = referenceArbiter(2);
+  const arb = referenceArbiter(secretFor(2));
   await assert.rejects(
     playFlappyLive({
       start: arb.start,
@@ -195,4 +198,19 @@ test("si el árbitro no revela lo que el motor necesita, corta con un error clar
     }),
     /live desync/,
   );
+});
+
+test("verifyFlappyLive: con el secreto publicado, cualquiera re-verifica el intento", async () => {
+  for (let n = 1; n <= 20; n++) {
+    const arb = referenceArbiter(secretFor(n));
+    const live = await playFlappyLive({
+      start: arb.start,
+      decide: flapPolicy,
+      commit: arb.commit,
+      maxTicks: 3_000,
+    });
+    const replay = { ticks: live.ticks, flaps: arb.flaps() };
+    assert.equal(verifyFlappyLive(secretFor(n), replay), live.score, `secreto ${n}`);
+  }
+  assert.throws(() => verifyFlappyLive("nope", { ticks: 10, flaps: [] }), /invalid live secret/);
 });

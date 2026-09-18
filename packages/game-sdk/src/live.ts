@@ -1,11 +1,15 @@
 // PARTIDAS EN VIVO: lo que comparten el árbitro, el SDK y la web para que nadie
 // vea más adelante de lo que vería un humano mirando la pantalla. El árbitro
-// guarda la semilla. El jugador compromete sus jugadas hasta un tick y recibe
-// los valores al azar que el juego va a consumir en los próximos
-// LIVE_LEAD_TICKS; con esos valores el motor corre igual que siempre.
+// guarda un secreto de 32 bytes y publica su hash. El jugador compromete sus
+// jugadas hasta un tick y recibe los valores al azar que el juego va a consumir
+// en los próximos LIVE_LEAD_TICKS; con esos valores el motor corre igual que
+// siempre. Al decidirse la partida se publica el secreto y cualquiera
+// re-verifica (verifyFlappyLive).
 // Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md
 
-import { mulberry32, type RandomSource } from "./replay";
+import { sha256 } from "@noble/hashes/sha2";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import type { RandomSource } from "./replay";
 
 export type { RandomSource };
 
@@ -61,15 +65,36 @@ export class BufferedRandom implements RandomSource {
   }
 }
 
-/** Fuente de azar del ÁRBITRO: la secuencia de la semilla. Puede adelantar
- *  valores para revelarlos sin consumirlos. */
-export class SeededSource implements RandomSource {
-  private readonly rng: () => number;
+const LIVE_SECRET_RE = /^[0-9a-f]{64}$/;
+
+function secretBytes(secret: string): Uint8Array {
+  if (typeof secret !== "string" || !LIVE_SECRET_RE.test(secret)) {
+    throw new Error("invalid live secret: expected 32 bytes as 64 lowercase hex characters");
+  }
+  return hexToBytes(secret);
+}
+
+/** El hash (SHA-256, en hex) que el árbitro publica al emparejar. Al decidirse
+ *  la partida se publica el secreto, y cualquiera comprueba que es el mismo que
+ *  se usó desde el principio. */
+export function liveSecretHash(secret: string): string {
+  return bytesToHex(sha256(secretBytes(secret)));
+}
+
+/** Fuente de azar del ÁRBITRO (y de quien re-verifica con el secreto ya
+ *  publicado). El valor número `i` son los primeros 4 bytes, big-endian, de
+ *  SHA-256(secreto ‖ i como uint32 big-endian), divididos por 2^32. Con 256 bits
+ *  de secreto, los valores ya revelados no dicen nada de los que siguen. Con
+ *  mulberry32 no alcanzaba: su estado es de 32 bits, y con el primer valor
+ *  revelado la semilla se recuperaba por fuerza bruta en unos 3 segundos.
+ *  Puede adelantar valores para revelarlos sin consumirlos. */
+export class SecretSource implements RandomSource {
+  private readonly key: Uint8Array;
   private readonly values: number[] = [];
   private used = 0;
 
-  constructor(seed: number) {
-    this.rng = mulberry32(seed);
+  constructor(secret: string) {
+    this.key = secretBytes(secret);
   }
 
   /** Cuántos valores consumió el motor. */
@@ -89,6 +114,13 @@ export class SeededSource implements RandomSource {
   }
 
   private fill(n: number): void {
-    while (this.values.length < n) this.values.push(this.rng());
+    const msg = new Uint8Array(36);
+    msg.set(this.key);
+    const index = new DataView(msg.buffer);
+    while (this.values.length < n) {
+      index.setUint32(32, this.values.length);
+      const h = sha256(msg);
+      this.values.push(new DataView(h.buffer, h.byteOffset, 4).getUint32(0) / 4294967296);
+    }
   }
 }

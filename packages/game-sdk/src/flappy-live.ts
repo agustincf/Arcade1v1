@@ -4,7 +4,7 @@
 // Protocolo: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md
 
 import { FlappyEngine, FLAPPY_DT } from "./flappy";
-import { BufferedRandom, LIVE_LEAD_TICKS } from "./live";
+import { BufferedRandom, LIVE_LEAD_TICKS, SecretSource } from "./live";
 
 /** Lo que devolvió abrir el intento (sin el token, que es del transporte). */
 export interface FlappyLiveStart {
@@ -115,4 +115,22 @@ export async function playFlappyLive(
   const last = await send(tick, !engine.over);
   if (!last.over) throw new Error("live: the arbiter did not close the attempt");
   return { score: last.score ?? 0, ticks: last.tick };
+}
+
+/** Re-verifica un intento en vivo con el secreto que el árbitro publica al
+ *  decidirse la partida: el motor corre con la misma fuente de azar que usó el
+ *  árbitro. Misma semántica que `verifyFlappy` (en cada tick, si está en
+ *  `flaps` aletea, después `update`; al morir se corta). Devuelve el puntaje. */
+export function verifyFlappyLive(
+  secret: string,
+  replay: { ticks: number; flaps: number[] },
+): number {
+  const g = new FlappyEngine(new SecretSource(secret));
+  const flapSet = new Set(replay.flaps);
+  for (let t = 0; t < replay.ticks; t++) {
+    if (flapSet.has(t)) g.flap();
+    g.update(FLAPPY_DT);
+    if (g.over) break;
+  }
+  return g.score;
 }

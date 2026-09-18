@@ -10,9 +10,18 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
-import { FlappyEngine, FLAPPY_DT, FLAPPY_CONST, verifyFlappy } from "@arcade1v1/game-sdk/flappy";
-import { LIVE_LEAD_TICKS, MAX_COMMIT_TICKS, SeededSource } from "@arcade1v1/game-sdk/live";
-import { playFlappyLive, type FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
+import { FlappyEngine, FLAPPY_DT, FLAPPY_CONST } from "@arcade1v1/game-sdk/flappy";
+import {
+  LIVE_LEAD_TICKS,
+  MAX_COMMIT_TICKS,
+  SecretSource,
+  liveSecretHash,
+} from "@arcade1v1/game-sdk/live";
+import {
+  playFlappyLive,
+  verifyFlappyLive,
+  type FlappyLiveReply,
+} from "@arcade1v1/game-sdk/flappy-live";
 import { liveStartAuthMessage } from "@arcade1v1/game-sdk/auth";
 import {
   matchmake,
@@ -104,9 +113,12 @@ test("la firma, si viene, tiene que ser del jugador y reciente", async () => {
   );
 });
 
-test("la semilla no aparece en ninguna respuesta antes de decidir", async () => {
+test("ni el secreto ni la semilla aparecen en ninguna respuesta antes de decidir", async () => {
   const { id, p1 } = await livePair();
-  const seed = String(matchRecord(id)!.seed);
+  const m = matchRecord(id)!;
+  const seed = String(m.seed);
+  const secret = String(m.liveSecret);
+  assert.match(secret, /^[0-9a-f]{64}$/, "la partida en vivo nace con su secreto");
   const s = opened(await liveStart(id, p1));
   const c = await liveCommit(id, p1, {
     token: s.token,
@@ -117,7 +129,18 @@ test("la semilla no aparece en ninguna respuesta antes de decidir", async () => 
   });
   for (const out of [s, c, getMatch(id, p1), getMatch(id)]) {
     assert.ok(!JSON.stringify(out).includes(seed), "la semilla se filtró");
+    assert.ok(!JSON.stringify(out).includes(secret), "el secreto se filtró");
   }
+});
+
+test("el azar revelado sale del secreto de 256 bits, no de la semilla numérica", async () => {
+  // La semilla de 32 bits se recuperaba por fuerza bruta en ~3 s con el primer
+  // valor revelado (mulberry32). Esto fija que lo revelado sale del secreto.
+  const { id, p1 } = await livePair();
+  const m = matchRecord(id)!;
+  const s = opened(await liveStart(id, p1));
+  assert.ok(s.reveal.length > 0);
+  assert.deepEqual(s.reveal, new SecretSource(m.liveSecret!).slice(0, s.revealed));
 });
 
 test("un segundo abrir no reinicia: devuelve el mismo progreso, rota el token y el viejo deja de servir", async () => {
@@ -171,11 +194,15 @@ test("topes: rangos y aleteos inválidos se rechazan sin avanzar el intento", as
   assert.equal(ok.tick, 10, "después de los rechazos el intento sigue en 0 y avanza bien");
 });
 
-test("jugar en vivo contra el árbitro da el puntaje que verifica la semilla, y liquida al terminar los dos", async () => {
+test("jugar en vivo contra el árbitro da el puntaje que verifica el secreto publicado, y liquida al terminar los dos", async () => {
   const { id, p1, p2 } = await livePair();
   const a = await playLive(id, p1);
   const b = await playLive(id, p2);
   const m = matchRecord(id)!;
+  const view = getMatch(id, p1)!;
+  assert.ok(view.status === "settled" || view.status === "draw");
+  assert.equal(view.secret, m.liveSecret, "decidida: ya se puede ver el secreto");
+  assert.equal(liveSecretHash(view.secret!), view.secretHash);
   for (const [player, run] of [
     [p1, a],
     [p2, b],
@@ -183,13 +210,10 @@ test("jugar en vivo contra el árbitro da el puntaje que verifica la semilla, y 
     const replay = m.replays[player.toLowerCase()] as { ticks: number; flaps: number[] };
     assert.equal(
       run.score,
-      verifyFlappy({ seed: m.seed, ...replay }),
-      "el puntaje re-verifica con la semilla",
+      verifyFlappyLive(view.secret!, replay),
+      "el puntaje re-verifica con el secreto publicado",
     );
   }
-  const view = getMatch(id, p1)!;
-  assert.ok(view.status === "settled" || view.status === "draw");
-  assert.equal(view.seed, m.seed, "decidida: ya se puede ver la semilla");
 });
 
 test("propiedad central: nada revelado se usa más de LIVE_LEAD_TICKS después de lo comprometido", async () => {
@@ -201,7 +225,7 @@ test("propiedad central: nada revelado se usa más de LIVE_LEAD_TICKS después d
     // En qué tick se usa cada valor en la partida real (-1: al construir el motor).
     const consumedAt: number[] = [];
     let now = -1;
-    const src = new SeededSource(m.seed);
+    const src = new SecretSource(m.liveSecret!);
     const g = new FlappyEngine({
       next: () => {
         consumedAt.push(now);

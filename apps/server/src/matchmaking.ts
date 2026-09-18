@@ -12,7 +12,7 @@ import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
 import { verifyInvaders, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
-import { isLiveMatch } from "@arcade1v1/game-sdk/live";
+import { isLiveMatch, liveSecretHash } from "@arcade1v1/game-sdk/live";
 import {
   scoreAuthMessage,
   matchmakeAuthMessage,
@@ -166,6 +166,11 @@ export interface Match {
   eloUpdate?: { p1: RatingUpdate; p2: RatingUpdate }; // cambio de rating al liquidar
   /** Intentos EN VIVO por jugador (juegos en vivo; ver live.ts). */
   live?: Record<string, LiveAttempt>;
+  /** Juegos EN VIVO: el secreto de 32 bytes (hex) del que sale el azar. No sale
+   *  en ninguna vista hasta que la partida se decide; antes, solo su hash. La
+   *  semilla numérica no se usa: sus 32 bits se recuperaban por fuerza bruta con
+   *  el primer valor revelado. */
+  liveSecret?: string;
 }
 
 // Comision (basis points) para calcular el PnL neto que se le informa al jugador.
@@ -204,6 +209,14 @@ const randomId = () => ("0x" + randomBytes(32).toString("hex")) as Hex;
 // Semilla con CSPRNG: Math.random es predecible (xorshift128+); un observador
 // podría anticipar semillas futuras y practicarlas offline antes de emparejar.
 const randomSeed = () => randomInt(0, 2 ** 31 - 1);
+
+/** El secreto del azar de una partida EN VIVO. Los demás juegos no lo llevan:
+ *  siguen con la semilla de siempre. */
+function liveSecretFor(game: string): { liveSecret?: string } {
+  return isLiveMatch(game, RULES_V[game] ?? 1)
+    ? { liveSecret: randomBytes(32).toString("hex") }
+    : {};
+}
 
 const WAIT_TTL = 60 * 60 * 1000; // 1 hora: un "waiter" abandonado se descarta de la cola
 
@@ -261,6 +274,7 @@ function createWaiting(k: string, game: string, stake: number, address: string) 
     stake,
     seed: randomSeed(),
     rulesV: RULES_V[game] ?? 1,
+    ...liveSecretFor(game),
     p1: address,
     scores: {},
     replays: {},
@@ -293,6 +307,7 @@ export function createChallenge(game: string, challenger: string, target: string
     stake: 0,
     seed: randomSeed(),
     rulesV: RULES_V[game] ?? 1,
+    ...liveSecretFor(game),
     p1: challenger,
     target,
     scores: {},
@@ -740,11 +755,16 @@ export interface MatchView {
   matchId: Hex;
   game: string;
   stake: number;
-  /** Ausente en juegos EN VIVO hasta que la partida se decide: con la semilla
-   *  se simula la partida entera antes de jugarla. */
+  /** Ausente en los juegos EN VIVO: no usan semilla (ver `secretHash`). */
   seed?: number;
   /** La partida se juega en vivo: /match/:id/live/start y /live/commit. */
   live?: boolean;
+  /** Juegos EN VIVO: el SHA-256 del secreto del azar, público desde que se
+   *  empareja. Al decidirse llega `secret` y cualquiera comprueba que es el mismo. */
+  secretHash?: string;
+  /** Juegos EN VIVO, solo con la partida decidida: el secreto del azar, para
+   *  re-verificar cada intento con verifyFlappyLive. */
+  secret?: string;
   /** Versión de reglas del juego en esta partida (clientes nuevos la validan). */
   rulesV?: number;
   status: Status;
@@ -799,8 +819,10 @@ function view(m: Match, address?: string, opts?: { revealOwnScore?: boolean }): 
     matchId: m.id,
     game: m.game,
     stake: m.stake,
-    seed: live && !decided ? undefined : m.seed,
+    seed: live ? undefined : m.seed,
     live: live || undefined,
+    secretHash: live && m.liveSecret ? liveSecretHash(m.liveSecret) : undefined,
+    secret: live && decided ? m.liveSecret : undefined,
     rulesV: m.rulesV,
     status: m.status,
     role: address === m.p1 ? "p1" : address === m.p2 ? "p2" : undefined,
@@ -876,11 +898,15 @@ export function publicReplay(id: string) {
   const m = matches.get(id);
   if (!m || !m.p2) return null;
   if (m.status !== "settled" && m.status !== "draw") return null;
+  // En vivo no hay semilla: cada intento se re-verifica con el secreto.
+  const live = isLiveMatch(m.game, m.rulesV);
   return {
     matchId: m.id,
     game: m.game,
     stake: m.stake,
-    seed: m.seed,
+    seed: live ? undefined : m.seed,
+    secret: live ? m.liveSecret : undefined,
+    secretHash: live && m.liveSecret ? liveSecretHash(m.liveSecret) : undefined,
     outcome: m.outcome,
     winner: m.winner,
     createdAt: m.createdAt,
