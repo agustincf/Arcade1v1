@@ -77,7 +77,9 @@ const deadlines = () => {
   return [now + 3600n, now + 7200n] as const;
 };
 
-function play2048(seed: number, maxMoves: number) {
+function play2048(seed: number | undefined, maxMoves: number) {
+  // 2048 no es un juego en vivo: la vista siempre trae la semilla.
+  if (seed === undefined) throw new Error("2048 match without seed");
   const g = new Game2048(seed);
   const moves: Dir[] = [];
   const dirs: Dir[] = ["left", "up", "right", "down"];

@@ -1,8 +1,11 @@
 // Motor del Flappy COMPARTIDO entre web y servidor. Determinístico con dt fijo:
 // dadas la misma semilla + los mismos aleteos en los mismos ticks, el resultado
 // es idéntico, así el servidor re-simula el replay y verifica el puntaje.
+//
+// El azar sale de una semilla o de una FUENTE inyectada: en una partida en vivo
+// el árbitro guarda la semilla y revela los valores de a poco (ver ./live).
 
-import { mulberry32 } from "./replay";
+import { mulberry32, type RandomSource } from "./replay";
 
 export const WIDTH = 320;
 export const HEIGHT = 480;
@@ -24,6 +27,40 @@ export interface Pipe {
   passed: boolean;
 }
 
+/** Velocidad de los tubos (px/s) para un puntaje. */
+function pipeSpeedFor(score: number): number {
+  return 120 + score * 3;
+}
+
+/** Un paso del horario de tubos: moverlos, sacar el que salió de pantalla,
+ *  agregar uno nuevo cuando hace falta y marcar los que el pájaro pasó.
+ *  Devuelve cuántos puntos sumó. No mira al pájaro: por eso el horario de tubos
+ *  no depende de los aleteos, y el árbitro sabe cuándo va a nacer cada tubo sin
+ *  conocer las jugadas futuras. `spawn` agrega el tubo nuevo en `x` (el motor
+ *  lo hace consumiendo azar; `drawsWithin` solo lo cuenta). */
+function stepPipes(
+  pipes: { x: number; passed: boolean }[],
+  score: number,
+  dt: number,
+  spawn: (x: number) => void,
+): number {
+  const speed = pipeSpeedFor(score);
+  for (const p of pipes) p.x -= speed * dt;
+
+  if (pipes.length && pipes[0].x < -PIPE_W) pipes.shift();
+  const last = pipes[pipes.length - 1];
+  if (last && last.x < WIDTH - PIPE_SPACING) spawn(last.x + PIPE_SPACING);
+
+  let gained = 0;
+  for (const p of pipes) {
+    if (!p.passed && p.x + PIPE_W < BIRD_X) {
+      p.passed = true;
+      gained += 1;
+    }
+  }
+  return gained;
+}
+
 export class FlappyEngine {
   birdY = HEIGHT / 2;
   birdVy = 0;
@@ -34,8 +71,12 @@ export class FlappyEngine {
 
   private rng: () => number;
 
-  constructor(seed: number) {
-    this.rng = mulberry32(seed);
+  constructor(source: number | RandomSource) {
+    if (typeof source === "number") {
+      this.rng = mulberry32(source);
+    } else {
+      this.rng = () => source.next();
+    }
     this.addPipe(WIDTH + 80);
   }
 
@@ -55,7 +96,27 @@ export class FlappyEngine {
   }
 
   pipeSpeed(): number {
-    return 120 + this.score * 3;
+    return pipeSpeedFor(this.score);
+  }
+
+  /** Cuántos valores al azar consumirían los próximos `ticks` pasos de
+   *  FLAPPY_DT sin aleteos. Simula solo el horario de tubos sobre una copia: el
+   *  motor no cambia. Sin el primer aleteo los tubos no se mueven (da 0), y con
+   *  la partida terminada no se consume nada. Mientras el pájaro viva es exacto,
+   *  porque el horario de tubos no depende de los aleteos. Lo usan el árbitro
+   *  para revelar y el cliente para saber cuándo comprometer. */
+  drawsWithin(ticks: number): number {
+    if (this.over || !this.started) return 0;
+    const pipes = this.pipes.map((p) => ({ x: p.x, passed: p.passed }));
+    let score = this.score;
+    let draws = 0;
+    for (let i = 0; i < ticks; i++) {
+      score += stepPipes(pipes, score, FLAPPY_DT, (x) => {
+        pipes.push({ x, passed: false });
+        draws += 1;
+      });
+    }
+    return draws;
   }
 
   update(dt: number) {
@@ -64,19 +125,7 @@ export class FlappyEngine {
     this.birdVy += GRAVITY * dt;
     this.birdY += this.birdVy * dt;
 
-    const speed = this.pipeSpeed();
-    for (const p of this.pipes) p.x -= speed * dt;
-
-    if (this.pipes.length && this.pipes[0].x < -PIPE_W) this.pipes.shift();
-    const last = this.pipes[this.pipes.length - 1];
-    if (last && last.x < WIDTH - PIPE_SPACING) this.addPipe(last.x + PIPE_SPACING);
-
-    for (const p of this.pipes) {
-      if (!p.passed && p.x + PIPE_W < BIRD_X) {
-        p.passed = true;
-        this.score += 1;
-      }
-    }
+    this.score += stepPipes(this.pipes, this.score, dt, (x) => this.addPipe(x));
 
     if (this.birdY - BIRD_R < 0 || this.birdY + BIRD_R > HEIGHT - GROUND_H) {
       this.over = true;

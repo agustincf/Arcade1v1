@@ -22,13 +22,14 @@ import { profilesRouter } from "./profiles-routes.js";
 import { restoreProfiles, resolveDisplay } from "./profiles.js";
 import { challengeRouter } from "./challenge-routes.js";
 import { alephRouter } from "./aleph-routes.js";
+import { liveRouter } from "./live-routes.js";
 import { restoreAleph, startAlephTicker } from "./aleph.js";
 import { restoreAlephHouse } from "./aleph-house-seats.js";
 import { startAlephHouse } from "./aleph-house.js";
 import { persistenceBackend } from "./persist.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
-import { agentsRouter } from "./agents-routes.js";
+import { agentsRouter, agentsPostLimit } from "./agents-routes.js";
 import { gasSnapshot, startGasMonitor } from "./gas-monitor.js";
 import "./agent-runner.js"; // runner de agentes hosteados (juegan solos)
 
@@ -127,6 +128,9 @@ function rateLimiter(max: number) {
 }
 app.use(rateLimiter(Number(process.env.RL_MAX ?? 120)));
 const strictLimit = rateLimiter(Number(process.env.RL_MAX_EXPENSIVE ?? 12));
+// Partidas EN VIVO: una partida compromete una vez por tubo, y el estricto (12
+// cada 10 s) se queda corto con varios jugadores detrás de la misma IP.
+const liveLimit = rateLimiter(Number(process.env.RL_MAX_LIVE ?? 60));
 // Limpieza periódica: sin esto, cada IP nueva quedaba en los mapas PARA SIEMPRE
 // (fuga de memoria lenta que un atacante con muchas IPs acelera a propósito).
 const rlSweep = setInterval(() => {
@@ -168,6 +172,10 @@ app.get("/", (_req, res) =>
         "{ address, score, replay, signature } -> verifies & settles (replay shape per game; " +
         "the replay must declare the match's rules version, e.g. v: 2 for snake/racing — " +
         "stale-rules submissions are rejected with 'rules version mismatch')",
+      "POST /match/:id/live/start":
+        "{ address, signature, ts } -> open or resume your live attempt (live games only; matchmake says live: true). Sign liveStartAuthMessage(matchId, address, ts). Returns { token, tick, flaps, reveal, revealed }",
+      "POST /match/:id/live/commit":
+        "{ address, token, from, to, flaps, have, final? } -> commit your flaps in [from, to) and get the random values the game uses in the next 15 ticks. 409 { tick, reveal } = resend from tick",
       "GET /match/:id?address=":
         "match status; when settled returns rich feedback: { winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta }",
       "GET /leaderboard/:game?limit=": "ELO leaderboard for a game",
@@ -239,6 +247,9 @@ app.post("/match/:id/score", strictLimit, async (req, res) => {
   }
 });
 
+// PARTIDAS EN VIVO: abrir el intento y comprometer jugadas (ver live.ts).
+app.use(liveRouter({ start: strictLimit, commit: liveLimit }));
+
 // Completar la partida contra un bot (SOLO pruebas en solitario).
 // Apagado en produccion salvo que se active con ENABLE_TEST_BOT=true.
 app.post("/match/:id/bot", async (req, res) => {
@@ -280,10 +291,9 @@ app.get("/match/:id/replay", (req, res) => {
 
 // AGENTES HOSTEADOS: catálogo de estrategias + CRUD firmado + historial.
 // Las mutaciones (POST) pasan por el límite estricto: generan claves y
-// recuperan firmas; las lecturas (GET) quedan con el límite global.
-app.use("/agents", (req, res, next) =>
-  req.method === "POST" ? strictLimit(req, res, next) : next(),
-);
+// recuperan firmas; las lecturas (GET) quedan con el límite global. La
+// excepción es comprometer jugadas en vivo (una vez por tubo): liveLimit.
+app.use("/agents", agentsPostLimit(strictLimit, liveLimit));
 app.use(agentsRouter);
 
 // PERFILES humanos: editar (POST) recupera una firma -> límite estricto; leer libre.
