@@ -71,3 +71,41 @@ test("la casa juega Flappy en vivo sin ver el secreto, y su puntaje es el de su 
   const done = getMatch(pending)!;
   assert.equal(houseScore, batchWithSecret(done.secret!));
 });
+
+test("un agente que ya jugó no vuelve a intentarlo mientras espera al rival", async () => {
+  const agent = createHostedAgent({
+    owner: "0x" + "d".repeat(40),
+    name: "Paciente",
+    avatar: "🤖",
+    game: "2048",
+    strategyId: "2048.priority",
+    params: undefined,
+  });
+  await runAgentsTick(); // se encola
+  const pending = getAgent(agent.id)!.pendingMatchId!;
+  const rival = privateKeyToAccount(generatePrivateKey());
+  const rivalAddr = rival.address.toLowerCase();
+  const ts = Date.now();
+  const signature = await rival.signMessage({
+    message: matchmakeAuthMessage("2048", 0, rivalAddr, ts),
+  });
+  await matchmake("2048", 0, rivalAddr, { signature, ts });
+  await runAgentsTick(); // juega
+  assert.equal(typeof matchRecord(pending)!.scores[agent.address.toLowerCase()], "number");
+
+  // El rival todavía no jugó: el próximo tick no tiene nada que hacer con él.
+  const errors: string[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => void errors.push(args.map(String).join(" "));
+  try {
+    await runAgentsTick();
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(
+    errors.filter((e) => e.includes(agent.id)),
+    [],
+    "no vuelve a jugar ni a enviar",
+  );
+  assert.equal(getAgent(agent.id)!.pendingMatchId, pending, "y sigue esperando su resultado");
+});
