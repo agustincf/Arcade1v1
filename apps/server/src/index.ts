@@ -32,7 +32,7 @@ import {
   acquireLease,
   startLeaseHeartbeat,
 } from "./persist.js";
-import { readinessGate, markReady } from "./readiness.js";
+import { readinessGate, setMode } from "./readiness.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 import { agentsRouter, agentsPostLimit } from "./agents-routes.js";
@@ -398,5 +398,5 @@ startAlephHouse();
 
 // La posta late mientras esta instancia la tenga; desde acá se atiende todo.
 startLeaseHeartbeat();
-markReady();
+setMode("ready");
 console.log("Árbitro listo: estado cargado");
