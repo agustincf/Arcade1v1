@@ -18,9 +18,9 @@ La publicación en npm y en el registry del MCP la hace el dueño, o se hace con
 
 ## Precondiciones (NO empezar sin esto)
 
-- [ ] #28, #30 y #33 mergeados en `main`.
-- [ ] El traspaso del #33 verificado en producción: en un deploy POSTERIOR al del #33, los logs de Render muestran `Traspaso: released` y después `Árbitro listo: estado cargado`. Lo mira el dueño en el panel de Render.
-- [ ] OK del dueño para publicar. Los paquetes ya dicen 0.4.0 y esa versión todavía no se publicó (la estaba esperando Aleph, etapa 4 y reglas v2 del #31). Decidir si el 0.4.0 sale con el benchmark adentro o si el benchmark va en un 0.5.0 aparte.
+- [ ] #28, #30 y #33 mergeados en `main`, y también el arreglo del traspaso con timbre (rama `fix/traspaso-con-timbre`, spec `docs/superpowers/specs/2026-09-18-traspaso-con-timbre-design.md`). El #33 solo no alcanza: Render manda el SIGTERM a la instancia vieja 60 s después de pasarle el tráfico a la nueva, y su espera de 60 s vence siempre.
+- [ ] El traspaso verificado en producción: en un deploy POSTERIOR al del timbre, los logs de Render muestran que la instancia nueva esperó a la vieja y recién después cargó el estado (`Árbitro listo: estado cargado`), sin `Traspaso: timeout`. Lo mira el dueño en el panel de Render.
+- [ ] OK del dueño para publicar. La 0.4.0 ya se publicó el 2026-09-18 (Aleph con reglas v2), sin el benchmark: el benchmark sale como **0.5.0**.
 
 ## Global Constraints
 
@@ -69,13 +69,14 @@ La publicación en npm y en el registry del MCP la hace el dueño, o se hace con
     - la notificación trae `live: true` y `secretHash`, sin semilla;
     - `/agents/:id/live/start` y `/live/commit`;
     - el plazo corre hasta terminar el intento;
-  - cómo se re-verifica: `secret` al decidirse y `verifyFlappyLive`.
+  - cómo se re-verifica: `secret` al decidirse y `verifyFlappyLive`;
+  - lo que `playAndSubmit` hace solo: reintenta lo pasajero (red, 429, 5xx), retoma un intento cortado (hasta 2 veces), valida la llamada antes de emparejar y avisa si una partida decidida no publica su secreto.
 - [ ] En las guías de API y de agentes: los endpoints en vivo con ejemplos; el hash del secreto al emparejar y el secreto al decidir; el límite de 60 compromisos cada 10 s.
 - [ ] Commit `docs: Flappy en vivo para quienes juegan con agentes`.
 
 ### Task 4: Versiones y verificación
 
-- [ ] Según lo que decida el dueño: dejar 0.4.0 (una sola publicación con Aleph) o subir a 0.5.0 los 4 paquetes (`game-sdk`, `strategies`, `agent-sdk`, `mcp`). Esto incluye `server.json` del MCP si tiene versión.
+- [ ] Subir a 0.5.0 los 4 paquetes (`game-sdk`, `strategies`, `agent-sdk`, `mcp`), con las dependencias internas entre ellos (`^0.5.0`) y `server.json` del MCP si tiene versión.
 - [ ] `npx prettier --write . && npm run check` en verde.
 - [ ] Prueba manual de la web contra árbitro y web locales, **ya con `RULES_V.flappy = 2` commiteado**:
   - jugar, cerrar y ver el resultado;
@@ -88,6 +89,6 @@ La publicación en npm y en el registry del MCP la hace el dueño, o se hace con
 
 - [ ] El dueño mergea: se despliegan el árbitro (Render) y la web (Vercel).
 - [ ] Con OK del dueño:
-  - publicar los paquetes (`npm run release` en cada uno, o el flujo de `scripts/publish-sdk.mjs`) y el MCP en el registry;
+  - publicar los paquetes (`npm run release` en cada uno, o el flujo de `scripts/publish-sdk.mjs`) y el MCP en el registry. Trampas de la 0.4.0: publicar de a uno; npm puede dejar el MCP "staged" esperando aprobación (`npm stage approve`, con npm 11.19.1: `npm@latest` es la 12 y no es compatible); `mcp-publisher` se instala con brew;
   - un smoke contra producción: el SDK publicado juega una partida de Flappy en la ladder gratis y el resultado re-verifica con el secreto.
 - [ ] Anotar en la memoria del proyecto: fecha, versión publicada y resultado del smoke.
