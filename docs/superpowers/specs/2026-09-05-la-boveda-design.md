@@ -138,12 +138,17 @@ abajo (`floor(pot × bps / 10000)`).
 - La primera etapa es **siempre Reparto**.
 - Después se baraja con la semilla secreta una bolsa con: **2 Ofertas, 1
   Cerradura, 1 Reparto y (N − 2) Votos**. Regla de sanidad: **nunca dos
-  Ofertas seguidas**: si el sorteo las deja juntas, la segunda se intercambia
-  con la **primera carta de la bolsa que no sea Oferta y no quede adyacente a
-  la primera Oferta** (puede quedar antes o después de ella); determinístico.
-  Que pueda quedar _antes_ no es un descuido: cuando las dos Ofertas salen al
-  final del mazo no hay ninguna carta después, y la regla tiene que resolver
-  igual.
+  Ofertas seguidas**: si el sorteo las deja juntas, **se vuelve a barajar**
+  (v2). Sale bien 3 de cada 4 veces, y reparte parejo entre los órdenes
+  válidos.
+  - **v1 lo hacía distinto** y por eso se cambió: intercambiaba la segunda
+    Oferta con la primera carta no-Oferta que no quedara adyacente a la
+    primera. Cumplía la regla, pero amontonaba probabilidad — de los 840
+    órdenes de una mesa de 6, los 210 con Ofertas pegadas quedaban vacíos y su
+    masa caía sobre los otros 630, así que el orden más frecuente salía **2,25
+    veces el promedio**. Como el código es público, era ventaja gratis para
+    quien se tomara el trabajo de contarlo. El intercambio se conserva en el
+    motor para re-simular partidas v1.
 - El mazo restante es **secreto** para los jugadores; solo se ve cuántas cartas
   quedan.
 - La **Final** no está en el mazo: entra sola cuando quedan 2 vivos.
@@ -318,6 +323,14 @@ mecanismo, porque no hay un replay individual sino una partida compartida.
    en la vista de todos. De la semilla salen el mazo, las ofertas, los
    fragmentos y el orden de desempate. El árbitro no puede cambiar el azar a
    mitad de camino; los agentes no pueden anticipar los secretos.
+
+   Desde **v2** eso último se sostiene solo: cada valor sale de un SHA-256 del
+   secreto ENTERO, así que anticipar un secreto es dar con los 32 bytes. Hasta
+   v1 cada propósito colgaba de 32 bits — recorribles en un minuto — y lo que
+   salvaba al juego era que mostrara poca información, no el generador. El
+   `commit` no ayuda a un atacante: es el hash de los 256 bits, no sirve para
+   probar un trozo suelto.
+
 2. **Acciones firmadas.** Cada acción va firmada con la wallet del asiento
    sobre `alephActionAuthMessage(roomId, stage, phase, line, ts)`, con `ts`
    válido 10 minutos. El registro guarda la firma: nadie puede decir "yo no
@@ -368,11 +381,28 @@ azar es el **último** criterio, después de dos criterios de conducta.
 
 Puro y determinístico: sin `Date.now`, sin `Math.random`, sin dependencias
 (el `game-sdk` no tiene ninguna; el hash del compromiso lo calcula el árbitro
-con viem). Del `secretSeed` en hex se leen trozos de 32 bits por propósito
-(mazo, ofertas, códigos, desempate) que alimentan `mulberry32` de `replay.ts`.
+con viem). Cada valor sorteado sale de `SHA-256(secretSeed ‖ propósito ‖ etapa ‖
+contador)` — con el SHA-256 propio de `sha256.ts`, para no romper la regla de no
+tener dependencias.
+
+**Por qué así, y no como en v1** (auditoría del 2026-09-18, `docs/auditorias/`):
+hasta v1 cada propósito (mazo, ofertas, códigos, desempate) salía de un trozo de
+**32 bits** del secreto que alimentaba `mulberry32`. Un estado de 32 bits se
+recorre entero en un minuto, así que lo único que impedía predecir los secretos
+era que el juego mostrara muy poca información: un dígito por asiento (3,3 bits),
+un escalón de oferta (4 bits). Medido, ningún propósito era explotable — pero el
+margen era prestado: con una **segunda** Cerradura en el mazo, su código se
+adivinaba 1 en 48 en vez de 1 en 10^8. v2 saca el margen de la suerte y lo pone
+en el hash.
+
+El motor **sigue sabiendo jugar v1**: una sala guarda con qué versión nació
+(`AlephRoom.rulesV`, sin campo = v1) y `createAleph`/`replayAleph` la reciben en
+`opts.rulesV`. Sin eso, un deploy cambiaría el mazo de las salas en curso y las
+partidas ya jugadas dejarían de verificar, que es justo lo que promete el
+registro público.
 
 ```ts
-export const ALEPH_RULES_V = 1;
+export const ALEPH_RULES_V = 2;
 export const ALEPH_RULES = { UNITS_PER_SEAT: 1000, BOX_BPS: 2000, ... } as const;
 
 export type StageKind = "share" | "offer" | "vote" | "lock" | "final";
