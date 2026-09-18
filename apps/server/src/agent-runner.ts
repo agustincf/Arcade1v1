@@ -16,6 +16,7 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { playFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
 import {
   getMatch,
+  matchRecord,
   matchmake,
   peekWaiterAddress,
   submitScore,
@@ -34,7 +35,7 @@ import {
   type HostedAgent,
 } from "./agents.js";
 import { notifyWebhook, webhookAgentsEnabled } from "./webhook-fetch.js";
-import { liveStart, liveCommit } from "./live.js";
+import { liveStart, liveCommit, closeLiveAttempt } from "./live.js";
 
 // Kill switch + perillas de ritmo (por entorno, como el resto de la config).
 const ENABLED = process.env.AGENTS_ENABLED !== "false";
@@ -104,11 +105,15 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
     return false;
   }
 
-  // Con rival y sin nuestro puntaje: jugar ahora (la vista pre-decisión solo
-  // muestra el puntaje propio, así que esta lectura no filtra nada). En un
-  // DESAFÍO, el agente desafiado NO se compromete (ni gasta cómputo) hasta que el
-  // retador jugó: así un desafío abandonado no le cuesta nada (se suelta arriba).
-  if (m.status === "ready" && m.scores[address] === undefined) {
+  // Con rival y sin nuestro puntaje: jugar ahora. El "ya jugué" sale del
+  // registro interno: la vista pública no muestra puntajes hasta decidir
+  // (anti-espionaje), así que mirándola el agente volvía a jugar en cada tick y
+  // el envío rebotaba con "already submitted" (un BYO, además, soltaba la
+  // partida y perdía el resultado). En un DESAFÍO, el agente desafiado NO se
+  // compromete (ni gasta cómputo) hasta que el retador jugó: así un desafío
+  // abandonado no le cuesta nada (se suelta arriba).
+  const played = matchRecord(m.matchId)?.scores[address] !== undefined;
+  if (m.status === "ready" && !played) {
     if (m.challengeTarget && !m.rivalSubmitted) return false;
 
     // PARTIDA EN VIVO (hoy Flappy desde las reglas v2): la vista no trae semilla
@@ -158,25 +163,26 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
 
       // Plazo vencido (o kill switch apagado): RENDICIÓN REAL (replay vacío
       // verificable) para que el rival cobre en minutos. Cerrar la partida es
-      // lo importante; la auto-pausa viene después.
+      // lo importante; la auto-pausa viene después. EN VIVO el plazo corre
+      // hasta terminar el intento: si el dev lo dejó a medio jugar, se cierra
+      // contando lo alcanzado; solo si nunca lo abrió se rinde con 0.
       try {
-        const account = privateKeyToAccount(agent.privateKey);
-        const signature = await account.signMessage({
-          message: scoreAuthMessage(m.matchId, address, 0),
-        });
-        const after = await submitScore(
-          m.matchId,
-          address,
-          0,
-          emptyReplay(m.game, seed),
-          signature,
-        );
+        let after: ReturnType<typeof getMatch>;
+        if (live && (await closeLiveAttempt(m.matchId, address))) {
+          after = getMatch(m.matchId, address);
+        } else {
+          const account = privateKeyToAccount(agent.privateKey);
+          const signature = await account.signMessage({
+            message: scoreAuthMessage(m.matchId, address, 0),
+          });
+          after = await submitScore(m.matchId, address, 0, emptyReplay(m.game, seed), signature);
+        }
         // El dev no cumplió ESTA partida → una falla (el forfeit por kill
         // switch no cuenta: no es su culpa). Ocurre tras cerrar la partida.
         if (!killed && recordWebhookFailure(agent)) {
           console.log(`webhook agent ${agent.id} auto-pausado (partidas sin responder)`);
         }
-        recordSettledResult(agent, after, address);
+        if (after) recordSettledResult(agent, after, address);
         return true; // el forfeit re-simuló un replay: cuenta para el throttle
       } catch (e) {
         // El match pudo expirar/purgarse entre medio: soltar el pending para no
