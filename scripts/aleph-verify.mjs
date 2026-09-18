@@ -3,7 +3,9 @@
 // el árbitro no hizo trampa, sin confiar en él. Chequeos sobre el registro que
 // devuelve GET /aleph/:id/log:
 //   1) keccak256(secretSeed) == commit publicado al arrancar (el azar no cambió);
-//   2) el registro declara la MISMA versión de reglas que este motor;
+//   2) el registro declara una versión de reglas que este motor conoce (se
+//      re-simula con ESA, no con la vigente: una partida vieja tiene que poder
+//      verificarse para siempre);
 //   3) cada acción del registro está firmada por su asiento (nadie habló por otro);
 //   4) los cierres de fase son legítimos: uno anticipado solo si el estado lo
 //      justifica, uno por plazo solo si pasó una fase entera desde el anterior;
@@ -37,9 +39,13 @@ export async function verifyAlephLog(log, phaseMs = DEFAULT_PHASE_MS) {
   const check = (ok, name) => checks.push({ name, ok });
 
   check(keccak256(log.secretSeed) === log.commit, "compromiso: keccak256(secretSeed) == commit");
+  // El motor sabe jugar TODAS las versiones que existieron, no solo la vigente:
+  // una partida vieja se tiene que poder seguir verificando para siempre. Lo
+  // que se rechaza es una versión que este motor no conoce.
+  const rulesV = log.rulesV ?? 1;
   check(
-    log.rulesV === ALEPH_RULES_V,
-    `versión de reglas: el registro dice ${log.rulesV} y este motor es ${ALEPH_RULES_V}`,
+    Number.isInteger(rulesV) && rulesV >= 1 && rulesV <= ALEPH_RULES_V,
+    `versión de reglas: el registro dice ${log.rulesV} y este motor conoce de 1 a ${ALEPH_RULES_V}`,
   );
 
   let signed = 0;
@@ -79,7 +85,7 @@ export async function verifyAlephLog(log, phaseMs = DEFAULT_PHASE_MS) {
   // reloj, y es lo único que el árbitro decide solo.
   const badEnds = [];
   try {
-    let s = createAleph(log.secretSeed, log.seats);
+    let s = createAleph(log.secretSeed, log.seats, { rulesV });
     let prev = typeof log.startedAt === "number" ? log.startedAt : null;
     for (const ev of log.events) {
       if (ev.type === "phase_end") {
@@ -110,7 +116,7 @@ export async function verifyAlephLog(log, phaseMs = DEFAULT_PHASE_MS) {
   let payouts = null;
   let potInitial = 0;
   try {
-    const s = replayAleph(log.secretSeed, log.seats, log.events);
+    const s = replayAleph(log.secretSeed, log.seats, log.events, { rulesV });
     payouts = s.payouts;
     potInitial = s.potInitial;
   } catch (e) {

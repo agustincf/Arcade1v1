@@ -17,6 +17,7 @@ import {
   type StageKind,
   type AlephAction,
   type AlephEvent,
+  ALEPH_RULES_V,
 } from "@arcade1v1/game-sdk/aleph";
 import { getRating } from "../src/ratings.js";
 import type { AlephRoomView } from "../src/aleph.js";
@@ -86,6 +87,10 @@ function seededRoom(kind: StageKind, accs: PrivateKeyAccount[], id: string): str
         startedAt: T0,
         commit: keccak256(secretSeed as Hex),
         secretSeed,
+        // La semilla se eligió con el motor de HOY, así que la sala tiene que
+        // declarar las reglas de hoy: sin el campo valdría como v1 (de antes
+        // del versionado) y el mazo saldría otro.
+        rulesV: ALEPH_RULES_V,
         events: [],
         phaseDeadline: T0 + V.ALEPH_PHASE_MS,
       },

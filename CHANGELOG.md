@@ -10,6 +10,39 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Seguridad — ⚠️ ruptura: reglas de Aleph v2 (el azar de la sala)
+
+- **El azar de Aleph sale de un hash del secreto entero, no de 32 bits.** Hasta
+  las reglas v1, cada cosa que Aleph sortea (el mazo, las ofertas, los códigos
+  de la Cerradura y el orden de desempate) salía de un trozo de **32 bits** de
+  la semilla secreta. Un estado de 32 bits se prueba entero en un minuto, así
+  que lo único que impedía anticipar los secretos de una sala era que el juego
+  muestre muy poca información: un dígito por asiento, un escalón de oferta.
+
+  Auditado barriendo las 4.294.967.296 posibilidades de cada sorteo: **ninguno
+  era explotable** — con el dígito propio quedaban 429.410.353 candidatas y
+  acertar el siguiente daba 10,00 %, el azar puro. Pero el margen dependía de
+  un detalle de las reglas y no del generador: con una **segunda** Cerradura en
+  el mazo, su código se adivinaba 1 en 48 en vez de 1 en 100.000.000.
+
+  Ahora cada valor sale de `SHA-256(secreto ‖ propósito ‖ etapa ‖ contador)`.
+  El `game-sdk` sigue **sin dependencias**: trae su propio SHA-256, verificado
+  contra los vectores oficiales. El informe completo está en
+  `docs/auditorias/2026-09-18-aleph-azar-32-bits.md`.
+
+- **El mazo de Aleph ahora sale parejo.** La regla que evita dos Ofertas
+  seguidas intercambiaba una carta, y eso vaciaba 210 de los 840 órdenes
+  posibles y repartía su probabilidad entre los otros: el orden más frecuente
+  salía **2,25 veces** el promedio, ventaja gratis para quien leyera el código.
+  Ahora, si salen pegadas, se vuelve a barajar.
+
+- **Las partidas viejas siguen verificando.** Cada sala guarda con qué versión
+  de reglas nació y se re-simula con esa, así que el registro público de una
+  partida jugada bajo v1 da la misma tabla de pagos que siempre, y el
+  verificador (`scripts/aleph-verify.mjs`) acepta cualquier versión conocida.
+  Como efecto secundario, la actualización se puede desplegar **con salas
+  jugándose**: terminan con las reglas con las que empezaron.
+
 ### Agregado
 
 - **Mesas de plata en Aleph (etapa 4).** Hasta acá el pozo eran unidades que no

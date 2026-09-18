@@ -1,5 +1,6 @@
 // packages/game-sdk/test/aleph-helpers.ts
 // Helpers compartidos por los tests del motor de Aleph.
+import { mulberry32 } from "../src/replay";
 import {
   applyEvent,
   type AlephAction,
@@ -10,10 +11,17 @@ import {
 export const SEED = "0x" + "5eed".repeat(16);
 export const A = (i: number) => "0x" + i.toString(16).padStart(40, "0");
 export const seats = (n: number) => Array.from({ length: n }, (_, i) => A(i + 1));
-/** Semillas variadas y reproducibles (64 hex). */
-export const seedN = (i: number) =>
-  "0x" +
-  Array.from({ length: 64 }, (_, j) => ((i * 31 + j * 17 + i * j) % 16).toString(16)).join("");
+/** Semillas variadas y reproducibles (64 hex).
+ *
+ *  OJO con la versión anterior: `(i * 31 + j * 17 + i * j) % 16` dependía solo
+ *  de `i % 16`, así que devolvía **16 semillas distintas** por más que se la
+ *  llamara con miles de índices (`seedN(0) === seedN(16)`). Cualquier test que
+ *  barriera "muchas semillas" barría 16, y un histograma de mazos salía
+ *  desparejo por eso, no por el motor. */
+export const seedN = (i: number) => {
+  const rnd = mulberry32(Math.imul(i + 1, 2654435761) >>> 0);
+  return "0x" + Array.from({ length: 64 }, () => Math.floor(rnd() * 16).toString(16)).join("");
+};
 
 /** Aplica una acción de `address` en la etapa/fase ACTUAL del estado. */
 export function act(s: AlephState, address: string, action: AlephAction): AlephState {

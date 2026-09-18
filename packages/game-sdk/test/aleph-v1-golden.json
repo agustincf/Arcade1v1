@@ -1,0 +1,2290 @@
+{
+  "sorteos": [
+    {
+      "seed": "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "n": 4,
+      "deck": ["offer", "vote", "share", "vote", "lock", "offer"],
+      "tiebreak": [
+        "0x0000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000003",
+        "0x0000000000000000000000000000000000000004",
+        "0x0000000000000000000000000000000000000001"
+      ]
+    },
+    {
+      "seed": "0xf13579bdf13579bdf13579bdf13579bdf13579bdf13579bdf13579bdf13579bd",
+      "n": 5,
+      "deck": ["share", "lock", "offer", "vote", "vote", "vote", "offer"],
+      "tiebreak": [
+        "0x0000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000004",
+        "0x0000000000000000000000000000000000000003",
+        "0x0000000000000000000000000000000000000005",
+        "0x0000000000000000000000000000000000000001"
+      ]
+    },
+    {
+      "seed": "0xe147ad0369cf258be147ad0369cf258be147ad0369cf258be147ad0369cf258b",
+      "n": 6,
+      "deck": ["offer", "vote", "lock", "offer", "vote", "vote", "share", "vote"],
+      "tiebreak": [
+        "0x0000000000000000000000000000000000000003",
+        "0x0000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000004",
+        "0x0000000000000000000000000000000000000006",
+        "0x0000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000005"
+      ]
+    },
+    {
+      "seed": "0xd159d159d159d159d159d159d159d159d159d159d159d159d159d159d159d159",
+      "n": 7,
+      "deck": ["vote", "share", "offer", "lock", "offer", "vote", "vote", "vote", "vote"],
+      "tiebreak": [
+        "0x0000000000000000000000000000000000000007",
+        "0x0000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000003",
+        "0x0000000000000000000000000000000000000005",
+        "0x0000000000000000000000000000000000000004",
+        "0x0000000000000000000000000000000000000006"
+      ]
+    },
+    {
+      "seed": "0xc16b05af49e38d27c16b05af49e38d27c16b05af49e38d27c16b05af49e38d27",
+      "n": 8,
+      "deck": ["vote", "vote", "vote", "share", "offer", "lock", "vote", "vote", "vote", "offer"],
+      "tiebreak": [
+        "0x0000000000000000000000000000000000000006",
+        "0x0000000000000000000000000000000000000004",
+        "0x0000000000000000000000000000000000000003",
+        "0x0000000000000000000000000000000000000005",
+        "0x0000000000000000000000000000000000000008",
+        "0x0000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000007"
+      ]
+    },
+    {
+      "seed": "0xb17d39f5b17d39f5b17d39f5b17d39f5b17d39f5b17d39f5b17d39f5b17d39f5",
+      "n": 4,
+      "deck": ["offer", "vote", "offer", "share", "lock", "vote"],
+      "tiebreak": [
+        "0x0000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000004",
+        "0x0000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000003"
+      ]
+    }
+  ],
+  "partidas": [
+    {
+      "seed": "0xc16b05af49e38d27c16b05af49e38d27c16b05af49e38d27c16b05af49e38d27",
+      "n": 4,
+      "events": [
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 0,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 1,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 2,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000002"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000003"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000002"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000003"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 2,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 3,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 4,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 4,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000004"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000001"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000002"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 4,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 5,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 5,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 5,
+          "phase": "decide",
+          "action": {
+            "type": "steal"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 5,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        }
+      ],
+      "payouts": {
+        "0x0000000000000000000000000000000000000001": 598,
+        "0x0000000000000000000000000000000000000002": 438,
+        "0x0000000000000000000000000000000000000003": 478,
+        "0x0000000000000000000000000000000000000004": 2486
+      },
+      "stages": ["share", "offer", "vote", "share", "vote", "final"]
+    },
+    {
+      "seed": "0xb17d39f5b17d39f5b17d39f5b17d39f5b17d39f5b17d39f5b17d39f5b17d39f5",
+      "n": 5,
+      "events": [
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 0,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 1,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 1,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 1,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 1,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 1,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000001"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000001"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000003"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000003"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 1,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 2,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 3,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 3,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 4,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 5,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 5,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 5,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 5,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 5,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 5,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000004"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 5,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000004"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 5,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000005"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 5,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000004"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 5,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 6,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 6,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 7,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 7,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 7,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 7,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 7,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000003"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 7,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000005"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 7,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000002"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 7,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 8,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 8,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "phase_end",
+          "stage": 8,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        }
+      ],
+      "payouts": {
+        "0x0000000000000000000000000000000000000001": 428,
+        "0x0000000000000000000000000000000000000002": 1794,
+        "0x0000000000000000000000000000000000000003": 757,
+        "0x0000000000000000000000000000000000000004": 428,
+        "0x0000000000000000000000000000000000000005": 1593
+      },
+      "stages": ["share", "vote", "offer", "lock", "offer", "vote", "share", "vote", "final"]
+    },
+    {
+      "seed": "0xa18f6d4b2907e5c3a18f6d4b2907e5c3a18f6d4b2907e5c3a18f6d4b2907e5c3",
+      "n": 6,
+      "events": [
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 0,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 1,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 1,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 1,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 1,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 1,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 1,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000003"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000004"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000001"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000001"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 1,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 2,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 3,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000003"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000002"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000003"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000003"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 3,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "accept"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 4,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 5,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 5,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 5,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 5,
+          "phase": "decide",
+          "action": {
+            "type": "submit",
+            "code": "224",
+            "intent": "me"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 5,
+          "phase": "decide",
+          "action": {
+            "type": "submit",
+            "code": "000",
+            "intent": "me"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 5,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 6,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 6,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 6,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 6,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 6,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000006"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 6,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000006"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 6,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000002"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 6,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "phase_end",
+          "stage": 7,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 7,
+          "phase": "decide",
+          "action": {
+            "type": "steal"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 7,
+          "phase": "decide",
+          "action": {
+            "type": "split"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 7,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        }
+      ],
+      "payouts": {
+        "0x0000000000000000000000000000000000000001": 297,
+        "0x0000000000000000000000000000000000000002": 2623,
+        "0x0000000000000000000000000000000000000003": 753,
+        "0x0000000000000000000000000000000000000004": 513,
+        "0x0000000000000000000000000000000000000005": 1061,
+        "0x0000000000000000000000000000000000000006": 753
+      },
+      "stages": ["share", "vote", "share", "vote", "offer", "lock", "vote", "final"]
+    },
+    {
+      "seed": "0x9191919191919191919191919191919191919191919191919191919191919191",
+      "n": 7,
+      "events": [
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000007",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 0,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "accept"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "accept"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "accept"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "accept"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000007",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 1,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000007",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 2,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000007"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000007"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000007",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000001"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 2,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 3,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "steal"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "steal"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 3,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        }
+      ],
+      "payouts": {
+        "0x0000000000000000000000000000000000000001": 1027,
+        "0x0000000000000000000000000000000000000002": 747,
+        "0x0000000000000000000000000000000000000003": 909,
+        "0x0000000000000000000000000000000000000004": 909,
+        "0x0000000000000000000000000000000000000005": 1192,
+        "0x0000000000000000000000000000000000000006": 1189,
+        "0x0000000000000000000000000000000000000007": 1027
+      },
+      "stages": ["share", "offer", "vote", "final"]
+    },
+    {
+      "seed": "0x81a3c5e7092b4d6f81a3c5e7092b4d6f81a3c5e7092b4d6f81a3c5e7092b4d6f",
+      "n": 8,
+      "events": [
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000007",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000008",
+          "stage": 0,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 0,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000007",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "contribute"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000008",
+          "stage": 1,
+          "phase": "decide",
+          "action": {
+            "type": "keep"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 1,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000007",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000008",
+          "stage": 2,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 2,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000001",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000005"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000006"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000007"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000003"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000001"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000001"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000007",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000001"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000008",
+          "stage": 2,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000006"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 2,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000007",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000008",
+          "stage": 3,
+          "phase": "talk",
+          "action": {
+            "type": "ready"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 3,
+          "phase": "talk",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000005"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000008"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000008"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000005",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000006"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000005"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000008",
+          "stage": 3,
+          "phase": "decide",
+          "action": {
+            "type": "vote",
+            "target": "0x0000000000000000000000000000000000000005"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 3,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000002",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "accept"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000003",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "accept"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000004",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "decline"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000006",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "accept"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000007",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "accept"
+          },
+          "ts": 0
+        },
+        {
+          "type": "action",
+          "address": "0x0000000000000000000000000000000000000008",
+          "stage": 4,
+          "phase": "decide",
+          "action": {
+            "type": "accept"
+          },
+          "ts": 0
+        },
+        {
+          "type": "phase_end",
+          "stage": 4,
+          "phase": "decide",
+          "at": 0,
+          "reason": "deadline"
+        }
+      ],
+      "payouts": {
+        "0x0000000000000000000000000000000000000001": 774,
+        "0x0000000000000000000000000000000000000002": 554,
+        "0x0000000000000000000000000000000000000003": 624,
+        "0x0000000000000000000000000000000000000004": 4042,
+        "0x0000000000000000000000000000000000000005": 524,
+        "0x0000000000000000000000000000000000000006": 304,
+        "0x0000000000000000000000000000000000000007": 304,
+        "0x0000000000000000000000000000000000000008": 874
+      },
+      "stages": ["share", "share", "vote", "vote", "offer"]
+    }
+  ]
+}
