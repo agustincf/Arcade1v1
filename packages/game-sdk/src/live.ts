@@ -124,3 +124,22 @@ export class SecretSource implements RandomSource {
     }
   }
 }
+
+/** Lo que comprueba el jugador cuando la partida se decide: que el secreto
+ *  publicado es el que el árbitro comprometió al emparejar (`secretHash`) y
+ *  que todo lo que le reveló salió de ese secreto, en orden. Sin esto, el hash
+ *  no prueba nada: el árbitro podría haber mandado otros valores. Un secreto
+ *  mal formado da `false`, no tira. */
+export function checkLiveReveals(
+  secret: string,
+  secretHash: string,
+  reveals: readonly number[],
+): boolean {
+  try {
+    if (liveSecretHash(secret) !== secretHash) return false;
+    const expected = new SecretSource(secret).slice(0, reveals.length);
+    return reveals.every((v, i) => v === expected[i]);
+  } catch {
+    return false;
+  }
+}
