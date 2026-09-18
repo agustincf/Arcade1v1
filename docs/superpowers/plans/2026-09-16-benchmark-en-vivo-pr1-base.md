@@ -2793,3 +2793,30 @@ EOF
 - [ ] **Step 4: Esperar CI en verde**
 
 Los dos checks (`check (tipos + lint + formato + tests + selftest)` y `Contrato (forge test + e2e)`) tienen que quedar en verde. El merge lo hace el dueño desde GitHub.
+
+---
+
+## Corrección posterior: el azar en vivo sale de un secreto (2026-09-18)
+
+La revisión independiente del PR #28 encontró que `SeededSource` (Tarea 2)
+revelaba la salida cruda de `mulberry32(seed)`, y la semilla es de 32 bits: con
+el primer valor revelado se recuperaba por fuerza bruta en unos 3 segundos
+(reproducido: 2^31 semillas en 3,15 s, dos candidatas, y el segundo valor elige
+la correcta). El commit `46a0f1e` lo corrige sobre lo ya implementado:
+
+- `packages/game-sdk/src/live.ts`: `SecretSource(secreto)` reemplaza a
+  `SeededSource(seed)`. El valor `i` es SHA-256(secreto ‖ i como uint32
+  big-endian), primeros 4 bytes sobre 2^32, con `@noble/hashes` (nueva
+  dependencia del game-sdk; ya estaba instalada por viem). `liveSecretHash`
+  da el hash que se publica.
+- `packages/game-sdk/src/flappy-live.ts`: `verifyFlappyLive(secreto, replay)`.
+- `apps/server/src/matchmaking.ts`: `Match.liveSecret` (32 bytes de
+  `randomBytes`) al crear una partida en vivo, incluidos los desafíos. `view()`
+  y `publicReplay` publican `secretHash` desde el emparejamiento y `secret` al
+  decidir, y no muestran la semilla en un juego en vivo.
+- `apps/server/src/live.ts`: el motor del árbitro usa `SecretSource`, y una
+  partida en vivo sin secreto se rechaza.
+- Tests: `SecretSource` contra el SHA-256 de `node:crypto`, secretos mal
+  formados, `liveSecretHash`, `verifyFlappyLive`, el driver con secretos, "ni el
+  secreto ni la semilla aparecen antes de decidir", "lo revelado sale del
+  secreto", y las vistas con `secretHash`/`secret`.

@@ -1,7 +1,10 @@
 # Benchmark en vivo — diseño (piloto: Flappy)
 
-**Fecha:** 2026-09-16
-**Estado:** diseño aprobado por el dueño; falta el plan de implementación.
+**Fecha:** 2026-09-16 (corregido el 2026-09-18)
+**Estado:** diseño aprobado por el dueño; el PR 1 está en el PR #28. El
+2026-09-18 la revisión del PR 1 encontró que el azar salía de una semilla de 32
+bits que se podía adivinar. Ahora sale de un secreto de 256 bits (ver "Por qué
+alcanza" y "Motor").
 **Encuadre:** cierra el flanco abierto #1 de la auditoría del 2026-08-09, "el
 flanco del benchmark". El cambio de pestaña ya se cerró en las mesas de plata
 (PR #5). Este diseño ataca la otra mitad: que una partida no se pueda conocer
@@ -48,8 +51,9 @@ el rival sentado (`agent-runner.ts`).
 
 1. Flappy pasa a ser un juego **en vivo** (reglas v2). La física no cambia ni
    una línea.
-2. `matchmake` ya no entrega la semilla de Flappy. El árbitro la guarda hasta
-   que la partida se decide.
+2. `matchmake` ya no entrega la semilla de Flappy. El azar de una partida en
+   vivo sale de un secreto de 32 bytes que el árbitro guarda hasta que la
+   partida se decide; desde el emparejamiento solo publica su hash.
 3. Para jugar, el jugador abre un **intento** con una firma. El intento es
    único: no se reinicia.
 4. El juego sigue corriendo en el navegador o en el agente, pero el azar llega
@@ -59,8 +63,8 @@ el rival sentado (`agent-runner.ts`).
    Ese registro solo crece: lo que ya pasó no se reescribe.
 6. El árbitro simula a la par con las jugadas comprometidas. Cuando el pájaro
    muere ya tiene el puntaje, así que no hay "enviar" al final.
-7. Al decidirse la partida se publica la semilla, y cualquiera re-verifica con
-   `verifyFlappy`, como hoy.
+7. Al decidirse la partida se publica el secreto: cualquiera comprueba que su
+   hash es el publicado y re-verifica cada intento con `verifyFlappyLive`.
 8. Se despliega en tres PR: la base apagada, los clientes apagados, y el
    interruptor el mismo día que se publica en npm.
 
@@ -134,10 +138,11 @@ el rival sentado (`agent-runner.ts`).
 
 ### Lo que ve cada uno
 
-- `MatchView` suma `live: true` y **omite `seed`** en juegos en vivo mientras la
-  partida no esté `settled` o `draw`.
-- `GET /match/:id/replay` no cambia: sigue devolviendo solo partidas decididas,
-  con la semilla, así que cualquiera re-verifica.
+- `MatchView` suma `live: true` y `secretHash` (el SHA-256 del secreto) desde
+  que se empareja. `secret` aparece recién con la partida `settled` o `draw`.
+  Un juego en vivo **no trae `seed`**, ni antes ni después: no la usa.
+- `GET /match/:id/replay` sigue devolviendo solo partidas decididas; en un juego
+  en vivo trae `secret` y `secretHash` en lugar de la semilla.
 - La notificación a un agente BYO por webhook de un juego en vivo va **sin
   `seed`** y con `live: true`.
 - El anti-espionaje de puntajes no cambia.
@@ -146,6 +151,15 @@ el rival sentado (`agent-runner.ts`).
 
 ## Por qué alcanza, y qué no cubre
 
+- **Adivinar el azar desde lo revelado:** cada valor es SHA-256(secreto ‖ i),
+  con un secreto de 256 bits, así que ver valores no dice nada de los
+  siguientes. La primera versión usaba `mulberry32(seed)` con una semilla de 32
+  bits: con el primer valor revelado, la semilla se recuperaba por fuerza bruta
+  en unos 3 segundos y se podía simular la partida entera. Lo encontró la
+  revisión del PR #28.
+- **Que el árbitro cambie el azar a mitad de partida:** el hash del secreto se
+  publica al emparejar y el secreto al decidir. Cualquiera comprueba que los
+  valores revelados salieron de ese secreto.
 - **Mirar y reiniciar:** el intento es único y `start` nunca lo resetea.
 - **Mirar lejos comprometiendo sin jugar:** las jugadas quedan fijas. Sin
   aletear, el pájaro cae y muere en alrededor de un segundo. El árbitro revela
@@ -158,7 +172,7 @@ el rival sentado (`agent-runner.ts`).
   guarda hasheado (sha256), se compara en tiempo constante y rota en cada
   `start`.
 - **Agentes de la casa:** juegan con el mismo protocolo, en proceso. Nunca leen
-  la semilla guardada, y hay un test que lo fija.
+  el secreto guardado, y hay un test que lo fija.
 - **Riesgo aceptado 1, caída dura del árbitro.** La persistencia agrupa
   escrituras cada 20 s (`PERSIST_DEBOUNCE_MS`). Si el proceso muere de golpe,
   se pueden perder hasta 20 s de compromisos; un redeploy no, porque hace flush
@@ -191,6 +205,11 @@ el rival sentado (`agent-runner.ts`).
 - **`BufferedRandom`**, en el subpath nuevo `@arcade1v1/game-sdk/live`: una
   fuente alimentada con los valores revelados. Informa cuántos le quedan y tira
   `NeedsReveal` si se le pide uno que no llegó.
+- **`SecretSource`**, también en `live`: la fuente del árbitro. El valor `i`
+  son los primeros 4 bytes, big-endian, de SHA-256(secreto ‖ i como uint32
+  big-endian), divididos por 2^32. Usa `@noble/hashes` (auditada, sin
+  dependencias, ya instalada por viem). `liveSecretHash(secreto)` es el hash que
+  se publica, y `verifyFlappyLive(secreto, replay)` re-verifica un intento.
 - **`FlappyEngine.drawsWithin(ticks)`:** cuántos valores consumirían los
   próximos `ticks` sin aleteos. Simula solo el horario de tubos sobre una copia
   y sin tocar el motor. Respeta el estado: sin el primer aleteo los tubos no se
@@ -214,10 +233,13 @@ el rival sentado (`agent-runner.ts`).
     `live?: Record<address, LiveAttempt>`, con
     `LiveAttempt { tokenHash, startedAt, tick, flaps, revealed, over?, score? }`.
     Se persiste con la partida.
+  - La partida en vivo nace con `liveSecret` (32 bytes de `randomBytes`), que se
+    persiste con ella y no sale en ninguna vista hasta decidir.
   - Una caché de motores en memoria por intento: se borra al terminar o vencer
     el intento y se reconstruye repitiendo el registro después de un reinicio.
 - **`matchmaking.ts`:**
-  - `view()` omite la semilla y marca `live`.
+  - `view()` omite la semilla, marca `live` y publica `secretHash` (y `secret`
+    al decidir).
   - `submitScore` acepta solo la rendición en un juego en vivo.
   - Las partidas creadas con las reglas viejas quedan en el corte seco que ya
     existe ("rules version mismatch").
@@ -274,8 +296,8 @@ el rival sentado (`agent-runner.ts`).
     desaparece, así que siguen siendo dos firmas por partida);
   - si hay un intento abierto al recargar, lo retoma;
   - toma el puntaje que confirma el árbitro.
-- **`ReplayPlayer`** no cambia: la semilla llega con el replay de la partida
-  decidida.
+- **`ReplayPlayer`**: en un juego en vivo, el replay decidido trae el secreto en
+  vez de la semilla, y el motor se arma con `SecretSource`.
 
 ---
 
@@ -285,7 +307,9 @@ el rival sentado (`agent-runner.ts`).
   - con `RandomSource` da exactamente lo mismo que con la semilla, en cientos de
     semillas;
   - `drawsWithin` coincide con lo que después se consume de verdad;
-  - `BufferedRandom` corta cuando falta un valor.
+  - `BufferedRandom` corta cuando falta un valor;
+  - `SecretSource` coincide con el SHA-256 de `node:crypto` (una implementación
+    independiente), y `verifyFlappyLive` re-verifica los intentos.
 - **Árbitro** (`apps/server/test/live-flappy.test.ts`):
   - `start` exige firma y ser jugador de la partida;
   - un segundo `start` no reinicia y rota el token;
@@ -300,16 +324,17 @@ el rival sentado (`agent-runner.ts`).
   - rendición con `submitScore`, y rechazo de replays comunes;
   - el intento abandonado vence;
   - restauración después de un reinicio;
-  - la semilla no aparece en ninguna vista antes de decidir;
+  - ni el secreto ni la semilla aparecen en ninguna respuesta antes de decidir,
+    y lo revelado sale del secreto;
   - el control de depósito on-chain al abrir en una mesa de plata;
   - los endpoints BYO con secreto, y que al vencer el plazo un intento abierto
     se cierra contando lo alcanzado.
 - **Estrategias:** `step` y `play` deciden igual con los mismos estados.
 - **SDK:** `playAndSubmit` en vivo contra un árbitro en proceso llega al mismo
-  puntaje que la estrategia en lote con la misma semilla. Es la prueba de que
-  la estrategia no usaba información del futuro.
+  puntaje que la estrategia jugada de un tirón con el secreto publicado. Es la
+  prueba de que la estrategia no usaba información del futuro.
 - **Runner:** un agente de la casa juega Flappy en vivo, y un test fija que ese
-  camino no lee `m.seed`.
+  camino no ve el secreto.
 - **Web:** tests del planificador de compromisos (función pura) y prueba manual
   en el navegador contra un árbitro local antes del interruptor.
 - **Selftest:** los casos de Flappy pasan al protocolo nuevo en el PR 3.
