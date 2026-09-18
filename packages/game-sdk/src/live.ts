@@ -7,8 +7,7 @@
 // re-verifica (verifyFlappyLive).
 // Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md
 
-import { sha256 } from "@noble/hashes/sha2";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import { sha256, sha256Hex, hexToBytes } from "./sha256";
 import type { RandomSource } from "./replay";
 
 export type { RandomSource };
@@ -78,7 +77,7 @@ function secretBytes(secret: string): Uint8Array {
  *  la partida se publica el secreto, y cualquiera comprueba que es el mismo que
  *  se usó desde el principio. */
 export function liveSecretHash(secret: string): string {
-  return bytesToHex(sha256(secretBytes(secret)));
+  return sha256Hex(secretBytes(secret));
 }
 
 /** Fuente de azar del ÁRBITRO (y de quien re-verifica con el secreto ya
