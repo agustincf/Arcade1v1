@@ -306,8 +306,14 @@ test("cerradura: arma el código con los fragmentos cantados, y espera si falta 
 // Llegar a una Cerradura hace falta fijar la SEMILLA: el mazo sale de ahí y de
 // ningún otro lado, así que sin fijarla el test caía en esa etapa una de cada
 // seis corridas y pasaba en verde con el bug adentro.
+//
+// OJO: la semilla vale para UNA versión de reglas. Con esta, el mazo de una
+// mesa de 4 en reglas v2 sale `lock → share → vote → offer → vote → offer`, o
+// sea que la Cerradura es la primera carta. Si algún día cambia de nuevo cómo
+// se sortea el mazo, hay que buscar otra semilla o este test falla con
+// "action contribute not allowed now".
 const SEMILLA_CON_CERRADURA =
-  "0x358c0c52129d876f566a1bd6d04ff14236faef87f26601e3a5a1f1dcc1df2c92" as const;
+  "0xe6c0e5ff4248adbd91dd24a550ce3bd5bc0afae0363c369a3a5c9e94a279e701" as const;
 
 test("cerradura: el paso del relleno NO se reintenta en cada barrido", async () => {
   V.__forceAlephSeedForTest(SEMILLA_CON_CERRADURA);

@@ -118,6 +118,11 @@ export interface AlephRoom {
   settledAt?: number; // también para `dissolved` (fecha de cierre)
   commit?: Hex; // keccak256(secretSeed), público desde el arranque
   secretSeed?: Hex; // NUNCA sale en una vista hasta `settled`
+  /** Con qué reglas nació la sala. El estado NO se persiste: se re-simula del
+   *  registro, así que la sala tiene que arrastrar su versión o una partida
+   *  vieja saldría con otro mazo (y otra tabla de pagos) después de un deploy.
+   *  Sin el campo = v1: es de antes de que existiera. */
+  rulesV?: number;
   events: AlephEvent[]; // el registro: única fuente de verdad del juego
   phaseDeadline?: number;
   // ---- Mesa de plata (stake > 0) ----
@@ -282,11 +287,14 @@ async function persistNow(): Promise<void> {
   await store$.flush();
 }
 
+/** Con qué reglas juega esta sala. Las de antes del versionado son v1. */
+export const rulesVOf = (room: AlephRoom): number => room.rulesV ?? 1;
+
 /** Estado del motor de una sala, derivado del registro (con cache). */
 export function stateOf(room: AlephRoom): AlephState {
   let s = states.get(room.id);
   if (!s) {
-    s = replayAleph(room.secretSeed!, room.seats, room.events);
+    s = replayAleph(room.secretSeed!, room.seats, room.events, { rulesV: rulesVOf(room) });
     states.set(room.id, s);
   }
   return s;
@@ -399,7 +407,15 @@ export async function joinAleph(
   }
   if (!room) {
     if (liveCount() >= ALEPH_MAX_ROOMS) throw new AlephError("room limit reached, try again later");
-    room = { id: randomHex32(), stake, status: "lobby", seats: [], createdAt: now, events: [] };
+    room = {
+      id: randomHex32(),
+      stake,
+      status: "lobby",
+      seats: [],
+      createdAt: now,
+      events: [],
+      rulesV: ALEPH_RULES_V,
+    };
     rooms.set(room.id, room);
     openLobby.set(stake, room.id);
   }
@@ -425,10 +441,11 @@ function startRoom(room: AlephRoom, now: number): void {
   forcedSeed = undefined;
   room.secretSeed = secretSeed;
   room.commit = keccak256(secretSeed);
+  room.rulesV = ALEPH_RULES_V; // queda anotado: la sala se re-simula con ESTA
   room.status = "playing";
   room.startedAt = now;
   room.phaseDeadline = now + ALEPH_PHASE_MS;
-  states.set(room.id, createAleph(secretSeed, room.seats));
+  states.set(room.id, createAleph(secretSeed, room.seats, { rulesV: room.rulesV }));
   if (openLobby.get(room.stake) === room.id) openLobby.delete(room.stake);
   recordMatchCreated(now); // métrica: una sala cuenta como una partida
 }
@@ -746,7 +763,7 @@ export function alephLog(roomId: string, now = Date.now()) {
   return {
     roomId: room.id,
     stake: room.stake,
-    rulesV: ALEPH_RULES_V,
+    rulesV: rulesVOf(room),
     seats: room.seats,
     commit: room.commit,
     secretSeed: room.secretSeed,
@@ -994,7 +1011,7 @@ export function roomView(room: AlephRoom, address?: string): AlephRoomView {
     roomId: room.id,
     stake: room.stake,
     status: room.status,
-    rulesV: ALEPH_RULES_V,
+    rulesV: rulesVOf(room),
     min: ALEPH_MIN_SEATS,
     max: ALEPH_MAX_SEATS,
     createdAt: room.createdAt,
