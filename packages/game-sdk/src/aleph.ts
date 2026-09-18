@@ -6,6 +6,7 @@
 //
 // Vocabulario (constantes, acciones, forma canónica): ./aleph-rules.
 import { mulberry32 } from "./replay";
+import { sha256, hexToBytes } from "./sha256";
 import {
   assertMessageText,
   ALEPH_RULES as R,
@@ -104,17 +105,63 @@ export const bps = (x: number, b: number) => Math.floor((x * b) / 10000);
 export const norm = (a: string) => a.toLowerCase();
 const ADDRESS_RE = /^0x[0-9a-f]{40}$/;
 
-/** Trozo de 32 bits número `i` (0..7) de la semilla de 32 bytes. */
+const SEED_RE = /^[0-9a-fA-F]{64}$/;
+
+/** Trozo de 32 bits número `i` (0..7) de la semilla de 32 bytes. Solo v1. */
 function chunk(seed: string, i: number): number {
   const h = seed.replace(/^0x/, "");
-  if (!/^[0-9a-fA-F]{64}$/.test(h)) throw new Error("invalid seed: expected 32 bytes hex");
+  if (!SEED_RE.test(h)) throw new Error("invalid seed: expected 32 bytes hex");
   return parseInt(h.slice(i * 8, i * 8 + 8), 16) >>> 0;
 }
 
+function seedBytes(seed: string): Uint8Array {
+  const h = seed.replace(/^0x/, "");
+  if (!SEED_RE.test(h)) throw new Error("invalid seed: expected 32 bytes hex");
+  return hexToBytes(h);
+}
+
 /** RNG por PROPÓSITO (0 mazo, 1 ofertas, 2 códigos, 3 desempate) y por etapa:
- *  misma semilla + misma etapa => misma secuencia, sin contadores en el estado. */
-export function rngFor(seed: string, purpose: number, stageIndex: number): () => number {
-  return mulberry32((chunk(seed, purpose) ^ Math.imul(stageIndex + 1, 0x9e3779b1)) >>> 0);
+ *  misma semilla + misma etapa => misma secuencia, sin contadores en el estado.
+ *
+ *  v2: cada valor sale de SHA-256(secreto ‖ propósito ‖ etapa ‖ contador), así
+ *  que depende de los 32 BYTES del secreto. Adivinarlo es dar con el secreto
+ *  entero: 2^256.
+ *
+ *  v1 (hasta el 2026-09-18): `mulberry32` sembrado con un trozo de 32 bits del
+ *  secreto. Un estado de 32 bits se recorre entero en un minuto, así que lo
+ *  único que impedía predecir los secretos de una sala era que el juego mostrara
+ *  muy poca información — un dígito por asiento, un escalón de oferta. Medido:
+ *  con una segunda Cerradura en el mazo, su código se adivinaba 1 en 48 en vez
+ *  de 1 en 10^8. NO se borra: `replayAleph` tiene que seguir reproduciendo las
+ *  partidas jugadas bajo v1, que es lo que promete el registro público. */
+export function rngFor(
+  seed: string,
+  purpose: number,
+  stageIndex: number,
+  rulesV: number = ALEPH_RULES_V,
+): () => number {
+  if (rulesV === 1) {
+    return mulberry32((chunk(seed, purpose) ^ Math.imul(stageIndex + 1, 0x9e3779b1)) >>> 0);
+  }
+  const msg = new Uint8Array(32 + 12);
+  msg.set(seedBytes(seed));
+  const dv = new DataView(msg.buffer);
+  dv.setUint32(32, purpose >>> 0);
+  dv.setUint32(36, stageIndex >>> 0); // -1 viaja como 0xffffffff
+  let block: Uint8Array = new Uint8Array(32);
+  let counter = 0;
+  let pos = 32; // fuerza el primer hash en la primera llamada
+  return function () {
+    if (pos >= 32) {
+      dv.setUint32(40, counter++);
+      block = sha256(msg);
+      pos = 0;
+    }
+    const v =
+      ((block[pos] << 24) | (block[pos + 1] << 16) | (block[pos + 2] << 8) | block[pos + 3]) >>> 0;
+    pos += 4;
+    return v / 4294967296;
+  };
 }
 
 function shuffle<T>(arr: T[], rnd: () => number): T[] {
@@ -126,18 +173,48 @@ function shuffle<T>(arr: T[], rnd: () => number): T[] {
   return a;
 }
 
+const pegadas = (deck: StageKind[]): boolean => {
+  const first = deck.indexOf("offer");
+  return deck.indexOf("offer", first + 1) === first + 1;
+};
+
 /** La bolsa: 2 Ofertas, 1 Cerradura, 1 Reparto y (N − 2) Votos, barajada.
- *  Regla de sanidad: nunca dos Ofertas seguidas. Si el sorteo las deja juntas,
- *  la segunda se intercambia con la PRIMERA carta no-Oferta que no quede
- *  adyacente a la primera (puede caer antes o después); determinístico. Es la
- *  regla tal cual la describe el spec, sección "El mazo". */
-export function buildDeck(n: number, rnd: () => number): StageKind[] {
+ *  Regla de sanidad: nunca dos Ofertas seguidas.
+ *
+ *  v2: si salen juntas, se baraja de nuevo. Reparte PAREJO entre los órdenes
+ *  válidos.
+ *
+ *  v1: la segunda Oferta se intercambiaba con la PRIMERA carta no-Oferta que no
+ *  quedara adyacente a la primera. Cumplía la regla, pero amontonaba
+ *  probabilidad: de los 840 órdenes de una mesa de 6, los 210 con Ofertas
+ *  pegadas quedaban vacíos y su masa caía sobre los otros 630, así que el orden
+ *  más frecuente salía 2,25 veces el promedio — ventaja gratis para quien leyera
+ *  el código. Se conserva para re-simular partidas v1. */
+export function buildDeck(
+  n: number,
+  rnd: () => number,
+  rulesV: number = ALEPH_RULES_V,
+): StageKind[] {
   const bag: StageKind[] = ["offer", "offer", "lock", "share"];
   for (let i = 0; i < n - 2; i++) bag.push("vote");
-  const deck = shuffle(bag, rnd);
-  const first = deck.indexOf("offer");
-  const second = deck.indexOf("offer", first + 1);
-  if (second === first + 1) {
+  if (rulesV === 1) {
+    const deck = shuffle(bag, rnd);
+    const first = deck.indexOf("offer");
+    const second = deck.indexOf("offer", first + 1);
+    if (second === first + 1) {
+      const q = deck.findIndex((c, idx) => c !== "offer" && Math.abs(idx - first) > 1);
+      [deck[second], deck[q]] = [deck[q], deck[second]];
+    }
+    return deck;
+  }
+  // Cada intento sale bien 3 de cada 4 veces; el tope solo existe para que un
+  // rnd degenerado no cuelgue al árbitro, y cae en la corrección de v1, que
+  // cumple la regla igual.
+  let deck = shuffle(bag, rnd);
+  for (let intento = 0; pegadas(deck) && intento < 100; intento++) deck = shuffle(bag, rnd);
+  if (pegadas(deck)) {
+    const first = deck.indexOf("offer");
+    const second = deck.indexOf("offer", first + 1);
     const q = deck.findIndex((c, idx) => c !== "offer" && Math.abs(idx - first) > 1);
     [deck[second], deck[q]] = [deck[q], deck[second]];
   }
@@ -170,13 +247,13 @@ export function beginStage(s: AlephState, kind: StageKind): void {
     st.shareBonus = bps(s.pot, R.SHARE_BONUS_BPS);
   }
   if (kind === "offer") {
-    const rnd = rngFor(s.seed, 1, index);
+    const rnd = rngFor(s.seed, 1, index, s.rulesV);
     const steps = (R.OFFER_MAX_BPS - R.OFFER_MIN_BPS) / R.OFFER_STEP_BPS + 1;
     st.offerBps = R.OFFER_MIN_BPS + R.OFFER_STEP_BPS * Math.floor(rnd() * steps);
     st.offerTotal = bps(s.pot, st.offerBps);
   }
   if (kind === "lock") {
-    const rnd = rngFor(s.seed, 2, index);
+    const rnd = rngFor(s.seed, 2, index, s.rulesV);
     const fragments: Record<string, Fragment> = {};
     let code = "";
     aliveSeats(s).forEach((seat, pos) => {
@@ -193,11 +270,13 @@ export function beginStage(s: AlephState, kind: StageKind): void {
 
 const DECK_KINDS = new Set<StageKind>(["share", "offer", "vote", "lock"]);
 
-/** Estado inicial de una sala. `opts.deck` fuerza el mazo (solo tests). */
+/** Estado inicial de una sala. `opts.deck` fuerza el mazo (solo tests).
+ *  `opts.rulesV` re-simula con reglas viejas: una sala nace con la versión
+ *  vigente, pero verificar una partida ya jugada exige la suya. */
 export function createAleph(
   seed: string,
   seats: string[],
-  opts: { deck?: StageKind[] } = {},
+  opts: { deck?: StageKind[]; rulesV?: number } = {},
 ): AlephState {
   const addrs = seats.map(norm);
   const unique = new Set(addrs).size === addrs.length;
@@ -210,10 +289,11 @@ export function createAleph(
     throw new Error(`invalid seats: ${R.MIN_SEATS}..${R.MAX_SEATS} unique addresses`);
   }
   if (opts.deck && opts.deck.some((k) => !DECK_KINDS.has(k))) throw new Error("invalid deck");
+  const rulesV = opts.rulesV ?? ALEPH_RULES_V;
   const potInitial = R.UNITS_PER_SEAT * addrs.length;
   const box = bps(potInitial, R.BOX_BPS);
   const s: AlephState = {
-    rulesV: ALEPH_RULES_V,
+    rulesV,
     seed,
     seats: addrs.map((address) => ({
       address,
@@ -225,8 +305,10 @@ export function createAleph(
     pot: potInitial - box,
     box,
     potInitial,
-    deck: opts.deck ? opts.deck.slice() : buildDeck(addrs.length, rngFor(seed, 0, -1)),
-    tiebreak: shuffle(addrs, rngFor(seed, 3, -1)),
+    deck: opts.deck
+      ? opts.deck.slice()
+      : buildDeck(addrs.length, rngFor(seed, 0, -1, rulesV), rulesV),
+    tiebreak: shuffle(addrs, rngFor(seed, 3, -1, rulesV)),
     stage: { index: 0, kind: "share", phase: "decide", decisions: {}, ready: [], msgCount: {} },
     results: [],
     messages: [],
@@ -659,7 +741,7 @@ export function replayAleph(
   seed: string,
   seats: string[],
   events: AlephEvent[],
-  opts: { deck?: StageKind[] } = {},
+  opts: { deck?: StageKind[]; rulesV?: number } = {},
 ): AlephState {
   let s = createAleph(seed, seats, opts);
   for (const ev of events) s = applyEvent(s, ev);

@@ -4,8 +4,13 @@
 // (sin drift = las firmas verifican). Sin dependencias, sin reloj, sin azar.
 
 /** Versión de reglas. Cambiar cualquier constante de ALEPH_RULES es cambiar de
- *  versión: el árbitro y los clientes la comparan como en RULES_V. */
-export const ALEPH_RULES_V = 1;
+ *  versión: el árbitro y los clientes la comparan como en RULES_V.
+ *
+ *  v2 (2026-09-18): el azar de la sala pasa a derivarse con SHA-256 del secreto
+ *  ENTERO. Hasta v1 cada propósito salía de un trozo de 32 bits, que se recorre
+ *  entero en un minuto. El motor sigue sabiendo jugar v1, porque las partidas
+ *  ya jugadas tienen que seguir verificando: ver `rngFor` en aleph.ts. */
+export const ALEPH_RULES_V = 2;
 
 /** Reglas numéricas. NO son variables de entorno: son las reglas del juego. */
 export const ALEPH_RULES = {

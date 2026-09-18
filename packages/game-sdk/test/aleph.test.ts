@@ -78,17 +78,35 @@ test("mazo: composición por N, sin dos Ofertas seguidas, determinístico", () =
   );
 });
 
-test("mazo: la regla de adyacencia intercambia con la primera no-Oferta no adyacente", () => {
+test("mazo v1: la regla de adyacencia intercambia con la primera no-Oferta no adyacente", () => {
   // `rnd` guionado (j = floor(rnd * (i + 1)) en el barajado) para forzar el
   // caso borde: la bolsa queda [vote, lock, share, vote, offer, offer], con las
   // dos Ofertas juntas AL FINAL. La regla no busca "la siguiente" no-Oferta
   // (no hay ninguna después): intercambia con la PRIMERA carta no-Oferta que no
   // quede adyacente a la primera Oferta, que acá cae ANTES (índice 0).
+  //
+  // Es el comportamiento de v1, que se conserva para re-simular las partidas
+  // jugadas con esas reglas. v2 no intercambia: vuelve a barajar (más abajo).
   const vals = [0, 0.2, 0, 0, 0];
   let i = 0;
-  const deck = buildDeck(4, () => vals[i++]);
+  const deck = buildDeck(4, () => vals[i++], 1);
   assert.deepEqual(deck, ["offer", "lock", "share", "vote", "offer", "vote"]);
   assert.equal(i, vals.length, "el barajado consume exactamente n-1 números");
+});
+
+test("mazo v2: si las Ofertas salen pegadas, vuelve a barajar", () => {
+  // Mismo guion que arriba (deja las dos Ofertas juntas al final) y después
+  // números que dan un barajado sin Ofertas pegadas. v2 descarta el primero.
+  const vals = [0, 0.2, 0, 0, 0, 0, 0, 0, 0, 0];
+  let i = 0;
+  const deck = buildDeck(4, () => vals[i++], 2);
+  assert.ok(i > 5, "v2 tiene que consumir más números que un solo barajado");
+  for (let j = 1; j < deck.length; j++) {
+    assert.ok(
+      !(deck[j] === "offer" && deck[j - 1] === "offer"),
+      `quedaron pegadas: ${deck.join(",")}`,
+    );
+  }
 });
 
 test("createAleph con mazo forzado (para tests) lo respeta y valida", () => {
