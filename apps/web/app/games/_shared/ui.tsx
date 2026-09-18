@@ -85,10 +85,13 @@ export function StartScreen({
 export function GameOverScreen({
   headline,
   score,
+  recorded,
   onConfirm,
 }: {
   headline: string;
   score: number;
+  /** El árbitro ya registró el puntaje (partida en vivo): no hay nada que enviar. */
+  recorded?: boolean;
   onConfirm: () => void;
 }) {
   const { t } = useT();
@@ -102,7 +105,7 @@ export function GameOverScreen({
       <p className="mt-3 text-base text-(--color-muted-bright)">{t("g.yourScore")}</p>
       <p className="font-pixel mt-1 text-3xl text-(--color-accent-2)">{score}</p>
       <button onClick={onConfirm} className="btn3d btn3d--magenta mt-4">
-        {t(free ? "g.confirmFree" : "g.confirm")}
+        {t(free || recorded ? "g.confirmFree" : "g.confirm")}
       </button>
     </GameOverlay>
   );
