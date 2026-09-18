@@ -84,7 +84,7 @@ Se elimina el **tope ciego** del #33: la posta de una dueña viva no se toma nun
      1. escribir `arcade:lease:handover = { by: yo, forEpoch: E }`;
      2. tocar el timbre (`POST ${RENDER_EXTERNAL_URL}/internal/handover`, con 5 s de tope por intento);
      3. repetir cada 5 s hasta que la vieja responda 202;
-     4. esperar a que `e:<E>` diga `released` (sondeo cada 500 ms), tomar la posta → `Traspaso: timbre (N ms)`.
+     4. esperar a que `e:<E>` diga `released` (sondeo cada 500 ms), tomar la posta → `Traspaso: doorbell`.
      - Si no hay 202 a los 30 s, o no hay `released` a los 30 s del 202, pasar a **respaldo** (3.4.1).
    - **la dueña viva es del #33** (no hay `epoch`, hay `arcade:lease` sin soltar y fresca): pasar directo a respaldo.
 4. Con la posta tomada: cargar los 7 stores y **reconfirmar la época**. Si otra instancia la tomó mientras tanto, cercarse sin atender.
@@ -170,11 +170,11 @@ La vieja corre el código del #33: no conoce el timbre ni las épocas, y usa `ar
 
 ## 5. Cómo se confirma en los logs de Render
 
-- **Primer deploy** (desde el #33), en la nueva: `Traspaso: respaldo (esperando el SIGTERM de la vieja)`, ~1 min después `Traspaso: released`, y después `Árbitro listo`.
+- **Primer deploy** (desde el #33), en la nueva: `Traspaso: respaldo (esperando el SIGTERM de la vieja)`, ~1 min después `Traspaso: fallback`, y después `Árbitro listo`.
 - **Deploys siguientes:**
   - en la vieja: `Entregué la posta (época E) …`;
-  - en la nueva: `Traspaso: timbre (N ms)` y `Árbitro listo`, pocos segundos después de `Arbitro escuchando`.
-- **Señales de alarma:** `se cerca`, `entrega abortada`, `Traspaso: stale` en un deploy normal, o `Traspaso: respaldo` en un deploy que no sea el primero.
+  - en la nueva: `Traspaso: doorbell` y `Árbitro listo`, pocos segundos después de `Arbitro escuchando`.
+- **Señales de alarma:** `Instancia cercada`, `Entrega abortada`, `Traspaso: stale` en un deploy normal, o `Traspaso: respaldo` en un deploy que no sea el primero.
 
 ## 6. Pruebas
 
