@@ -201,6 +201,13 @@ export const fr: Dict = {
     "Clavier : ← → bouger · ↑/X tourner · ↓ descendre · Espace = chute rapide · P = pause",
   "g.flappy.hint": "Tape l'écran ou appuie sur espace pour voler.",
   "g.flappy.tapHint": "▲ Touchez pour voler ▲",
+  "g.flappy.liveSign": "Signe dans ton wallet pour commencer ta tentative en direct…",
+  "g.flappy.liveConnecting": "connexion…",
+  "g.flappy.liveConfirming": "confirmation de ton score…",
+  "g.flappy.liveError": "Synchronisation perdue avec l'arbitre ({reason}).",
+  "match.liveAlreadyPlayed": "Tu as déjà joué cette tentative : voici le résultat.",
+  "match.liveSecretMismatch":
+    "Attention : le secret publié par l'arbitre ne correspond pas à celui qu'il avait promis au début. Préviens-nous.",
   "g.racing.hint":
     "← → voies · ↑ ou Espace pour sauter · sur mobile : boutons ou glisse vers le haut.",
   "g.2048.hint": "Flèches du clavier ou glisse sur le plateau.",
