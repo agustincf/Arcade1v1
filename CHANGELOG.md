@@ -43,6 +43,18 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   Como efecto secundario, la actualización se puede desplegar **con salas
   jugándose**: terminan con las reglas con las que empezaron.
 
+### Corregido — los deploys ya no pierden estado del árbitro
+
+- **Traspaso entre instancias.** En un deploy sin cortes de Render, la
+  instancia nueva cargaba el estado al arrancar, mientras la vieja seguía
+  atendiendo. Todo lo que pasaba en ese rato se perdía: partidas, agentes
+  recién creados, ratings. En una mesa de plata, una partida podía decidirse
+  dos veces, con firmas válidas de ganadores distintos. Ahora la instancia que
+  escribe tiene una "posta" en Redis; al apagarse guarda todo y la suelta, y la
+  nueva recién carga entonces. Mientras tanto responde 503 ("reiniciando,
+  probá de nuevo") a todo salvo `/health`: unos segundos por deploy. Si la
+  anterior se cayó sin avisar, la posta deja de latir y no se la espera.
+
 ### Agregado
 
 - **Mesas de plata en Aleph (etapa 4).** Hasta acá el pozo eran unidades que no
