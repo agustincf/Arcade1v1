@@ -986,6 +986,7 @@ async function refundOnchain(room: AlephRoom, now: number): Promise<boolean> {
 // ---- Ticker -------------------------------------------------------------------
 
 let ticker: NodeJS.Timeout | undefined;
+const chainTicksInFlight = new Set<Promise<void>>();
 
 /** Respaldo: vence lobbies y fases aunque nadie consulte la sala. Lo arranca
  *  index.ts (nunca al importar: los tests usan su propio reloj). Arranca SIEMPRE:
@@ -999,9 +1000,20 @@ export function startAlephTicker(): void {
     } catch (e) {
       console.error("[aleph] tick:", (e as Error).message);
     }
-    alephChainTick().catch((e) => console.error("[aleph-chain] tick:", (e as Error).message));
+    const tick = alephChainTick().catch((e) =>
+      console.error("[aleph-chain] tick:", (e as Error).message),
+    );
+    chainTicksInFlight.add(tick);
+    void tick.finally(() => chainTicksInFlight.delete(tick));
   }, ALEPH_TICK_MS);
   ticker.unref?.();
+}
+
+/** Frena el ticker y espera la vuelta on-chain en curso (entrega de la posta). */
+export async function stopAlephTicker(): Promise<void> {
+  if (ticker) clearInterval(ticker);
+  ticker = undefined;
+  await Promise.all([...chainTicksInFlight]);
 }
 
 // ---- Vistas -------------------------------------------------------------------

@@ -14,6 +14,8 @@ import {
   publicReplay,
   restoreMatches,
   setHouseAddressCheck,
+  startSweeper,
+  stopSweeper,
 } from "./matchmaking.js";
 import { leaderboard, ratingsOf, restoreRatings } from "./ratings.js";
 import { restoreAgents, listAgents, hostedAgentByAddress, isHouseWallet } from "./agents.js";
@@ -23,9 +25,9 @@ import { restoreProfiles, resolveDisplay } from "./profiles.js";
 import { challengeRouter } from "./challenge-routes.js";
 import { alephRouter } from "./aleph-routes.js";
 import { liveRouter } from "./live-routes.js";
-import { restoreAleph, startAlephTicker } from "./aleph.js";
+import { restoreAleph, startAlephTicker, stopAlephTicker } from "./aleph.js";
 import { restoreAlephHouse } from "./aleph-house-seats.js";
-import { startAlephHouse } from "./aleph-house.js";
+import { startAlephHouse, stopAlephHouse } from "./aleph-house.js";
 import {
   persistenceBackend,
   waitForHandover,
@@ -36,8 +38,9 @@ import { readinessGate, setMode } from "./readiness.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 import { agentsRouter, agentsPostLimit } from "./agents-routes.js";
-import { gasSnapshot, startGasMonitor } from "./gas-monitor.js";
-import "./agent-runner.js"; // runner de agentes hosteados (juegan solos)
+import { gasSnapshot, startGasMonitor, stopGasMonitor } from "./gas-monitor.js";
+import { startAgentRunner, stopAgentRunner } from "./agent-runner.js";
+import { registerJob, startJobs } from "./jobs.js";
 
 // Guarda de producción (fail-fast): no arrancar con dinero real mal configurado.
 const cfgErrors = productionConfigErrors();
@@ -340,6 +343,19 @@ app.get("/rating/:address", (req, res) => {
   res.json({ address: req.params.address, ratings: ratingsOf(req.params.address) });
 });
 
+// LOS RELOJES (ver jobs.ts): arrancan después de cargar el estado, y la entrega
+// de la posta los frena antes del guardado final.
+//  - gas: no bloquea el API; en producción con escrow está activo por defecto.
+//  - aleph-ticker: vence lobbies y fases aunque nadie consulte la sala.
+//  - aleph-house: completa el lobby que está por vencerse y juega esos asientos.
+//  - sweeper: vence partidas y pide sus reembolsos on-chain.
+//  - agents: los agentes hosteados juegan solos.
+registerJob({ name: "gas", start: () => void startGasMonitor(), stop: stopGasMonitor });
+registerJob({ name: "aleph-ticker", start: startAlephTicker, stop: stopAlephTicker });
+registerJob({ name: "aleph-house", start: startAlephHouse, stop: stopAlephHouse });
+registerJob({ name: "sweeper", start: startSweeper, stop: stopSweeper });
+registerJob({ name: "agents", start: startAgentRunner, stop: stopAgentRunner });
+
 // ESCUCHAR PRIMERO, ATENDER DESPUÉS: Render da por sana a esta instancia con
 // /health y recién ahí apaga la vieja, que guarda y suelta la posta. Hasta
 // tener el estado, readinessGate responde 503.
@@ -385,18 +401,9 @@ setHouseAddressCheck((a) => {
   return !!agent && isHouseWallet(agent.owner);
 });
 
-// No bloquea el API: el chequeo inicial y los siguientes corren en segundo plano.
-// En producción con escrow está activo por defecto; en dev exige opt-in explícito.
-startGasMonitor();
-
-// Aleph: el ticker vence lobbies y fases aunque nadie consulte la sala.
-startAlephTicker();
-
-// Relleno de la casa: completa el lobby que está por vencerse con alguien de
-// verdad adentro, y juega esos asientos. Sin esto una mesa casi nunca junta 4.
-startAlephHouse();
-
-// La posta late mientras esta instancia la tenga; desde acá se atiende todo.
+// La posta late mientras esta instancia la tenga; desde acá se atiende todo y
+// corren los relojes.
 startLeaseHeartbeat();
 setMode("ready");
+startJobs();
 console.log("Árbitro listo: estado cargado");

@@ -996,5 +996,18 @@ export function sweepMatches(now = Date.now()) {
   if (dirty) persist();
 }
 
-const sweeper = setInterval(sweepMatches, SWEEP_EVERY_MS);
-sweeper.unref?.(); // no mantener vivo un proceso que ya terminó (tests, scripts)
+let sweeper: NodeJS.Timeout | undefined;
+
+/** El barrido periódico. Lo arranca index.ts DESPUÉS de cargar el estado (antes
+ *  arrancaba al importar el módulo) y lo frena la entrega de la posta. Los tests
+ *  llaman a sweepMatches con su propio reloj. */
+export function startSweeper(): void {
+  if (sweeper) return;
+  sweeper = setInterval(() => sweepMatches(), SWEEP_EVERY_MS);
+  sweeper.unref?.(); // no mantener vivo un proceso que ya terminó (tests, scripts)
+}
+
+export async function stopSweeper(): Promise<void> {
+  if (sweeper) clearInterval(sweeper);
+  sweeper = undefined;
+}
