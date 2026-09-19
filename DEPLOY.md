@@ -241,6 +241,15 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
 - [ ] `REQUIRE_AUTH` queda obligatorio por defecto en producción (no lo desactives).
 - [ ] `FEE_BPS` del deploy = el `FEE_BPS` del árbitro = el 15% que muestra la web
       (si cambiás la comisión, cambiala en los tres lados).
+- [ ] **`EscrowAleph`: reembolsos que no se traben por la blacklist de USDC.** Hoy
+      paga empujando USDC a cada asiento: un depositante en la blacklist de Circle
+      deja trabado el reembolso de toda la mesa. Pasar a que cada asiento retire lo
+      suyo (pull-payment). Detalle en `packages/contracts/README.md`.
+- [ ] **`EscrowAleph`: la tabla firmada con vencimiento o nonce.** Hoy la firma ata
+      solo `(roomId, tableHash)` y `settle` lo puede llamar cualquiera: si el árbitro
+      firmara dos tablas para una sala, se podría usar la vieja. Mientras tanto rige
+      la regla del árbitro de firmar una sola tabla por sala. Los dos arreglos van
+      en un mismo redespliegue (decidido el 2026-09-18).
 
 **Desplegar** (firma con hardware wallet, sin claves en disco):
 
