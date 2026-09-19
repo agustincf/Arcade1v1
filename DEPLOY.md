@@ -116,6 +116,18 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     está en el escrow on-chain).
   - `AGENTS_ENABLED=false` — apaga el runner de los agentes de la casa. También
     es una palanca de ancho de banda: cada partida que juegan dispara escrituras.
+- **Deploys sin cortes (traspaso con timbre).** No hay que configurar nada:
+  Render define `RENDER_EXTERNAL_URL`, y el árbitro la usa para que la
+  instancia nueva le pida la posta a la vieja. En los logs de un deploy se ve:
+  - en la vieja, `Entregué la posta (época N, por timbre) …`;
+  - en la nueva, `Traspaso: doorbell` y después `Árbitro listo: estado cargado`,
+    pocos segundos después de `Arbitro escuchando`.
+
+  El primer deploy con este cambio dice `Traspaso: respaldo …` y tarda ~1 min:
+  es normal. **Si aparece otra cosa en un deploy normal**, hay que revisarlo:
+  `Traspaso: respaldo`, `Traspaso: stale`, `Instancia cercada` o
+  `Entrega abortada`.
+
 - Anotá la **URL pública** del árbitro (ej. `https://arcade1v1-arbiter.onrender.com`).
 
 ## Paso 3 — Publicar la web (Vercel)

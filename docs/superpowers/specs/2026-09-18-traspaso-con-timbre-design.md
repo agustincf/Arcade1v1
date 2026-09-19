@@ -56,7 +56,7 @@ Claves en Upstash (todas chicas):
 - **Ser dueño** es que `GET arcade:lease:epoch` coincida con la época propia.
 - **Latido** (cada 60 s, igual que hoy): se chequea `epoch` y se escribe `at` en la clave de la época propia, dos comandos juntos en un `/pipeline`. Si la época cambió, la instancia **se cerca** (3.6).
 - **Antes de subir un blob** se chequea que la época siga siendo la propia: una lectura chica por escritura con debounce. Si no lo es, no se escribe y la instancia se cerca.
-- **Posta vencida:** si `at` tiene más de 3 min (3 latidos), la dueña se considera muerta.
+- **Posta vencida:** si `at` tiene más de 3 min (3 latidos), la dueña se considera muerta. Una época sin registro en `e:<E>` también cuenta como libre (stale): su dueña sacó el número y se cayó antes de escribirlo.
 
 Se elimina el **tope ciego** del #33: la posta de una dueña viva no se toma nunca. Solo se toma si no existe, si fue soltada o si está vencida.
 
@@ -68,7 +68,7 @@ Se elimina el **tope ciego** del #33: la posta de una dueña viva no se toma nun
 | `fallback` (espera el SIGTERM de la vieja)          | 200       | 200     | 409                                    | 503 `Retry-After: 5` |
 | `ready`                                             | 200       | 200     | 202 si el pedido es válido; si no, 409 | normal               |
 | `draining` / `released` (entregando o ya entregada) | 200       | 200     | 202 si ya está entregando              | 503 `Retry-After: 5` |
-| `fenced` (perdió la posta sin entregarla)           | **503**   | 200     | 409                                    | 503                  |
+| `fenced` (perdió la posta sin entregarla)           | **503**   | 200     | 409                                    | 503 `Retry-After: 5` |
 
 - En `starting` el health da 503 **a propósito**: así Render no manda tráfico a la nueva y el timbre le llega a la vieja.
 - En `draining` y `released` el health sigue en 200, para que Render no saque a la vieja antes de tiempo (a los 15 s de fallas deja de mandarle tráfico).
@@ -129,7 +129,14 @@ Log: `Entregué la posta (época E): relojes frenados, guardado en N ms`.
 
 #### 3.5.1 Retomar si la nueva no aparece
 
-Si la nueva se cayó después del timbre y antes de tomar la posta, Render no le pasó el tráfico, y la vieja entregada dejaría el servicio en 503. Por eso, mientras está `released`, la vieja sondea `epoch` cada 2 s. Si pasan 90 s y sigue en `E`, la toma de nuevo (`INCR`). Su memoria es la última versión y nadie escribió después, así que no recarga: vuelve a `ready` y rearranca los relojes. Si justo la nueva sacó otra época en ese instante, gana la más alta y la otra se cerca (3.6). Es raro y se arregla solo: Render reinicia a la cercada, que vuelve a tocar el timbre.
+Si la nueva se cayó después del timbre y antes de tomar la posta, Render no le pasó el tráfico, y la vieja entregada dejaría el servicio en 503. Por eso, después de entregar por timbre, la vieja sigue vigilando la posta (cada 2 s) todo el tiempo que siga en `released`.
+
+Si la posta queda **libre** (`released`, vencida o sin registro) durante 90 s seguidos:
+
+- **si la época sigue siendo la suya** (nadie la tomó desde que la soltó), la retoma sin recargar: su memoria es la última versión y nadie escribió después. Vuelve a `ready` y rearranca los relojes.
+- **si en el medio hubo otra época** (por ejemplo, la nueva tomó la posta y la soltó sin cargar, como en un deploy cancelado), sale con código 1 para que Render la reinicie y cargue de nuevo: alguien pudo haber escrito.
+
+Un error de Upstash durante la vigilancia no la hace desistir: sigue sondeando. Al retomar, reconfirma que la época sigue siendo la suya; si otra instancia sacó una más nueva mientras tanto, gana la más alta.
 
 ### 3.6 Guarda de escritura y cerco
 
@@ -146,18 +153,19 @@ La vieja corre el código del #33: no conoce el timbre ni las épocas, y usa `ar
 
 ### 3.8 Caídas y cuelgues
 
-| Caso                                                    | Qué pasa                                                                                                                                                                                     |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Deploy normal                                           | Timbre → la vieja entrega en unos segundos → la nueva carga → Render pasa el tráfico. Pausa: entrega + carga + lo que tarde Render en ver el health (a medir).                               |
-| Primer deploy desde el #33                              | Respaldo: ~1 min de 503, con una sola dueña.                                                                                                                                                 |
-| La vieja se cayó sin avisar (crash u OOM)               | La posta vence a los ≤ 3 min; la nueva espera hasta entonces sin declararse sana, en un servicio que ya estaba caído. Se pierden hasta 20 s de cambios, como antes (debounce).               |
-| La vieja está colgada (event loop bloqueado)            | No contesta el timbre ni late. La posta vence y la nueva la toma. Si la vieja revive, su chequeo antes de escribir y su latido la cercan, y Render la reinicia o la termina.                 |
-| La nueva se cae después del timbre                      | La vieja retoma a los 90 s (3.5.1). Unos 90 s de 503, y el deploy falla.                                                                                                                     |
-| La nueva se cae después de cargar y antes de estar sana | Render la reinicia; la posta es de ella y está fresca. La reiniciada toca el timbre y nadie contesta (ya no hay vieja con la posta), así que pasa a respaldo y espera a que venza (≤ 3 min). |
-| Upstash caído al arrancar                               | La nueva no escucha, el deploy falla y la vieja sigue.                                                                                                                                       |
-| Upstash caído al entregar                               | El `flush` falla y la vieja aborta la entrega y sigue atendiendo.                                                                                                                            |
-| Alguien toca el timbre desde afuera                     | Sin un pedido válido en Redis, 409. Una lectura chica por toque, con límite.                                                                                                                 |
-| El servicio dormido (plan gratuito)                     | Si Render manda SIGTERM al dormirlo, la posta queda soltada. Si no lo manda, queda vencida (se duerme tras 15 min sin tráfico). En los dos casos la nueva no espera.                         |
+| Caso                                                            | Qué pasa                                                                                                                                                                                     |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deploy normal                                                   | Timbre → la vieja entrega en unos segundos → la nueva carga → Render pasa el tráfico. Pausa: entrega + carga + lo que tarde Render en ver el health (a medir).                               |
+| Primer deploy desde el #33                                      | Respaldo: ~1 min de 503, con una sola dueña.                                                                                                                                                 |
+| La vieja se cayó sin avisar (crash u OOM)                       | La posta vence a los ≤ 3 min; la nueva espera hasta entonces sin declararse sana, en un servicio que ya estaba caído. Se pierden hasta 20 s de cambios, como antes (debounce).               |
+| La vieja está colgada (event loop bloqueado)                    | No contesta el timbre ni late. La posta vence y la nueva la toma. Si la vieja revive, su chequeo antes de escribir y su latido la cercan, y Render la reinicia o la termina.                 |
+| La nueva se cae después del timbre                              | La vieja retoma a los 90 s (3.5.1). Unos 90 s de 503, y el deploy falla.                                                                                                                     |
+| Deploy cancelado (la nueva tomó la posta y la soltó sin cargar) | La vieja ve la posta libre en otra época y sale; Render la reinicia y carga de nuevo. Un reinicio de ~1 min.                                                                                 |
+| La nueva se cae después de cargar y antes de estar sana         | Render la reinicia; la posta es de ella y está fresca. La reiniciada toca el timbre y nadie contesta (ya no hay vieja con la posta), así que pasa a respaldo y espera a que venza (≤ 3 min). |
+| Upstash caído al arrancar                                       | La nueva no escucha, el deploy falla y la vieja sigue.                                                                                                                                       |
+| Upstash caído al entregar                                       | El `flush` falla y la vieja aborta la entrega y sigue atendiendo.                                                                                                                            |
+| Alguien toca el timbre desde afuera                             | Sin un pedido válido en Redis, 409. Una lectura chica por toque, con límite.                                                                                                                 |
+| El servicio dormido (plan gratuito)                             | Si Render manda SIGTERM al dormirlo, la posta queda soltada. Si no lo manda, queda vencida (se duerme tras 15 min sin tráfico). En los dos casos la nueva no espera.                         |
 
 ## 4. Costos
 
