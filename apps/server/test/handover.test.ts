@@ -258,10 +258,10 @@ test("timbre válido: 202 y arranca la entrega", async () => {
     JSON.stringify({ by: "nueva", forEpoch: 1, at: Date.now() }),
   );
   const r = await H.answerDoorbell(deps(), T);
+  fake.kv.set("arcade:lease:epoch", "2"); // la nueva toma la posta: la vieja no tiene que retomarla
   assert.equal(r.status, 202);
   assert.ok(["draining", "released"].includes(R.getMode()));
   await until(() => R.getMode() === "released");
-  fake.kv.set("arcade:lease:epoch", "2");
 });
 
 test("timbre sin pedido en Redis, para otra época, propio o viejo: 409 y no entrega", async () => {
