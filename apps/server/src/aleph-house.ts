@@ -66,6 +66,7 @@ const TICK_MS = envNum("ALEPH_HOUSE_TICK_MS", 5_000);
 const FRAGMENT_RE = /#(\d+)=(\d)/g;
 
 let ticker: NodeJS.Timeout | undefined;
+const ticksInFlight = new Set<Promise<void>>();
 
 // ---- Firmar y actuar ----------------------------------------------------------
 
@@ -310,13 +311,18 @@ export async function alephHouseTick(now = Date.now()): Promise<void> {
 export function startAlephHouse(): void {
   if (ticker || !alephHouseEnabled()) return;
   ticker = setInterval(() => {
-    alephHouseTick().catch((e) => console.error("[aleph-house] tick:", (e as Error).message));
+    const tick = alephHouseTick().catch((e) =>
+      console.error("[aleph-house] tick:", (e as Error).message),
+    );
+    ticksInFlight.add(tick);
+    void tick.finally(() => ticksInFlight.delete(tick));
   }, TICK_MS);
   ticker.unref?.();
 }
 
-/** Tests: frenar el barrido. */
-export function stopAlephHouse(): void {
+/** Frena el barrido y espera la vuelta en curso (entrega de la posta; tests). */
+export async function stopAlephHouse(): Promise<void> {
   if (ticker) clearInterval(ticker);
   ticker = undefined;
+  await Promise.all([...ticksInFlight]);
 }

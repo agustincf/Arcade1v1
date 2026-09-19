@@ -186,16 +186,24 @@ let timer: ReturnType<typeof setInterval> | undefined;
 
 /** Arranca un chequeo inmediato y luego periódico. No bloquea el arranque HTTP. */
 export function startGasMonitor() {
-  if (monitor || timer) return gasSnapshot();
+  if (timer) return gasSnapshot();
   const config = gasMonitorConfig();
   if (!config) return gasSnapshot();
 
-  const client = createPublicClient({ transport: http(config.rpcUrl) });
-  monitor = new GasMonitor(config, client, reporter(config.webhookUrl));
+  if (!monitor) {
+    const client = createPublicClient({ transport: http(config.rpcUrl) });
+    monitor = new GasMonitor(config, client, reporter(config.webhookUrl));
+  }
   void monitor.check();
   timer = setInterval(() => void monitor?.check(), config.intervalMs);
   timer.unref?.();
   return monitor.snapshot();
+}
+
+/** Frena el chequeo periódico (entrega de la posta). La última foto queda. */
+export async function stopGasMonitor(): Promise<void> {
+  if (timer) clearInterval(timer);
+  timer = undefined;
 }
 
 /** Foto segura y JSON-friendly para GET /stats. */

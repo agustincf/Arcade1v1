@@ -116,6 +116,27 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     está en el escrow on-chain).
   - `AGENTS_ENABLED=false` — apaga el runner de los agentes de la casa. También
     es una palanca de ancho de banda: cada partida que juegan dispara escrituras.
+- **Deploys sin cortes (traspaso con timbre).** Hay que configurar **una sola
+  cosa**: en Render, Settings → Health Checks → **Health Check Path** en
+  `/health`. Sin eso, Render le pasa el tráfico a la instancia nueva apenas
+  abre el puerto (sin esperar a que tenga el estado), el timbre nunca le llega
+  a la vieja, y todo deploy cae en el respaldo (~1 min de 503). Render define
+  `RENDER_EXTERNAL_URL` por su cuenta, y el árbitro la usa para que la
+  instancia nueva le pida la posta a la vieja. En los logs de un deploy se ve:
+  - en la vieja, `Entregué la posta (época N, por timbre) …`;
+  - en la nueva, `Traspaso: doorbell` y después `Árbitro listo: estado cargado`,
+    pocos segundos después de `Arbitro escuchando …`.
+
+    El primer deploy con este cambio es distinto, y es normal: la nueva dice
+    `Traspaso: respaldo (esperando el SIGTERM de la vieja)` y, ~1 min después,
+    `Traspaso: fallback` y `Árbitro listo`. Un deploy con el servicio gratuito
+    dormido también es distinto y es normal: como no hay una vieja despierta
+    para tocarle el timbre, la nueva loguea `Traspaso: released` o
+    `Traspaso: stale` en vez de `Traspaso: doorbell`. **Si en un deploy normal
+    aparece otra cosa**, hay que revisarlo: `Traspaso: respaldo`,
+    `Traspaso: fallback`, `Traspaso: stale`, `Instancia cercada` o
+    `Entrega abortada`.
+
 - Anotá la **URL pública** del árbitro (ej. `https://arcade1v1-arbiter.onrender.com`).
 
 ## Paso 3 — Publicar la web (Vercel)
