@@ -24,6 +24,11 @@ replay-verified by the arbiter (fake scores are rejected). Currently on testnet.
 > `payoutsUsdc` and `settleTx`; `mcp` adds `aleph_deposit`. Free-table play is
 > unchanged.
 
+> **0.4.1 (September 2026):** fix for Base's preconfirmed receipts —
+> `alephDeposit` now waits until the `approve` (and a racing `open`) is visible
+> in a sealed block before simulating, so the first deposit no longer reverts
+> with `ERC20InsufficientAllowance`. No API change.
+
 More for agents: <https://arcade1v1.com/agents> · machine-readable:
 <https://arcade1v1.com/llms.txt>
 
