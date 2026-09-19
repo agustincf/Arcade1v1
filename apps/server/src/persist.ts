@@ -65,9 +65,10 @@ const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 // septiembre de 2026 (8,57 GB consumidos, 100% "Service-Initiated").
 //
 // Con 20 s, una partida entera se agrupa en UNA escritura. Lo que se arriesga a
-// cambio: si el proceso muere de golpe (crash/OOM, no un redeploy —ese manda
-// SIGTERM y dispara el flush de más abajo) se pierden hasta 20 s de cambios en
-// las partidas en curso. El dinero no: vive en el escrow on-chain.
+// cambio: si el proceso muere de golpe (crash/OOM, no un redeploy —ese guarda
+// todo con flushAll() al entregar la posta, ver handover.ts) se pierden hasta
+// 20 s de cambios en las partidas en curso. El dinero no: vive en el escrow
+// on-chain.
 //
 // Lo que NO puede esperar al debounce se guarda con `flush()` en el acto: la
 // tabla de pagos firmada de una mesa de plata de Aleph (ver `settleOnchain` en

@@ -14,6 +14,7 @@
 // tráfico y apague a la vieja, que entrega igual en su SIGTERM. Nunca se toma la
 // posta de una dueña viva: solo si está soltada, vencida o no existe.
 
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { handoverEnabled } from "./persist.js";
 import {
   INSTANCE_ID,
@@ -38,8 +39,11 @@ export interface HandoverDeps {
   sleep: (ms: number) => Promise<void>;
   /** ¿Hay adónde tocar el timbre? (RENDER_EXTERNAL_URL o HANDOVER_URL). */
   doorbellConfigured: boolean;
-  /** Toca el timbre de la vieja: true si respondió 202. */
-  ringDoorbell: () => Promise<boolean>;
+  /** Toca el timbre de la vieja para la época `forEpoch`: true si respondió
+   *  202. El pedido va firmado (ver doorbellToken) y TIRA si la vieja no
+   *  contestó 202 (otro status, red caída o timeout): el llamador decide qué
+   *  hacer con eso. */
+  ringDoorbell: (forEpoch: number) => Promise<boolean>;
   /** Guarda todos los stores; rechaza si alguno falló (persist.ts). */
   flushAll: () => Promise<void>;
   startJobs: () => void;
@@ -111,6 +115,47 @@ async function take(d: HandoverDeps, view: LeaseView): Promise<void> {
   await retrying(d, "tomar la posta", () => acquireLease(view));
 }
 
+/** Antes de tomar una posta clasificada VENCIDA (stale) que tiene registro
+ *  (una dueña real cuyo latido envejeció, no una época huérfana), primero le
+ *  toca el timbre. Después de una caída de Upstash de más de LEASE_STALE_MS,
+ *  una vieja VIVA puede parecer vencida (sus latidos no pudieron llegar); si
+ *  se le toma la posta sin avisarle, nunca llega a guardar. Si acepta el
+ *  timbre (202), se le da tiempo a soltarla antes de tomarla igual; si no
+ *  contesta, se toma directo (la dueña está realmente muerta). Una época
+ *  vencida SIN registro (huérfana), y "none"/"released", se toman directo,
+ *  como siempre — por eso `label` es lo que devuelve cada sitio cuando el
+ *  timbre no aplica o no lo contestan, y solo un timbre ACEPTADO fuerza
+ *  "doorbell". */
+async function takeFree(
+  d: HandoverDeps,
+  t: HandoverTiming,
+  view: LeaseView,
+  status: Free,
+  label: TakeoverOutcome,
+): Promise<TakeoverOutcome> {
+  if (status === "stale" && view.epoch !== null && view.record !== null && d.doorbellConfigured) {
+    const epoch = view.epoch;
+    await retrying(d, "pedir la posta", () => requestHandover(epoch));
+    const accepted = await d.ringDoorbell(epoch).catch((e) => {
+      d.log(`Traspaso: el timbre no fue aceptado (${(e as Error).message})`);
+      return false;
+    });
+    if (accepted) {
+      let cur: { view: LeaseView; status: LeaseStatus } = { view, status };
+      const t0 = d.now();
+      while (!isFree(cur.status) && d.now() - t0 < t.releaseWaitMs) {
+        // Primero esperar: la dueña necesita un momento para frenar y guardar.
+        await d.sleep(t.pollMs);
+        cur = await look(d);
+      }
+      await take(d, cur.view);
+      return "doorbell";
+    }
+  }
+  await take(d, view);
+  return label;
+}
+
 // ---- La nueva ----------------------------------------------------------------
 
 /** LA NUEVA: consigue la posta. Al volver, esta instancia es la dueña. */
@@ -120,10 +165,7 @@ export async function takeOver(
 ): Promise<TakeoverOutcome> {
   if (!handoverEnabled) return "off";
   const first = await look(d);
-  if (isFree(first.status)) {
-    await take(d, first.view);
-    return first.status;
-  }
+  if (isFree(first.status)) return takeFree(d, t, first.view, first.status, first.status);
   if (first.status === "held" && first.view.epoch !== null && d.doorbellConfigured) {
     const got = await viaDoorbell(d, t, first.view.epoch);
     if (got) return got;
@@ -135,10 +177,7 @@ export async function takeOver(
   for (;;) {
     await d.sleep(t.fallbackPollMs);
     const cur = await look(d);
-    if (isFree(cur.status)) {
-      await take(d, cur.view);
-      return "fallback";
-    }
+    if (isFree(cur.status)) return takeFree(d, t, cur.view, cur.status, "fallback");
   }
 }
 
@@ -151,13 +190,13 @@ async function viaDoorbell(
   const t0 = d.now();
   let accepted = false;
   while (d.now() - t0 < t.acceptWaitMs) {
-    accepted = await d.ringDoorbell().catch(() => false);
+    accepted = await d.ringDoorbell(epoch).catch((e) => {
+      d.log(`Traspaso: el timbre no fue aceptado (${(e as Error).message})`);
+      return false;
+    });
     if (accepted) break;
     const cur = await look(d);
-    if (isFree(cur.status)) {
-      await take(d, cur.view);
-      return cur.status;
-    }
+    if (isFree(cur.status)) return takeFree(d, t, cur.view, cur.status, cur.status);
     await d.sleep(t.doorbellEveryMs);
   }
   if (!accepted) return null;
@@ -166,10 +205,7 @@ async function viaDoorbell(
     // Primero esperar: la vieja necesita un momento para frenar y guardar.
     await d.sleep(t.pollMs);
     const cur = await look(d);
-    if (isFree(cur.status)) {
-      await take(d, cur.view);
-      return "doorbell";
-    }
+    if (isFree(cur.status)) return takeFree(d, t, cur.view, cur.status, "doorbell");
   }
   return null;
 }
@@ -293,10 +329,15 @@ async function watchForResume(epoch: number, d: HandoverDeps, t: HandoverTiming)
     if (getMode() !== "released") return;
     try {
       await acquireLease(view);
-      // Tomar y confirmar no es atómico: si otra instancia sacó una época en el
-      // medio, gana la más alta y esta se cerca (installFence). Un error de red al
-      // confirmar no es evidencia de haberla perdido: el latido sigue mirando.
-      if (!(await confirmHolder().catch(() => true))) return;
+      // Tomar y confirmar no es atómico: si otra instancia sacó una época MÁS
+      // ALTA en el medio, gana ella y esta instancia SIGUE MIRANDO (no se
+      // cerca: seguimos en "released", no en "ready", así que installFence no
+      // hace nada). Si esa instancia se cae antes de declararse sana, la posta
+      // vuelve a quedar libre en OTRA época, y el chequeo de arriba
+      // (`view.epoch !== epoch`) nos hace salir con 1 para recargar. Un error
+      // de red al confirmar no es evidencia de haberla perdido: seguimos
+      // mirando.
+      if (!(await confirmHolder().catch(() => true))) continue;
       startLeaseHeartbeat();
       setMode("ready");
       d.startJobs();
@@ -312,17 +353,55 @@ async function watchForResume(epoch: number, d: HandoverDeps, t: HandoverTiming)
 
 let lastRing = 0;
 
-/** POST /internal/handover: la nueva pide la posta. La autoridad está en Redis
- *  (el pedido que escribió la nueva); el timbre solo avisa que hay que mirarlo,
- *  así que no lleva secreto. Como mucho, un toque cada `doorbellMinGapMs`. */
+/** Firma del timbre: HMAC-SHA256 con el token de Upstash (que nadie de afuera
+ *  tiene) sobre la época pedida y el momento. Sin esta firma cualquiera podía
+ *  tocar `/internal/handover` y gastarnos el cupo gratis de Upstash con una
+ *  lectura por toque. */
+export function doorbellToken(forEpoch: number, ts: number): string {
+  return createHmac("sha256", process.env.UPSTASH_REDIS_REST_TOKEN ?? "")
+    .update(`arcade-handover:${forEpoch}:${ts}`)
+    .digest("hex");
+}
+
+function validDoorbellToken(forEpoch: number, ts: number, token: string): boolean {
+  const expected = Buffer.from(doorbellToken(forEpoch, ts));
+  const actual = Buffer.from(token);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+export interface DoorbellBody {
+  forEpoch?: unknown;
+  ts?: unknown;
+  token?: unknown;
+}
+
+/** POST /internal/handover: la nueva pide la posta. El timbre va firmado (ver
+ *  doorbellToken): sin una firma válida, 403 ANTES de tocar Redis, para que un
+ *  tercero no pueda gastarnos el cupo llamando a lo loco. La autoridad de
+ *  FONDO sigue en Redis: el pedido que escribió la nueva. Como mucho, un
+ *  toque cada `doorbellMinGapMs`. */
 export async function answerDoorbell(
   d: HandoverDeps,
+  body: DoorbellBody,
   t: HandoverTiming = HANDOVER_TIMING,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
+  const { forEpoch, ts, token } = body ?? {};
+  if (
+    typeof forEpoch !== "number" ||
+    !Number.isFinite(forEpoch) ||
+    typeof ts !== "number" ||
+    !Number.isFinite(ts) ||
+    Math.abs(d.now() - ts) > t.requestMaxAgeMs ||
+    typeof token !== "string" ||
+    !validDoorbellToken(forEpoch, ts, token)
+  ) {
+    return { status: 403, body: { accepted: false } };
+  }
   const mode = getMode();
   const active = mode === "ready" && isHolder();
   const handingOver = mode === "draining" || mode === "released";
   if (!active && !handingOver) return { status: 409, body: { accepted: false, mode } };
+  if (forEpoch !== myEpoch()) return { status: 409, body: { accepted: false, mode } };
   const now = d.now();
   if (now - lastRing < t.doorbellMinGapMs) return { status: 429, body: { accepted: false } };
   lastRing = now;
@@ -344,15 +423,21 @@ export async function answerDoorbell(
 }
 
 /** Toca el timbre por la URL pública del servicio: mientras la nueva no está
- *  sana, Render solo enruta a la vieja. */
-export function doorbellAt(baseUrl: string | undefined): () => Promise<boolean> {
-  return async () => {
+ *  sana, Render solo enruta a la vieja. El pedido lleva la firma de
+ *  doorbellToken. Si la vieja no contesta 202 (otro status, red caída,
+ *  timeout), TIRA: el llamador decide qué hacer con eso. */
+export function doorbellAt(baseUrl: string | undefined): (forEpoch: number) => Promise<boolean> {
+  return async (forEpoch) => {
     if (!baseUrl) return false;
+    const ts = Date.now();
     const r = await fetch(`${baseUrl.replace(/\/+$/, "")}${HANDOVER_PATH}`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ forEpoch, ts, token: doorbellToken(forEpoch, ts) }),
       signal: AbortSignal.timeout(5_000),
     });
-    return r.status === 202;
+    if (r.status !== 202) throw new Error(`el timbre respondió HTTP ${r.status}`);
+    return true;
   };
 }
 

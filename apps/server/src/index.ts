@@ -135,9 +135,9 @@ app.options("/*splat", (_req, res) => res.sendStatus(204));
 
 // EL TIMBRE DEL TRASPASO: una instancia nueva le pide la posta a esta (ver
 // handover.ts). Va antes de la puerta de readiness: se atiende en cualquier modo.
-app.post(HANDOVER_PATH, async (_req, res) => {
+app.post(HANDOVER_PATH, async (req, res) => {
   try {
-    const r = await answerDoorbell(handoverDeps);
+    const r = await answerDoorbell(handoverDeps, req.body ?? {});
     res.status(r.status).json(r.body);
   } catch (e) {
     console.error("[traspaso] timbre:", (e as Error).message);

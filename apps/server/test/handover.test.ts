@@ -86,6 +86,7 @@ async function until(cond: () => boolean, ms = 2_000) {
 beforeEach(() => {
   fake.kv.clear();
   fake.failWith = null;
+  fake.afterCommand = null;
   L.resetLeaseForTests();
   H.resetHandoverForTests();
   R.setMode("starting");
@@ -110,6 +111,41 @@ test("con la posta soltada: 'released'; vencida: 'stale'", async () => {
   fake.kv.set("arcade:lease:e:8", record("vieja", "active", Date.now() - L.LEASE_STALE_MS - 1));
   assert.equal(await H.takeOver(deps(), T), "stale");
   assert.equal(L.myEpoch(), 9);
+});
+
+test("una posta vencida con registro primero toca el timbre (la vieja pudo quedar viva tras una caída de Upstash)", async () => {
+  fake.kv.set("arcade:lease:epoch", "5");
+  fake.kv.set("arcade:lease:e:5", record("vieja", "active", Date.now() - L.LEASE_STALE_MS - 1));
+  let rings = 0;
+  const d = deps({
+    ringDoorbell: async () => {
+      rings++;
+      // La vieja seguía viva: acepta el timbre, entrega y suelta.
+      fake.kv.set("arcade:lease:e:5", record("vieja", "released"));
+      return true;
+    },
+  });
+  assert.equal(await H.takeOver(d, T), "doorbell");
+  assert.equal(rings, 1);
+  const pedido = JSON.parse(fake.kv.get("arcade:lease:handover")!);
+  assert.equal(pedido.forEpoch, 5);
+  assert.equal(pedido.by, L.INSTANCE_ID);
+  assert.equal(L.myEpoch(), 6);
+});
+
+test("vencida y sin respuesta al timbre: la toma igual", async () => {
+  fake.kv.set("arcade:lease:epoch", "5");
+  fake.kv.set("arcade:lease:e:5", record("vieja", "active", Date.now() - L.LEASE_STALE_MS - 1));
+  let rings = 0;
+  const d = deps({
+    ringDoorbell: async () => {
+      rings++;
+      return false;
+    },
+  });
+  assert.equal(await H.takeOver(d, T), "stale");
+  assert.equal(rings, 1);
+  assert.equal(L.myEpoch(), 6);
 });
 
 test("con una dueña viva: pide la posta, toca el timbre y la toma cuando la vieja la suelta", async () => {
@@ -314,7 +350,37 @@ test("si pasó otra época y la posta quedó libre (deploy cancelado), sale para
   assert.equal(L.isHolder(), false);
 });
 
+test("si al retomar otra instancia sacó una época más nueva en el medio, sigue mirando en vez de cortar", async () => {
+  await L.acquireLease(); // época 1
+  R.setMode("ready");
+  const d = deps();
+  assert.equal(await H.handOver("doorbell", d, T), "released");
+  // Justo después de nuestro INCR al reconfirmar, "otra instancia" saca una
+  // época más alta: el primer INCR que vea el falso Upstash suma una más.
+  let bumped = false;
+  fake.afterCommand = (cmd) => {
+    if (bumped || cmd[0].toUpperCase() !== "INCR") return;
+    bumped = true;
+    fake.kv.set("arcade:lease:epoch", String(Number(fake.kv.get("arcade:lease:epoch")) + 1));
+  };
+  // Esa época "más nueva" queda huérfana (nadie llegó a escribir su registro),
+  // así que se vuelve a ver libre y, pasados otros resumeAfterMs, la vieja sale
+  // con 1 para recargar en vez de quedarse mirando para siempre.
+  await until(() => d.calls.includes("exit 1"));
+  assert.equal(
+    R.getMode(),
+    "released",
+    "no se cerca ni vuelve a 'ready' con la confirmación perdida",
+  );
+});
+
 // ---- El timbre ------------------------------------------------------------------
+
+/** Cuerpo firmado válido para tocar el timbre, con la firma de la época y el
+ *  momento que le pasás (que en el árbitro real sale del token de Upstash). */
+function ring(forEpoch: number, ts = Date.now()): H.DoorbellBody {
+  return { forEpoch, ts, token: H.doorbellToken(forEpoch, ts) };
+}
 
 test("timbre válido: 202 y arranca la entrega", async () => {
   await L.acquireLease();
@@ -323,7 +389,8 @@ test("timbre válido: 202 y arranca la entrega", async () => {
     "arcade:lease:handover",
     JSON.stringify({ by: "nueva", forEpoch: 1, at: Date.now() }),
   );
-  const r = await H.answerDoorbell(deps(), T);
+  const d = deps();
+  const r = await H.answerDoorbell(d, ring(1, d.now()), T);
   newHolder(2); // la nueva toma la posta: la vieja no tiene que retomarla
   assert.equal(r.status, 202);
   assert.ok(["draining", "released"].includes(R.getMode()));
@@ -334,21 +401,43 @@ test("timbre sin pedido en Redis, para otra época, propio o viejo: 409 y no ent
   await L.acquireLease();
   R.setMode("ready");
   const d = deps();
-  assert.equal((await H.answerDoorbell(d, T)).status, 409, "sin pedido");
+  const body = ring(1, d.now()); // la firma es válida en las cuatro pruebas: lo que cambia es Redis
+  assert.equal((await H.answerDoorbell(d, body, T)).status, 409, "sin pedido");
   const pedido = (p: object) => fake.kv.set("arcade:lease:handover", JSON.stringify(p));
   pedido({ by: "nueva", forEpoch: 7, at: Date.now() });
-  assert.equal((await H.answerDoorbell(d, T)).status, 409, "otra época");
+  assert.equal((await H.answerDoorbell(d, body, T)).status, 409, "otra época");
   pedido({ by: L.INSTANCE_ID, forEpoch: 1, at: Date.now() });
-  assert.equal((await H.answerDoorbell(d, T)).status, 409, "propio");
+  assert.equal((await H.answerDoorbell(d, body, T)).status, 409, "propio");
   pedido({ by: "nueva", forEpoch: 1, at: Date.now() - 61_000 });
-  assert.equal((await H.answerDoorbell(d, T)).status, 409, "viejo");
+  assert.equal((await H.answerDoorbell(d, body, T)).status, 409, "viejo");
   assert.equal(R.getMode(), "ready");
   assert.equal(L.isHolder(), true);
 });
 
 test("timbre a una instancia que no es dueña: 409", async () => {
   R.setMode("starting");
-  assert.equal((await H.answerDoorbell(deps(), T)).status, 409);
+  const d = deps();
+  assert.equal((await H.answerDoorbell(d, ring(1, d.now()), T)).status, 409);
+});
+
+test("timbre sin firma válida: 403 y no toca Redis", async () => {
+  await L.acquireLease();
+  R.setMode("ready");
+  const d = deps();
+  const before = fake.log.length;
+  assert.equal((await H.answerDoorbell(d, {}, T)).status, 403, "sin body");
+  const now = d.now();
+  assert.equal(
+    (await H.answerDoorbell(d, { forEpoch: 1, ts: now, token: "no-es-el-token" }, T)).status,
+    403,
+    "token incorrecto",
+  );
+  assert.equal(
+    (await H.answerDoorbell(d, ring(1, now - 1_000_000), T)).status,
+    403,
+    "ts viejo, aunque la firma sea la correcta para ese ts",
+  );
+  assert.equal(fake.log.length, before, "ninguna de las tres tocó Redis");
 });
 
 // ---- Cerco y apagado -----------------------------------------------------------

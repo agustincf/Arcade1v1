@@ -227,8 +227,9 @@ export const SUBMIT_WINDOW_MS = Number(process.env.SUBMIT_WINDOW_MS ?? 2 * 60 * 
 
 // PERSISTENCIA vía persist.ts (Redis o archivo; opt-in, ver ese módulo).
 // Sobrevive a un reinicio del servidor: las partidas en curso vuelven y un
-// ganador puede recuperar su firma para cobrar. El debounce y el flush de
-// apagado (SIGTERM/SIGINT) los maneja el adaptador.
+// ganador puede recuperar su firma para cobrar. El debounce y el guardado
+// final al entregar la posta (por timbre o por SIGTERM, ver handover.ts) los
+// maneja el adaptador.
 const store$ = jsonStore("matches");
 const FINISHED_TTL = 2 * 24 * 60 * 60 * 1000; // 2 días: purga partidas terminadas viejas
 

@@ -13,6 +13,10 @@ export interface FakeUpstash {
   failWith: number | null;
   /** Comandos (nombre en mayúsculas) que fallan a propósito mientras estén en el conjunto. */
   failCommands: Set<string>;
+  /** Se llama al final de cada comando, con el comando tal cual llegó. Para
+   *  simular una segunda instancia escribiendo justo después de la nuestra
+   *  (ver el test de watchForResume en handover.test.ts). null: no hace nada. */
+  afterCommand: ((cmd: string[]) => void) | null;
   close(): Promise<void>;
 }
 
@@ -25,24 +29,32 @@ export async function startFakeUpstash(): Promise<FakeUpstash> {
     const name = raw.toUpperCase();
     if (fake.failCommands.has(name)) throw new Error(`fake-upstash: ${name} falla a propósito`);
     log.push([name, args[0] ?? ""]);
+    let result: unknown;
     switch (name) {
       case "GET":
-        return kv.get(args[0]) ?? null;
+        result = kv.get(args[0]) ?? null;
+        break;
       case "SET":
         kv.set(args[0], args[1]);
-        return "OK";
+        result = "OK";
+        break;
       case "DEL":
-        return kv.delete(args[0]) ? 1 : 0;
+        result = kv.delete(args[0]) ? 1 : 0;
+        break;
       case "INCR": {
         const n = Number(kv.get(args[0]) ?? "0") + 1;
         kv.set(args[0], String(n));
-        return n;
+        result = n;
+        break;
       }
       case "EXPIRE":
-        return kv.has(args[0]) ? 1 : 0;
+        result = kv.has(args[0]) ? 1 : 0;
+        break;
       default:
         throw new Error(`fake-upstash: comando no soportado ${name}`);
     }
+    fake.afterCommand?.(cmd);
+    return result;
   }
 
   const server = createServer((req, res) => {
@@ -84,6 +96,7 @@ export async function startFakeUpstash(): Promise<FakeUpstash> {
     log,
     failWith: null,
     failCommands: new Set<string>(),
+    afterCommand: null,
     close: () => new Promise<void>((ok) => server.close(() => ok())),
   };
   return fake;
