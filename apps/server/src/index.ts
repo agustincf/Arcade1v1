@@ -28,19 +28,23 @@ import { liveRouter } from "./live-routes.js";
 import { restoreAleph, startAlephTicker, stopAlephTicker } from "./aleph.js";
 import { restoreAlephHouse } from "./aleph-house-seats.js";
 import { startAlephHouse, stopAlephHouse } from "./aleph-house.js";
+import { persistenceBackend, handoverEnabled, flushAll } from "./persist.js";
+import { readLease, startLeaseHeartbeat, confirmHolder } from "./lease.js";
 import {
-  persistenceBackend,
-  waitForHandover,
-  acquireLease,
-  startLeaseHeartbeat,
-} from "./persist.js";
-import { readinessGate, setMode } from "./readiness.js";
+  takeOver,
+  answerDoorbell,
+  doorbellAt,
+  installFence,
+  installShutdown,
+  type HandoverDeps,
+} from "./handover.js";
+import { readinessGate, setMode, waitForIdle, HANDOVER_PATH } from "./readiness.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 import { agentsRouter, agentsPostLimit } from "./agents-routes.js";
 import { gasSnapshot, startGasMonitor, stopGasMonitor } from "./gas-monitor.js";
 import { startAgentRunner, stopAgentRunner } from "./agent-runner.js";
-import { registerJob, startJobs } from "./jobs.js";
+import { registerJob, startJobs, stopJobs } from "./jobs.js";
 
 // Guarda de producción (fail-fast): no arrancar con dinero real mal configurado.
 const cfgErrors = productionConfigErrors();
@@ -49,6 +53,23 @@ if (cfgErrors.length) {
   for (const e of cfgErrors) console.error("   - " + e);
   process.exit(1);
 }
+
+// El traspaso entre instancias (ver handover.ts). El timbre va a la URL pública
+// del servicio: Render define RENDER_EXTERNAL_URL; HANDOVER_URL la reemplaza
+// (pruebas locales).
+const HANDOVER_BASE_URL = process.env.HANDOVER_URL ?? process.env.RENDER_EXTERNAL_URL;
+const handoverDeps: HandoverDeps = {
+  now: Date.now,
+  sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+  doorbellConfigured: !!HANDOVER_BASE_URL,
+  ringDoorbell: doorbellAt(HANDOVER_BASE_URL),
+  flushAll,
+  startJobs,
+  stopJobs,
+  waitForIdle,
+  log: (m) => console.log(m),
+  exit: (code) => process.exit(code),
+};
 
 /** Responde el error de un endpoint y —esto es lo nuevo— DEJA RASTRO.
  *
@@ -112,8 +133,21 @@ app.use((req, res, next) => {
 });
 app.options("/*splat", (_req, res) => res.sendStatus(204));
 
-// ARRANQUE EN DOS TIEMPOS: hasta tener el estado (traspaso y carga, al final de
-// este archivo), cualquier pedido salvo /health recibe 503 y reintenta.
+// EL TIMBRE DEL TRASPASO: una instancia nueva le pide la posta a esta (ver
+// handover.ts). Va antes de la puerta de readiness: se atiende en cualquier modo.
+app.post(HANDOVER_PATH, async (_req, res) => {
+  try {
+    const r = await answerDoorbell(handoverDeps);
+    res.status(r.status).json(r.body);
+  } catch (e) {
+    console.error("[traspaso] timbre:", (e as Error).message);
+    res.status(503).json({ accepted: false });
+  }
+});
+
+// LOS MODOS DE LA INSTANCIA (ver readiness.ts): hasta tener el estado, /health y
+// todo lo demás dan 503 (así Render le sigue mandando el tráfico a la vieja);
+// también mientras entrega la posta.
 app.use(readinessGate());
 
 // Rate limiting simple por IP (anti-spam / DoS), en dos niveles:
@@ -356,9 +390,13 @@ registerJob({ name: "aleph-house", start: startAlephHouse, stop: stopAlephHouse 
 registerJob({ name: "sweeper", start: startSweeper, stop: stopSweeper });
 registerJob({ name: "agents", start: startAgentRunner, stop: stopAgentRunner });
 
-// ESCUCHAR PRIMERO, ATENDER DESPUÉS: Render da por sana a esta instancia con
-// /health y recién ahí apaga la vieja, que guarda y suelta la posta. Hasta
-// tener el estado, readinessGate responde 503.
+// PROBAR REDIS ANTES DE ESCUCHAR: si Upstash no responde, el proceso termina sin
+// haber escuchado, el deploy falla y la instancia vieja sigue atendiendo.
+if (handoverEnabled) await readLease();
+installFence(handoverDeps);
+installShutdown(handoverDeps);
+
+// ESCUCHAR PRIMERO, ATENDER DESPUÉS: /health da 503 hasta tener el estado.
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
   console.log(`Arbitro escuchando en http://localhost:${port}`);
@@ -373,13 +411,11 @@ app.listen(port, () => {
   }
 });
 
-// TRASPASO: en un deploy sin cortes la instancia vieja sigue atendiendo hasta
-// que Render le pasa el tráfico a esta y le manda SIGTERM. Recién entonces
-// guarda y suelta la posta. Cargar antes perdía lo que cambiaba en ese rato
-// (ver persist.ts).
-const handover = await waitForHandover();
-await acquireLease();
+// TRASPASO: conseguir la posta (timbre a la vieja, o respaldo). Al volver, esta
+// instancia es la dueña y carga exactamente lo que la vieja guardó.
+const handover = await takeOver(handoverDeps);
 console.log(`Traspaso: ${handover}`);
+if (handoverEnabled) startLeaseHeartbeat();
 
 // Restaurar el estado persistido. Si Redis está configurado y falla, el proceso
 // termina sin haber atendido nada: mejor eso que atender "vacío" y pisar los
@@ -401,9 +437,10 @@ setHouseAddressCheck((a) => {
   return !!agent && isHouseWallet(agent.owner);
 });
 
-// La posta late mientras esta instancia la tenga; desde acá se atiende todo y
-// corren los relojes.
-startLeaseHeartbeat();
-setMode("ready");
-startJobs();
-console.log("Árbitro listo: estado cargado");
+// Si otra instancia tomó la posta mientras cargábamos, el cerco ya dejó esta en
+// "fenced" (/health 503) y Render la reinicia: no se atiende ni corren relojes.
+if (!handoverEnabled || (await confirmHolder())) {
+  setMode("ready");
+  startJobs();
+  console.log("Árbitro listo: estado cargado");
+}
