@@ -121,12 +121,13 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
   instancia nueva le pida la posta a la vieja. En los logs de un deploy se ve:
   - en la vieja, `Entregué la posta (época N, por timbre) …`;
   - en la nueva, `Traspaso: doorbell` y después `Árbitro listo: estado cargado`,
-    pocos segundos después de `Arbitro escuchando`.
+    pocos segundos después de `Arbitro escuchando …`.
 
-  El primer deploy con este cambio dice `Traspaso: respaldo …` y tarda ~1 min:
-  es normal. **Si aparece otra cosa en un deploy normal**, hay que revisarlo:
-  `Traspaso: respaldo`, `Traspaso: stale`, `Instancia cercada` o
-  `Entrega abortada`.
+    El primer deploy con este cambio es distinto, y es normal: la nueva dice
+    `Traspaso: respaldo (esperando el SIGTERM de la vieja)` y, ~1 min después,
+    `Traspaso: fallback` y `Árbitro listo`. **Si en un deploy normal aparece
+    otra cosa**, hay que revisarlo: `Traspaso: respaldo`, `Traspaso: fallback`,
+    `Traspaso: stale`, `Instancia cercada` o `Entrega abortada`.
 
 - Anotá la **URL pública** del árbitro (ej. `https://arcade1v1-arbiter.onrender.com`).
 
