@@ -148,6 +148,75 @@ test("vencida y sin respuesta al timbre: la toma igual", async () => {
   assert.equal(L.myEpoch(), 6);
 });
 
+test("una posta vencida con dueña que contesta el timbre: espera a que suelte (no toma antes)", async () => {
+  fake.kv.set("arcade:lease:epoch", "5");
+  fake.kv.set("arcade:lease:e:5", record("vieja", "active", Date.now() - L.LEASE_STALE_MS - 1));
+  // fake.log se acumula para todo el archivo (no lo limpia el beforeEach):
+  // hay que comparar contra la base de este test, no contra un total absoluto.
+  const incrs = () => fake.log.filter((c) => c[0] === "INCR").length;
+  const baseline = incrs();
+  let rings = 0;
+  let sleeps = 0;
+  let incrAtRelease = -1;
+  let clock = Date.now();
+  const d = deps({
+    now: () => clock,
+    sleep: async (ms) => {
+      sleeps++;
+      clock += ms;
+      if (sleeps === 3) {
+        // Todavía no tiene que haber tomado la posta: la dueña recién ahora
+        // la suelta, tres sondeos después de aceptar el timbre.
+        incrAtRelease = incrs() - baseline;
+        fake.kv.set("arcade:lease:e:5", record("vieja", "released"));
+      }
+      await new Promise((r) => setImmediate(r));
+    },
+    ringDoorbell: async () => {
+      rings++;
+      return true; // acepta, pero no suelta todavía
+    },
+  });
+  assert.equal(await H.takeOver(d, T), "doorbell");
+  assert.equal(rings, 1);
+  assert.equal(incrAtRelease, 0, "no tomó la posta antes de que la dueña la soltara");
+  assert.equal(L.myEpoch(), 6);
+});
+
+test("si la dueña vuelve a latir después del timbre, no se le toma la posta", async () => {
+  fake.kv.set("arcade:lease:epoch", "5");
+  fake.kv.set("arcade:lease:e:5", record("vieja", "active", Date.now() - L.LEASE_STALE_MS - 1));
+  const incrs = () => fake.log.filter((c) => c[0] === "INCR").length;
+  const baseline = incrs();
+  let rings = 0;
+  let sleeps = 0;
+  let clock = Date.now();
+  const d = deps({
+    now: () => clock,
+    sleep: async (ms) => {
+      sleeps++;
+      clock += ms;
+      if (sleeps === 2) {
+        // La dueña vuelve a latir después de contestar el timbre (por
+        // ejemplo, abortó su entrega porque falló el guardado): sigue viva.
+        fake.kv.set("arcade:lease:e:5", record("vieja", "active"));
+      }
+      await new Promise((r) => setImmediate(r));
+    },
+    ringDoorbell: async () => {
+      rings++;
+      return true; // acepta, pero no suelta: en el medio vuelve a latir
+    },
+  });
+  const taking = H.takeOver(d, T);
+  await until(() => R.getMode() === "fallback");
+  assert.equal(rings, 1);
+  assert.equal(incrs() - baseline, 0, "no le tomó la posta a una dueña que sigue viva");
+  fake.kv.set("arcade:lease:e:5", record("vieja", "released"));
+  assert.equal(await taking, "fallback");
+  assert.equal(L.myEpoch(), 6);
+});
+
 test("con una dueña viva: pide la posta, toca el timbre y la toma cuando la vieja la suelta", async () => {
   oldHolder(5);
   let rings = 0;

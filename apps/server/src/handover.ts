@@ -118,21 +118,26 @@ async function take(d: HandoverDeps, view: LeaseView): Promise<void> {
 /** Antes de tomar una posta clasificada VENCIDA (stale) que tiene registro
  *  (una dueña real cuyo latido envejeció, no una época huérfana), primero le
  *  toca el timbre. Después de una caída de Upstash de más de LEASE_STALE_MS,
- *  una vieja VIVA puede parecer vencida (sus latidos no pudieron llegar); si
- *  se le toma la posta sin avisarle, nunca llega a guardar. Si acepta el
- *  timbre (202), se le da tiempo a soltarla antes de tomarla igual; si no
- *  contesta, se toma directo (la dueña está realmente muerta). Una época
- *  vencida SIN registro (huérfana), y "none"/"released", se toman directo,
- *  como siempre — por eso `label` es lo que devuelve cada sitio cuando el
- *  timbre no aplica o no lo contestan, y solo un timbre ACEPTADO fuerza
- *  "doorbell". */
+ *  una vieja VIVA puede parecer vencida (sus latidos no pudieron llegar), y si
+ *  CONTESTA el timbre es la prueba de que sigue viva: hay que esperar a que
+ *  SUELTE su época — tomársela apenas sabemos que está viva sería el mismo
+ *  error que el timbre vino a evitar. Si no contesta, se toma directo (está
+ *  realmente muerta). Una época vencida SIN registro (huérfana), y
+ *  "none"/"released", se toman directo, como siempre — por eso `label` es lo
+ *  que devuelve cada sitio cuando el timbre no aplica o no lo contestan.
+ *
+ *  Devuelve `null` cuando TODAVÍA no hay que tomarla: la dueña volvió a latir
+ *  (sigue "held", por ejemplo abortó su entrega porque falló el guardado) o
+ *  cambió la época (otra instancia se movió en el medio). El llamador sigue
+ *  su flujo normal — típicamente termina en respaldo — hasta que la posta
+ *  quede libre de verdad. */
 async function takeFree(
   d: HandoverDeps,
   t: HandoverTiming,
   view: LeaseView,
   status: Free,
   label: TakeoverOutcome,
-): Promise<TakeoverOutcome> {
+): Promise<TakeoverOutcome | null> {
   if (status === "stale" && view.epoch !== null && view.record !== null && d.doorbellConfigured) {
     const epoch = view.epoch;
     await retrying(d, "pedir la posta", () => requestHandover(epoch));
@@ -141,15 +146,29 @@ async function takeFree(
       return false;
     });
     if (accepted) {
+      // La dueña contestó: sigue viva y entregando. Esperar a que SUELTE su
+      // época — nunca tomarle la posta a una dueña que acaba de contestar
+      // que está viva.
       let cur: { view: LeaseView; status: LeaseStatus } = { view, status };
       const t0 = d.now();
-      while (!isFree(cur.status) && d.now() - t0 < t.releaseWaitMs) {
-        // Primero esperar: la dueña necesita un momento para frenar y guardar.
+      while (
+        d.now() - t0 < t.releaseWaitMs &&
+        cur.view.epoch === epoch &&
+        cur.status !== "released"
+      ) {
         await d.sleep(t.pollMs);
         cur = await look(d);
       }
+      if (cur.view.epoch === epoch && cur.status === "released") {
+        await take(d, cur.view);
+        return "doorbell";
+      }
+      if (cur.view.epoch !== epoch) return null; // otra instancia se movió en el medio
+      if (cur.status === "held") return null; // volvió a latir: sigue viva
+      // Misma época, todavía vencida después de esperar: aceptó el timbre
+      // pero quedó colgada a mitad de la entrega. Se toma igual.
       await take(d, cur.view);
-      return "doorbell";
+      return label;
     }
   }
   await take(d, view);
@@ -165,7 +184,10 @@ export async function takeOver(
 ): Promise<TakeoverOutcome> {
   if (!handoverEnabled) return "off";
   const first = await look(d);
-  if (isFree(first.status)) return takeFree(d, t, first.view, first.status, first.status);
+  if (isFree(first.status)) {
+    const got = await takeFree(d, t, first.view, first.status, first.status);
+    if (got) return got;
+  }
   if (first.status === "held" && first.view.epoch !== null && d.doorbellConfigured) {
     const got = await viaDoorbell(d, t, first.view.epoch);
     if (got) return got;
@@ -177,7 +199,10 @@ export async function takeOver(
   for (;;) {
     await d.sleep(t.fallbackPollMs);
     const cur = await look(d);
-    if (isFree(cur.status)) return takeFree(d, t, cur.view, cur.status, "fallback");
+    if (isFree(cur.status)) {
+      const got = await takeFree(d, t, cur.view, cur.status, "fallback");
+      if (got) return got;
+    }
   }
 }
 
@@ -196,7 +221,10 @@ async function viaDoorbell(
     });
     if (accepted) break;
     const cur = await look(d);
-    if (isFree(cur.status)) return takeFree(d, t, cur.view, cur.status, cur.status);
+    if (isFree(cur.status)) {
+      const got = await takeFree(d, t, cur.view, cur.status, cur.status);
+      if (got) return got;
+    }
     await d.sleep(t.doorbellEveryMs);
   }
   if (!accepted) return null;
@@ -205,7 +233,10 @@ async function viaDoorbell(
     // Primero esperar: la vieja necesita un momento para frenar y guardar.
     await d.sleep(t.pollMs);
     const cur = await look(d);
-    if (isFree(cur.status)) return takeFree(d, t, cur.view, cur.status, "doorbell");
+    if (isFree(cur.status)) {
+      const got = await takeFree(d, t, cur.view, cur.status, "doorbell");
+      if (got) return got;
+    }
   }
   return null;
 }
