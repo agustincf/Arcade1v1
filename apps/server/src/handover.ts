@@ -19,7 +19,7 @@ import {
   INSTANCE_ID,
   acquireLease,
   classifyLease,
-  currentEpoch,
+  confirmHolder,
   isHolder,
   myEpoch,
   onLeaseLost,
@@ -46,6 +46,8 @@ export interface HandoverDeps {
   stopJobs: (capMs: number) => Promise<string[]>;
   waitForIdle: (capMs: number) => Promise<boolean>;
   log: (msg: string) => void;
+  /** Termina el proceso (Render lo reinicia). */
+  exit: (code: number) => void;
 }
 
 export interface HandoverTiming {
@@ -205,23 +207,34 @@ async function drain(
   const late = await d.stopJobs(t.drainCapMs);
   if (late.length) d.log(`Entrega: relojes que no terminaron a tiempo: ${late.join(", ")}`);
   if (!(await d.waitForIdle(t.drainCapMs))) d.log("Entrega: quedaron pedidos en curso; sigo igual");
+  // PERDIÓ LA POSTA A MITAD DE LA ENTREGA (el latido o el chequeo antes de
+  // escribir vieron otra época): el cerco ya la puso en "fenced". No hay nada que
+  // soltar ni retomar, y sobre todo no hay que volver a "ready": otra instancia
+  // es la dueña.
+  let releasedOk = false;
+  const lost = () => getMode() === "fenced" || (!releasedOk && !isHolder());
   let saved = false;
-  for (let i = 0; i < t.flushTries && !saved; i++) {
+  for (let i = 0; i < t.flushTries && !saved && !lost(); i++) {
     try {
       await d.flushAll();
       saved = true;
     } catch (e) {
       d.log(`Entrega: falló el guardado (${(e as Error).message})`);
-      if (i + 1 < t.flushTries) await d.sleep(1_000);
+      if (i + 1 < t.flushTries && !lost()) await d.sleep(1_000);
     }
   }
-  if (saved) {
+  if (saved && !lost()) {
     try {
       await releaseLease();
+      releasedOk = true;
     } catch (e) {
       saved = false;
       d.log(`Entrega: no pude soltar la posta (${(e as Error).message})`);
     }
+  }
+  if (lost()) {
+    d.log("⚠️ Entrega: la posta se perdió a mitad de camino; la instancia queda cercada");
+    return "not-holder";
   }
   if (!saved) {
     // Soltar sin haber guardado haría cargar a la nueva un estado viejo: mejor
@@ -241,29 +254,57 @@ async function drain(
   return "released";
 }
 
-/** Si la nueva se cae después del timbre y antes de tomar la posta, Render no le
- *  pasó el tráfico y esta instancia quedaría respondiendo 503 para siempre: a
- *  los `resumeAfterMs` sin que nadie la tome, la retoma. Su memoria es la última
- *  versión y nadie escribió después, así que no recarga. */
+/** Después de entregar por el timbre, la vieja sigue mirando la posta mientras
+ *  esté entregada. Si la nueva se cae antes de tomarla (o la toma y la suelta sin
+ *  haber cargado, como en un deploy cancelado), Render le sigue mandando el
+ *  tráfico a esta instancia, que respondería 503 para siempre. Si la posta queda
+ *  LIBRE (soltada, vencida o sin registro) durante `resumeAfterMs` seguidos:
+ *   - si nadie la tomó después (sigue la época propia), la retoma sin recargar:
+ *     su memoria es la última versión y nadie escribió después;
+ *   - si pasó otra época por el medio, alguien pudo haber escrito: sale con 1
+ *     para que Render la reinicie y cargue el estado de nuevo.
+ *  Un error de Upstash no la hace rendirse: sigue mirando. */
 async function watchForResume(epoch: number, d: HandoverDeps, t: HandoverTiming): Promise<void> {
-  const t0 = d.now();
-  while (d.now() - t0 < t.resumeAfterMs) {
+  let freeSince: number | null = null;
+  while (getMode() === "released") {
     await d.sleep(t.resumePollMs);
     if (getMode() !== "released") return;
-    // Si Upstash falla, seguir mirando.
-    const cur = await currentEpoch().catch(() => epoch);
-    if (cur !== epoch) return; // la nueva ya la tomó
-  }
-  if (getMode() !== "released") return;
-  try {
-    if ((await currentEpoch()) !== epoch) return;
-    await acquireLease();
-    startLeaseHeartbeat();
-    setMode("ready");
-    d.startJobs();
-    d.log(`Retomé la posta (época ${myEpoch()}): la instancia nueva no apareció`);
-  } catch (e) {
-    d.log(`No pude retomar la posta: ${(e as Error).message}`);
+    let view: LeaseView;
+    try {
+      view = await readLease();
+    } catch (e) {
+      d.log(`No pude mirar la posta para retomarla (${(e as Error).message}); sigo mirando`);
+      continue;
+    }
+    if (!isFree(classifyLease(view, d.now()))) {
+      freeSince = null; // otra instancia la tiene viva
+      continue;
+    }
+    freeSince ??= d.now();
+    if (d.now() - freeSince < t.resumeAfterMs) continue;
+    if (view.epoch !== epoch) {
+      d.log(
+        `La posta quedó libre en la época ${view.epoch} (la mía era ${epoch}): ` +
+          "salgo para que Render me reinicie y cargue el estado de nuevo",
+      );
+      d.exit(1);
+      return;
+    }
+    if (getMode() !== "released") return;
+    try {
+      await acquireLease(view);
+      // Tomar y confirmar no es atómico: si otra instancia sacó una época en el
+      // medio, gana la más alta y esta se cerca (installFence). Un error de red al
+      // confirmar no es evidencia de haberla perdido: el latido sigue mirando.
+      if (!(await confirmHolder().catch(() => true))) return;
+      startLeaseHeartbeat();
+      setMode("ready");
+      d.startJobs();
+      d.log(`Retomé la posta (época ${myEpoch()}): la instancia nueva no apareció`);
+      return;
+    } catch (e) {
+      d.log(`No pude retomar la posta (${(e as Error).message}); reintento`);
+    }
   }
 }
 
@@ -295,7 +336,10 @@ export async function answerDoorbell(
   ) {
     return { status: 409, body: { accepted: false, mode } };
   }
-  if (active) void handOver("doorbell", d, t);
+  if (active)
+    void handOver("doorbell", d, t).catch((e) =>
+      d.log(`Entrega por timbre: ${(e as Error).message}`),
+    );
   return { status: 202, body: { accepted: true, epoch } };
 }
 
@@ -320,7 +364,9 @@ export function installFence(d: HandoverDeps): void {
   onLeaseLost(() => {
     if (getMode() === "released") return;
     setMode("fenced");
-    void d.stopJobs(HANDOVER_TIMING.drainCapMs);
+    void d
+      .stopJobs(HANDOVER_TIMING.drainCapMs)
+      .catch((e) => d.log(`Cerco: ${(e as Error).message}`));
     d.log("⚠️ Instancia cercada: otra tomó la posta. /health da 503 para que Render la reinicie.");
   });
 }
@@ -346,13 +392,16 @@ export async function shutdown(sig: string, d: HandoverDeps): Promise<void> {
   }
 }
 
-export function installShutdown(
-  d: HandoverDeps,
-  exit: (code: number) => void = (code) => process.exit(code),
-): void {
+export function installShutdown(d: HandoverDeps): void {
   for (const sig of ["SIGTERM", "SIGINT"] as const) {
     process.once(sig, () => {
-      void shutdown(sig, d).finally(() => exit(0));
+      void shutdown(sig, d).finally(() => d.exit(0));
     });
   }
+}
+
+/** Tests: volver al estado de recién arrancada (el timbre y la entrega en curso). */
+export function resetHandoverForTests(): void {
+  lastRing = 0;
+  draining = null;
 }

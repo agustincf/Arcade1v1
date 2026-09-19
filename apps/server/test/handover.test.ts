@@ -56,6 +56,7 @@ function deps(over: Partial<Deps> = {}): Deps {
       return true;
     },
     log: (m) => void logs.push(m),
+    exit: (code) => void calls.push(`exit ${code}`),
     logs,
     calls,
     ...over,
@@ -69,6 +70,11 @@ function oldHolder(e: number) {
   fake.kv.set("arcade:lease:epoch", String(e));
   fake.kv.set(`arcade:lease:e:${e}`, record("vieja", "active"));
 }
+/** La instancia nueva toma la posta (época `e`) y la tiene viva. */
+function newHolder(e: number) {
+  fake.kv.set("arcade:lease:epoch", String(e));
+  fake.kv.set(`arcade:lease:e:${e}`, record("nueva", "active"));
+}
 async function until(cond: () => boolean, ms = 2_000) {
   const end = Date.now() + ms;
   while (!cond()) {
@@ -81,6 +87,7 @@ beforeEach(() => {
   fake.kv.clear();
   fake.failWith = null;
   L.resetLeaseForTests();
+  H.resetHandoverForTests();
   R.setMode("starting");
 });
 
@@ -157,11 +164,20 @@ test("con una posta viva del #33: respaldo directo, sin timbre", async () => {
 
 test("sin URL para el timbre, respaldo directo", async () => {
   oldHolder(1);
-  const d = deps({ doorbellConfigured: false });
+  let rings = 0;
+  const d = deps({
+    doorbellConfigured: false,
+    ringDoorbell: async () => {
+      rings++;
+      return false;
+    },
+  });
   const taking = H.takeOver(d, T);
   await until(() => R.getMode() === "fallback");
   fake.kv.set("arcade:lease:e:1", record("vieja", "released"));
   assert.equal(await taking, "fallback");
+  assert.equal(rings, 0);
+  assert.equal(fake.kv.has("arcade:lease:handover"), false);
 });
 
 test("un error pasajero de Upstash no tira el arranque: reintenta", async () => {
@@ -180,7 +196,7 @@ test("entrega: frena relojes, espera lo en curso, guarda y RECIÉN AHÍ suelta",
   R.setMode("ready");
   const d = deps();
   assert.equal(await H.handOver("doorbell", d, T), "released");
-  fake.kv.set("arcade:lease:epoch", "2"); // la nueva la toma: no hay que retomar
+  newHolder(2); // la nueva la toma: no hay que retomar
   assert.deepEqual(d.calls, ["stopJobs", "idle", "flush"]);
   assert.equal(JSON.parse(fake.kv.get("arcade:lease:e:1")!).state, "released");
   assert.equal(L.isHolder(), false);
@@ -222,7 +238,7 @@ test("un SIGTERM durante una entrega por timbre espera ESA entrega (no guarda do
   assert.equal(await porTimbre, "released");
   assert.equal(await porSigterm, "released");
   assert.equal(flushes, 1);
-  fake.kv.set("arcade:lease:epoch", "2");
+  newHolder(2);
 });
 
 test("si la nueva no toma la posta, la vieja la retoma y vuelve a atender", async () => {
@@ -242,9 +258,59 @@ test("si la nueva la tomó, la vieja no retoma", async () => {
   R.setMode("ready");
   const d = deps();
   await H.handOver("doorbell", d, T);
-  fake.kv.set("arcade:lease:epoch", "2");
+  newHolder(2);
   await new Promise((r) => setTimeout(r, 100));
   assert.equal(R.getMode(), "released");
+  assert.equal(L.isHolder(), false);
+});
+
+test("si pierde la posta a mitad de la entrega, queda cercada: no vuelve a ready ni suelta", async () => {
+  await L.acquireLease();
+  R.setMode("ready");
+  const d = deps({
+    // El guardado real (persist.ts) confirma la posta antes de subir un blob, y
+    // otra instancia ya sacó la época 9.
+    flushAll: async () => {
+      d.calls.push("flush");
+      fake.kv.set("arcade:lease:epoch", "9");
+      await L.confirmHolder(); // ve la época 9: se da por perdida y actúa el cerco
+      throw new Error("persist: sin la posta, no se guarda");
+    },
+  });
+  H.installFence(d);
+  assert.equal(await H.handOver("doorbell", d, T), "not-holder");
+  assert.equal(R.getMode(), "fenced");
+  assert.ok(!d.calls.includes("startJobs"), "no rearranca los relojes");
+  assert.equal(
+    JSON.parse(fake.kv.get("arcade:lease:e:1")!).state,
+    "active",
+    "no suelta una posta que ya no es suya",
+  );
+});
+
+test("una falla de Upstash al retomar no la hace rendirse: reintenta hasta retomar", async () => {
+  await L.acquireLease();
+  R.setMode("ready");
+  const d = deps();
+  assert.equal(await H.handOver("doorbell", d, T), "released");
+  fake.failWith = 500;
+  await until(() => d.logs.some((l) => /No pude mirar la posta|No pude retomar/.test(l)));
+  fake.failWith = null;
+  await until(() => R.getMode() === "ready");
+  assert.equal(L.isHolder(), true);
+  assert.ok(d.logs.some((l) => /Retomé la posta/.test(l)));
+});
+
+test("si pasó otra época y la posta quedó libre (deploy cancelado), sale para recargar", async () => {
+  await L.acquireLease();
+  R.setMode("ready");
+  const d = deps();
+  assert.equal(await H.handOver("doorbell", d, T), "released");
+  // La nueva sacó la época 2 y la soltó sin haber cargado.
+  fake.kv.set("arcade:lease:epoch", "2");
+  fake.kv.set("arcade:lease:e:2", record("nueva", "released"));
+  await until(() => d.calls.includes("exit 1"));
+  assert.equal(R.getMode(), "released", "no retoma con una memoria que puede estar vieja");
   assert.equal(L.isHolder(), false);
 });
 
@@ -258,7 +324,7 @@ test("timbre válido: 202 y arranca la entrega", async () => {
     JSON.stringify({ by: "nueva", forEpoch: 1, at: Date.now() }),
   );
   const r = await H.answerDoorbell(deps(), T);
-  fake.kv.set("arcade:lease:epoch", "2"); // la nueva toma la posta: la vieja no tiene que retomarla
+  newHolder(2); // la nueva toma la posta: la vieja no tiene que retomarla
   assert.equal(r.status, 202);
   assert.ok(["draining", "released"].includes(R.getMode()));
   await until(() => R.getMode() === "released");
