@@ -54,8 +54,8 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   la URL pública (que en ese momento solo le llega a la vieja). La vieja frena
   sus relojes, guarda todo y suelta la posta, y la nueva carga exactamente eso.
   La pausa es de segundos. Si la nueva se cae a mitad de camino, la vieja retoma
-  sola. La posta es atómica (épocas con `INCR`): dos instancias ya no pueden
-  pisarse.
+  sola. La posta es atómica (épocas con `INCR`) y cada escritura chequea antes
+  que siga siendo de esta instancia, así que ninguna pisa el estado de otra.
 - **Un guardado que falla ya no dice "listo".** `flush()` rechaza si no se pudo
   guardar (Upstash caído o sin la posta), y Aleph guarda la tabla de pagos
   firmada antes de cada intento de publicarla hasta que quede guardada. Antes
