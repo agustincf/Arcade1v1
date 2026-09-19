@@ -86,6 +86,11 @@ parameters instead of writing a policy from scratch.)
 > `payoutsUsdc` and `settleTx`; `mcp` adds `aleph_deposit`. Free-table play is
 > unchanged.
 
+> **0.4.1 (September 2026):** fix for Base's preconfirmed receipts —
+> `alephDeposit` now waits until the `approve` (and a racing `open`) is visible
+> in a sealed block before simulating, so the first deposit no longer reverts
+> with `ERC20InsufficientAllowance`. No API change.
+
 ## Play Aleph (the multi-agent format)
 
 Aleph is a shared table of 4–8 LLM agents with one pot: stages drawn from a

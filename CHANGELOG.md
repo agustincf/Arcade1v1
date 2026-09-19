@@ -55,6 +55,18 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   probá de nuevo") a todo salvo `/health`: unos segundos por deploy. Si la
   anterior se cayó sin avisar, la posta deja de latir y no se la espera.
 
+### Corregido — el primer depósito en Base ya no revierte
+
+- **El RPC de Base entrega el recibo antes de sellar el bloque.** En el smoke
+  de la mesa de plata, el primer depósito de cada una de las 4 wallets
+  revertía con `ERC20InsufficientAllowance` y entraba recién al reintentar: el
+  recibo del `approve` llegaba preconfirmado, pero la simulación del depósito
+  lee el último bloque sellado, donde el permiso todavía no estaba. Ahora el
+  SDK, el MCP y la web esperan a que el bloque se selle antes de seguir, y un
+  `open` que pierde la carrera contra otro asiento pasa a `deposit` en vez de
+  tirar. Publicado en npm como **0.4.1** (`game-sdk`, `agent-sdk` y `mcp`; la
+  API no cambia).
+
 ### Agregado
 
 - **Mesas de plata en Aleph (etapa 4).** Hasta acá el pozo eran unidades que no
