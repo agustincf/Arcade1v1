@@ -12,7 +12,7 @@
 import { use, useEffect, useState } from "react";
 import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useT } from "@/app/lib/i18n";
-import { playerLabel, agentTag } from "@/app/lib/wallet";
+import { playerLabel, agentTag, shortAddress } from "@/app/lib/wallet";
 import {
   getAlephRoom,
   warmUpArbiter,
@@ -20,6 +20,9 @@ import {
   type AlephSeatView,
 } from "@/app/lib/arbiter";
 import { txUrl } from "@/app/lib/explorer";
+import { Criatura } from "@/app/components/aleph/Criatura";
+import { Charla } from "@/app/components/aleph/Charla";
+import { chipDeAsiento, estadoDeAsiento } from "@/app/components/aleph/nucleo/estados";
 
 /** Sondeo del espectador. El agente que juega sondea cada 5 s; la web mira, así
  *  que va más lento: mismo dato, la mitad de pedidos al árbitro dormilón. */
@@ -115,15 +118,25 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
     );
   }
 
-  const label = (address: string) => {
+  const etiquetaDePorDireccion = (address: string) => {
     const s = room.seats.find((x) => x.address.toLowerCase() === address.toLowerCase());
-    return s
-      ? playerLabel(s.address, s.name, s.avatar, agentTag(s, t))
-      : address.slice(0, 10) + "…";
+    return s ? playerLabel(s.address, s.name, s.avatar, agentTag(s, t)) : shortAddress(address);
   };
 
   const live = room.status === "playing";
   const results = room.results ?? [];
+  // El máximo de la mesa, contando TODOS los asientos, vivos y salidos: es
+  // contra él que se mide el oro de cada cuerpo. Con la sala liquidada se lee
+  // `payouts` —con lo que se fue de verdad— y no `pocket`.
+  const maxBolsillo = room.seats.reduce(
+    (m, s) => Math.max(m, room.payouts?.[s.address] ?? s.pocket),
+    0,
+  );
+  // `n` son los vivos y `k` los de `stage.acted` que siguen vivos.
+  const vivos = room.seats.filter((s) => s.status === "alive");
+  const actuaron = (room.stage?.acted ?? []).filter((a) =>
+    vivos.some((s) => s.address.toLowerCase() === a.toLowerCase()),
+  ).length;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -214,21 +227,31 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
                 <Money label={t("aleph.room.potInitial")} value={room.potInitial ?? 0} muted />
               </div>
               {live && room.stage && (
-                <p className="mt-4 text-base leading-relaxed text-(--color-muted)">
-                  {t("aleph.room.nowPlaying", {
-                    stage: room.stage.index + 1,
-                    kind: t(`aleph.stage.${room.stage.kind}`),
-                    phase: t(`aleph.phase.${room.stage.phase}`),
-                  })}
-                  {room.deadline ? (
-                    <>
-                      {" "}
-                      <span className="font-mono text-(--color-muted-bright)">
-                        {t("aleph.room.deadline", { time: mmss(room.deadline - now) })}
-                      </span>
-                    </>
-                  ) : null}
-                </p>
+                <>
+                  <p className="mt-4 text-base leading-relaxed text-(--color-muted)">
+                    {t("aleph.room.nowPlaying", {
+                      stage: room.stage.index + 1,
+                      kind: t(`aleph.stage.${room.stage.kind}`),
+                      phase: t(`aleph.phase.${room.stage.phase}`),
+                    })}
+                    {room.deadline ? (
+                      <>
+                        {" "}
+                        <span className="font-mono text-(--color-muted-bright)">
+                          {t("aleph.room.deadline", { time: mmss(room.deadline - now) })}
+                        </span>
+                      </>
+                    ) : null}
+                  </p>
+                  {/* Provisorio: en PR2 se muda, junto con la línea de arriba,
+                      adentro de la carta de etapa. */}
+                  <p className="mt-1 text-sm text-(--color-muted-3)">
+                    {t(room.stage.phase === "decide" ? "aleph.scene.acted" : "aleph.scene.ready", {
+                      k: actuaron,
+                      n: vivos.length,
+                    })}
+                  </p>
+                </>
               )}
               {live && (
                 <p className="mt-2 text-sm text-(--color-muted-3)">{t("aleph.room.liveNote")}</p>
@@ -247,18 +270,14 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
         <div className="p-3">
           <ol className="flex flex-col gap-1">
             {room.seats.map((s) => (
-              <SeatRow
-                key={s.address}
-                seat={s}
-                payout={room.payouts?.[s.address]}
-                funding={room.status === "funding"}
-                deposited={room.deposited?.some((a) => a.toLowerCase() === s.address.toLowerCase())}
-                t={t}
-              />
+              <SeatRow key={s.address} seat={s} room={room} maxBolsillo={maxBolsillo} t={t} />
             ))}
           </ol>
         </div>
       </section>
+
+      {/* La charla pública, por primera vez. `destello` llega en PR2. */}
+      <Charla room={room} t={t} etiquetaDePorDireccion={etiquetaDePorDireccion} destello={null} />
 
       {/* El registro contado */}
       <section className="paper mt-6">
@@ -281,7 +300,7 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
                     })}
                   </h3>
                   <ul className="mt-1 flex flex-col gap-1">
-                    {stageLines(r, label, t).map((line, i) => (
+                    {stageLines(r, etiquetaDePorDireccion, t).map((line, i) => (
                       <li key={i} className="leading-relaxed text-(--color-paper-muted)">
                         {line}
                       </li>
@@ -316,7 +335,7 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
                       {i + 1}
                     </span>
                     <span className="min-w-0 flex-1 truncate font-mono text-sm text-(--color-muted-bright)">
-                      {label(address)}
+                      {etiquetaDePorDireccion(address)}
                     </span>
                     <span className="flex shrink-0 items-center gap-3">
                       <span className="font-pixel text-sm text-(--color-gold)">{amount}</span>
@@ -439,30 +458,67 @@ function Money({
 
 function SeatRow({
   seat,
-  payout,
-  funding,
-  deposited,
+  room,
+  maxBolsillo,
   t,
 }: {
   seat: AlephSeatView;
-  payout?: number;
-  funding?: boolean;
-  deposited?: boolean;
+  room: AlephRoomView;
+  maxBolsillo: number;
   t: T;
 }) {
+  const { estado, traidor } = estadoDeAsiento(seat, room);
+  const bolsillo = room.payouts?.[seat.address] ?? seat.pocket;
+  const chip = t(chipDeAsiento(seat, room));
+  const agente = agentTag(seat, t);
   return (
-    <li className="flex items-center justify-between rounded-lg bg-(--color-surface-2) px-3 py-2.5">
-      <span className="min-w-0 flex-1 truncate font-mono text-sm text-(--color-muted-bright)">
-        {playerLabel(seat.address, seat.name, seat.avatar, agentTag(seat, t))}
-      </span>
-      <span className="ml-3 flex shrink-0 items-center gap-2">
-        <span className="chip">
-          {funding
-            ? t(deposited ? "aleph.seat.deposited" : "aleph.seat.pending")
-            : t(`aleph.seat.${seat.status}`)}
-        </span>
-        <span className="font-pixel text-sm text-(--color-gold)">{payout ?? seat.pocket}</span>
-      </span>
+    <li
+      // El marco punteado del `abandono` lo pide la tabla de estados del spec,
+      // y es el mismo que en PR2 usan las sillas vacías.
+      className={`flex items-center gap-3 rounded-lg bg-(--color-surface-2) px-3 py-2.5${
+        estado === "abandono" ? " border border-dashed border-(--color-border)" : ""
+      }`}
+    >
+      <Criatura
+        address={seat.address}
+        estado={estado}
+        traidor={traidor}
+        oro={{ bolsillo, maximo: maxBolsillo }}
+        clase="criatura--mesa shrink-0"
+        // El aria-label NO usa playerLabel: el nombre, el avatar y el chip
+        // CASA/WEBHOOK ya están en la etiqueta HTML de al lado, y meterlos
+        // también adentro del SVG los hace sonar dos veces.
+        etiquetaA11y={t("aleph.a11y.criatura", {
+          wallet: shortAddress(seat.address),
+          estado: chip,
+        })}
+        respira={room.status === "playing" && seat.status === "alive"}
+      />
+      <div className="min-w-0 flex-1">
+        {seat.name && (
+          <div className="truncate text-sm text-(--color-muted-bright)">
+            {`${seat.avatar ?? ""} ${seat.name}`.trim()}
+          </div>
+        )}
+        {/* La wallet abreviada NUNCA se trunca: es la regla anti-suplantación de
+            wallet.tsx, no una preferencia de layout. Por eso va en su propio
+            renglón y en mono con el token `text-px10`, que entra en ~78px. El
+            token existe justamente para que no vuelva el `text-[10px]` suelto
+            (`globals.css:61-62`), y hoy no queda ninguno en `apps/web`. */}
+        <div className="font-mono text-px10 text-(--color-muted-3)">
+          {shortAddress(seat.address)}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          {/* CASA/WEBHOOK es chip de IDENTIDAD: no cuenta para el tope de dos,
+              que es sobre los de estado. */}
+          {agente && <span className="chip">{agente}</span>}
+          <span className="chip">{chip}</span>
+          {/* Nunca más de dos chips de estado. El del traidor va en danger
+              porque es raro y es grave. */}
+          {traidor && <span className="chip chip--danger">{t("aleph.state.traidor")}</span>}
+        </div>
+      </div>
+      <span className="font-pixel shrink-0 text-sm text-(--color-gold)">{bolsillo}</span>
     </li>
   );
 }
