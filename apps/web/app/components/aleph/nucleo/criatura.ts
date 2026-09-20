@@ -601,3 +601,36 @@ export function nodosDe(rasgos: Rasgos, opts?: OpcionesDeCriatura): Nodo[] {
 
   return [...enCuerpo.map(bajar), ...grieta.map(bajar), ...enCabeza];
 }
+
+// --- El serializador --------------------------------------------------------
+
+const ESCAPES: Readonly<Record<string, string>> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+};
+
+const escapar = (s: string) => s.replace(/[&<>"]/g, (c) => ESCAPES[c]);
+
+/** La criatura como string de SVG. Lo usan los tests y (en PR2) el probador.
+ *  `Criatura.tsx` mapea la MISMA lista de `nodosDe` a <rect>, así que los dos
+ *  consumen lo mismo y no pueden divergir. Sin <text>, sin <title>, sin
+ *  <clipPath> y sin gradientes: todo rótulo es HTML traducible, porque Press
+ *  Start 2P no tiene glifos devanagari y el sitio se sirve en hindi. */
+export function svgDeCriatura(
+  address: string | null | undefined,
+  opts?: OpcionesDeCriatura & { etiquetaA11y?: string },
+): string {
+  const rasgos = rasgosDe(address);
+  const nodos = nodosDe(rasgos, opts);
+  const opacidad = opts?.estado ? OPACIDAD_DE_ESTADO[opts.estado] : undefined;
+  const a11y = opts?.etiquetaA11y
+    ? ` role="img" aria-label="${escapar(opts.etiquetaA11y)}"`
+    : ' aria-hidden="true"';
+  const rects = nodos
+    .map((n) => `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" fill="${n.fill}"/>`)
+    .join("");
+  const op = opacidad === undefined ? "" : ` opacity="${opacidad}"`;
+  return `<svg viewBox="0 0 16 16" shape-rendering="crispEdges"${op}${a11y}>${rects}</svg>`;
+}

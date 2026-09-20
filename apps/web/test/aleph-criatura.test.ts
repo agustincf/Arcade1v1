@@ -23,6 +23,7 @@ import {
   capaDeEstado,
   filasDeOro,
   nodosDe,
+  svgDeCriatura,
 } from "../app/components/aleph/nucleo/criatura.js";
 import { direcciones } from "./aleph-ayuda.js";
 
@@ -315,4 +316,58 @@ test("9. el oro es proporcional en todo el rango y cuesta un solo nodo", () => {
     "en y=15 del votado va solo la última fila del cuerpo: no lleva patas",
   );
   assert.equal(abandono.filter((n) => n.y === 15).length, 2, "el abandono conserva sus dos patas");
+});
+
+test("1. determinismo: dos llamadas dan el mismo string, y EIP-55 no cambia nada", () => {
+  const a = "0x7a3f91c0d4e5b6a7889910aabbccddee0012c91d";
+  assert.equal(svgDeCriatura(a), svgDeCriatura(a));
+  assert.equal(svgDeCriatura(a.toUpperCase().replace("0X", "0x")), svgDeCriatura(a));
+  assert.equal(svgDeCriatura("0x7A3F91C0D4E5B6A7889910AABBCCDDEE0012C91D"), svgDeCriatura(a));
+});
+
+test("6. seis direcciones distintas dan seis criaturas distintas", () => {
+  // El caso de la casa. Las direcciones de los asientos de la casa NO existen
+  // como constantes en el repo: `aleph-house-seats.ts` las genera la primera
+  // vez y las guarda en el store del árbitro. Son estables, así que cada
+  // asiento de la casa tiene su criatura fija para siempre, pero el test no las
+  // puede conocer: comprueba la propiedad sobre seis direcciones cualquiera, y
+  // la garantía de fondo la da el test de variedad.
+  const seis = direcciones(6, 4242).map((a) => svgDeCriatura(a));
+  assert.equal(new Set(seis).size, 6);
+});
+
+test("8a. los ocho estados salen con su etiqueta, y nunca hay texto adentro del SVG", () => {
+  const a = direcciones(1, 5)[0];
+  // La etiqueta se arma desde la MISMA dirección que se dibuja, con el formato
+  // de `shortAddress`: un fixture que nombrara otra wallet sería un dato falso.
+  const corto = `${a.slice(0, 6)}...${a.slice(-4)}`;
+  const etiquetas = ESTADOS.map((estado) => `Criatura de ${corto}, ${estado}`);
+  // Lo que este módulo decide de las ocho etiquetas es el DIBUJO, y los ocho
+  // tienen que ser distintos: dos estados que colapsen en la misma criatura
+  // hacen que el `aria-label` diga una cosa y la pantalla muestre otra. Que los
+  // ocho TEXTOS sean distintos sale de i18n y lo mira `i18n.test.ts`; que la
+  // clave de chip de cada estado sea distinta lo mira el test 8b bis. Acá no se
+  // puede comprobar ninguna de las dos sin fabricarlas, que es una tautología.
+  assert.equal(
+    new Set(ESTADOS.map((estado) => svgDeCriatura(a, { estado }))).size,
+    8,
+    "dos estados dibujan lo mismo",
+  );
+  for (const [i, estado] of ESTADOS.entries()) {
+    const svg = svgDeCriatura(a, { estado, etiquetaA11y: etiquetas[i] });
+    assert.ok(svg.includes(`aria-label="${etiquetas[i]}"`), `falta el aria-label de ${estado}`);
+    assert.ok(svg.includes('role="img"'));
+    assert.ok(!svg.includes("aria-hidden"));
+    assert.ok(!svg.includes("<text"), "nada de <text> adentro del SVG");
+    assert.ok(!svg.includes("<title"), "nada de <title> adentro del SVG");
+    assert.ok(!svg.includes("<clipPath") && !svg.includes("Gradient"));
+    assert.ok(!svg.includes("var("), "los nodos llevan el fill ya resuelto");
+  }
+  // Sin etiqueta va `aria-hidden`: es como se monta en la charla.
+  const mudo = svgDeCriatura(a);
+  assert.ok(mudo.includes('aria-hidden="true"') && !mudo.includes("role="));
+  // Las dos opacidades del spec.
+  assert.ok(svgDeCriatura(a, { estado: "se_fue" }).includes('opacity="0.8"'));
+  assert.ok(svgDeCriatura(a, { estado: "abandono" }).includes('opacity="0.34"'));
+  assert.ok(!svgDeCriatura(a, { estado: "base" }).includes("opacity="));
 });
