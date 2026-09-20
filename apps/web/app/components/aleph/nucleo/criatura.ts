@@ -392,3 +392,212 @@ export function capaDeIdentidad(
 export function capaDeCara(rasgos: Rasgos): Nodo[] {
   return [...OJOS[rasgos.ojos](), ...BOCAS[rasgos.boca]()];
 }
+
+// --- La capa de estado ------------------------------------------------------
+// El estado NUNCA toca la identidad: la silueta, el color, la corona, la marca
+// y el accesorio son los mismos vivo, votado o ganador. Lo que cambia son ojos,
+// boca y overlay, y esos tres NO ven la dirección: los elige una tabla que
+// recibe el estado y los diez medios anchos (que ya se ven dibujados). Es eso,
+// y no la cantidad de argumentos, lo que hace imposible filtrar un secreto por
+// el dibujo.
+
+export type Estado =
+  | "base"
+  | "hablando"
+  | "esperando"
+  | "sellado"
+  | "se_fue"
+  | "votado"
+  | "abandono"
+  | "ganador";
+
+export const ESTADOS: readonly Estado[] = [
+  "base",
+  "hablando",
+  "esperando",
+  "sellado",
+  "se_fue",
+  "votado",
+  "abandono",
+  "ganador",
+];
+
+/** `ojos`/`boca` en `null` quieren decir "usá la cara de identidad". */
+export interface CapaDeEstado {
+  ojos: Nodo[] | null;
+  boca: Nodo[] | null;
+  overlay: Nodo[];
+}
+
+/** Caras fijas de estado. */
+const CARA_CERRADOS = (): Nodo[] => [nodo(5, 8, 3, 1, T), nodo(9, 8, 3, 1, T)];
+const CARA_FELICES = (): Nodo[] => [
+  nodo(5, 8, 1, 1, T),
+  nodo(6, 9, 2, 1, T),
+  nodo(9, 9, 2, 1, T),
+  nodo(11, 8, 1, 1, T),
+];
+
+/** El dorso de ALEPH, 8x6 en x = 4-11: la misma idea del ícono del juego (ocho
+ *  asientos alrededor de un pozo dorado) redibujada en píxeles. Cuatro rects
+ *  arman el anillo de tinta y uno dorado va al centro. `y0 = 8`; el
+ *  desplazamiento del votado lo aplica `nodosDe`, así que relativo al cuerpo
+ *  cae siempre en los índices 3 a 8, donde el piso de `hw >= 4` garantiza que
+ *  entre inscripto en cualquiera de las ocho siluetas.
+ *
+ *  El anillo de tinta hace que el centro se lea sobre cualquier cuerpo; pero
+ *  si alguna de sus dos filas ya quedó dorada por el bolsillo, el centro se
+ *  pinta en ink: un punto dorado sobre oro no dice nada. La comparación es
+ *  FILA A FILA, nunca contra un umbral escrito a mano. */
+function dorsoDeAleph(y0: number, doradas: Set<number>): Nodo[] {
+  const centro = y0 + 2;
+  const sobreOro = doradas.has(centro) || doradas.has(centro + 1);
+  return [
+    nodo(4, y0, 8, 1, T),
+    nodo(4, y0 + 5, 8, 1, T),
+    nodo(4, y0 + 1, 1, 4, T),
+    nodo(11, y0 + 1, 1, 4, T),
+    nodo(7, centro, 2, 2, sobreOro ? T : COLORES_DE_ESTADO.oro),
+  ];
+}
+
+/** SOLO ve el estado, los diez medios anchos y qué filas están doradas. Nunca
+ *  la dirección, ni la fase, ni el bolsillo crudo. */
+export function capaDeEstado(
+  estado: Estado,
+  hw: readonly number[],
+  doradas?: Set<number>,
+): CapaDeEstado {
+  const oro = doradas ?? new Set<number>();
+  switch (estado) {
+    case "hablando":
+      // Globo de 3x2 en marfil sobre la cabeza, con su cola de 1 px en y = 2.
+      return {
+        ojos: null,
+        boca: BOCAS[6](),
+        overlay: [
+          nodo(10, 0, 3, 2, COLORES_DE_ESTADO.globo),
+          nodo(11, 1, 1, 1, T),
+          nodo(9, 2, 1, 1, COLORES_DE_ESTADO.globo),
+        ],
+      };
+    case "esperando":
+      // Tres puntitos cyan FIJOS: no se animan. La cara queda la de identidad:
+      // es el único estado que trae objeto sin cambiar la cara.
+      return {
+        ojos: null,
+        boca: null,
+        overlay: [
+          nodo(6, 1, 1, 1, COLORES_DE_ESTADO.cyan),
+          nodo(8, 1, 1, 1, COLORES_DE_ESTADO.cyan),
+          nodo(10, 1, 1, 1, COLORES_DE_ESTADO.cyan),
+        ],
+      };
+    case "sellado":
+      // Actuó y no sabemos qué. Idéntico para todos, a propósito.
+      return {
+        ojos: CARA_CERRADOS(),
+        boca: BOCAS[1](),
+        overlay: [nodo(5, 0, 6, 2, COLORES_DE_ESTADO.cyan), nodo(7, 0, 2, 1, T)],
+      };
+    case "se_fue":
+      return {
+        ojos: CARA_FELICES(),
+        boca: BOCAS[0](),
+        overlay: [nodo(13, 0, 3, 3, COLORES_DE_ESTADO.oro), nodo(14, 1, 1, 1, T)],
+      };
+    case "votado":
+    case "abandono":
+      // El dorso tapa la CARA, no la criatura: la silueta y el color siguen ahí.
+      return { ojos: [], boca: [], overlay: dorsoDeAleph(8, oro) };
+    case "ganador": {
+      // Piso de ancho: sin él, sobre una silueta angosta (hw[0] = 2) la corona
+      // mediría 4 px y el único asiento que todo el mundo va a mirar quedaría
+      // con una corona que casi no se ve.
+      const ch = Math.max(4, hw[0]);
+      return {
+        ojos: CARA_FELICES(),
+        boca: BOCAS[0](),
+        overlay: [
+          nodo(8 - ch, 1, 2 * ch, 1, COLORES_DE_ESTADO.oro),
+          nodo(8 - ch, 0, 1, 1, COLORES_DE_ESTADO.oro),
+          nodo(7, 0, 2, 1, COLORES_DE_ESTADO.oro),
+          nodo(8 + ch - 1, 0, 1, 1, COLORES_DE_ESTADO.oro),
+          nodo(8 - ch, 2, 2 * ch, 1, COLORES_DE_ESTADO.oroSombra),
+        ],
+      };
+    }
+    default:
+      // `base` es el REPOSO, no un estado vacío: se distingue justamente por no
+      // tener nada encima, y es el más frecuente de la pantalla.
+      return { ojos: null, boca: null, overlay: [] };
+  }
+}
+
+/** La marca del traidor no es un estado: convive con cualquiera. Una columna
+ *  coral de 1 px con dos escalones y un segundo ojo que asoma en (8,8). Se
+ *  DIBUJA, no se parte: separar las dos mitades obligaría a dibujar el cuerpo
+ *  dos veces (veinte rects en vez de diez) y a romper el tope de nodos. */
+const GRIETA = (): Nodo[] => [
+  nodo(8, 5, 1, 3, COLORES_DE_ESTADO.coral),
+  nodo(9, 8, 1, 2, COLORES_DE_ESTADO.coral),
+  nodo(8, 10, 1, 4, COLORES_DE_ESTADO.coral),
+  nodo(8, 8, 1, 1, COLORES_DE_ESTADO.coral),
+];
+
+// --- El oro del bolsillo ----------------------------------------------------
+
+/** Cuántas filas del cuerpo se pintan en oro. Las ocho se reparten sobre TODO
+ *  el rango, no sobre el 75 % de abajo: con `round(p * 10)` recortado en 8,
+ *  cualquiera entre el 75 % y el 100 % del máximo mostraba las mismas ocho
+ *  filas, y el cuarto superior —justo donde se define quién va ganando— quedaba
+ *  indistinguible. Y cualquier bolsillo mayor que cero muestra al menos una:
+ *  un asiento que ya guardó plata no se puede dibujar igual que uno que no. */
+export function filasDeOro(bolsillo: number, maxBolsillo: number): number {
+  if (!(bolsillo > 0) || !(maxBolsillo > 0)) return 0;
+  return Math.min(8, Math.max(1, Math.round((bolsillo / maxBolsillo) * 8)));
+}
+
+// --- El armado --------------------------------------------------------------
+
+export interface OpcionesDeCriatura {
+  estado?: Estado;
+  traidor?: boolean;
+  /** Filas de oro, 0 a 8. Sale de `filasDeOro`. */
+  filas?: number;
+}
+
+/** La única función que ve las DOS capas, y por eso la única que puede aplicar
+ *  el desplazamiento del votado. Orden de dibujo: cuerpo (con el oro ya
+ *  aplicado) -> borde de ink -> patas -> marca -> accesorio -> corona -> ojos
+ *  -> boca -> overlay de estado -> grieta.
+ *
+ *  El votado NO se inclina: rotar seis grados una grilla de píxeles la hace
+ *  puré antialiaseado, que es justo lo que `crispEdges` fue a evitar. Cae en
+ *  escalones ortogonales: el cuerpo entero baja una fila (de 5-14 a 6-15), la
+ *  corona baja con él y las patas no se dibujan. Todo sigue adentro de la
+ *  grilla y no hace falta un solo nodo de más. */
+export function nodosDe(rasgos: Rasgos, opts?: OpcionesDeCriatura): Nodo[] {
+  const estado: Estado = opts?.estado ?? "base";
+  const filas = Math.max(0, Math.min(8, opts?.filas ?? 0));
+  const hw = SILUETAS[rasgos.silueta];
+  const dy = estado === "votado" ? 1 : 0;
+  const doradas = filasDoradas(filas);
+
+  const identidad = capaDeIdentidad(rasgos, { filas, conPatas: estado !== "votado" });
+  const capa = capaDeEstado(estado, hw, doradas);
+  const cara = [
+    ...(capa.ojos === null ? OJOS[rasgos.ojos]() : capa.ojos),
+    ...(capa.boca === null ? BOCAS[rasgos.boca]() : capa.boca),
+  ];
+
+  // El desplazamiento mueve la identidad, la cara y todo lo que se apoya en el
+  // cuerpo (el dorso, la grieta). Nunca los overlays de cabeza, que son los
+  // únicos que viven fuera del cuerpo y por eso no se caen con él.
+  const enCuerpo = [...identidad, ...cara, ...capa.overlay.filter((n) => n.y > 2)];
+  const enCabeza = capa.overlay.filter((n) => n.y <= 2);
+  const grieta = opts?.traidor ? GRIETA() : [];
+  const bajar = (n: Nodo): Nodo => (dy ? { ...n, y: n.y + dy } : n);
+
+  return [...enCuerpo.map(bajar), ...grieta.map(bajar), ...enCabeza];
+}

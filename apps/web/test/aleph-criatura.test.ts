@@ -9,15 +9,20 @@ import {
   FAMILIAS,
   SECUNDARIOS,
   DESCONOCIDA,
+  COLORES_DE_ESTADO,
   SILUETAS,
   CORONAS,
   MARCAS,
   ACCESORIOS,
   OJOS,
   BOCAS,
+  ESTADOS,
   rasgosDe,
   capaDeIdentidad,
   capaDeCara,
+  capaDeEstado,
+  filasDeOro,
+  nodosDe,
 } from "../app/components/aleph/nucleo/criatura.js";
 import { direcciones } from "./aleph-ayuda.js";
 
@@ -147,4 +152,143 @@ test("presupuesto: identidad <= 24 nodos y nunca y < 3; cara <= 9", () => {
     }
     assert.ok(capaDeCara(r).length <= 9);
   }
+});
+
+test("2. todo adentro de la grilla, cada capa en su zona y el dorso inscripto en el cuerpo", () => {
+  const DE_CABEZA: readonly string[] = ["hablando", "esperando", "sellado", "se_fue", "ganador"];
+  for (const a of direcciones(2000, 20260920)) {
+    const r = rasgosDe(a);
+    const hw = SILUETAS[r.silueta];
+    for (const estado of ESTADOS) {
+      for (const traidor of [false, true]) {
+        for (const filas of [0, 1, 4, 8]) {
+          for (const n of nodosDe(r, { estado, traidor, filas })) {
+            assert.ok(n.w > 0 && n.h > 0, `nodo vacío ${JSON.stringify(n)}`);
+            assert.ok(
+              n.x >= 0 && n.y >= 0 && n.x + n.w <= 16 && n.y + n.h <= 16,
+              `fuera de grilla ${JSON.stringify(n)} · ${estado} traidor=${traidor} filas=${filas}`,
+            );
+          }
+        }
+      }
+      const overlay = capaDeEstado(estado, hw).overlay;
+      if (DE_CABEZA.includes(estado)) {
+        // Ningún overlay de cabeza baja de y=2: es lo que impide que la corona
+        // dorada del ganador tape la corona de identidad (y 3-4).
+        for (const n of overlay)
+          assert.ok(n.y + n.h <= 3, `overlay de cabeza de ${estado}: ${JSON.stringify(n)}`);
+      }
+      if (estado === "votado" || estado === "abandono") {
+        // El dorso, inscripto en el rectángulo del cuerpo de ESA silueta.
+        const dy = estado === "votado" ? 1 : 0;
+        for (const n of overlay) {
+          assert.ok(n.y >= 3, `el dorso de ${estado} entró en la zona de cabeza`);
+          for (let y = n.y + dy; y < n.y + dy + n.h; y++) {
+            const i = y - 5 - dy;
+            assert.ok(i >= 0 && i <= 9, `dorso fuera del cuerpo (fila ${y}) en ${estado}`);
+            assert.ok(
+              n.x >= 8 - hw[i] && n.x + n.w <= 8 + hw[i],
+              `dorso fuera del ancho del cuerpo: silueta ${r.silueta}, fila ${i}`,
+            );
+          }
+        }
+      }
+    }
+  }
+});
+
+test("3. tope de nodos: nunca más de 40, en cualquier combinación", () => {
+  let maximo = 0;
+  for (const a of direcciones(2000, 4242)) {
+    const r = rasgosDe(a);
+    for (const estado of ESTADOS) {
+      // De las tres cotas por capa, identidad (<= 24) y cara (<= 9) las mira el
+      // test "presupuesto"; esta es la del overlay de estado (<= 9). Hoy el
+      // peor da 5, así que sobra margen: el assert está para que un overlay
+      // nuevo no se coma el tope de 40 sin que nadie se entere.
+      const overlay = capaDeEstado(estado, SILUETAS[r.silueta]).overlay;
+      assert.ok(overlay.length <= 9, `overlay de ${estado}: ${overlay.length} nodos`);
+    }
+    for (const estado of ESTADOS)
+      for (const traidor of [false, true])
+        for (const filas of [0, 1, 4, 8]) {
+          const largo = nodosDe(r, { estado, traidor, filas }).length;
+          maximo = Math.max(maximo, largo);
+          assert.ok(
+            largo <= 40,
+            `${largo} nodos · ${a} ${estado} traidor=${traidor} filas=${filas}`,
+          );
+        }
+  }
+  assert.ok(maximo >= 30, `el peor caso dio ${maximo}: si bajó tanto, algo dejó de dibujarse`);
+});
+
+test("9. el oro es proporcional en todo el rango y cuesta un solo nodo", () => {
+  assert.equal(filasDeOro(0, 1000), 0);
+  assert.equal(filasDeOro(1, 1000), 1); // cualquier bolsillo > 0 muestra al menos una
+  assert.equal(filasDeOro(500, 1000), 4);
+  assert.equal(filasDeOro(750, 1000), 6); // no 8: el cuarto superior se tiene que distinguir
+  // Nunca 10: de las diez filas del cuerpo, las dos de arriba quedan sin oro.
+  // Encima del oro va el borde de ink de la regla D, así que con el bolsillo
+  // máximo queda UNA sola fila con el color de identidad, no dos (desvío 11).
+  assert.equal(filasDeOro(1000, 1000), 8);
+  assert.equal(filasDeOro(0, 0), 0);
+  assert.equal(filasDeOro(100, 0), 0);
+
+  const r = rasgosDe("0x" + "ab".repeat(20));
+  const base = nodosDe(r, { estado: "base", filas: 0 }).length;
+  for (let filas = 1; filas <= 8; filas++) {
+    const nodos = nodosDe(r, { estado: "base", filas });
+    assert.equal(nodos.length, base + 1, `filas=${filas}: el oro agregó más de un nodo`);
+    const dorados = nodos.filter((n) => n.fill === COLORES_DE_ESTADO.oro);
+    assert.equal(dorados.filter((n) => n.y === 14).length, 1, "la fila 14 tiene que ser oro");
+    assert.equal(dorados.filter((n) => n.y === 15).length, 2, "las patas tienen que ser oro");
+    // Regla D: el ÚNICO nodo de ink de la identidad es el borde, y cae justo
+    // una fila arriba del oro. Se mira sobre `capaDeIdentidad` y no sobre
+    // `nodosDe`, porque la cara del estado también pinta en ink.
+    const borde = capaDeIdentidad(r, { filas, conPatas: true }).filter(
+      (n) => n.fill === COLORES_DE_ESTADO.tinta,
+    );
+    assert.equal(borde.length, 1, `filas=${filas}: la regla D tiene que poner un solo borde`);
+    assert.equal(borde[0].y, 14 - filas, `filas=${filas}: el borde no está pegado al oro`);
+  }
+  assert.equal(
+    nodosDe(r, { estado: "base", filas: 0 }).filter((n) => n.fill === COLORES_DE_ESTADO.oro).length,
+    0,
+    "con bolsillo 0 no hay una sola fila dorada",
+  );
+
+  // El píxel central del dorso pasa a ink cuando su propia fila ya quedó
+  // dorada: la comparación es fila a fila, no contra un umbral escrito a mano.
+  for (const estado of ["votado", "abandono"] as const) {
+    const dy = estado === "votado" ? 1 : 0;
+    for (let filas = 0; filas <= 8; filas++) {
+      const centro = nodosDe(r, { estado, filas }).find(
+        (n) => n.w === 2 && n.h === 2 && n.x === 7 && n.y === 10 + dy,
+      );
+      assert.ok(centro, `${estado} filas=${filas}: falta el centro del dorso`);
+      assert.equal(
+        centro.fill,
+        filas >= 4 ? COLORES_DE_ESTADO.tinta : COLORES_DE_ESTADO.oro,
+        `${estado} filas=${filas}: un punto dorado sobre oro no dice nada`,
+      );
+    }
+  }
+
+  // El votado cae en escalones ortogonales: el cuerpo ENTERO baja una fila
+  // (5-14 pasa a 6-15) y pierde las patas; el abandono no baja. Sin estos
+  // cuatro asserts, un `nodosDe` que dejara de bajar la capa de identidad
+  // dibujaría exactamente el abandono y nadie se enteraría: el test 2 mira el
+  // dorso sobre `capaDeEstado`, que no ve el desplazamiento, y el dibujo sin
+  // bajar entra igual en la grilla de 16, así que tampoco rompe la cota.
+  const votado = nodosDe(r, { estado: "votado", filas: 0 });
+  const abandono = nodosDe(r, { estado: "abandono", filas: 0 });
+  assert.equal(Math.min(...votado.map((n) => n.y)), 4, "el votado no bajó una fila");
+  assert.equal(Math.min(...abandono.map((n) => n.y)), 3, "el abandono no tiene que bajar");
+  assert.equal(
+    votado.filter((n) => n.y === 15).length,
+    1,
+    "en y=15 del votado va solo la última fila del cuerpo: no lleva patas",
+  );
+  assert.equal(abandono.filter((n) => n.y === 15).length, 2, "el abandono conserva sus dos patas");
 });
