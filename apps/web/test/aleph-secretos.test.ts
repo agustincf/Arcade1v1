@@ -5,6 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { lineasDeCharla } from "../app/components/aleph/nucleo/charla.js";
 import {
   SILUETAS,
   capaDeEstado,
@@ -14,7 +15,7 @@ import {
   rasgosDe,
 } from "../app/components/aleph/nucleo/criatura.js";
 import { chipDeAsiento, estadoDeAsiento } from "../app/components/aleph/nucleo/estados.js";
-import { A, B, direcciones, sala } from "./aleph-ayuda.js";
+import { A, B, C, direcciones, sala } from "./aleph-ayuda.js";
 
 test("18. el sello es idéntico para todos y no ve la dirección", () => {
   const referencia = capaDeEstado("sellado", SILUETAS[0]);
@@ -89,4 +90,39 @@ test("17 bis. dissolved sale del estado de la SALA, no del asiento", () => {
     assert.equal(estadoDeAsiento(asiento, rota).estado, "abandono");
     assert.equal(chipDeAsiento(asiento, rota), "aleph.seat.dissolved");
   }
+});
+
+test("19. en vivo no hay susurros, aunque el árbitro cambie", () => {
+  // Hoy es imposible: `viewFor` los filtra. Es defensa en profundidad contra
+  // un cambio futuro del árbitro.
+  const viva = sala({
+    messages: [
+      { from: A, text: "público", stage: 0, phase: "talk" },
+      { from: B, to: C, text: "esto no se ve", stage: 0, phase: "talk" },
+    ],
+  });
+  const modelo = lineasDeCharla(viva);
+  assert.ok(modelo);
+  assert.equal(modelo.desclasificada, false);
+  assert.equal(modelo.lineas.length, 1);
+  assert.deepEqual(modelo.lineas[0], {
+    tipo: "mensaje",
+    from: A,
+    to: undefined,
+    texto: "público",
+    susurro: false,
+  });
+  assert.ok(!JSON.stringify(modelo).includes("esto no se ve"));
+});
+
+test("20. la charla no inventa: sin mensajes no hay contador de susurros ni marca de canal privado", () => {
+  const modelo = lineasDeCharla(sala({ messages: [] }));
+  assert.ok(modelo);
+  assert.deepEqual(modelo, { desclasificada: false, lineas: [] });
+  // Y sin `messages` no se monta nada: en lobby, funding y dissolved el árbitro
+  // no manda el campo, y una ventana entera prometería un canal que no se abrió.
+  assert.equal(
+    lineasDeCharla(sala({ status: "lobby", stage: undefined, messages: undefined })),
+    null,
+  );
 });
