@@ -221,6 +221,30 @@ test("3. tope de nodos: nunca más de 40, en cualquier combinación", () => {
         }
   }
   assert.ok(maximo >= 30, `el peor caso dio ${maximo}: si bajó tanto, algo dejó de dibujarse`);
+
+  // Los cuatro nodos de la marca del traidor, contados. El barrido de arriba
+  // pasa `traidor` pero solo mira la cota, así que un `nodosDe` que ignorara la
+  // opción —o una `GRIETA` vacía— dejaría el peor caso en 35, el `maximo >= 30`
+  // seguiría verde y nadie se enteraría de que la marca dejó de dibujarse.
+  const r = rasgosDe("0x" + "ab".repeat(20));
+  for (const estado of ESTADOS) {
+    const sinMarca = nodosDe(r, { estado, filas: 0 });
+    const conMarca = nodosDe(r, { estado, traidor: true, filas: 0 });
+    const marca = conMarca.filter((n) => n.fill === COLORES_DE_ESTADO.coral);
+    assert.equal(conMarca.length, sinMarca.length + 4, `${estado}: la marca no sumó sus 4 nodos`);
+    assert.equal(marca.length, 4, `${estado}: los 4 nodos de la marca tienen que ser coral`);
+    assert.equal(
+      sinMarca.filter((n) => n.fill === COLORES_DE_ESTADO.coral).length,
+      0,
+      `${estado}: sin traidor no se dibuja una sola marca`,
+    );
+    // La grieta se apoya en el cuerpo: baja con él en el votado (5 -> 6).
+    assert.equal(
+      Math.min(...marca.map((n) => n.y)),
+      estado === "votado" ? 6 : 5,
+      `${estado}: la marca no acompañó al cuerpo`,
+    );
+  }
 });
 
 test("9. el oro es proporcional en todo el rango y cuesta un solo nodo", () => {
