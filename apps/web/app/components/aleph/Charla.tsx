@@ -91,17 +91,15 @@ export function Charla({
             )}
           </ol>
         )}
-        {/* Las dos líneas del pie hablan del canal privado MIENTRAS está
-            cerrado: la de sistema promete que no se publica "ni que existió"
-            porque el navegador no sabe si hubo susurros, y esa premisa se cae
-            en el mismo momento en que la sala liquida y los susurros aparecen
-            dibujados arriba. Con la sala liquidada, `aleph.chat.declassified`
-            ya dijo lo que pasó con el canal, dos renglones más arriba. */}
+        {/* La línea de sistema va FIJA, siempre, haya habido susurros o no: es
+            lo único honesto, el navegador no sabe si hubo. Y con la sala
+            liquidada sigue siendo la que nombra el canal privado al pie, para
+            que el pie nunca quede vacío. La de `onlyThisStage`, en cambio, solo
+            vale mientras la sala juega: al liquidar se abre el historial
+            entero. */}
+        <p className="charla-sistema mt-4">{t("aleph.chat.private")}</p>
         {!modelo.desclasificada && (
-          <>
-            <p className="charla-sistema mt-4">{t("aleph.chat.private")}</p>
-            <p className="charla-nota mt-1">{t("aleph.chat.onlyThisStage")}</p>
-          </>
+          <p className="charla-nota mt-1">{t("aleph.chat.onlyThisStage")}</p>
         )}
       </div>
     </section>
