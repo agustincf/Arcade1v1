@@ -1286,6 +1286,16 @@ es como se testea en este repo, sin DOM ni configuración nueva. Los textos
 entran por props (`t`) y las etiquetas de wallet llegan ya armadas, que es el
 patrón que la página ya usa con `SeatRow(seat, t)`.
 
+**Los módulos puros van un nivel más adentro, en
+`apps/web/app/components/aleph/nucleo/`** (`criatura.ts`, `estados.ts`,
+`charla.ts`, `escena.ts`, `movimiento.ts`); los componentes (`*.tsx`) quedan en
+`aleph/`. Lo encontró el plan de PR1 (desvío 9): en el macOS del dueño el
+filesystem no distingue mayúsculas y TypeScript prueba `.ts` antes que `.tsx`,
+así que `criatura.ts` al lado de `Criatura.tsx` hace que el componente se
+importe a sí mismo (`TS2305` + `TS1261`). Ningún nombre ni firma cambia; solo la
+carpeta. PR2 hereda la regla para `escena.ts`/`Escena.tsx`. Abajo, las rutas de
+la tabla se leen con esa salvedad.
+
 | archivo           | qué es                                                                                                                                                                                                              | qué campo consume                                                                                                                                                                                            |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `criatura.ts`     | puro, cero imports. `rasgosDe(address)`, `nodosDe(rasgos, opts)`, `capaDeEstado(estado, hw)`, `svgDeCriatura(address, opts?)` (el serializador que usan tests y probador) y las ocho tablas más `COLORES_DE_ESTADO` | `AlephSeatView.address`                                                                                                                                                                                      |
