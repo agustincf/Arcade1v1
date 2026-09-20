@@ -25,7 +25,12 @@ import {
   nodosDe,
   svgDeCriatura,
 } from "../app/components/aleph/nucleo/criatura.js";
-import { direcciones } from "./aleph-ayuda.js";
+import {
+  chipDeAsiento,
+  estadoDeAsiento,
+  type SalaDeAleph,
+} from "../app/components/aleph/nucleo/estados.js";
+import { A, B, direcciones, sala } from "./aleph-ayuda.js";
 
 const SURFACE = "#1f1a29";
 const COLORES_DE_ESTADO_DEL_SITIO = ["#f2c14e", "#b8e08a", "#5fd68a", "#f0716f"];
@@ -370,4 +375,213 @@ test("8a. los ocho estados salen con su etiqueta, y nunca hay texto adentro del 
   assert.ok(svgDeCriatura(a, { estado: "se_fue" }).includes('opacity="0.8"'));
   assert.ok(svgDeCriatura(a, { estado: "abandono" }).includes('opacity="0.34"'));
   assert.ok(!svgDeCriatura(a, { estado: "base" }).includes("opacity="));
+});
+
+test("8b. chipDeAsiento recorre sus siete filas en orden", () => {
+  const asiento = (status: SalaDeAleph["seats"][number]["status"]) => ({
+    address: A,
+    status,
+    pocket: 0,
+  });
+
+  // 0) `dissolved` gana sobre todo: ahí el árbitro manda `alive` para todos.
+  assert.equal(
+    chipDeAsiento(asiento("alive"), sala({ status: "dissolved", stage: undefined })),
+    "aleph.seat.dissolved",
+  );
+  // 1) `funding`: depositó o no, aunque el asiento venga `alive`.
+  assert.equal(
+    chipDeAsiento(asiento("alive"), sala({ status: "funding", stage: undefined, deposited: [A] })),
+    "aleph.seat.deposited",
+  );
+  assert.equal(
+    chipDeAsiento(asiento("alive"), sala({ status: "funding", stage: undefined, deposited: [] })),
+    "aleph.seat.pending",
+  );
+  // 2) ganador
+  const conFinal = sala({
+    status: "settled",
+    seats: [
+      { address: A, status: "finished", pocket: 9 },
+      { address: B, status: "finished", pocket: 1 },
+    ],
+    results: [{ index: 0, kind: "final", choices: { [A]: "steal", [B]: "split" } }],
+    stage: undefined,
+  });
+  assert.equal(chipDeAsiento(asiento("finished"), conFinal), "aleph.state.ganador");
+  // 3) hablando
+  assert.equal(
+    chipDeAsiento(
+      asiento("alive"),
+      sala({ messages: [{ from: A, text: "hola", stage: 0, phase: "decide" }] }),
+    ),
+    "aleph.state.hablando",
+  );
+  // 4) esperando
+  assert.equal(chipDeAsiento(asiento("alive"), sala()), "aleph.state.esperando");
+  // 5) sellado, con sus dos textos según la fase
+  assert.equal(
+    chipDeAsiento(
+      asiento("alive"),
+      sala({ stage: { index: 0, kind: "vote", phase: "decide", acted: [A] } }),
+    ),
+    "aleph.state.decidio",
+  );
+  assert.equal(
+    chipDeAsiento(
+      asiento("alive"),
+      sala({ stage: { index: 0, kind: "vote", phase: "talk", acted: [A] } }),
+    ),
+    "aleph.state.listo",
+  );
+  // 6) el resto: `aleph.seat.${seat.status}`, sobre los cinco SeatStatus.
+  for (const status of ["alive", "left", "voted_out", "abandoned", "finished"] as const) {
+    assert.equal(
+      chipDeAsiento(
+        asiento(status),
+        sala({ stage: { index: 0, kind: "vote", phase: "talk", acted: [] } }),
+      ),
+      `aleph.seat.${status}`,
+      `playing + ${status}`,
+    );
+  }
+  // Un asiento `left` da "aceptó la oferta" también con la sala liquidada, y no
+  // "terminó": el chip sale del asiento, no del estado de la sala.
+  assert.equal(
+    chipDeAsiento(asiento("left"), sala({ status: "settled", stage: undefined })),
+    "aleph.seat.left",
+  );
+});
+
+test("8b bis. la corona de la Final, con y sin Final, y el traidor suma un segundo chip", () => {
+  const dos = (s: "finished" | "alive") => [
+    { address: A, status: s, pocket: 5 },
+    { address: B, status: s, pocket: 5 },
+  ];
+  const final = (choices: Record<string, "split" | "steal">): SalaDeAleph => ({
+    status: "settled",
+    seats: dos("finished"),
+    results: [{ index: 0, kind: "final", choices }],
+  });
+  // Un solo steal: ese lleva corona.
+  assert.equal(
+    estadoDeAsiento(dos("finished")[0], final({ [A]: "steal", [B]: "split" })).estado,
+    "ganador",
+  );
+  assert.equal(
+    estadoDeAsiento(dos("finished")[1], final({ [A]: "steal", [B]: "split" })).estado,
+    "base",
+  );
+  // Los dos split: los dos.
+  for (const i of [0, 1])
+    assert.equal(
+      estadoDeAsiento(dos("finished")[i], final({ [A]: "split", [B]: "split" })).estado,
+      "ganador",
+    );
+  // Los dos steal: ninguno (el pozo se quemó).
+  for (const i of [0, 1])
+    assert.equal(
+      estadoDeAsiento(dos("finished")[i], final({ [A]: "steal", [B]: "steal" })).estado,
+      "base",
+    );
+  // Sin Final, con un solo `finished`: ese lleva corona igual (se llevó el pozo).
+  const sinFinal: SalaDeAleph = {
+    status: "settled",
+    seats: [
+      { address: A, status: "finished", pocket: 10 },
+      { address: B, status: "voted_out", pocket: 0 },
+    ],
+    results: [{ index: 0, kind: "vote" }],
+  };
+  assert.equal(estadoDeAsiento(sinFinal.seats[0], sinFinal).estado, "ganador");
+  assert.equal(estadoDeAsiento(sinFinal.seats[1], sinFinal).estado, "votado");
+  // La marca de traidor NO es un estado: es una marca, y convive con LOS OCHO.
+  // El barrido va sobre los ocho a propósito, y no sobre uno solo: los cuatro
+  // que cambian cara y overlay (`se_fue`, `votado`, `abandono`, `ganador`) son
+  // justo donde la marca se pierde si alguien la mete adentro de `capaDeEstado`
+  // en vez de dejarla en `nodosDe`. Y de paso se fija el par (estado, chip) de
+  // cada uno: son ocho claves distintas, y los chips nunca pasan de dos — el de
+  // `chipDeAsiento` más el del traidor.
+  const lock = { index: 0, kind: "lock" as const, traitors: [A] };
+  const vivo = { address: A, status: "alive" as const, pocket: 0 };
+  const casos: [string, string, SalaDeAleph, SalaDeAleph["seats"][number]][] = [
+    [
+      "base",
+      "aleph.seat.alive",
+      sala({ results: [lock], stage: { index: 1, kind: "vote", phase: "talk", acted: [] } }),
+      vivo,
+    ],
+    [
+      "hablando",
+      "aleph.state.hablando",
+      sala({
+        results: [lock],
+        messages: [{ from: A, text: "eh", stage: 1, phase: "decide" }],
+        stage: { index: 1, kind: "vote", phase: "decide", acted: [] },
+      }),
+      vivo,
+    ],
+    [
+      "esperando",
+      "aleph.state.esperando",
+      sala({ results: [lock], stage: { index: 1, kind: "vote", phase: "decide", acted: [] } }),
+      vivo,
+    ],
+    [
+      "sellado",
+      "aleph.state.decidio",
+      sala({ results: [lock], stage: { index: 1, kind: "vote", phase: "decide", acted: [A] } }),
+      vivo,
+    ],
+    [
+      "se_fue",
+      "aleph.seat.left",
+      sala({ results: [lock] }),
+      { ...vivo, status: "left", pocket: 3 },
+    ],
+    [
+      "votado",
+      "aleph.seat.voted_out",
+      sala({ results: [lock] }),
+      { ...vivo, status: "voted_out", pocket: 1 },
+    ],
+    [
+      "abandono",
+      "aleph.seat.abandoned",
+      sala({ results: [lock] }),
+      { ...vivo, status: "abandoned" },
+    ],
+    [
+      "ganador",
+      "aleph.state.ganador",
+      sala({
+        status: "settled",
+        stage: undefined,
+        results: [lock, { index: 1, kind: "final", choices: { [A]: "steal", [B]: "split" } }],
+        seats: [
+          { address: A, status: "finished", pocket: 9 },
+          { address: B, status: "finished", pocket: 1 },
+        ],
+      }),
+      { ...vivo, status: "finished", pocket: 9 },
+    ],
+  ];
+  const vistos = new Set<string>();
+  const chipsVistos = new Set<string>();
+  for (const [esperado, claveDeChip, room, asiento] of casos) {
+    const caso = estadoDeAsiento(asiento, room);
+    assert.equal(caso.estado, esperado, `caso ${esperado}`);
+    assert.equal(caso.traidor, true, `${esperado}: la marca de traidor se perdió`);
+    const chips = [chipDeAsiento(asiento, room), ...(caso.traidor ? ["aleph.state.traidor"] : [])];
+    assert.equal(chips.length, 2, `${esperado}: tienen que ser exactamente dos chips`);
+    assert.equal(chips[0], claveDeChip, `${esperado}: el chip de estado`);
+    assert.notEqual(chips[0], chips[1], `${esperado}: el chip del traidor repite al de estado`);
+    vistos.add(esperado);
+    chipsVistos.add(chips[0]);
+  }
+  assert.deepEqual([...vistos].sort(), [...ESTADOS].sort(), "faltó un estado en el barrido");
+  assert.equal(chipsVistos.size, 8, "dos estados comparten la clave de chip");
+
+  // Y la marca es de quien la tiene: B no la hereda por estar en la misma sala.
+  assert.equal(estadoDeAsiento({ ...vivo, address: B }, casos[3][2]).traidor, false);
 });

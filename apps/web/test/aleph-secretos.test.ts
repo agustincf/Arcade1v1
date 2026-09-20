@@ -13,7 +13,8 @@ import {
   nodosDe,
   rasgosDe,
 } from "../app/components/aleph/nucleo/criatura.js";
-import { direcciones } from "./aleph-ayuda.js";
+import { chipDeAsiento, estadoDeAsiento } from "../app/components/aleph/nucleo/estados.js";
+import { A, B, direcciones, sala } from "./aleph-ayuda.js";
 
 test("18. el sello es idéntico para todos y no ve la dirección", () => {
   const referencia = capaDeEstado("sellado", SILUETAS[0]);
@@ -41,4 +42,51 @@ test("18. el sello es idéntico para todos y no ve la dirección", () => {
   };
   const [a, b] = direcciones(2, 1234);
   assert.deepEqual(sinIdentidad(a), sinIdentidad(b));
+});
+
+test("17. solo lo cerrado: en fase de decisión no se filtra nada, y hablando pide la fase en curso", () => {
+  const enJuego = sala({ stage: { index: 0, kind: "vote", phase: "decide", acted: [A, B] } }, 3);
+  for (const asiento of enJuego.seats) {
+    const { estado, traidor } = estadoDeAsiento(asiento, enJuego);
+    assert.equal(traidor, false, `${asiento.address} salió traidor sin Cerradura cerrada`);
+    assert.ok(
+      !["ganador", "se_fue", "votado"].includes(estado),
+      `${asiento.address} salió ${estado} con results vacío`,
+    );
+  }
+  assert.equal(estadoDeAsiento(enJuego.seats[0], enJuego).estado, "sellado");
+  assert.equal(estadoDeAsiento(enJuego.seats[1], enJuego).estado, "sellado");
+  assert.equal(estadoDeAsiento(enJuego.seats[2], enJuego).estado, "esperando");
+
+  // El candado de fase: `messages` viene filtrado por ETAPA, no por fase, y al
+  // pasar de `talk` a `decide` el motor no lo toca. Sin el recorte, el último
+  // que habló se quedaría con el chip "habla" toda la fase de decisión —
+  // minutos, con un sondeo de 10 s— tapándole su "sin decidir".
+  const viejo = sala(
+    {
+      stage: { index: 0, kind: "vote", phase: "decide", acted: [] },
+      messages: [{ from: A, text: "confíen", stage: 0, phase: "talk" }],
+    },
+    3,
+  );
+  for (const asiento of viejo.seats)
+    assert.notEqual(estadoDeAsiento(asiento, viejo).estado, "hablando");
+  assert.equal(estadoDeAsiento(viejo.seats[0], viejo).estado, "esperando");
+  // Y alguien que habla DURANTE `decide` sí está hablando de verdad: `say` no
+  // está limitado a la fase de charla.
+  const ahora = sala({ messages: [{ from: A, text: "ojo", stage: 0, phase: "decide" }] }, 3);
+  assert.equal(estadoDeAsiento(ahora.seats[0], ahora).estado, "hablando");
+});
+
+test("17 bis. dissolved sale del estado de la SALA, no del asiento", () => {
+  // En lobby, funding y dissolved el árbitro devuelve TODOS los asientos con
+  // `status: "alive"` y `pocket: 0`: no hay ningún `abandoned` del que salir.
+  const rota = sala(
+    { status: "dissolved", stage: undefined, results: undefined, messages: undefined },
+    3,
+  );
+  for (const asiento of rota.seats) {
+    assert.equal(estadoDeAsiento(asiento, rota).estado, "abandono");
+    assert.equal(chipDeAsiento(asiento, rota), "aleph.seat.dissolved");
+  }
 });

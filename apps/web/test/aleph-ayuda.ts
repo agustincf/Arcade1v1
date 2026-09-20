@@ -2,6 +2,8 @@
 // números no bailan entre corridas. Nada de esto toca al azar del juego, que
 // sale de SHA-256 del secreto (reglas v2) y vive en el game-sdk.
 
+import type { AsientoDeSala, SalaDeAleph } from "../app/components/aleph/nucleo/estados.js";
+
 /** PRNG barato con semilla explícita. Solo para fabricar fixtures. */
 export function azarDePrueba(semilla: number): () => number {
   let s = semilla >>> 0;
@@ -24,4 +26,23 @@ export function direcciones(n: number, semilla: number): string[] {
     salida.push(hex);
   }
   return salida;
+}
+
+/** Tres direcciones fijas y legibles de un vistazo, para los fixtures de sala. */
+export const A = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+export const B = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+export const C = "0xcccccccccccccccccccccccccccccccccccccccc";
+
+/** Una sala mínima. Lo que no se pasa, no viene: es como la sirve el árbitro. */
+export function sala(parche: Partial<SalaDeAleph> = {}, asientos = 2): SalaDeAleph {
+  return {
+    status: "playing",
+    seats: [A, B, C]
+      .slice(0, asientos)
+      .map((address): AsientoDeSala => ({ address, status: "alive", pocket: 0 })),
+    stage: { index: 0, kind: "vote", phase: "decide", acted: [] },
+    results: [],
+    messages: [],
+    ...parche,
+  };
 }
