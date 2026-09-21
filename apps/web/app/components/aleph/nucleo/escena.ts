@@ -297,3 +297,54 @@ export function modeloDeEscena(room: SalaDeAleph): ModeloDeEscena {
     friso: frisoDe(room),
   };
 }
+
+// --- La liquidación: quién votó a quién ------------------------------------
+
+/** Un evento del registro firmado, en la forma mínima que esta función lee.
+ *  `AlephLog["events"]` encaja por estructura, así que la página se lo pasa
+ *  tal cual y este módulo sigue sin importar el SDK. */
+export interface EventoDeRegistro {
+  type: string;
+  stage: number;
+  address?: string;
+  action?: { type: string; target?: string };
+}
+
+export interface VotoDeEtapa {
+  voter: string;
+  target: string;
+}
+
+export interface GrupoDeVotos {
+  n: number;
+  kind: EtapaKind;
+  votos: VotoDeEtapa[];
+  /** Los que no votaron: el motor los cuenta en contra de sí mismos y eso no
+   *  deja evento firmado. Sin esta línea, una etapa con dos ausentes muestra
+   *  menos votos de los que el relato de abajo ya cuenta. */
+  ausentes: string[];
+}
+
+/** Agrupa los votos del registro por etapa. `etapas` viene de `results`, que es
+ *  lo único que sabe el `kind` de cada índice (`AlephEvent` solo trae el
+ *  número), y `votes` de esa misma etapa lista a TODOS los que estaban vivos,
+ *  que es de donde salen los ausentes. */
+export function gruposDeVotos(
+  eventos: EventoDeRegistro[],
+  etapas: ResultadoDeEtapa[],
+): GrupoDeVotos[] {
+  return etapas
+    .filter((e) => e.kind === "vote")
+    .map((e) => {
+      const votos = eventos
+        .filter((ev) => ev.type === "action" && ev.action?.type === "vote" && ev.stage === e.index)
+        .map((ev) => ({ voter: ev.address ?? "", target: ev.action?.target ?? "" }));
+      const vivos = Object.keys(e.votes ?? {});
+      return {
+        n: e.index + 1,
+        kind: e.kind,
+        votos,
+        ausentes: vivos.filter((a) => !votos.some((v) => igual(v.voter, a))),
+      };
+    });
+}

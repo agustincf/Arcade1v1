@@ -12,10 +12,16 @@ import {
   nodosDeGrieta,
   rasgosDe,
 } from "../app/components/aleph/nucleo/criatura.js";
-import { bolsilloDe, modeloDeEscena } from "../app/components/aleph/nucleo/escena.js";
+import {
+  bolsilloDe,
+  gruposDeVotos,
+  modeloDeEscena,
+} from "../app/components/aleph/nucleo/escena.js";
+import type { EventoDeRegistro } from "../app/components/aleph/nucleo/escena.js";
 import type {
   AsientoDeSala,
   EstadoDeAsiento,
+  ResultadoDeEtapa,
   SalaDeAleph,
 } from "../app/components/aleph/nucleo/estados.js";
 import { A, B, C, direcciones, sala } from "./aleph-ayuda.js";
@@ -442,4 +448,31 @@ test("16 bis. una sala que liquidó SIN Final: corona al único vivo y carta sin
   const ninguno = modeloDeEscena(sinFinal(["voted_out", "left", "abandoned"]));
   assert.equal(ninguno.asientos.filter((x) => x.estado === "ganador").length, 0);
   assert.equal(ninguno.carta?.cierre?.clave, "aleph.scene.settledNoFinal");
+});
+
+test("los grupos de votos: una línea por voto firmado y los ausentes aparte", () => {
+  const [a, b, c] = direcciones(3, 41);
+  const etapas: ResultadoDeEtapa[] = [
+    { index: 0, kind: "share" },
+    { index: 1, kind: "vote", votes: { [a]: 0, [b]: 2, [c]: 1 }, eliminated: b },
+  ];
+  const eventos: EventoDeRegistro[] = [
+    { type: "action", stage: 1, address: a, action: { type: "vote", target: b } },
+    { type: "action", stage: 1, address: c, action: { type: "say" } },
+    { type: "action", stage: 1, address: c, action: { type: "vote", target: b } },
+    { type: "phase_end", stage: 1 },
+    { type: "action", stage: 0, address: a, action: { type: "keep" } },
+  ];
+  const grupos = gruposDeVotos(eventos, etapas);
+  assert.equal(grupos.length, 1);
+  assert.equal(grupos[0].n, 2);
+  assert.deepEqual(grupos[0].votos, [
+    { voter: a, target: b },
+    { voter: c, target: b },
+  ]);
+  // B no votó: el motor lo cuenta en contra de sí mismo y eso no deja evento.
+  assert.deepEqual(grupos[0].ausentes, [b]);
+
+  // Una sala sin etapa de Voto no arma ningún grupo.
+  assert.deepEqual(gruposDeVotos(eventos, [{ index: 0, kind: "share" }]), []);
 });
