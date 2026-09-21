@@ -10,6 +10,7 @@ import { es } from "../app/lib/i18n/es.js";
 import { hi } from "../app/lib/i18n/hi.js";
 import { fr } from "../app/lib/i18n/fr.js";
 import { translate } from "../app/lib/i18n-dict.js";
+import { ALEPH_RULES } from "@arcade1v1/game-sdk/aleph";
 
 const DICTS = { en, es, hi, fr };
 
@@ -97,5 +98,35 @@ test("los ocho estados de la criatura se leen distinto en los 4 idiomas", () => 
   for (const [lang, dict] of Object.entries(DICTS)) {
     const textos = OCHO.map((k) => dict[k]);
     assert.equal(new Set(textos).size, 8, `${lang}: dos estados dicen lo mismo · ${textos}`);
+  }
+});
+
+test("el cartel de topes de la charla dice FASE, no etapa, en los 4 idiomas", () => {
+  // `aleph.chat.caps` es el ÚNICO lugar donde se le explica al lector el tope
+  // de mensajes, y el motor lo cuenta por FASE (ALEPH_RULES.MAX_MSGS_PER_PHASE):
+  // cada etapa tiene dos fases, así que decir "por etapa" publica la mitad del
+  // tope real. En hindi la confusión es fácil porque son dos palabras distintas
+  // que el diccionario ya usa separadas: «चरण» es etapa (aleph.room.stageHead)
+  // y «फ़ेज़» es fase (aleph.room.nowPlaying).
+  const PALABRAS: Record<string, { fase: string; etapa: string }> = {
+    en: { fase: "phase", etapa: "stage" },
+    es: { fase: "fase", etapa: "etapa" },
+    hi: { fase: "फ़ेज़", etapa: "चरण" },
+    fr: { fase: "phase", etapa: "étape" },
+  };
+  for (const [lang, dict] of Object.entries(DICTS)) {
+    const caps = dict["aleph.chat.caps"].toLowerCase();
+    const { fase, etapa } = PALABRAS[lang];
+    assert.ok(caps.includes(fase.toLowerCase()), `${lang}: el cartel no dice "${fase}"`);
+    assert.ok(
+      !caps.includes(etapa.toLowerCase()),
+      `${lang}: el cartel dice "${etapa}" (es por fase)`,
+    );
+    // Y los dos números son los del motor, no otros.
+    assert.ok(
+      caps.includes(String(ALEPH_RULES.MAX_MSGS_PER_PHASE)),
+      `${lang}: el cartel perdió el tope de mensajes`,
+    );
+    assert.ok(caps.includes(String(ALEPH_RULES.MAX_MSG_LEN)), `${lang}: el cartel perdió el largo`);
   }
 });
