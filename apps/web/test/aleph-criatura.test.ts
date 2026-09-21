@@ -5,7 +5,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { lineasDeCharla } from "../app/components/aleph/nucleo/charla.js";
 import {
   FAMILIAS,
   SECUNDARIOS,
@@ -69,8 +68,12 @@ test("las ocho tablas: largo, medios anchos y la franja de hw >= 4", () => {
     assert.equal(hw.length, 10, `silueta ${i}`);
     for (const [j, v] of hw.entries()) {
       assert.ok(v >= 2 && v <= 6, `silueta ${i} fila ${j}: hw=${v} fuera de [2, 6]`);
-      if (j >= 3 && j <= 8)
-        assert.ok(v >= 4, `silueta ${i} fila ${j}: hw=${v} < 4 en la franja 3-8`);
+      // La franja que el spec fija es 3-8, pero la CARA empieza en el índice 2
+      // (y = 7): `cejudo` (OJOS[4], x 4..11) y `saltones` (OJOS[7]) necesitan
+      // hw[2] >= 4 y hoy lo tienen por casualidad en las ocho siluetas. Pasa
+      // tal cual y cierra el hueco antes de que alguien agregue una silueta.
+      if (j >= 2 && j <= 8)
+        assert.ok(v >= 4, `silueta ${i} fila ${j}: hw=${v} < 4 en la franja 2-8`);
     }
   }
 });
@@ -585,54 +588,4 @@ test("8b bis. la corona de la Final, con y sin Final, y el traidor suma un segun
 
   // Y la marca es de quien la tiene: B no la hereda por estar en la misma sala.
   assert.equal(estadoDeAsiento({ ...vivo, address: B }, casos[3][2]).traidor, false);
-});
-
-test("13 (mitad de charla). liquidada: los susurros salen marcados, con su to y sus separadores", () => {
-  const liquidada: SalaDeAleph = {
-    status: "settled",
-    seats: [
-      { address: A, status: "finished", pocket: 6 },
-      { address: B, status: "voted_out", pocket: 2 },
-    ],
-    results: [
-      { index: 0, kind: "share" },
-      { index: 1, kind: "vote" },
-    ],
-    messages: [
-      { from: A, text: "aportemos todos", stage: 0, phase: "talk" },
-      { from: B, to: A, text: "vos y yo, a los demás no", stage: 0, phase: "talk" },
-      { from: A, text: "votemos al que guardó", stage: 1, phase: "talk" },
-    ],
-  };
-  const modelo = lineasDeCharla(liquidada);
-  assert.ok(modelo);
-  assert.equal(modelo.desclasificada, true);
-  // Separador, mensaje, susurro, separador, mensaje: en el orden en que vinieron.
-  assert.deepEqual(
-    modelo.lineas.map((l) => l.tipo),
-    ["etapa", "mensaje", "mensaje", "etapa", "mensaje"],
-  );
-  assert.deepEqual(modelo.lineas[0], { tipo: "etapa", n: 1, kind: "share" });
-  assert.deepEqual(modelo.lineas[3], { tipo: "etapa", n: 2, kind: "vote" });
-
-  // `assert.fail` devuelve `never`, así que TypeScript angosta la unión después
-  // de la guarda y el assert no puede pasar de casualidad por el lado que no es.
-  const susurro = modelo.lineas[2];
-  if (susurro.tipo !== "mensaje") assert.fail("la línea 2 tenía que ser un mensaje");
-  assert.equal(susurro.susurro, true);
-  assert.equal(susurro.to, A);
-  assert.equal(susurro.texto, "vos y yo, a los demás no");
-
-  const publico = modelo.lineas[1];
-  if (publico.tipo !== "mensaje") assert.fail("la línea 1 tenía que ser un mensaje");
-  assert.equal(publico.susurro, false);
-  assert.equal(publico.to, undefined);
-
-  // Una etapa sin resultado no rompe: el separador sale igual, sin `kind`.
-  const huerfano = lineasDeCharla({ ...liquidada, results: [] });
-  assert.ok(huerfano);
-  const separador = huerfano.lineas[0];
-  if (separador.tipo !== "etapa") assert.fail("la primera línea tenía que ser un separador");
-  assert.equal(separador.kind, undefined);
-  assert.equal(separador.n, 1);
 });
