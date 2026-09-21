@@ -14,6 +14,13 @@ export interface AsientoDeSala {
   address: string;
   status: EstadoDeAsiento;
   pocket: number;
+  /** Ficha pública que resuelve el árbitro. La escena NO la lee: se la pasa
+   *  entera a `etiquetaDe`, que la arma la página con `playerLabel`/`agentTag`. */
+  name?: string;
+  avatar?: string;
+  agentId?: string;
+  house?: boolean;
+  byo?: boolean;
 }
 
 export interface ResultadoDeEtapa {
@@ -24,6 +31,11 @@ export interface ResultadoDeEtapa {
   voided?: boolean;
   traitors?: string[];
   choices?: Record<string, "split" | "steal">;
+  /** Los cuatro que lee el friso y la ventana de votos de la liquidación. */
+  eliminated?: string;
+  abandoned?: string[];
+  bonus?: number;
+  votes?: Record<string, number>;
 }
 
 export interface MensajeDeSala {
@@ -38,6 +50,18 @@ export interface MensajeDeSala {
 export interface SalaDeAleph {
   status: EstadoDeSala;
   seats: AsientoDeSala[];
+  /** Los del lobby. `AlephRoomView` los trae siempre; acá van opcionales para
+   *  que un fixture de tres líneas siga compilando. */
+  min?: number;
+  max?: number;
+  closesAt?: number;
+  /** Fin de la fase en curso. Solo `playing`. */
+  deadline?: number;
+  /** La mesa. No vienen en `lobby`, `funding` ni `dissolved`. */
+  pot?: number;
+  box?: number;
+  potInitial?: number;
+  cardsLeft?: number;
   /** No viene en `lobby`, `funding` ni `dissolved`. */
   stage?: { index: number; kind: EtapaKind; phase: Fase; acted: string[] };
   results?: ResultadoDeEtapa[];
@@ -46,8 +70,11 @@ export interface SalaDeAleph {
   payouts?: Record<string, number>;
 }
 
-const igual = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
-const incluye = (xs: string[] | undefined, a: string) => (xs ?? []).some((x) => igual(x, a));
+/** Las direcciones se comparan SIN caja: el árbitro sirve `deposited` en
+ *  minúsculas y `seats[].address` puede venir en EIP-55. Las exporta para que
+ *  `escena.ts` no escriba su propia versión. */
+export const igual = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+export const incluye = (xs: string[] | undefined, a: string) => (xs ?? []).some((x) => igual(x, a));
 
 /** Quiénes llevan corona. Con Final: un solo `steal` la lleva él (se llevó el
  *  pozo); los dos `split`, los dos; los dos `steal`, ninguno (el pozo se
@@ -111,11 +138,13 @@ export function estadoDeAsiento(
  *  lado, el ternario no se repite en cada forma de tarjeta. Las filas 0 y 1 van
  *  arriba de todo porque en esos dos estados de sala el `seat.status` no dice
  *  nada: el árbitro manda `alive` para todos. */
-export function chipDeAsiento(seat: AsientoDeSala, room: SalaDeAleph): string {
+export function chipDeAsiento(seat: AsientoDeSala, room: SalaDeAleph, previo?: Estado): string {
   if (room.status === "dissolved") return "aleph.seat.dissolved";
   if (room.status === "funding")
     return incluye(room.deposited, seat.address) ? "aleph.seat.deposited" : "aleph.seat.pending";
-  const { estado } = estadoDeAsiento(seat, room);
+  // `previo` es el estado que el llamador YA calculó. Sin él, cada asiento
+  // vuelve a recorrer `results` y `messages` una segunda vez.
+  const estado = previo ?? estadoDeAsiento(seat, room).estado;
   if (estado === "ganador") return "aleph.state.ganador";
   if (estado === "hablando") return "aleph.state.hablando";
   if (estado === "esperando") return "aleph.state.esperando";

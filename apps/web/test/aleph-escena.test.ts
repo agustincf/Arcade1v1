@@ -12,8 +12,18 @@ import {
   nodosDeGrieta,
   rasgosDe,
 } from "../app/components/aleph/nucleo/criatura.js";
-import type { SalaDeAleph } from "../app/components/aleph/nucleo/estados.js";
-import { A, B, direcciones } from "./aleph-ayuda.js";
+import { bolsilloDe, modeloDeEscena } from "../app/components/aleph/nucleo/escena.js";
+import type {
+  AsientoDeSala,
+  EstadoDeAsiento,
+  SalaDeAleph,
+} from "../app/components/aleph/nucleo/estados.js";
+import { A, B, C, direcciones, sala } from "./aleph-ayuda.js";
+
+/** `n` asientos vivos con direcciones estables. */
+function asientos(n: number, estado: EstadoDeAsiento = "alive"): AsientoDeSala[] {
+  return direcciones(n, 11).map((address) => ({ address, status: estado, pocket: 0 }));
+}
 
 test("los guardas numéricos del oro: ni fraccionarios ni filas de más", () => {
   // Con filas > 8 el oro NO puede subir a la zona de la corona de identidad
@@ -115,4 +125,321 @@ test("13 (mitad de charla). liquidada: los susurros salen marcados, con su to y 
   if (separador.tipo !== "etapa") assert.fail("la primera línea tenía que ser un separador");
   assert.equal(separador.kind, undefined);
   assert.equal(separador.n, 1);
+});
+
+test("10. mesas de 4, 6 y 8: columnas, etiquetas y el que habla en la fase en curso", () => {
+  for (const [n, ancha] of [
+    [4, 4],
+    [5, 3],
+    [6, 3],
+    [7, 4],
+    [8, 4],
+  ] as const) {
+    const m = modeloDeEscena(sala({ seats: asientos(n) }));
+    assert.equal(m.columnas.ancha, ancha, `mesa de ${n}`);
+    assert.equal(m.columnas.angosta, 2, `mesa de ${n}`);
+    assert.equal(m.asientos.length, n);
+    // Ninguna tarjeta sin etiqueta: la escena pasa el asiento entero, que es
+    // lo que `etiquetaDe` necesita para armarla.
+    for (const a of m.asientos) {
+      assert.equal(a.seat.address, a.address);
+      assert.ok(a.chip.startsWith("aleph."), `chip crudo: ${a.chip}`);
+    }
+  }
+
+  // El que mandó el último mensaje DE LA FASE EN CURSO sale `hablando`: es la
+  // única prueba de que el modelo recibe `messages` y no una vista recortada.
+  const hablando = modeloDeEscena(
+    sala({
+      stage: { index: 0, kind: "vote", phase: "talk", acted: [] },
+      messages: [{ from: B, text: "votemos al que guardó", stage: 0, phase: "talk" }],
+    }),
+  );
+  assert.equal(hablando.asientos.find((a) => a.address === B)?.estado, "hablando");
+  assert.equal(hablando.asientos.find((a) => a.address === B)?.chip, "aleph.state.hablando");
+  assert.equal(hablando.asientos.find((a) => a.address === A)?.estado, "base");
+});
+
+test("la insignia +{n} sale de la Oferta que NO se anuló, y nunca undefined", () => {
+  const room: SalaDeAleph = {
+    status: "settled",
+    seats: [
+      { address: A, status: "left", pocket: 120 },
+      { address: B, status: "finished", pocket: 300 },
+    ],
+    // Dos Ofertas, como el mazo real. La primera se anuló (aceptaron todos) y
+    // salió sin tocar `eachGot`; la segunda sí pagó.
+    results: [
+      { index: 0, kind: "offer", accepted: [A, B], voided: true },
+      { index: 1, kind: "offer", accepted: [A], eachGot: 120 },
+    ],
+    payouts: { [A]: 120, [B]: 300 },
+    messages: [],
+  };
+  const m = modeloDeEscena(room);
+  const salido = m.asientos.find((a) => a.address === A);
+  assert.equal(salido?.estado, "se_fue");
+  assert.equal(salido?.insignia, 120);
+
+  // Sin monto no se inventa un número: la criatura se fue igual.
+  const sinMonto = modeloDeEscena({
+    ...room,
+    results: [{ index: 0, kind: "offer", accepted: [A], voided: true }],
+  });
+  assert.equal(sinMonto.asientos.find((a) => a.address === A)?.insignia, null);
+  // Y el que no se fue nunca lleva insignia.
+  assert.equal(m.asientos.find((a) => a.address === B)?.insignia, null);
+});
+
+test("11. lobby: las sillas vacías son las que faltan, y una sola si el mínimo ya está", () => {
+  const lobby = (n: number, min: number, max: number) =>
+    modeloDeEscena({
+      status: "lobby",
+      seats: asientos(n),
+      min,
+      max,
+      closesAt: 1_700_000_000_000,
+    });
+
+  const dosDeCuatro = lobby(2, 4, 8);
+  assert.equal(dosDeCuatro.asientos.length, 2);
+  assert.equal(dosDeCuatro.sillas, 2);
+  assert.equal(lobby(4, 4, 8).sillas, 1);
+  assert.equal(lobby(8, 4, 8).sillas, 0);
+  // El reloj del lobby es el único que la barra de la escena se queda.
+  assert.equal(dosDeCuatro.reloj, 1_700_000_000_000);
+  // Y no hay mesa, ni friso, ni carta: el árbitro no manda nada de eso todavía.
+  assert.equal(dosDeCuatro.mesa, null);
+  assert.equal(dosDeCuatro.friso, null);
+  assert.equal(dosDeCuatro.carta, null);
+
+  // En `funding` no se dibuja ninguna silla: la lista ya está congelada.
+  const fondeando = modeloDeEscena({
+    status: "funding",
+    seats: asientos(4),
+    min: 4,
+    max: 8,
+    deposited: [],
+  });
+  assert.equal(fondeando.sillas, 0);
+  assert.equal(fondeando.reloj, null);
+  assert.equal(fondeando.asientos[0].chip, "aleph.seat.pending");
+});
+
+test("12. dissolved: sin mesa, sin charla y los ocho en abandono", () => {
+  // La vista que manda el árbitro en `dissolved`: asientos y nada más.
+  const room: SalaDeAleph = { status: "dissolved", seats: asientos(8), min: 4, max: 8 };
+  const m = modeloDeEscena(room);
+  assert.equal(m.asientos.length, 8);
+  for (const a of m.asientos) {
+    assert.equal(a.estado, "abandono");
+    assert.equal(a.chip, "aleph.seat.dissolved");
+    assert.equal(a.respira, false);
+    assert.equal(a.bolsillo, 0);
+  }
+  assert.equal(m.mesa, null);
+  assert.equal(m.carta, null);
+  assert.equal(m.friso, null);
+  assert.equal(m.sillas, 0);
+  assert.equal(m.maximo, 0);
+  // Sin `messages` la terminal no se monta.
+  assert.equal(lineasDeCharla(room), null);
+});
+
+test("13. settled: el oro sale de payouts, y el friso no tiene dorsos ni carta actual", () => {
+  const [a, b, c, d] = direcciones(4, 21);
+  const room: SalaDeAleph = {
+    status: "settled",
+    seats: [
+      { address: a, status: "finished", pocket: 100 },
+      { address: b, status: "voted_out", pocket: 40 },
+      { address: c, status: "left", pocket: 60 },
+      { address: d, status: "abandoned", pocket: 0 },
+    ],
+    results: [
+      { index: 0, kind: "share", bonus: 25 },
+      { index: 1, kind: "vote", eliminated: b, votes: { [a]: 0, [b]: 2, [c]: 1 } },
+      { index: 2, kind: "offer", accepted: [c], eachGot: 60 },
+    ],
+    payouts: { [a]: 450, [b]: 90, [c]: 110, [d]: 50 },
+    pot: 0,
+    box: 200,
+    potInitial: 4000,
+    cardsLeft: 3,
+    messages: [],
+  };
+  const m = modeloDeEscena(room);
+  // `payouts` gana sobre `pocket`, en un solo lugar.
+  assert.equal(m.asientos.find((x) => x.address === a)?.bolsillo, 450);
+  assert.equal(bolsilloDe(room.seats[0], room), 450);
+  // Y sin caja: el motor escribe `payouts` en minúsculas y el asiento puede
+  // llegar en EIP-55. Indexado directo, el bolsillo caía a `pocket` en silencio.
+  const eip55 = `0x${a.slice(2).toUpperCase()}`;
+  assert.equal(bolsilloDe({ ...room.seats[0], address: eip55 }, room), 450);
+  assert.equal(m.maximo, 450);
+  // Ni un dorso ni carta en curso: la Final cortó el mazo.
+  assert.equal(m.friso?.dorsos, 0);
+  assert.equal(m.friso?.actual, null);
+  assert.equal(m.friso?.jugadas.length, 3);
+  // Las marcas del friso: salida donde alguien dejó la mesa de verdad, premio
+  // donde la caja le devolvió al pozo.
+  assert.deepEqual(
+    m.friso?.jugadas.map((j) => [j.salida, j.premio]),
+    [
+      [false, true],
+      [true, false],
+      [true, false],
+    ],
+  );
+  // El mazo va apagado y el reparto de la caja es `floor(box / N)`, la misma
+  // cuenta que hace el motor (acá 200 / 4 = 50, sin sobrante).
+  assert.equal(m.mesa?.liquidada, true);
+  assert.equal(m.mesa?.reparto, 50);
+  assert.equal(m.mesa?.pozo, 0);
+});
+
+test("13 bis. la Oferta anulada no marca salida en el friso", () => {
+  const m = modeloDeEscena({
+    status: "playing",
+    seats: asientos(4),
+    stage: { index: 1, kind: "vote", phase: "talk", acted: [] },
+    results: [{ index: 0, kind: "offer", accepted: direcciones(4, 11), voided: true }],
+    messages: [],
+    cardsLeft: 5,
+  });
+  assert.equal(m.friso?.jugadas[0].salida, false);
+  assert.equal(m.friso?.dorsos, 5);
+  assert.deepEqual(m.friso?.actual, { n: 2, kind: "vote" });
+});
+
+test("14. el invariante cierra: pozo + caja + bolsillos = total", () => {
+  const m = modeloDeEscena({
+    status: "playing",
+    seats: [
+      { address: A, status: "alive", pocket: 120 },
+      { address: B, status: "alive", pocket: 80 },
+      { address: C, status: "left", pocket: 300 },
+      { address: direcciones(4, 11)[3], status: "alive", pocket: 0 },
+    ],
+    stage: { index: 3, kind: "share", phase: "decide", acted: [A] },
+    results: [],
+    messages: [],
+    pot: 2600,
+    box: 900,
+    potInitial: 4000,
+    cardsLeft: 6,
+  });
+  const mesa = m.mesa;
+  assert.ok(mesa);
+  assert.equal(mesa.bolsillos, 500);
+  assert.equal(mesa.pozo + mesa.caja + mesa.bolsillos, mesa.total);
+  assert.equal(mesa.liquidada, false);
+  assert.equal(mesa.reparto, null);
+  // El contador cuenta a los VIVOS que actuaron, no a los que ya salieron.
+  assert.deepEqual(m.carta?.contador, { clave: "aleph.scene.acted", k: 1, n: 3 });
+  assert.equal(m.carta?.etapa?.n, 4);
+});
+
+test("15. sin 'de N': la carta no trae ningún total de etapas", () => {
+  const base: SalaDeAleph = {
+    status: "playing",
+    seats: asientos(4),
+    stage: { index: 5, kind: "lock", phase: "talk", acted: [] },
+    results: [],
+    messages: [],
+    cardsLeft: 10,
+  };
+  const conMazo = modeloDeEscena(base);
+  const sinMazo = modeloDeEscena({ ...base, cardsLeft: 0 });
+  // La carta dice lo mismo con 10 cartas sin dar y con ninguna: el total de
+  // etapas no existe (la Final no sale del mazo y el director puede repartir
+  // Votos de más), así que `cardsLeft` no puede filtrarse ahí adentro.
+  assert.deepEqual(conMazo.carta, sinMazo.carta);
+  assert.deepEqual(Object.keys(conMazo.carta?.etapa ?? {}).sort(), ["fase", "hasta", "kind", "n"]);
+  assert.equal(conMazo.carta?.contador?.n, 4);
+  assert.equal(conMazo.carta?.etapa?.n, 6);
+  // El mazo sigue contando sus cartas, que es otra cosa: "sin dar", no "faltan".
+  assert.equal(conMazo.friso?.dorsos, 10);
+  assert.equal(sinMazo.friso?.dorsos, 0);
+});
+
+test("16. la corona de la Final, con Final y sin ella", () => {
+  const [a, b] = [A, B];
+  const finalDe = (choices: Record<string, "split" | "steal">): SalaDeAleph => ({
+    status: "settled",
+    seats: [
+      { address: a, status: "finished", pocket: 300 },
+      { address: b, status: "finished", pocket: 200 },
+    ],
+    results: [{ index: 0, kind: "final", choices }],
+    payouts: { [a]: 300, [b]: 200 },
+    messages: [],
+  });
+
+  // Un solo `steal`: la corona es de él.
+  const robo = modeloDeEscena(finalDe({ [a]: "steal", [b]: "split" }));
+  const dosDe = (m: ReturnType<typeof modeloDeEscena>) => [...m.finalistas, ...m.asientos];
+  assert.equal(dosDe(robo).find((x) => x.address === a)?.estado, "ganador");
+  // El que dividió mientras el otro robaba NO se pinta de perdedor.
+  const perdio = dosDe(robo).find((x) => x.address === b);
+  assert.equal(perdio?.estado, "base");
+  assert.equal(perdio?.traidor, false);
+
+  // Los dos `split`: los dos con corona.
+  const dividieron = dosDe(modeloDeEscena(finalDe({ [a]: "split", [b]: "split" })));
+  assert.deepEqual(
+    dividieron.map((x) => x.estado),
+    ["ganador", "ganador"],
+  );
+  // Los dos `steal`: ninguno.
+  const quemaron = dosDe(modeloDeEscena(finalDe({ [a]: "steal", [b]: "steal" })));
+  assert.deepEqual(
+    quemaron.map((x) => x.estado),
+    ["base", "base"],
+  );
+
+  // La grilla se parte en dos: los dos finalistas arriba, el resto abajo.
+  const conFinal = modeloDeEscena(finalDe({ [a]: "steal", [b]: "split" }));
+  assert.equal(conFinal.finalistas.length, 2);
+  assert.equal(conFinal.asientos.length, 0);
+  assert.equal(conFinal.carta?.cierre?.clave, "aleph.line.finalSteal");
+  assert.equal(conFinal.carta?.cierre?.quien, a);
+  assert.equal(
+    modeloDeEscena(finalDe({ [a]: "split", [b]: "split" })).carta?.cierre?.clave,
+    "aleph.line.finalSplit",
+  );
+  assert.equal(
+    modeloDeEscena(finalDe({ [a]: "steal", [b]: "steal" })).carta?.cierre?.clave,
+    "aleph.line.finalBurn",
+  );
+});
+
+test("16 bis. una sala que liquidó SIN Final: corona al único vivo y carta sin desenlace", () => {
+  const sinFinal = (estados: EstadoDeAsiento[]): SalaDeAleph => ({
+    status: "settled",
+    seats: direcciones(3, 31).map((address, i) => ({
+      address,
+      status: estados[i],
+      pocket: 10 * (i + 1),
+    })),
+    results: [{ index: 0, kind: "offer", accepted: [], voided: false }],
+    messages: [],
+  });
+
+  const unVivo = modeloDeEscena(sinFinal(["finished", "left", "voted_out"]));
+  assert.deepEqual(
+    unVivo.asientos.map((x) => x.estado),
+    ["ganador", "se_fue", "votado"],
+  );
+  assert.equal(unVivo.finalistas.length, 0);
+  // Ni intenta una línea de desenlace: no hubo Final que contar.
+  assert.deepEqual(unVivo.carta, {
+    etapa: null,
+    contador: null,
+    cierre: { clave: "aleph.scene.settledNoFinal", quien: null },
+  });
+
+  const ninguno = modeloDeEscena(sinFinal(["voted_out", "left", "abandoned"]));
+  assert.equal(ninguno.asientos.filter((x) => x.estado === "ganador").length, 0);
+  assert.equal(ninguno.carta?.cierre?.clave, "aleph.scene.settledNoFinal");
 });
