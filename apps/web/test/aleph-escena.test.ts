@@ -24,6 +24,7 @@ import type {
   ResultadoDeEtapa,
   SalaDeAleph,
 } from "../app/components/aleph/nucleo/estados.js";
+import { guardarPreferencia, leerPreferencia } from "../app/components/aleph/nucleo/movimiento.js";
 import { A, B, C, direcciones, sala } from "./aleph-ayuda.js";
 
 /** `n` asientos vivos con direcciones estables. */
@@ -475,4 +476,52 @@ test("los grupos de votos: una línea por voto firmado y los ausentes aparte", (
 
   // Una sala sin etapa de Voto no arma ningún grupo.
   assert.deepEqual(gruposDeVotos(eventos, [{ index: 0, kind: "share" }]), []);
+});
+
+test("la preferencia de movimiento sobrevive a un storage roto", () => {
+  const previo = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const poner = (valor: unknown) =>
+    Object.defineProperty(globalThis, "localStorage", { value: valor, configurable: true });
+  const restaurar = () => {
+    if (previo) Object.defineProperty(globalThis, "localStorage", previo);
+    else Reflect.deleteProperty(globalThis, "localStorage");
+  };
+
+  try {
+    // Sin storage: el default es CON movimiento, y guardar no tira.
+    poner(undefined);
+    assert.equal(leerPreferencia(), true);
+    assert.doesNotThrow(() => guardarPreferencia(false));
+
+    // Storage que tira en los dos accesos (ventana privada, cookies
+    // bloqueadas): ni leer ni guardar pueden llevarse puesta la página.
+    poner({
+      getItem() {
+        throw new Error("bloqueado");
+      },
+      setItem() {
+        throw new Error("bloqueado");
+      },
+    });
+    assert.equal(leerPreferencia(), true);
+    assert.doesNotThrow(() => guardarPreferencia(false));
+
+    // Storage sano: "off" apaga, "on" y cualquier otra cosa prenden.
+    const datos: Record<string, string> = {};
+    poner({
+      getItem: (k: string) => (k in datos ? datos[k] : null),
+      setItem: (k: string, v: string) => {
+        datos[k] = v;
+      },
+    });
+    assert.equal(leerPreferencia(), true);
+    guardarPreferencia(false);
+    assert.equal(datos["aleph.movimiento"], "off");
+    assert.equal(leerPreferencia(), false);
+    guardarPreferencia(true);
+    assert.equal(datos["aleph.movimiento"], "on");
+    assert.equal(leerPreferencia(), true);
+  } finally {
+    restaurar();
+  }
 });
