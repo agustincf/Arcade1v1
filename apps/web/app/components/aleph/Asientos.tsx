@@ -159,11 +159,11 @@ export function Asientos({
         {/* Sillas vacías: SOLO en el lobby. En `funding` la lista ya está
             congelada y una silla prometería un lugar que no se puede ocupar. */}
         {Array.from({ length: modelo.sillas }, (_, i) => (
-          <li
-            key={`silla${i}`}
-            className="asiento asiento--vacia"
-            aria-label={t("aleph.scene.emptySeat")}
-          >
+          <li key={`silla${i}`} className="asiento asiento--vacia">
+            {/* Texto oculto y no aria-label del <li>, como en el friso:
+                varios lectores no leen el aria-label de un listitem, y el
+                Dorso de adentro es aria-hidden. */}
+            <span className="sr-only">{t("aleph.scene.emptySeat")}</span>
             <Dorso />
           </li>
         ))}
