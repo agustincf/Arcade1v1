@@ -13,6 +13,7 @@ import { InvadersEngine, type ReplayInvaders } from "@arcade1v1/game-sdk/invader
 import { TetrisEngine, type ReplayTetris } from "@arcade1v1/game-sdk/tetris";
 import { Game2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
 import { useT } from "@/app/lib/i18n";
+import { flappyReplaySource } from "@/app/lib/live";
 import {
   drawSnake,
   drawFlappy,
@@ -50,7 +51,7 @@ function groupByTick<A>(inputs: { t: number; a: A }[]): Map<number, A[]> {
   return byTick;
 }
 
-function makeSim(game: string, replay: unknown): Sim | null {
+function makeSim(game: string, replay: unknown, secret?: string): Sim | null {
   try {
     if (game === "snake") {
       const r = replay as ReplaySnake;
@@ -81,7 +82,8 @@ function makeSim(game: string, replay: unknown): Sim | null {
     }
     if (game === "flappy") {
       const r = replay as ReplayFlappy;
-      const eng = new FlappyEngine(r.seed);
+      // En vivo el replay no trae semilla: se re-juega con el secreto publicado.
+      const eng = new FlappyEngine(flappyReplaySource(r, secret));
       const flapSet = new Set(r.flaps);
       const { w, h } = flappyCanvasSize();
       return {
@@ -234,12 +236,15 @@ const SPEEDS = [1, 2, 4, 8];
 export function ReplayPlayer({
   game,
   replay,
+  secret,
   label,
   autoPlay = true,
   onEnd,
 }: {
   game: string;
   replay: unknown;
+  /** Partida EN VIVO: el secreto del azar, publicado al decidirse. */
+  secret?: string;
   /** Etiqueta chica arriba del canvas (ej. nombre del jugador). */
   label?: string;
   autoPlay?: boolean;
@@ -257,14 +262,14 @@ export function ReplayPlayer({
 
   // (Re)crear la simulación cuando cambia el replay o al reiniciar.
   useEffect(() => {
-    simRef.current = makeSim(game, replay);
+    simRef.current = makeSim(game, replay, secret);
     setScore(0);
     setEnded(false);
     setSize(simRef.current ? { w: simRef.current.w, h: simRef.current.h } : null);
     // primer cuadro, aun en pausa
     const ctx = canvasRef.current?.getContext("2d");
     if (ctx && simRef.current) simRef.current.draw(ctx);
-  }, [game, replay, resetKey]);
+  }, [game, replay, secret, resetKey]);
 
   useEffect(() => {
     if (!playing || ended) return;

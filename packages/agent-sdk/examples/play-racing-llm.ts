@@ -214,6 +214,8 @@ async function main(): Promise<void> {
     privateKey: wallet.privateKey,
   });
   const m = await client.matchmake(game, stake, wallet.address, auth);
+  // Racing no se juega en vivo: la partida siempre trae su semilla.
+  if (m.seed === undefined) throw new Error("this example needs a match with a seed");
   console.log("Match:", m.matchId, "· seed:", m.seed);
 
   // 2) Jugar con Claude como cerebro. Puede tardar minutos: decenas de llamadas

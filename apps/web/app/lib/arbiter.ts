@@ -3,6 +3,9 @@
 import {
   ArbiterClient,
   type MatchView,
+  type LiveStartView,
+  type LiveCommitBody,
+  type LiveCommitView,
   type AlephRoomView,
   type AlephRoomStatus,
   type AlephSeatView,
@@ -10,7 +13,17 @@ import {
   type AlephLog,
 } from "@arcade1v1/agent-sdk";
 
-export type { MatchView, AlephRoomView, AlephRoomStatus, AlephSeatView, AlephLobby, AlephLog };
+export type {
+  MatchView,
+  LiveStartView,
+  LiveCommitBody,
+  LiveCommitView,
+  AlephRoomView,
+  AlephRoomStatus,
+  AlephSeatView,
+  AlephLobby,
+  AlephLog,
+};
 
 const BASE = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
 
@@ -30,6 +43,16 @@ const fetchWithTimeout: typeof fetch = (input, init) =>
 const client = new ArbiterClient(BASE, {
   fetchImpl: fetchWithTimeout,
   timeoutMs: FETCH_TIMEOUT_MS,
+});
+
+// Un compromiso EN VIVO sale con el árbitro ya despierto (lo despertó abrir el
+// intento) y con el pájaro congelado esperándolo: si tarda, es un pedido
+// perdido y conviene cortarlo y reintentar (la sesión reintenta los errores sin
+// código HTTP), no esperar los 75 s del arranque en frío.
+const LIVE_COMMIT_TIMEOUT_MS = 10_000;
+const liveClient = new ArbiterClient(BASE, {
+  fetchImpl: fetchWithTimeout,
+  timeoutMs: LIVE_COMMIT_TIMEOUT_MS,
 });
 
 /** Despierta al árbitro (hosting gratuito que duerme) sin bloquear la UI.
@@ -72,6 +95,17 @@ export function createChallenge(
 
 export function getMatch(id: string, address?: string) {
   return client.getMatch(id, address);
+}
+
+/** Abrir o retomar el intento EN VIVO (firma de liveStartAuthMessage). */
+export function liveStart(id: string, address: string, auth?: { signature: string; ts: number }) {
+  return client.liveStart(id, address, auth);
+}
+
+/** Comprometer jugadas en vivo. Un conflicto de tick vuelve como respuesta
+ *  (`conflict: true`), no como error. */
+export function liveCommit(id: string, address: string, body: LiveCommitBody) {
+  return liveClient.liveCommit(id, address, body);
 }
 
 /** Pide que un bot juegue por el rival (modo práctica). No forma parte del
@@ -217,7 +251,11 @@ export interface RecentMatch {
 }
 
 export interface PublicReplay extends RecentMatch {
-  seed: number;
+  /** No viene en un juego EN VIVO: sus replays se re-juegan con `secret`. */
+  seed?: number;
+  /** En vivo: el secreto del azar (la partida ya está decidida) y su hash. */
+  secret?: string;
+  secretHash?: string;
   players: {
     address: string;
     score?: number;

@@ -7,8 +7,7 @@
 // re-verifica (verifyFlappyLive).
 // Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md
 
-import { sha256 } from "@noble/hashes/sha2";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import { sha256, sha256Hex, hexToBytes } from "./sha256";
 import type { RandomSource } from "./replay";
 
 export type { RandomSource };
@@ -78,7 +77,7 @@ function secretBytes(secret: string): Uint8Array {
  *  la partida se publica el secreto, y cualquiera comprueba que es el mismo que
  *  se usó desde el principio. */
 export function liveSecretHash(secret: string): string {
-  return bytesToHex(sha256(secretBytes(secret)));
+  return sha256Hex(secretBytes(secret));
 }
 
 /** Fuente de azar del ÁRBITRO (y de quien re-verifica con el secreto ya
@@ -122,5 +121,24 @@ export class SecretSource implements RandomSource {
       const h = sha256(msg);
       this.values.push(new DataView(h.buffer, h.byteOffset, 4).getUint32(0) / 4294967296);
     }
+  }
+}
+
+/** Lo que comprueba el jugador cuando la partida se decide: que el secreto
+ *  publicado es el que el árbitro comprometió al emparejar (`secretHash`) y
+ *  que todo lo que le reveló salió de ese secreto, en orden. Sin esto, el hash
+ *  no prueba nada: el árbitro podría haber mandado otros valores. Un secreto
+ *  mal formado da `false`, no tira. */
+export function checkLiveReveals(
+  secret: string,
+  secretHash: string,
+  reveals: readonly number[],
+): boolean {
+  try {
+    if (liveSecretHash(secret) !== secretHash) return false;
+    const expected = new SecretSource(secret).slice(0, reveals.length);
+    return reveals.every((v, i) => v === expected[i]);
+  } catch {
+    return false;
   }
 }

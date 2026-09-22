@@ -7,11 +7,17 @@ import {
   FLAPPY_DT,
   type ReplayFlappy,
 } from "@arcade1v1/game-sdk/flappy";
+import {
+  FlappyLiveSession,
+  type FlappyLiveCommitFn,
+  type FlappyLiveStart,
+} from "@arcade1v1/game-sdk/flappy-live";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { dtCap } from "@/app/games/_shared/strict";
+import { liveErrorReason } from "@/app/lib/live";
 
 const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
 const GROUND_Y = HEIGHT - GROUND_H;
@@ -25,10 +31,21 @@ function easeInOutCubic(x: number) {
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 }
 
-export interface FlappyResult {
-  score: number;
-  replay: ReplayFlappy;
+/** Cómo juega la página una partida EN VIVO: abre el intento (firma incluida),
+ *  compromete jugadas y traduce un error de apertura a texto. */
+export interface FlappyLiveController {
+  /** Firma y abre (o retoma) el intento. Tira si no se pudo. */
+  open(): Promise<FlappyLiveStart>;
+  commit: FlappyLiveCommitFn;
+  /** Clave i18n (y variables) de por qué falló `open`. */
+  describeError(e: unknown): { key: string; vars?: Record<string, string | number> };
 }
+
+/** Con semilla: el replay para enviar. En vivo: el puntaje ya lo confirmó el
+ *  árbitro, y vuelve todo lo revelado para comprobar el secreto al decidirse. */
+export type FlappyResult =
+  | { score: number; replay: ReplayFlappy; live?: undefined }
+  | { score: number; replay?: undefined; live: { reveals: number[] } };
 
 interface Cloud {
   x: number;
@@ -38,19 +55,29 @@ interface Cloud {
 
 export function FlappyGame({
   seed,
+  live,
   onFinish,
   onStarted,
+  onAttemptClosed,
   strict,
 }: {
-  seed: number;
+  /** Práctica o partida que no es en vivo. */
+  seed?: number;
+  /** Partida EN VIVO: el azar llega del árbitro (ver FlappyLiveSession). */
+  live?: FlappyLiveController;
   onFinish: (result: FlappyResult) => void;
   onStarted?: () => void;
+  /** En vivo: el árbitro cerró el intento (el puntaje ya quedó anotado), antes
+   *  de que el jugador confirme el cartel de fin. */
+  onAttemptClosed?: () => void;
   /** Mesa de plata: sin pausa y con puesta al día tras un alt-tab. */
   strict?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<FlappyEngine | null>(null);
-  if (engineRef.current === null) engineRef.current = new FlappyEngine(seed);
+  // En vivo el motor nace con la sesión, al abrir el intento.
+  if (engineRef.current === null && !live) engineRef.current = new FlappyEngine(seed ?? 0);
+  const sessionRef = useRef<FlappyLiveSession | null>(null);
 
   const { t } = useT();
   // El bucle lee el modo por ref: cambiar de prop no debe reiniciar la partida.
@@ -62,9 +89,24 @@ export function FlappyGame({
   // idioma (meter `t` en las deps del efecto cortaría la partida en curso).
   const tapHintRef = useRef(t("g.flappy.tapHint"));
   tapHintRef.current = t("g.flappy.tapHint");
+  // Avisos del modo en vivo, dibujados en el canvas (por ref, como el de arriba).
+  const connectingRef = useRef(t("g.flappy.liveConnecting"));
+  connectingRef.current = t("g.flappy.liveConnecting");
+  const confirmingRef = useRef(t("g.flappy.liveConfirming"));
+  confirmingRef.current = t("g.flappy.liveConfirming");
+  const onAttemptClosedRef = useRef(onAttemptClosed);
+  onAttemptClosedRef.current = onAttemptClosed;
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
+  // En vivo: abriendo el intento (firma), por qué no se pudo abrir y si la
+  // sesión se desincronizó del árbitro.
+  const [opening, setOpening] = useState(false);
+  const [openError, setOpenError] = useState<{
+    key: string;
+    vars?: Record<string, string | number>;
+  } | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
   // Grabacion del replay (para el anti-trampa).
   const flaps = useRef<number[]>([]);
@@ -104,6 +146,10 @@ export function FlappyGame({
     const popups: { x: number; y: number; txt: string; life: number }[] = [];
     let flash = 0; // destello blanco al chocar
     let deathWait = -1; // frames que se ve la explosion antes del game over
+    // En vivo: desde cuándo falta el azar del próximo tick, y qué aviso mostrar.
+    let stalledSince: number | null = null;
+    let liveNotice: "connecting" | "confirming" | null = null;
+    let closedNotified = false;
 
     function burst(x: number, y: number, colors: string[], n: number) {
       for (let i = 0; i < n; i++) {
@@ -411,6 +457,19 @@ export function FlappyGame({
         ctx.font = "bold 15px ui-sans-serif, system-ui";
         ctx.fillText(tapHintRef.current, WIDTH / 2, HEIGHT / 2 + 70);
       }
+
+      if (liveNotice) {
+        ctx.fillStyle = "rgba(10,5,24,0.6)";
+        ctx.fillRect(0, HEIGHT / 2 - 24, WIDTH, 38);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 15px ui-sans-serif, system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          liveNotice === "connecting" ? connectingRef.current : confirmingRef.current,
+          WIDTH / 2,
+          HEIGHT / 2,
+        );
+      }
     };
 
     const loop = (t: number) => {
@@ -418,21 +477,49 @@ export function FlappyGame({
       const dt = Math.min(t - last, dtCap(strictRef.current));
       last = t;
       const eng = engineRef.current!;
+      const session = sessionRef.current;
       // Paso fijo determinístico: cada tick aplica el aleteo (si lo hubo) y avanza.
-      if (!eng.over) {
+      if (!eng.over && !session?.result && !session?.error) {
         acc += dt;
         while (acc >= STEP) {
-          if (pendingFlap.current) {
-            eng.flap();
-            flaps.current.push(tickRef.current);
-            pendingFlap.current = false;
+          // EN VIVO: sin el azar del próximo tick no se avanza. El juego se
+          // congela (y avisa) en vez de adelantarse de golpe cuando llega.
+          if (session && !session.canStep()) {
+            acc = Math.min(acc, STEP);
+            if (stalledSince === null) stalledSince = t;
+            break;
           }
-          eng.update(FLAPPY_DT);
+          stalledSince = null;
+          const flap = pendingFlap.current;
+          pendingFlap.current = false;
+          if (session) {
+            session.step(flap);
+          } else {
+            if (flap) {
+              eng.flap();
+              flaps.current.push(tickRef.current);
+            }
+            eng.update(FLAPPY_DT);
+          }
           tickRef.current += 1;
           acc -= STEP;
           if (eng.over) break;
         }
       }
+      // En vivo: compromete en segundo plano; al morir, pide el cierre.
+      session?.pump();
+      if (session?.result && !closedNotified) {
+        closedNotified = true;
+        onAttemptClosedRef.current?.();
+      }
+      liveNotice =
+        !session || session.error
+          ? null
+          : eng.over && !session.result
+            ? "confirming"
+            : stalledSince !== null && t - stalledSince > 300
+              ? "connecting"
+              : null;
       if (eng.score !== lastScore) {
         // Punto ganado: ding + "+1" flotando sobre el pajaro
         if (lastScore >= 0 && eng.score > lastScore && !eng.over) {
@@ -443,7 +530,7 @@ export function FlappyGame({
         setScore(eng.score);
       }
       draw();
-      if (eng.over) {
+      if (eng.over || session?.result || session?.error) {
         // Explosion de plumas y un respiro antes del cartel de fin
         if (deathWait < 0) {
           burst(BIRD_X, eng.birdY, ["#ffd23d", "#ffae00", "#ffffff"], 26);
@@ -452,7 +539,15 @@ export function FlappyGame({
           sfx.crash();
         }
         deathWait -= 1;
-        if (deathWait <= 0) {
+        // En vivo el cartel espera el cierre del árbitro: su puntaje manda. Si
+        // la sesión se cortó, no hay puntaje que confirmar: el intento sigue
+        // abierto en el árbitro y se retoma recargando (ver el aviso de abajo).
+        if (deathWait <= 0 && session?.error) {
+          setLiveError(liveErrorReason(session.error.message));
+          return;
+        }
+        if (deathWait <= 0 && (!session || session.result)) {
+          if (session?.result) setScore(session.result.score);
           setOver(true);
           return;
         }
@@ -479,6 +574,31 @@ export function FlappyGame({
     return () => window.removeEventListener("keydown", onKey);
   }, [started]);
 
+  // EMPEZAR. En vivo primero se abre el intento (la página firma y llama al
+  // árbitro); recién con el azar inicial arranca el juego.
+  async function begin() {
+    ensureAudio();
+    if (live) {
+      if (opening) return;
+      setOpening(true);
+      setOpenError(null);
+      try {
+        const start = await live.open();
+        const session = new FlappyLiveSession(start, live.commit);
+        sessionRef.current = session;
+        engineRef.current = session.engine;
+        tickRef.current = session.tick;
+      } catch (e) {
+        setOpenError(live.describeError(e));
+        return;
+      } finally {
+        setOpening(false);
+      }
+    }
+    onStarted?.();
+    setStarted(true);
+  }
+
   function handleTap() {
     if (!engineRef.current!.over) {
       pendingFlap.current = true;
@@ -504,12 +624,14 @@ export function FlappyGame({
           <StartScreen
             icon={<GameIcon id="flappy" size={56} />}
             title={t("g.flappy.title")}
-            instructions={t("g.flappy.instr")}
-            onStart={() => {
-              ensureAudio();
-              onStarted?.();
-              setStarted(true);
-            }}
+            instructions={
+              opening
+                ? t("g.flappy.liveSign")
+                : openError
+                  ? t(openError.key, openError.vars)
+                  : t("g.flappy.instr")
+            }
+            onStart={() => void begin()}
           />
         )}
 
@@ -517,16 +639,30 @@ export function FlappyGame({
           <GameOverScreen
             headline={t("g.flappy.over")}
             score={score}
-            onConfirm={() =>
-              onFinish({
-                score,
-                replay: { seed, ticks: tickRef.current, flaps: flaps.current },
-              })
-            }
+            recorded={!!live}
+            onConfirm={() => {
+              const session = sessionRef.current;
+              if (session) onFinish({ score, live: { reveals: session.reveals } });
+              else
+                onFinish({
+                  score,
+                  replay: { seed: seed ?? 0, ticks: tickRef.current, flaps: flaps.current },
+                });
+            }}
           />
         )}
       </div>
 
+      {liveError && (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-center text-sm wrap-anywhere text-(--color-lose)">
+            {t("g.flappy.liveError", { reason: liveError })}
+          </p>
+          <button className="btn3d btn3d--cyan" onClick={() => window.location.reload()}>
+            {t("g.flappy.liveReload")}
+          </button>
+        </div>
+      )}
       <p className="font-screen text-center text-base text-(--color-muted-3)">
         {t("g.flappy.hint")}
       </p>

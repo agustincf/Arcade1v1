@@ -9,9 +9,23 @@ import {
   type AlephRoomView,
   type AlephViewPass,
 } from "./client";
-import { randomWallet, signScore, signMatchmake, signAlephAction, signAlephView } from "./sign";
-import { DEFAULT_STRATEGIES, type Strategy } from "./strategies";
+import {
+  randomWallet,
+  signScore,
+  signMatchmake,
+  signLiveStart,
+  signAlephAction,
+  signAlephView,
+} from "./sign";
+import {
+  DEFAULT_STRATEGIES,
+  defaultLiveStrategy,
+  type LiveStrategy,
+  type Strategy,
+} from "./strategies";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
+import { checkLiveReveals, isLiveMatch } from "@arcade1v1/game-sdk/live";
+import { playFlappyLive, type FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
 import { waitUntilSealed } from "@arcade1v1/game-sdk/chain";
 import {
   ALEPH_RULES_V,
@@ -22,6 +36,21 @@ import {
   type Phase,
   type AlephAction,
 } from "@arcade1v1/game-sdk/aleph";
+
+/** Lo que un agente guarda de una partida EN VIVO para comprobarla cuando se
+ *  decida: el hash del secreto que el árbitro comprometió al emparejar y todo lo
+ *  que le reveló, en orden. Con `checkLiveReveals(view.secret, secretHash,
+ *  reveals)` se verifica que el árbitro no mandó valores que no salían de ese
+ *  secreto. `playAndSubmit` ya lo comprueba si la partida vuelve decidida. */
+export interface LiveReceipt {
+  secretHash: string;
+  reveals: number[];
+}
+
+/** Cuántas veces `playAndSubmit` retoma un intento en vivo que se cortó a mitad
+ *  de partida (se agotaron los reintentos, un token viejo, una desincronización):
+ *  cada vez abre de nuevo con firma, y el árbitro le devuelve su progreso. */
+const MAX_LIVE_RESUMES = 2;
 
 /** El árbitro acepta un pase de vista por MATCHMAKE_AUTH_TTL_MS (10 min). Lo
  *  renovamos a los 8 para no quedar justo en el borde entre dos sondeos. */
@@ -87,7 +116,16 @@ export function createAgent(opts: {
   address: Hex;
   client: ArbiterClient;
   matchmake(game: string, stake: number): Promise<MatchView>;
-  playAndSubmit(args: { game: string; stake: number; strategy?: Strategy }): Promise<MatchView>;
+  /** Empareja y juega. En un juego EN VIVO (la vista dice `live: true`) abre el
+   *  intento firmado y compromete las jugadas mientras recibe el azar de a poco;
+   *  `liveStrategy` reemplaza a la estrategia por defecto, y la vista vuelve con
+   *  `liveReceipt` para comprobar el secreto cuando la partida se decida. */
+  playAndSubmit(args: {
+    game: string;
+    stake: number;
+    strategy?: Strategy;
+    liveStrategy?: LiveStrategy;
+  }): Promise<MatchView & { liveReceipt?: LiveReceipt }>;
   /** Aleph: pedir asiento (firmado). Stake 0 es la mesa gratis; una mesa de
    *  plata exige `rpcUrl`, `privateKey` y `escrow` en `createAgent`, y sin ellos
    *  se niega antes de tocar la red. Idempotente. Antes de sentarse, mira la
@@ -186,7 +224,11 @@ export function createAgent(opts: {
     game: string;
     stake: number;
     strategy?: Strategy;
-  }): Promise<MatchView> {
+    liveStrategy?: LiveStrategy;
+  }): Promise<MatchView & { liveReceipt?: LiveReceipt }> {
+    // Un juego en vivo se valida ANTES de emparejar: si esta llamada no puede
+    // jugarlo, emparejar dejaría una partida que se pierde por no jugarla.
+    if (isLiveMatch(args.game, RULES_V[args.game])) liveStrategyFor(args);
     const m = await matchmake(args.game, args.stake);
     // Guard de versión: si el árbitro corre otras reglas, avisar YA (antes de
     // jugar), con el remedio. El árbitro repite este control en el submit.
@@ -196,8 +238,10 @@ export function createAgent(opts: {
         `rules version mismatch for ${args.game}: arbiter v${m.rulesV}, SDK v${localV} — update @arcade1v1 packages`,
       );
     }
+    if (m.live) return playLive(m, args);
     const strat = args.strategy ?? DEFAULT_STRATEGIES[args.game];
     if (!strat) throw new Error(`no hay estrategia por defecto para el juego: ${args.game}`);
+    if (m.seed === undefined) throw new Error(`the arbiter sent no seed for ${args.game}`);
     const { score, replay } = strat(m.seed);
     const signature = await signScore({
       matchId: m.matchId,
@@ -206,6 +250,101 @@ export function createAgent(opts: {
       privateKey: wallet.privateKey,
     });
     return client.submitScore(m.matchId, wallet.address, score, replay, signature);
+  }
+
+  // Con qué se juega en vivo `args.game`, o por qué esta llamada no puede.
+  function liveStrategyFor(args: {
+    game: string;
+    strategy?: Strategy;
+    liveStrategy?: LiveStrategy;
+  }): LiveStrategy {
+    if (args.strategy) {
+      throw new Error(
+        `${args.game} is played live: its randomness only arrives after each commit — ` +
+          `pass liveStrategy (a per-tick decision) instead of strategy`,
+      );
+    }
+    if (args.game !== "flappy") {
+      throw new Error(`this SDK cannot play ${args.game} live yet — update @arcade1v1 packages`);
+    }
+    const live = args.liveStrategy ?? defaultLiveStrategy(args.game);
+    if (!live) throw new Error(`no default live strategy for ${args.game}`);
+    return live;
+  }
+
+  // EN VIVO: no hay semilla. Se abre el intento con una firma y se juega con
+  // playFlappyLive, que compromete las jugadas y consume el azar revelado.
+  async function playLive(
+    m: MatchView,
+    args: { game: string; strategy?: Strategy; liveStrategy?: LiveStrategy },
+  ): Promise<MatchView & { liveReceipt: LiveReceipt }> {
+    const live = liveStrategyFor(args);
+    // Todo lo revelado, en orden: la apertura trae los valores desde el
+    // primero y cada compromiso los que siguen al `have` que mandó el driver,
+    // así que concatenarlos reconstruye la serie.
+    let reveals: number[] = [];
+    let confirmed: number;
+    for (let resumes = 0; ; resumes++) {
+      const auth = await signLiveStart({
+        matchId: m.matchId,
+        address: wallet.address,
+        privateKey: wallet.privateKey,
+        ts: clock(),
+      });
+      const start = await client.liveStart(m.matchId, wallet.address, auth);
+      if (start.over) {
+        confirmed = start.score;
+        break;
+      }
+      reveals = [...start.reveal];
+      const token = start.token;
+      try {
+        const result = await playFlappyLive({
+          start,
+          decide: live.decide,
+          commit: async (c): Promise<FlappyLiveReply> => {
+            const reply = await client.liveCommit(m.matchId, wallet.address, { ...c, token });
+            reveals.push(...reply.reveal);
+            return reply;
+          },
+          maxTicks: live.maxTicks,
+        });
+        confirmed = result.score;
+        break;
+      } catch (e) {
+        // Retomar nunca reinicia el intento: el árbitro devuelve dónde quedó.
+        // Si la partida ya no admite jugadas, la apertura lo dice y sale ese error.
+        if (resumes >= MAX_LIVE_RESUMES) throw e;
+      }
+    }
+    // El puntaje lo confirma el árbitro al cerrar el intento. La vista pública
+    // no muestra puntajes hasta decidir (anti-espionaje), así que el propio se
+    // completa con esa confirmación: queda igual que la respuesta de un envío
+    // de puntaje de los de siempre.
+    const view = await client.getMatch(m.matchId, wallet.address);
+    const me = wallet.address.toLowerCase();
+    const scores =
+      view.scores[me] === undefined ? { ...view.scores, [me]: confirmed } : view.scores;
+    const liveReceipt: LiveReceipt = { secretHash: m.secretHash ?? "", reveals };
+    // Decidida, la partida tiene que mostrar su secreto: sin él no hay cómo
+    // comprobarla, y eso también es una alarma (no un "no se sabe").
+    const decided = view.status === "settled" || view.status === "draw";
+    if (decided && view.secret === undefined) {
+      throw new Error(
+        `live match ${m.matchId} was decided but the arbiter did not publish its secret: ` +
+          `it cannot be verified`,
+      );
+    }
+    if (
+      view.secret !== undefined &&
+      !checkLiveReveals(view.secret, liveReceipt.secretHash, reveals)
+    ) {
+      throw new Error(
+        `live match ${m.matchId}: the published secret does not match what the arbiter committed ` +
+          `(secretHash) or the values it revealed`,
+      );
+    }
+    return { ...view, scores, liveReceipt };
   }
 
   // ---- Aleph (formato multi-agente) ------------------------------------
