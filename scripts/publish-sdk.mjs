@@ -17,42 +17,39 @@ import { join } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 
-// Subpaths que expone cada paquete publicado (mismos que en el workspace).
-const ENTRIES = {
-  "game-sdk": [
-    "index",
-    "g2048",
-    "tetris",
-    "flappy",
-    "racing",
-    "snake",
-    "invaders",
-    "auth",
-    "rules",
-    "aleph",
-    "chain",
-  ],
-  "agent-sdk": ["index", "client", "sign", "strategies", "aleph"],
-  // Dependencia del agent-sdk: si no está en npm, el agent-sdk publicado es
-  // ininstalable. Solo expone la raíz (sus módulos internos son relativos).
-  strategies: ["index"],
-};
+// Paquetes que se publican con este script. Sus subpaths salen de los
+// `exports` del package.json del workspace: antes eran una lista a mano que se
+// desincronizó (la 0.5.0 habría salido sin /live ni /flappy-live, y el
+// agent-sdk publicado, que los importa, no se habría podido ni importar).
+// `strategies` es dependencia del agent-sdk: si no está en npm, el agent-sdk
+// publicado es ininstalable.
+const PACKAGES = ["game-sdk", "strategies", "agent-sdk"];
 
 const name = process.argv[2];
 const dryRun = process.argv.includes("--dry-run");
 // Código 2FA de un solo uso (cuentas con doble factor "auth-and-writes"): se
 // reenvía a npm publish. TOTP vale ~30s, alcanza para publicar varios paquetes.
 const otpArg = process.argv.find((a) => a.startsWith("--otp="));
-if (!ENTRIES[name]) {
-  console.error(
-    `uso: node scripts/publish-sdk.mjs <${Object.keys(ENTRIES).join("|")}> [--dry-run]`,
-  );
+if (!PACKAGES.includes(name)) {
+  console.error(`uso: node scripts/publish-sdk.mjs <${PACKAGES.join("|")}> [--dry-run]`);
   process.exit(1);
 }
 
 const pkgDir = join(ROOT, "packages", name);
 const stage = join(pkgDir, ".publish");
 const pkg = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
+
+// Cada export del workspace ("./live": "./src/live.ts") se publica como
+// dist/live.js + dist/live.d.ts. Un export que no siga esa forma cortaría la
+// correspondencia, así que se rechaza antes de compilar.
+const entries = Object.entries(pkg.exports ?? { ".": "./src/index.ts" }).map(([key, file]) => {
+  const entry = key === "." ? "index" : key.slice(2);
+  if (file !== `./src/${entry}.ts`) {
+    console.error(`${name}: el export "${key}" apunta a ${file}; se esperaba ./src/${entry}.ts`);
+    process.exit(1);
+  }
+  return entry;
+});
 
 // 1) Compilar a .publish/dist (ESM + declaraciones).
 rmSync(stage, { recursive: true, force: true });
@@ -98,7 +95,7 @@ for (const f of readdirSync(join(stage, "dist"))) {
 
 // 3) package.json publicable: mismos metadatos, exports apuntando a dist.
 const exportsMap = {};
-for (const e of ENTRIES[name]) {
+for (const e of entries) {
   exportsMap[e === "index" ? "." : `./${e}`] = {
     types: `./dist/${e}.d.ts`,
     default: `./dist/${e}.js`,
