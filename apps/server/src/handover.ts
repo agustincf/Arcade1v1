@@ -233,6 +233,19 @@ async function viaDoorbell(
     // Primero esperar: la vieja necesita un momento para frenar y guardar.
     await d.sleep(t.pollMs);
     const cur = await look(d);
+    if (cur.view.epoch === epoch) {
+      // La vieja aceptó el timbre: está entregando. Mientras siga en SU época
+      // solo se espera a que suelte, aunque su registro venza en el medio (sus
+      // latidos pudieron no llegar a Upstash): acaba de contestar que está
+      // viva. Volver a tocarle el timbre daba 429 (un toque cada 2 s), eso se
+      // leía como "no contesta" y se le tomaba la posta antes de su guardado
+      // final.
+      if (cur.status === "released") {
+        await take(d, cur.view);
+        return "doorbell";
+      }
+      continue;
+    }
     if (isFree(cur.status)) {
       const got = await takeFree(d, t, cur.view, cur.status, "doorbell");
       if (got) return got;
@@ -506,6 +519,23 @@ export async function shutdown(sig: string, d: HandoverDeps): Promise<void> {
   } catch (e) {
     d.log(`Apagado (${sig}): ${(e as Error).message}`);
   }
+}
+
+/** El arranque falló DESPUÉS de tomar la posta (por ejemplo, Upstash se cayó
+ *  mientras se cargaba el estado). Se suelta antes de salir: si no, la posta
+ *  quedaba "active" con un latido fresco, y la próxima instancia la veía viva,
+ *  le tocaba el timbre a nadie y esperaba 3 min a que venciera. No se guarda
+ *  nada: esta instancia no llegó a atender. */
+export async function abortStartup(e: unknown, d: HandoverDeps): Promise<void> {
+  d.log(`❌ El arranque falló: ${(e as Error)?.message ?? String(e)}`);
+  if (handoverEnabled && isHolder()) {
+    try {
+      await releaseLease();
+    } catch (e2) {
+      d.log(`❌ Y no pude soltar la posta (${(e2 as Error).message}): vence sola en 3 min`);
+    }
+  }
+  d.exit(1);
 }
 
 export function installShutdown(d: HandoverDeps): void {

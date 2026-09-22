@@ -64,6 +64,15 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   (la vieja no conoce el timbre), pero ya con una sola dueña. No hacer rollback
   a una versión anterior a este cambio sin avisar: esas no conocen la posta
   por épocas.
+- **Tres bordes del traspaso.** Si la posta de la vieja vencía mientras
+  entregaba (latidos que no llegaron a Upstash), la nueva le volvía a tocar el
+  timbre, recibía un 429 y lo leía como "no contesta": le tomaba la posta antes
+  del guardado final. Ahora, si la vieja ya aceptó, la nueva solo espera. Una
+  vuelta on-chain de Aleph que pasaba el tope de la entrega podía mandar el
+  reembolso de otra sala después de soltar la posta, sin anotarlo; ahora
+  termina la sala que tiene entre manos y no empieza otra. Y si el arranque
+  falla después de tomar la posta (Upstash caído al cargar), la suelta antes de
+  salir: la próxima instancia ya no espera 3 minutos a que venza.
 
 ### Corregido — el primer depósito en Base ya no revierte
 
@@ -79,6 +88,11 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
+- **`/health` dice qué versión corre.** Devuelve `commit` (los 7 caracteres
+  del commit desplegado, que Render pasa en `RENDER_GIT_COMMIT`) y `mode` (el
+  modo de la instancia: `ready`, o `fallback`/`draining`/`released` durante un
+  traspaso). Antes, la única forma de saber si un deploy ya había salido era
+  ver volver a cero el `uptimeSeconds` de `/stats`.
 - **Mesas de plata en Aleph (etapa 4).** Hasta acá el pozo eran unidades que no
   valían nada afuera de la sala: traicionar en la Final no le costaba a nadie.
   Ahora hay una mesa de **2 USDC de testnet** al lado de la gratis. Un contrato

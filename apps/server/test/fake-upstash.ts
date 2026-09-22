@@ -13,6 +13,8 @@ export interface FakeUpstash {
   failWith: number | null;
   /** Comandos (nombre en mayúsculas) que fallan a propósito mientras estén en el conjunto. */
   failCommands: Set<string>;
+  /** Claves que fallan a propósito, con cualquier comando, mientras estén en el conjunto. */
+  failKeys: Set<string>;
   /** Se llama al final de cada comando, con el comando tal cual llegó. Para
    *  simular una segunda instancia escribiendo justo después de la nuestra
    *  (ver el test de watchForResume en handover.test.ts). null: no hace nada. */
@@ -28,6 +30,8 @@ export async function startFakeUpstash(): Promise<FakeUpstash> {
     const [raw, ...args] = cmd;
     const name = raw.toUpperCase();
     if (fake.failCommands.has(name)) throw new Error(`fake-upstash: ${name} falla a propósito`);
+    if (fake.failKeys.has(args[0] ?? ""))
+      throw new Error(`fake-upstash: ${args[0]} falla a propósito`);
     log.push([name, args[0] ?? ""]);
     let result: unknown;
     switch (name) {
@@ -96,6 +100,7 @@ export async function startFakeUpstash(): Promise<FakeUpstash> {
     log,
     failWith: null,
     failCommands: new Set<string>(),
+    failKeys: new Set<string>(),
     afterCommand: null,
     close: () => new Promise<void>((ok) => server.close(() => ok())),
   };

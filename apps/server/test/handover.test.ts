@@ -237,6 +237,43 @@ test("con una dueña viva: pide la posta, toca el timbre y la toma cuando la vie
   assert.equal(R.getMode(), "starting", "la nueva no se declara sana hasta cargar");
 });
 
+test("si la posta de la dueña vence mientras entrega, la nueva solo espera: no vuelve a tocar el timbre", async () => {
+  // Una dueña viva cuyo último latido está a punto de vencer (por ejemplo,
+  // Upstash se tragó sus latidos): acepta el timbre y entrega, pero su registro
+  // vence en el medio. Un segundo timbre le llegaría a menos de 2 s del
+  // primero y contestaría 429; eso se leía como "no contesta" y se le tomaba
+  // la posta a mitad de la entrega, antes de su guardado final.
+  let clock = Date.now();
+  fake.kv.set("arcade:lease:epoch", "5");
+  fake.kv.set("arcade:lease:e:5", record("vieja", "active", clock - L.LEASE_STALE_MS + 120));
+  const incrs = () => fake.log.filter((c) => c[0] === "INCR").length;
+  const baseline = incrs();
+  let rings = 0;
+  let sleeps = 0;
+  let incrAtRelease = -1;
+  const d = deps({
+    now: () => clock,
+    sleep: async (ms) => {
+      sleeps++;
+      clock += ms; // al tercer sondeo (150 ms) el registro ya venció
+      if (sleeps === 6) {
+        incrAtRelease = incrs() - baseline;
+        fake.kv.set("arcade:lease:e:5", record("vieja", "released"));
+      }
+      await new Promise((r) => setImmediate(r));
+    },
+    ringDoorbell: async () => {
+      rings++;
+      if (rings > 1) throw new Error("el timbre respondió HTTP 429");
+      return true;
+    },
+  });
+  assert.equal(await H.takeOver(d, T), "doorbell");
+  assert.equal(rings, 1, "no volvió a tocar el timbre");
+  assert.equal(incrAtRelease, 0, "no tomó la posta antes de que la dueña la soltara");
+  assert.equal(L.myEpoch(), 6);
+});
+
 test("si nadie contesta el timbre, pasa a respaldo (/health 200) y espera sin tope ciego", async () => {
   oldHolder(2);
   const d = deps();
@@ -537,4 +574,27 @@ test("apagado: en ready entrega; arrancando con la posta, la suelta SIN guardar"
   await H.shutdown("SIGTERM", d2);
   assert.deepEqual(d2.calls, [], "no guarda: no cargó nada que valga más que lo de Redis");
   assert.equal(JSON.parse(fake.kv.get("arcade:lease:e:2")!).state, "released");
+});
+
+test("si el arranque falla después de tomar la posta, la suelta SIN guardar y sale con 1", async () => {
+  await L.acquireLease();
+  L.startLeaseHeartbeat();
+  R.setMode("fallback");
+  const d = deps();
+  await H.abortStartup(new Error("Upstash caído cargando las partidas"), d);
+  assert.deepEqual(d.calls, ["exit 1"], "no guarda: no llegó a atender nada");
+  assert.equal(JSON.parse(fake.kv.get("arcade:lease:e:1")!).state, "released");
+  assert.equal(L.isHolder(), false);
+  assert.ok(d.logs.some((l) => /Upstash caído cargando las partidas/.test(l)));
+});
+
+test("si ni siquiera puede soltar la posta al fallar el arranque, igual sale con 1", async () => {
+  await L.acquireLease();
+  R.setMode("starting");
+  fake.failWith = 500;
+  const d = deps();
+  await H.abortStartup(new Error("falló la carga"), d);
+  assert.deepEqual(d.calls, ["exit 1"]);
+  assert.ok(d.logs.some((l) => /no pude soltar la posta/.test(l)));
+  fake.failWith = null;
 });

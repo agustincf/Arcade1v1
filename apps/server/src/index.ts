@@ -32,13 +32,15 @@ import { persistenceBackend, handoverEnabled, flushAll } from "./persist.js";
 import { readLease, startLeaseHeartbeat, confirmHolder } from "./lease.js";
 import {
   takeOver,
+  abortStartup,
   answerDoorbell,
   doorbellAt,
   installFence,
   installShutdown,
   type HandoverDeps,
 } from "./handover.js";
-import { readinessGate, setMode, waitForIdle, HANDOVER_PATH } from "./readiness.js";
+import { readinessGate, getMode, setMode, waitForIdle, HANDOVER_PATH } from "./readiness.js";
+import { deployedCommit } from "./version.js";
 import { arbiterAddress } from "./sign.js";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 import { agentsRouter, agentsPostLimit } from "./agents-routes.js";
@@ -190,7 +192,11 @@ const rlSweep = setInterval(() => {
 }, 30_000);
 rlSweep.unref?.();
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+// Salud + qué versión corre y en qué modo está la instancia (ver readiness.ts):
+// alcanza para confirmar desde afuera que un deploy salió y cómo quedó el
+// traspaso.
+const COMMIT = deployedCommit();
+app.get("/health", (_req, res) => res.json({ ok: true, commit: COMMIT, mode: getMode() }));
 
 // MÉTRICAS públicas (página /status): datos reales del árbitro, sin inflar.
 // activeAgents se cuenta en vivo acá (vive en agents.ts) y se inyecta al
@@ -419,28 +425,33 @@ if (handoverEnabled) startLeaseHeartbeat();
 
 // Restaurar el estado persistido. Si Redis está configurado y falla, el proceso
 // termina sin haber atendido nada: mejor eso que atender "vacío" y pisar los
-// datos reales.
-await Promise.all([
-  restoreMatches(),
-  restoreRatings(),
-  restoreAgents(),
-  restoreStats(),
-  restoreProfiles(),
-  restoreAleph(),
-  restoreAlephHouse(),
-]);
+// datos reales. Antes de salir suelta la posta (abortStartup), así la próxima
+// instancia no espera a que venza.
+try {
+  await Promise.all([
+    restoreMatches(),
+    restoreRatings(),
+    restoreAgents(),
+    restoreStats(),
+    restoreProfiles(),
+    restoreAleph(),
+    restoreAlephHouse(),
+  ]);
 
-// Embudo (v4.1): el settle clasifica cada partida por origen (casa/mixta/
-// terceros). El checker vive acá para no crear el ciclo matchmaking→agents.
-setHouseAddressCheck((a) => {
-  const agent = hostedAgentByAddress(a);
-  return !!agent && isHouseWallet(agent.owner);
-});
+  // Embudo (v4.1): el settle clasifica cada partida por origen (casa/mixta/
+  // terceros). El checker vive acá para no crear el ciclo matchmaking→agents.
+  setHouseAddressCheck((a) => {
+    const agent = hostedAgentByAddress(a);
+    return !!agent && isHouseWallet(agent.owner);
+  });
 
-// Si otra instancia tomó la posta mientras cargábamos, el cerco ya dejó esta en
-// "fenced" (/health 503) y Render la reinicia: no se atiende ni corren relojes.
-if (!handoverEnabled || (await confirmHolder())) {
-  setMode("ready");
-  startJobs();
-  console.log("Árbitro listo: estado cargado");
+  // Si otra instancia tomó la posta mientras cargábamos, el cerco ya dejó esta en
+  // "fenced" (/health 503) y Render la reinicia: no se atiende ni corren relojes.
+  if (!handoverEnabled || (await confirmHolder())) {
+    setMode("ready");
+    startJobs();
+    console.log("Árbitro listo: estado cargado");
+  }
+} catch (e) {
+  await abortStartup(e, handoverDeps);
 }
