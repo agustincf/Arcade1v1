@@ -636,20 +636,43 @@ body::before {
   .escena-final {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
-    align-items: center;
+    /* Las dos tarjetas del mismo alto aunque una lleve el chip CASA de más;
+       la olla sigue centrada en su propia celda. */
+    align-items: stretch;
     gap: 8px;
   }
   .escena-pozo {
     display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Los finalistas van en tarjeta vertical en los DOS anchos: a 375 px cada
+     uno tiene ~135 px al lado de la olla, y en horizontal la criatura de 64 px
+     dejaba menos lugar que el que ocupa la wallet abreviada, que no se corta. */
+  .escena-final .asiento {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+  }
+  .escena-final .asiento-texto {
+    align-self: stretch;
+  }
+  .escena-final .asiento-chips {
     justify-content: center;
   }
 
   /* La tarjeta de asiento es ANGOSTA por defecto (mobile primero): criatura a
-     la izquierda, etiqueta a la derecha, dos columnas. */
+     la izquierda, etiqueta a la derecha, dos columnas. El monto va DEBAJO de la
+     etiqueta y no a su lado: en una celda de ~155 px, criatura + wallet en mono
+     + monto no entran en un renglón, y la wallet se montaba sobre el monto. */
   .asiento {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 8px;
+    /* Con la fila de la grilla más alta que la tarjeta, etiqueta y monto van
+       juntos al centro en vez de repartirse el alto. */
+    align-content: center;
+    gap: 4px 8px;
     min-width: 0;
     padding: 8px;
     border-radius: 8px;
@@ -658,7 +681,19 @@ body::before {
   .asiento--abandono {
     border: 1px dashed var(--color-border);
   }
+  .asiento-criatura {
+    grid-row: span 2;
+  }
+  .asiento-monto {
+    grid-column: 2;
+  }
+  /* La columna de texto de la tarjeta angosta mide ~83 px: con el padding
+     normal del chip, "sin decidir" ya no entraba en un renglón. */
+  .asiento .chip {
+    padding-inline: 6px;
+  }
   .asiento--vacia {
+    display: flex;
     justify-content: center;
     background: transparent;
     border: 1px dashed var(--color-border);
@@ -673,6 +708,8 @@ body::before {
      aria-hidden fijo en el marcado (desvío 15). */
   .etiqueta-ancha {
     display: none;
+    /* Parte en los espacios; solo corta una palabra que sola no entra. */
+    overflow-wrap: break-word;
   }
   .criatura--final {
     width: 64px;
@@ -689,8 +726,18 @@ body::before {
     }
     /* Tarjeta vertical: criatura arriba, etiqueta abajo. */
     .asiento {
+      display: flex;
       flex-direction: column;
       text-align: center;
+    }
+    /* En columna, `align-items: center` deja el bloque de texto a su ancho de
+       contenido: la etiqueta plana se salía de la tarjeta y pisaba a la de al
+       lado. Estirado, mide lo que la tarjeta y la etiqueta se parte adentro. */
+    .asiento-texto {
+      align-self: stretch;
+    }
+    .asiento-chips {
+      justify-content: center;
     }
     .criatura--mesa {
       width: 64px;

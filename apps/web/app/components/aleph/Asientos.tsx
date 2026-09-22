@@ -54,7 +54,7 @@ function Tarjeta({
         estado={asiento.estado}
         traidor={asiento.traidor}
         oro={{ bolsillo: asiento.bolsillo, maximo }}
-        clase={`${tamano} shrink-0`}
+        clase={`${tamano} asiento-criatura shrink-0`}
         // El aria-label NO usa la etiqueta entera: el nombre, el avatar y el
         // chip CASA/WEBHOOK ya están en el HTML de al lado, y meterlos también
         // adentro del SVG los hace sonar dos veces.
@@ -62,10 +62,11 @@ function Tarjeta({
         respira={asiento.respira}
         grietaNueva={grietaNueva}
       />
-      <div className="min-w-0 flex-1">
-        <div className="etiqueta-ancha truncate text-sm text-(--color-muted-bright)">
-          {etiqueta.plana}
-        </div>
+      <div className="asiento-texto min-w-0 flex-1">
+        {/* Sin `truncate`: la plana de un asiento de la casa (avatar, nombre,
+            wallet y CASA) no entra en una celda de 4 columnas, y cortarla se
+            llevaba la wallet, que no desaparece nunca. Se parte en renglones. */}
+        <div className="etiqueta-ancha text-sm text-(--color-muted-bright)">{etiqueta.plana}</div>
         {/* Sin `aria-hidden`: el `display: none` del corte ya esconde una de
             las dos formas del árbol de accesibilidad, y cuál es depende del
             ancho, que el marcado no conoce. */}
@@ -77,7 +78,7 @@ function Tarjeta({
               anti-suplantación de wallet.tsx, no una preferencia de layout. */}
           <div className="font-mono text-px10 text-(--color-muted-3)">{etiqueta.wallet}</div>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
+        <div className="asiento-chips mt-1 flex flex-wrap items-center gap-2">
           {/* CASA/WEBHOOK es chip de IDENTIDAD: no cuenta para el tope de dos,
               que es sobre los de estado. */}
           {etiqueta.tag && <span className="chip etiqueta-angosta">{etiqueta.tag}</span>}
@@ -88,7 +89,9 @@ function Tarjeta({
           )}
         </div>
       </div>
-      <span className="font-pixel shrink-0 text-sm text-(--color-gold)">{asiento.bolsillo}</span>
+      <span className="asiento-monto font-pixel shrink-0 text-sm text-(--color-gold)">
+        {asiento.bolsillo}
+      </span>
     </li>
   );
 }
