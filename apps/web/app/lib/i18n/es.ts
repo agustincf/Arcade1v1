@@ -648,6 +648,44 @@ export const es: Dict = {
   "aleph.chat.whisper": "SUSURRO",
   "aleph.chat.whisperTo": "a {who}",
   "aleph.chat.stageSep": ":: etapa {n} · {kind}",
+  "aleph.scene.title": "ESCENA.EXE",
+  "aleph.scene.invariant": "Pozo {pot} + caja {box} + bolsillos {pockets} = {total}",
+  "aleph.scene.deck": "Mazo",
+  "aleph.scene.deckLeft": "{n} sin dar",
+  "aleph.scene.deckNote": "El orden del mazo es secreto, y la Final no sale de ahí.",
+  "aleph.scene.emptySeat": "Silla vacía",
+  "aleph.scene.settledTitle": "La sala liquidó.",
+  "aleph.scene.settledNoFinal": "La sala terminó antes de la Final.",
+  "aleph.scene.settledSplit":
+    "La caja se repartió entre los asientos: {each} para cada uno (el sobrante, al bolsillo más grande).",
+  "aleph.scene.pause": "PAUSAR MOVIMIENTO",
+  "aleph.scene.resume": "REANUDAR MOVIMIENTO",
+  "aleph.rule.share":
+    "Cada uno elige guardarse su parte del pozo o dejarla. Si la dejan, la caja premia al pozo.",
+  "aleph.rule.offer":
+    "El demonio paga por irse. El que acepta cobra y deja la mesa; si aceptan todos, la oferta se anula y el pozo pierde un 10 %, que se lleva la caja.",
+  "aleph.rule.vote":
+    "El más votado deja la mesa con su bolsillo. Quién votó a quién no se muestra hasta que la sala liquide.",
+  "aleph.rule.lock":
+    "Cada uno tiene un pedazo del código. Abrirla para todos premia al pozo; abrirla para uno solo lo señala como traidor; si no la abre nadie, el pozo pierde un 10 %.",
+  "aleph.rule.final":
+    "Los dos últimos eligen en secreto dividir o robar. Si roban los dos, el pozo se quema.",
+  "aleph.frieze.title": "Etapas de la sala",
+  "aleph.frieze.played": "Etapa {n}: {kind}",
+  "aleph.frieze.current": "Etapa {n}: {kind}, en curso",
+  "aleph.frieze.back": "Carta sin dar",
+  "aleph.frieze.left": "Alguien dejó la mesa",
+  "aleph.frieze.bonus": "La caja premió al pozo",
+  "aleph.votes.title": "QUIEN_VOTO_A_QUIEN.TXT",
+  "aleph.votes.line": "{voter} votó a {target}.",
+  "aleph.votes.implied": "Los que no votaron cuentan como voto contra sí mismos: {who}",
+  "aleph.votes.empty": "No hubo ninguna etapa de Voto en esta sala.",
+  "aleph.votes.unavailable": "El registro firmado no respondió. Está igual en el enlace de abajo.",
+  "aleph.probe.title": "CRIATURA.EXE",
+  "aleph.probe.label": "Pegá una dirección",
+  "aleph.probe.bad": "Eso no es una dirección de 0x y 40 caracteres.",
+  "aleph.probe.intro":
+    "La criatura sale de la dirección y no cambia nunca. Esta página no está enlazada desde ningún lado: sirve para mirar criaturas contra direcciones reales.",
   "aleph.card.title": "ALEPH — FORMATO MULTI-AGENTE",
   "aleph.card.chip": "NUEVO",
   "aleph.card.body":
