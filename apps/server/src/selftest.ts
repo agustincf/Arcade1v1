@@ -1,5 +1,6 @@
 // Auto-test del arbitro (sin red): emparejamiento, firma, empate, feedback rico,
-// ELO y ANTI-TRAMPA (replay) de los 6 juegos. Correr: npm run selftest -w @arcade1v1/server
+// ELO y ANTI-TRAMPA de los 6 juegos: replay con semilla en 5, y Flappy en vivo.
+// Correr: npm run selftest -w @arcade1v1/server
 
 import "dotenv/config";
 import "./offline-env.js"; // el selftest corre offline a propósito (ver el módulo)
@@ -9,14 +10,18 @@ import {
   matchmake,
   submitScore,
   getMatch,
+  publicReplay,
   replayTooLong,
   sweepMatches,
   SUBMIT_WINDOW_MS,
 } from "./matchmaking.js";
+import { liveStart, liveCommit } from "./live.js";
 import { arbiterAddress, RESULT_TYPES, resultDomain } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { TetrisEngine, type TetrisAction } from "@arcade1v1/game-sdk/tetris";
-import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
+import { playFlappyLive, verifyFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
+import { liveSecretHash } from "@arcade1v1/game-sdk/live";
+import { defaultParams, strategiesFor } from "@arcade1v1/strategies";
 import {
   RacingEngine,
   RACING_DT,
@@ -61,22 +66,6 @@ function playTetris(seedOrUndefined: number | undefined) {
     t++;
   }
   return { score: g.score, replay: { seed, ticks: t, inputs } };
-}
-
-function playFlappy(seedOrUndefined: number | undefined) {
-  const seed = need(seedOrUndefined);
-  const g = new FlappyEngine(seed);
-  const flaps: number[] = [];
-  let t = 0;
-  while (!g.over && t < 600) {
-    if (t % 18 === 0) {
-      g.flap();
-      flaps.push(t);
-    }
-    g.update(FLAPPY_DT);
-    t++;
-  }
-  return { score: g.score, replay: { seed, ticks: t, flaps } };
 }
 
 function playRacing(seedOrUndefined: number | undefined) {
@@ -210,13 +199,13 @@ async function main() {
   }
   console.log("✓ firma que no corresponde RECHAZADA:", badRejected);
 
-  // 7) ANTI-TRAMPA en los juegos de TIEMPO REAL (paso fijo determinístico).
+  // 7) ANTI-TRAMPA en los juegos de TIEMPO REAL con semilla (paso fijo
+  //    determinístico). Flappy no va acá: se juega en vivo (ver 7b).
   const games: {
-    name: "tetris" | "flappy" | "racing" | "snake" | "invaders";
+    name: "tetris" | "racing" | "snake" | "invaders";
     play: (s: number | undefined) => { score: number; replay: unknown };
   }[] = [
     { name: "tetris", play: playTetris },
-    { name: "flappy", play: playFlappy },
     { name: "racing", play: playRacing },
     { name: "snake", play: playSnake },
     { name: "invaders", play: playInvaders },
@@ -245,6 +234,61 @@ async function main() {
     );
     realtimeOk = realtimeOk && legitOk && cheatOk;
   }
+
+  // 7b) FLAPPY EN VIVO (reglas v2): la partida no tiene semilla. Cada jugador
+  //     abre su intento y compromete sus aleteos; el azar le llega de a poco.
+  //     Al decidirse se publica el secreto, y con él cualquiera re-verifica los
+  //     dos intentos. L1 juega con la estrategia por defecto; L2 se planta en
+  //     el tick 100, antes del primer tubo (puntaje 0), así hay un ganador.
+  const L1 = "0x8888888888888888888888888888888888888888";
+  const L2 = "0x9999999999999999999999999999999999999999";
+  const lm = await matchmake("flappy", 1, L1);
+  await matchmake("flappy", 1, L2);
+  const liveNoSeedOk =
+    lm.live === true && lm.seed === undefined && typeof lm.secretHash === "string";
+  const flappyDef = strategiesFor("flappy").find((d) => d.step)!;
+  for (const [who, cap] of [
+    [L1, undefined],
+    [L2, 100],
+  ] as const) {
+    const start = await liveStart(lm.matchId, who);
+    if (start.over) continue;
+    const step = flappyDef.step!(defaultParams(flappyDef));
+    await playFlappyLive({
+      start,
+      decide: step.decide,
+      maxTicks: cap ?? step.maxTicks,
+      commit: (c) => liveCommit(lm.matchId, who, { ...c, token: start.token }),
+    });
+  }
+  const lv = publicReplay(lm.matchId);
+  const lvSecret = lv?.secret;
+  const liveDecidedOk = lv !== null && lv.outcome !== "draw" && lv.winner === L1;
+  const liveSecretOk = !!lvSecret && liveSecretHash(lvSecret) === lm.secretHash;
+  const liveReverifyOk =
+    !!lvSecret &&
+    !!lv &&
+    lv.players.every(
+      (p) => verifyFlappyLive(lvSecret, p.replay as { ticks: number; flaps: number[] }) === p.score,
+    );
+  console.log(
+    `✓ flappy EN VIVO: sin semilla = ${liveNoSeedOk} · decidida (gana L1) = ${liveDecidedOk}` +
+      ` · secreto = hash = ${liveSecretOk} · los dos re-verifican = ${liveReverifyOk}`,
+    `(${lv?.players.map((p) => p.score).join(" a ")})`,
+  );
+  // Un replay armado afuera no entra, aunque sea verosímil: en vivo solo
+  // cuenta lo que se comprometió tick a tick.
+  const L3 = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const L4 = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const om = await matchmake("flappy", 1, L3);
+  await matchmake("flappy", 1, L4);
+  let liveOutsideRejected = false;
+  try {
+    await submitScore(om.matchId, L3, 3, { ticks: 600, flaps: [0, 36, 72], v: 2 });
+  } catch (e) {
+    liveOutsideRejected = /replay not allowed/.test((e as Error).message);
+  }
+  console.log("✓ flappy EN VIVO: replay armado afuera RECHAZADO:", liveOutsideRejected);
 
   // 8) DEFAULT-DENY: un juego desconocido no se empareja (y por ende jamás
   //    podría liquidar un puntaje sin verificar).
@@ -441,6 +485,11 @@ async function main() {
     badRejected &&
     draw.outcome === "draw" &&
     realtimeOk &&
+    liveNoSeedOk &&
+    liveDecidedOk &&
+    liveSecretOk &&
+    liveReverifyOk &&
+    liveOutsideRejected &&
     unknownRejected &&
     seedCheatRejected &&
     resubmitRejected &&
