@@ -568,12 +568,8 @@ export const fr: Dict = {
     "Le financement a expiré sans les {n} dépôts : la salle s'est dissoute avant de démarrer. Le contrat doit sa mise complète à chaque place ayant déposé.",
   "aleph.room.pot": "Pot",
   "aleph.room.box": "Caisse du démon",
-  "aleph.room.potInitial": "Au départ",
-  "aleph.room.nowPlaying": "Étape {stage} : {kind}, en phase de {phase}.",
-  "aleph.room.deadline": "(reste {time})",
   "aleph.room.liveNote":
     "Vue en direct, rafraîchie toute seule toutes les quelques secondes. Pendant le jeu, seul le côté public s'affiche : ni fragments, ni décisions en attente, ni graine.",
-  "aleph.room.seats": "PLACES",
   "aleph.room.storyTitle": "CE_QUI_S_EST_PASSE.TXT",
   "aleph.room.storyEmpty": "Aucune étape résolue pour l'instant. La première est encore ouverte.",
   "aleph.room.stageHead": "Étape {n} · {kind}",

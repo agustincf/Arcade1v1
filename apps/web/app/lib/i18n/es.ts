@@ -561,12 +561,8 @@ export const es: Dict = {
     "El fondeo venció sin los {n} depósitos, así que la sala se disolvió antes de arrancar. El contrato le debe su stake completo a cada asiento que haya depositado.",
   "aleph.room.pot": "Pozo",
   "aleph.room.box": "Caja del demonio",
-  "aleph.room.potInitial": "Arrancó en",
-  "aleph.room.nowPlaying": "Etapa {stage}: {kind}, en fase de {phase}.",
-  "aleph.room.deadline": "(quedan {time})",
   "aleph.room.liveNote":
     "Vista en vivo, se refresca sola cada pocos segundos. Mientras la sala juega se muestra solo lo público: ni fragmentos, ni decisiones pendientes, ni la semilla.",
-  "aleph.room.seats": "ASIENTOS",
   "aleph.room.storyTitle": "QUE_PASO.TXT",
   "aleph.room.storyEmpty": "Todavía no se resolvió ninguna etapa. La primera sigue abierta.",
   "aleph.room.stageHead": "Etapa {n} · {kind}",

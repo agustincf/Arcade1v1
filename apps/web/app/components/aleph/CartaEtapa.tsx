@@ -37,8 +37,8 @@ export function CartaEtapa({
             <span className="chip">{t(`aleph.phase.${carta.etapa.fase}`)}</span>
             {carta.etapa.hasta !== null && (
               // Crudo, sin clave de i18n: el contexto de al lado ya dice qué se
-              // está contando, y el "(quedan {time})" de `aleph.room.deadline`
-              // sobra adentro de la carta.
+              // está contando, y el "(quedan {time})" que envolvía al mm:ss en
+              // PR1 (una clave que PR2 borra) sobra adentro de la carta.
               <span className="font-mono text-sm text-(--color-gold)">
                 {mmss(carta.etapa.hasta - now)}
               </span>

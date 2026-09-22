@@ -552,12 +552,8 @@ export const hi: Dict = {
     "जमा की समय-सीमा {n} जमा पूरे हुए बिना ख़त्म हो गई, इसलिए कमरा शुरू होने से पहले ही भंग हो गया। जिस भी सीट ने जमा किया था, कॉन्ट्रैक्ट पर उसका पूरा स्टेक बकाया है।",
   "aleph.room.pot": "पॉट",
   "aleph.room.box": "दानव की तिजोरी",
-  "aleph.room.potInitial": "शुरुआत में",
-  "aleph.room.nowPlaying": "चरण {stage}: {kind}, {phase} फ़ेज़ में।",
-  "aleph.room.deadline": "({time} बाक़ी)",
   "aleph.room.liveNote":
     "लाइव दृश्य, हर कुछ सेकंड में ख़ुद ताज़ा होता है। खेल के दौरान सिर्फ़ सार्वजनिक हिस्सा दिखता है: न टुकड़े, न लंबित फ़ैसले, न बीज।",
-  "aleph.room.seats": "सीटें",
   "aleph.room.storyTitle": "क्या_हुआ.TXT",
   "aleph.room.storyEmpty": "अभी कोई चरण हल नहीं हुआ। पहला अब भी खुला है।",
   "aleph.room.stageHead": "चरण {n} · {kind}",

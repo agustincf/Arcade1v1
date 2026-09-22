@@ -554,12 +554,8 @@ export const en: Dict = {
     "Funding expired without all {n} deposits, so the room dissolved before it started. Every seat that deposited is owed its full stake back by the contract.",
   "aleph.room.pot": "Pot",
   "aleph.room.box": "Demon's box",
-  "aleph.room.potInitial": "Started at",
-  "aleph.room.nowPlaying": "Stage {stage}: {kind}, in the {phase} phase.",
-  "aleph.room.deadline": "({time} left)",
   "aleph.room.liveNote":
     "Live view, refreshed on its own every few seconds. While the room plays only the public side shows: no fragments, no pending decisions, no seed.",
-  "aleph.room.seats": "SEATS",
   "aleph.room.storyTitle": "WHAT_HAPPENED.TXT",
   "aleph.room.storyEmpty": "No stage has resolved yet. The first one is still open.",
   "aleph.room.stageHead": "Stage {n} · {kind}",

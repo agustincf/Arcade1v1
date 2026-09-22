@@ -107,7 +107,9 @@ test("el cartel de topes de la charla dice FASE, no etapa, en los 4 idiomas", ()
   // cada etapa tiene dos fases, así que decir "por etapa" publica la mitad del
   // tope real. En hindi la confusión es fácil porque son dos palabras distintas
   // que el diccionario ya usa separadas: «चरण» es etapa (aleph.room.stageHead)
-  // y «फ़ेज़» es fase (aleph.room.nowPlaying).
+  // y «फ़ेज़» es fase. La clave que citaba este comentario
+  // (`aleph.room.nowPlaying`) se borra en PR2; en hindi la palabra queda en
+  // este mismo cartel y en `aleph.join.sdkBody`.
   const PALABRAS: Record<string, { fase: string; etapa: string }> = {
     en: { fase: "phase", etapa: "stage" },
     es: { fase: "fase", etapa: "etapa" },
@@ -191,4 +193,19 @@ test("las 31 claves de la etapa 5 (PR2) están en los 4 idiomas", () => {
   for (const [lang, dict] of Object.entries(DICTS))
     for (const [k, vars] of Object.entries(conVariables))
       for (const v of vars) assert.ok(dict[k].includes(v), `${lang}: ${k} perdió ${v}`);
+});
+
+test("las cuatro claves huérfanas de la sala ya no están en ningún idioma", () => {
+  // Las cuatro tenían UN solo uso cada una y los cuatro se fueron con los
+  // bloques que la escena reemplaza (los tres Money del encabezado, la línea
+  // de etapa con su mm:ss y la barra de la ventana ASIENTOS). El test de
+  // paridad no avisa de esto: compara claves ENTRE idiomas, no uso.
+  for (const k of [
+    "aleph.room.potInitial",
+    "aleph.room.nowPlaying",
+    "aleph.room.deadline",
+    "aleph.room.seats",
+  ])
+    for (const [lang, dict] of Object.entries(DICTS))
+      assert.equal(dict[k], undefined, `${lang} todavía tiene ${k}`);
 });
