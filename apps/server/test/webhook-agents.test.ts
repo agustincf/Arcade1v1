@@ -193,7 +193,10 @@ test("desafío al BYO: NO se notifica hasta que el retador juegue", async () => 
 
 test("emptyReplay: forma correcta por juego (v1 sin `v`; v2 la declara)", () => {
   assert.deepEqual(emptyReplay("2048", 7), { seed: 7, moves: [] });
-  assert.deepEqual(emptyReplay("flappy", 7), { seed: 7, ticks: 0, flaps: [] });
+  assert.deepEqual(emptyReplay("flappy", 7), { seed: 7, ticks: 0, flaps: [], v: 2 });
+  // Flappy se juega en vivo (v2): la partida no tiene semilla y la rendición
+  // de quien nunca abrió su intento va sin ella.
+  assert.deepEqual(emptyReplay("flappy", undefined), { ticks: 0, flaps: [], v: 2 });
   assert.deepEqual(emptyReplay("snake", 7), { seed: 7, ticks: 0, inputs: [], v: SNAKE_RULES_V });
   assert.deepEqual(emptyReplay("racing", 7), { seed: 7, ticks: 0, inputs: [], v: RACING_RULES_V });
 });

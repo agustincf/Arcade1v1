@@ -14,7 +14,10 @@ export { MAX_ACTIONS_PER_TICK } from "./replay";
 export const RULES_V: Record<string, number> = {
   "2048": 1,
   tetris: 1,
-  flappy: 1,
+  // v2: se juega EN VIVO. La partida no tiene semilla; el azar sale de un
+  // secreto que se revela de a poco a medida que el jugador compromete sus
+  // aleteos (spec: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md).
+  flappy: 2,
   racing: RACING_RULES_V,
   snake: SNAKE_RULES_V,
   invaders: 1,
