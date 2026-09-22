@@ -7,26 +7,23 @@
 
 import { Criatura } from "./Criatura";
 import { lineasDeCharla } from "./nucleo/charla";
+import type { Destello } from "./nucleo/escena";
 import type { SalaDeAleph } from "./nucleo/estados";
-
-/** Lo que la página calcula comparando la vista nueva con la anterior. En PR1
- *  siempre llega `null`: el `useRef` con la vista anterior y las tres
- *  animaciones llegan en PR2. La prop existe desde el día uno para no tocar la
- *  firma dos veces. */
-export type Destello = { tipo: "grieta" | "revela" | "desclasifica"; asientos?: string[] };
 
 export function Charla({
   room,
   t,
   etiquetaDePorDireccion,
+  destello,
 }: {
   room: SalaDeAleph;
   t: (key: string, vars?: Record<string, string | number>) => string;
   /** El `from` y el `to` son direcciones sueltas, no asientos. */
   etiquetaDePorDireccion: (address: string) => string;
-  /** Pedida desde el día uno para no tocar la firma dos veces, y sin
-   *  desestructurar porque PR1 no la consume: quien la consume es el fundido
-   *  de la desclasificación, que llega en PR2 junto con su `@keyframes`. */
+  /** El destello que la página calculó comparando la vista nueva con la
+   *  anterior. La terminal mira uno solo: `desclasifica`, que es el fundido con
+   *  el que entran las líneas de susurro cuando la sala liquida. Los otros dos
+   *  son de la escena y acá se ignoran sin ruido. */
   destello: Destello | null;
 }) {
   const modelo = lineasDeCharla(room);
@@ -44,7 +41,12 @@ export function Charla({
         <p className="charla-nota">{t("aleph.chat.caps")}</p>
         {modelo.desclasificada && <p className="charla-aviso">{t("aleph.chat.declassified")}</p>}
         {modelo.lineas.length === 0 ? (
-          <p className="charla-nota mt-3">{t("aleph.chat.empty")}</p>
+          // Con la sala liquidada NO se dice "todavía no habló nadie en esta
+          // etapa": no hay etapa en curso que nombrar, y el cartel de
+          // desclasificación de arriba ya dice que acá está todo lo que se
+          // dijo. Es la misma razón por la que la ventana no se monta en
+          // `lobby`, `funding` ni `dissolved`.
+          !modelo.desclasificada && <p className="charla-nota mt-3">{t("aleph.chat.empty")}</p>
         ) : (
           <ol className="mt-3 flex flex-col gap-1">
             {modelo.lineas.map((linea, i) =>
@@ -63,7 +65,9 @@ export function Charla({
               ) : (
                 <li
                   key={i}
-                  className={`charla-linea${linea.susurro ? " charla-linea--susurro" : ""}`}
+                  className={`charla-linea${linea.susurro ? " charla-linea--susurro" : ""}${
+                    linea.susurro && destello?.tipo === "desclasifica" ? " aleph-desclasifica" : ""
+                  }`}
                 >
                   {/* Siempre en estado base, sin marca de traidor y sin oro: el
                       renglón cuenta lo que ese asiento dijo en ese momento, no
