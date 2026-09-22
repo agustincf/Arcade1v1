@@ -47,7 +47,10 @@ interno (`private: true`, no se publica a npm).
 
 ## Endpoints
 
-- `GET  /health` → `{ ok: true }`
+- `GET  /health` → `{ ok: true, commit, mode }`: `commit` son los 7 primeros
+  caracteres del commit desplegado (`RENDER_GIT_COMMIT`; `null` fuera de
+  Render) y `mode`, el modo de la instancia (`ready`, o `fallback`/`draining`/
+  `released` durante un traspaso; ver `src/readiness.ts`)
 - `GET  /arbiter` → `{ address }` (debe coincidir con el árbitro del contrato)
 - `GET  /stats` → métricas públicas del árbitro (uptime, partidas creadas/
   liquidadas, rechazos de verificación, agentes activos, monitor de gas)

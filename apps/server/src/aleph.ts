@@ -829,6 +829,12 @@ export function recentAlephRooms(limit = 20, now = Date.now()): RecentRoom[] {
 // sentido martillarlo cada 5 s.
 
 let chainTicking = false;
+/** La entrega de la posta frenó los relojes (stopAlephTicker). La vuelta en
+ *  curso termina la sala que tiene entre manos y no empieza otra: si pasara el
+ *  tope de la entrega, la instancia ya guardó y soltó la posta, y una
+ *  transacción mandada después no quedaría anotada (la instancia nueva la
+ *  mandaría otra vez). */
+let chainStopping = false;
 
 function backoffMs(attempts: number): number {
   return Math.min(60 * 60_000, 10_000 * 2 ** Math.min(attempts, 8));
@@ -836,11 +842,12 @@ function backoffMs(attempts: number): number {
 
 /** Exportado para los tests (reloj inyectado). El ticker lo llama cada tick. */
 export async function alephChainTick(now = Date.now()): Promise<void> {
-  if (chainTicking || !alephOnchainEnabled()) return;
+  if (chainTicking || chainStopping || !alephOnchainEnabled()) return;
   chainTicking = true;
   let dirty = false;
   try {
     for (const room of [...rooms.values()]) {
+      if (chainStopping) break;
       if (room.stake === 0) continue;
       try {
         if (room.status === "funding") {
@@ -1002,6 +1009,7 @@ const chainTicksInFlight = new Set<Promise<void>>();
  *  sala en curso que nadie consulta no se liquidaría nunca. */
 export function startAlephTicker(): void {
   if (ticker) return;
+  chainStopping = false;
   ticker = setInterval(() => {
     try {
       settleDue();
@@ -1017,8 +1025,10 @@ export function startAlephTicker(): void {
   ticker.unref?.();
 }
 
-/** Frena el ticker y espera la vuelta on-chain en curso (entrega de la posta). */
+/** Frena el ticker y espera la vuelta on-chain en curso (entrega de la posta).
+ *  Esa vuelta no empieza ninguna sala nueva (ver chainStopping). */
 export async function stopAlephTicker(): Promise<void> {
+  chainStopping = true;
   if (ticker) clearInterval(ticker);
   ticker = undefined;
   await Promise.all([...chainTicksInFlight]);
@@ -1161,4 +1171,5 @@ export function __resetAlephForTest(): void {
   openLobby.clear();
   states.clear();
   payoutSaved.clear();
+  chainStopping = false;
 }

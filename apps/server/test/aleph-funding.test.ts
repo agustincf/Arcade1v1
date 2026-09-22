@@ -313,6 +313,45 @@ test("si falta aunque sea un depósito al vencer el plazo, la sala se disuelve y
   C.setAlephChainForTest(undefined);
 });
 
+test("frenar el ticker corta la vuelta on-chain entre sala y sala: no sale otra transacción después de la foto final", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const a = await fundingRoom(T0);
+  const b = await fundingRoom(T0);
+  for (const { ws, roomId } of [a, b]) {
+    for (const w of ws.slice(0, 3)) chain.deposit(roomId, w.address, 4);
+  }
+  await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS); // las dos se disuelven
+  // La entrega de la posta frena los relojes mientras la vuelta manda el primer
+  // reembolso. Si la vuelta pasa el tope de la entrega, la instancia ya guardó
+  // y soltó la posta: un segundo cancelRoom saldría sin quedar anotado, y la
+  // instancia nueva lo mandaría otra vez.
+  let stopped: Promise<void> | undefined;
+  const cancelRoom = chain.cancelRoom;
+  chain.cancelRoom = async (roomId) => {
+    stopped ??= V.stopAlephTicker();
+    return cancelRoom(roomId);
+  };
+  await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS + 5_000);
+  await stopped;
+  assert.deepEqual(
+    chain.calls.map((c) => c.args[0]),
+    [a.roomId],
+    "la segunda sala queda para quien cargue la foto",
+  );
+  // Si la entrega se aborta (o la vieja retoma la posta), los relojes vuelven a
+  // arrancar y la vuelta sigue donde quedó.
+  V.startAlephTicker();
+  await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS + 10_000);
+  await V.stopAlephTicker();
+  assert.deepEqual(
+    chain.calls.map((c) => c.args[0]),
+    [a.roomId, b.roomId],
+  );
+  C.setAlephChainForTest(undefined);
+});
+
 test("una sala en fondeo donde NADIE depositó se disuelve sin mandar transacción", async () => {
   V.__resetAlephForTest();
   const chain = fakeChain();

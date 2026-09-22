@@ -106,6 +106,9 @@ async function startArbiter(name: string, env: Record<string, string> = {}): Pro
   return { name, port, proc, out, exited };
 }
 
+// El commit que Render le pasa a cada deploy (RENDER_GIT_COMMIT).
+const COMMIT = "00c703c1f2e3d4c5b6a79881726354a5b6c7d8e9";
+
 const logged = (a: Arbiter, re: RegExp) => a.out.some((l) => re.test(l));
 
 async function waitUntil(
@@ -152,7 +155,7 @@ test(
         "la partida todavía vive solo en la memoria de A",
       );
 
-      b = await startArbiter("B");
+      b = await startArbiter("B", { RENDER_GIT_COMMIT: COMMIT });
       const bb = b;
       // Render: espera a que la nueva dé 200, le pasa el tráfico y 60 s
       // (comprimidos en 1,5 s) después le manda SIGTERM a la vieja.
@@ -176,6 +179,9 @@ test(
 
       const got = await fetch(`${PUBLIC}/match/${matchId}`);
       assert.equal(got.status, 200, "la partida creada en A existe en B");
+
+      const h = (await (await fetch(`${PUBLIC}/health`)).json()) as Record<string, unknown>;
+      assert.deepEqual(h, { ok: true, commit: COMMIT.slice(0, 7), mode: "ready" });
 
       assert.equal(await a.exited, 0, "A sale limpia con el SIGTERM");
       assert.ok(!logged(a, /cercada|abortada/), a.out.join("\n"));
@@ -238,6 +244,26 @@ test(
     } finally {
       a.proc.kill("SIGKILL");
       b?.proc.kill("SIGKILL");
+    }
+  },
+);
+
+test(
+  "si la carga falla después de tomar la posta, la suelta al salir (la próxima no espera 3 min)",
+  { timeout: 60_000 },
+  async () => {
+    fake.kv.clear();
+    fake.failKeys.add("arcade:matches");
+    const b = await startArbiter("B");
+    try {
+      assert.equal(await b.exited, 1, b.out.join("\n"));
+      assert.ok(logged(b, /Traspaso: none/), b.out.join("\n"));
+      assert.equal(fake.kv.get("arcade:lease:epoch"), "1");
+      const rec = JSON.parse(fake.kv.get("arcade:lease:e:1")!);
+      assert.equal(rec.state, "released", b.out.join("\n"));
+    } finally {
+      fake.failKeys.clear();
+      b.proc.kill("SIGKILL");
     }
   },
 );
