@@ -1,4 +1,9 @@
-export { ArbiterClient, COLD_START_TIMEOUT_MS, DEFAULT_TIMEOUT_MS } from "./client";
+export {
+  ArbiterClient,
+  COLD_START_TIMEOUT_MS,
+  DEFAULT_TIMEOUT_MS,
+  UNAVAILABLE_RETRY_MS,
+} from "./client";
 export type {
   ArbiterClientOptions,
   MatchView,

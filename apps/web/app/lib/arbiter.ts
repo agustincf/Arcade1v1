@@ -49,10 +49,14 @@ const client = new ArbiterClient(BASE, {
 // intento) y con el pájaro congelado esperándolo: si tarda, es un pedido
 // perdido y conviene cortarlo y reintentar (la sesión reintenta los errores sin
 // código HTTP), no esperar los 75 s del arranque en frío.
+// Por lo mismo, este cliente NO reintenta él solo los 503 del árbitro
+// reiniciándose (el otro sí, hasta 30 s): la sesión en vivo ya decide qué
+// reintentar, y un compromiso no puede quedar esperando más que su tope.
 const LIVE_COMMIT_TIMEOUT_MS = 10_000;
 const liveClient = new ArbiterClient(BASE, {
   fetchImpl: fetchWithTimeout,
   timeoutMs: LIVE_COMMIT_TIMEOUT_MS,
+  retryUnavailableMs: 0,
 });
 
 /** Despierta al árbitro (hosting gratuito que duerme) sin bloquear la UI.
