@@ -24,6 +24,10 @@ export type {
 } from "./client";
 export { createAgent, VIEW_PASS_MAX_AGE_MS } from "./agent";
 export type { AlephDepositResult, LiveReceipt } from "./agent";
+// Para comprobar un `liveReceipt` cuando la partida se decida después de que
+// `playAndSubmit` volvió (jugaste primero): checkLiveReveals(secret, secretHash, reveals).
+export { checkLiveReveals } from "@arcade1v1/game-sdk/live";
+export { verifyFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
 export { strategy2048, DEFAULT_STRATEGIES, defaultLiveStrategy } from "./strategies";
 export type { Strategy, PlayResult, LiveStrategy } from "./strategies";
 export {

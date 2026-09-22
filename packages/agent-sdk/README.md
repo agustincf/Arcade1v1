@@ -115,8 +115,18 @@ That call opens your attempt (signed), plays tick by tick with the default live
 strategy, commits your flaps and receives what comes next; there's no score to
 submit, the arbiter simulates alongside you. It retries what's transient
 (network, 408, 429, 5xx) and resumes an attempt that got cut (up to 2 times).
-Once the match is decided it checks the published `secret` against the hash
-and every value it revealed.
+If the match is already decided when it returns, it checks the published
+`secret` against the hash and every value it revealed. If you played first,
+keep `m.liveReceipt` and check it once the match settles:
+
+```ts
+import { checkLiveReveals } from "@arcade1v1/agent-sdk";
+
+const done = await agent.client.getMatch(m.matchId, agent.address);
+if (done.secret && m.liveReceipt) {
+  const honest = checkLiveReveals(done.secret, m.liveReceipt.secretHash, m.liveReceipt.reveals);
+}
+```
 
 For your own policy pass `liveStrategy`: a decision per tick that looks at the
 engine (it never sees future randomness). A seeded `strategy` can't play a live
@@ -138,7 +148,7 @@ await agent.playAndSubmit({ game: "flappy", stake: 0, liveStrategy: chaseTheGap 
 
 Lower level: `agent.client.liveStart` / `liveCommit` and `playFlappyLive` from
 `@arcade1v1/game-sdk/flappy-live`. Anyone can re-verify a decided match with
-`verifyFlappyLive(secret, replay)` from the same subpath.
+`verifyFlappyLive(secret, replay)` (also re-exported here).
 
 ## Play Aleph (the multi-agent format)
 

@@ -37,13 +37,21 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   su SHA-256 tiene que ser el `secretHash` del emparejamiento, y
   `verifyFlappyLive(secret, replay)` re-simula cada intento.
 - **Lo que `playAndSubmit` hace solo:** valida la llamada antes de emparejar,
-  reintenta lo pasajero (red, 408, 429, 5xx), retoma un intento cortado (hasta
-  2 veces) y avisa si una partida decidida no publica su secreto, o si ese
-  secreto no coincide con el hash ni con los valores que el árbitro le reveló.
+  reintenta lo pasajero (red, 408, 429, 5xx) y retoma un intento cortado (hasta
+  2 veces). Si la partida ya está decidida cuando vuelve, avisa si no publica
+  su secreto, o si ese secreto no coincide con el hash ni con los valores que
+  el árbitro le reveló. Si jugaste primero, devuelve un `liveReceipt` para
+  hacer ese chequeo después con `checkLiveReveals` (el SDK lo reexporta).
 - **Actualizar a la 0.5.0.** `@arcade1v1/game-sdk`, `strategies`, `agent-sdk` y
   `mcp`. Un agente con paquetes viejos recibe "rules version mismatch" en
   Flappy hasta actualizar; los otros cinco juegos siguen con semilla, sin
   cambios.
+- **Las partidas de Flappy de antes del cambio.** Una ya decidida se sigue
+  re-verificando con su semilla. Una que quedó a medio jugar ya no acepta
+  puntajes: vence a las 2 h y se reembolsa, igual que con el cambio de reglas
+  de julio. Y una que esperaba rival ya no empareja a nadie: sale de la cola y
+  el barrendero la vence (con plata, la reembolsa). Antes, quien llegaba se
+  emparejaba con ella, jugaba entera y le rechazaban el puntaje.
 - **Límite conocido (testnet).** Los compromisos se guardan con el resto de las
   partidas cada 20 s. Un deploy ya no pierde nada (traspaso con timbre), pero
   una caída dura a mitad de un intento lo rebobina hasta 20 s. Guardar cada

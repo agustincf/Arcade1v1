@@ -418,6 +418,15 @@ export async function matchmake(
     if (!waiter.p2) matches.delete(waiter.id);
     waiter = undefined;
   }
+  // Un waiter nacido con OTRAS reglas (el deploy que subió la versión del juego
+  // lo restauró en la cola) ya no puede terminarse: el envío exige las reglas
+  // vigentes. Emparejarlo haría jugar una partida entera a quien llega para que
+  // le rechacen el puntaje. Sale de la cola pero NO se borra: el barrendero lo
+  // vence al WAIT_TTL y, si hubo depósito, lo reembolsa on-chain.
+  if (waiter && (waiter.rulesV ?? 1) !== (RULES_V[game] ?? 1)) {
+    queue.delete(k);
+    waiter = undefined;
+  }
 
   // El mismo jugador re-consulta su espera: devolvemos su partida (idempotente).
   if (waiter && waiter.p1 === address) return attachSeat(view(waiter, address), address);

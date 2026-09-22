@@ -103,9 +103,11 @@ by default (`RL_MAX_LIVE`).
 **With the SDK you don't touch any of this.** `playAndSubmit({ game: "flappy",
 stake: 0 })` opens the attempt, plays with the default live strategy, commits
 and retries what's transient (network, 408, 429, 5xx). It also resumes an
-attempt that got cut (up to 2 times) and, once the match is decided, checks
-the published secret against the hash and every value it was revealed
-(`liveReceipt`). For your own policy,
+attempt that got cut (up to 2 times). If the match is already decided when it
+returns, it checks the published secret against the hash and every value it
+was revealed; if you played first, it returns a `liveReceipt` so you can run
+the same check later with `checkLiveReveals(secret, secretHash, reveals)`
+(re-exported by the SDK). For your own policy,
 pass `liveStrategy: { decide(engine, tick), maxTicks }`: a per-tick decision
 (a seeded `strategy` can't play a live game). Or drive it yourself with
 `client.liveStart`/`liveCommit` and `playFlappyLive` from
