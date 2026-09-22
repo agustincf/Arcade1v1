@@ -13,10 +13,11 @@
 // tests y e2e corren sin tocar disco ni red, herméticos. Antes agents.ts y
 // ratings.ts persistían SIEMPRE y los tests pisaban los datos reales.
 
-import { randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { redisGet, redisSet } from "./redis.js";
+import { confirmHolder, isHolder } from "./lease.js";
 
 export type PersistenceBackend = "redis" | "file" | "off";
 
@@ -36,8 +37,24 @@ export function persistenceBackendFor(env: NodeJS.ProcessEnv): PersistenceBacken
 export const persistenceBackend = persistenceBackendFor(process.env);
 const ENABLED = persistenceBackend !== "off";
 const USE_REDIS = persistenceBackend === "redis";
-const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL ?? "").replace(/\/+$/, "");
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
+
+/** ¿Hay traspaso entre instancias? Solo con Redis y en el servidor real (lo
+ *  enciende persist-on.ts). Sin traspaso (tests, dev con archivo) hay UNA
+ *  instancia y siempre escribe. Con traspaso escribe SOLO la dueña de la posta
+ *  (lease.ts): una instancia que arranca nunca pisa el estado real con el suyo
+ *  vacío, y una vieja que ya entregó no pisa el de la nueva. */
+export const handoverEnabled = USE_REDIS && process.env.ARCADE_PERSIST_HANDOVER === "1";
+const canWrite = (): boolean => !handoverEnabled || isHolder();
+
+/** Sin la posta no se guarda nada, y eso es un error, no un "listo": aleph.ts
+ *  publica on-chain DESPUÉS de guardar, y una tabla firmada que no quedó
+ *  guardada no se puede publicar. */
+export class NotHolderError extends Error {
+  constructor(store: string) {
+    super(`persist ${store}: sin la posta, no se guarda`);
+    this.name = "NotHolderError";
+  }
+}
 
 const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 // AGRUPADOR DE ESCRITURAS. Cada escritura sube el blob ENTERO del store (~1,3 MB
@@ -48,137 +65,16 @@ const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 // septiembre de 2026 (8,57 GB consumidos, 100% "Service-Initiated").
 //
 // Con 20 s, una partida entera se agrupa en UNA escritura. Lo que se arriesga a
-// cambio: si el proceso muere de golpe (crash/OOM, no un redeploy —ese manda
-// SIGTERM y dispara el flush de más abajo) se pierden hasta 20 s de cambios en
-// las partidas en curso. El dinero no: vive en el escrow on-chain.
+// cambio: si el proceso muere de golpe (crash/OOM, no un redeploy —ese guarda
+// todo con flushAll() al entregar la posta, ver handover.ts) se pierden hasta
+// 20 s de cambios en las partidas en curso. El dinero no: vive en el escrow
+// on-chain.
 //
 // Lo que NO puede esperar al debounce se guarda con `flush()` en el acto: la
 // tabla de pagos firmada de una mesa de plata de Aleph (ver `settleOnchain` en
 // aleph.ts), porque su firma no lleva nonce y perderla haría firmar una
 // segunda, igual de válida.
 const DEBOUNCE_MS = Number(process.env.PERSIST_DEBOUNCE_MS ?? 20_000);
-const REDIS_TIMEOUT_MS = 10_000;
-
-async function redisGet(key: string): Promise<string | null> {
-  const r = await fetch(`${REDIS_URL}/get/${encodeURIComponent(key)}`, {
-    headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
-    signal: AbortSignal.timeout(REDIS_TIMEOUT_MS),
-  });
-  if (!r.ok) throw new Error(`redis GET ${key}: HTTP ${r.status}`);
-  const body = (await r.json()) as { result: string | null };
-  return body.result;
-}
-
-async function redisSet(key: string, value: string): Promise<void> {
-  // El valor va en el BODY (no en la URL): el JSON de partidas con replays
-  // puede medir cientos de KB y reventaría el largo máximo de una URL.
-  const r = await fetch(`${REDIS_URL}/set/${encodeURIComponent(key)}`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
-    body: value,
-    signal: AbortSignal.timeout(REDIS_TIMEOUT_MS),
-  });
-  if (!r.ok) throw new Error(`redis SET ${key}: HTTP ${r.status}`);
-}
-
-// TRASPASO ENTRE INSTANCIAS (deploys sin cortes). Render arranca la instancia
-// nueva, le pasa el tráfico y recién DESPUÉS le manda SIGTERM a la vieja. Como
-// la nueva cargaba el estado al arrancar, se perdía todo lo que la vieja
-// cambiaba en ese rato, y las escrituras siguientes de la nueva pisaban el
-// flush final de la vieja. En una mesa de plata eso podía decidir una partida
-// dos veces, con dos firmas válidas de ganadores distintos.
-//
-// Ahora hay una POSTA en Redis: la instancia que escribe la tiene y la hace
-// latir; al recibir SIGTERM guarda todo y la suelta. La nueva recién carga
-// cuando la ve soltada (o sin latir, si la anterior se cayó), y mientras no la
-// tenga no escribe nada: nunca pisa el estado real con el suyo vacío.
-const LEASE_KEY = "arcade:lease";
-const LEASE_HEARTBEAT_MS = Number(process.env.LEASE_HEARTBEAT_MS ?? 60_000);
-
-/** Identidad de este proceso: cada deploy o reinicio es una instancia nueva. */
-export const INSTANCE_ID = randomUUID();
-
-interface Lease {
-  id: string;
-  at: number; // último latido
-  released: boolean;
-}
-
-/** ¿Esta instancia puede escribir? Sin Redis, siempre (hay una sola instancia).
- *  Con Redis y el traspaso encendido (el servidor real, vía persist-on.ts),
- *  recién cuando tomó la posta, y deja de poder si otra se la quitó. */
-let writable = !(USE_REDIS && process.env.ARCADE_PERSIST_HANDOVER === "1");
-
-async function readLease(): Promise<Lease | null> {
-  const raw = await redisGet(LEASE_KEY);
-  if (!raw) return null;
-  try {
-    const l = JSON.parse(raw) as Partial<Lease>;
-    return typeof l.id === "string" && typeof l.at === "number" ? (l as Lease) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function writeLease(released: boolean): Promise<void> {
-  await redisSet(
-    LEASE_KEY,
-    JSON.stringify({ id: INSTANCE_ID, at: Date.now(), released } satisfies Lease),
-  );
-}
-
-export type HandoverOutcome = "off" | "none" | "released" | "stale" | "timeout";
-
-/** Antes de cargar el estado: espera a que la instancia anterior lo guarde y
- *  suelte la posta. No espera si no hay posta (primer arranque), si ya está
- *  soltada, o si hace rato que no late (la anterior se cayó sin avisar). Con
- *  `timeoutMs` de techo, por si la anterior quedó colgada. */
-export async function waitForHandover(
-  opts: { timeoutMs?: number; pollMs?: number; staleMs?: number } = {},
-): Promise<HandoverOutcome> {
-  if (!USE_REDIS) return "off";
-  const timeoutMs = opts.timeoutMs ?? 60_000;
-  const pollMs = opts.pollMs ?? 500;
-  const staleMs = opts.staleMs ?? 3 * LEASE_HEARTBEAT_MS;
-  const start = Date.now();
-  for (;;) {
-    const lease = await readLease();
-    if (!lease) return "none";
-    if (lease.released) return "released";
-    if (Date.now() - lease.at > staleMs) return "stale";
-    if (Date.now() - start >= timeoutMs) return "timeout";
-    await new Promise((r) => setTimeout(r, pollMs));
-  }
-}
-
-/** Tomar la posta: desde acá esta instancia es la que escribe. */
-export async function acquireLease(): Promise<void> {
-  if (!USE_REDIS) return;
-  await writeLease(false);
-  writable = true;
-}
-
-/** Latido de la posta. Si otra instancia la tomó (esta quedó colgada y la
- *  nueva se cansó de esperar), esta deja de escribir para no pisarla. */
-export async function leaseHeartbeat(): Promise<void> {
-  if (!USE_REDIS || !writable) return;
-  const lease = await readLease();
-  if (lease && lease.id !== INSTANCE_ID) {
-    writable = false;
-    console.error("persist: otra instancia tomó la posta; esta deja de escribir");
-    return;
-  }
-  await writeLease(false);
-}
-
-/** El latido periódico de la posta (lo arranca index.ts después de cargar). */
-export function startLeaseHeartbeat(): void {
-  if (!USE_REDIS) return;
-  const timer = setInterval(() => {
-    leaseHeartbeat().catch((e) => console.error("persist lease:", (e as Error).message));
-  }, LEASE_HEARTBEAT_MS);
-  timer.unref?.();
-}
 
 export interface JsonStore {
   /** Carga el JSON guardado (una vez, al arrancar). En Redis, un error de red
@@ -187,7 +83,9 @@ export interface JsonStore {
   load(): Promise<string | null>;
   /** Guarda con debounce. `getJson` se evalúa recién al escribir (estado fresco). */
   save(getJson: () => string): void;
-  /** Escritura inmediata de lo pendiente (apagado ordenado). */
+  /** Escritura inmediata de lo pendiente. RECHAZA si no se pudo guardar (sin
+   *  la posta, o Upstash/disco falló): quien publica algo después de guardar
+   *  tiene que enterarse. */
   flush(): Promise<void>;
 }
 
@@ -201,34 +99,53 @@ export function jsonStore(name: string): JsonStore {
   let timer: NodeJS.Timeout | null = null;
   // Último contenido efectivamente escrito, para no repetir escrituras idénticas.
   let lastWritten: string | null = null;
+  // La suerte de la última escritura (rechaza si falló). Un flush sin nada nuevo
+  // devuelve ESTA: "sin cambios" no es "guardado" si la anterior todavía viaja
+  // o falló.
+  let lastAttempt: Promise<void> = Promise.resolve();
   // Las escrituras a Redis se encadenan: si una tarda y llega otra, la nueva
-  // espera a la anterior — nunca se persiste estado viejo por completarse
-  // fuera de orden (cada SET es el blob entero, gana el último).
+  // espera a la anterior — nunca se persiste estado viejo por completarse fuera
+  // de orden (cada SET es el blob entero, gana el último). `chain` nunca
+  // rechaza, así una falla no traba las siguientes.
   let chain: Promise<void> = Promise.resolve();
+
+  const failed = (e: unknown): Promise<void> => {
+    const p = Promise.reject(e);
+    p.catch(() => {}); // que no cuente como rechazo sin manejar
+    return p;
+  };
 
   function writeNow(): Promise<void> {
     // Sin la posta no se escribe: lo pendiente queda para cuando la tenga.
-    if (!writable) return USE_REDIS ? chain : Promise.resolve();
+    if (!canWrite()) return pending ? failed(new NotHolderError(name)) : lastAttempt;
     const getJson = pending;
     pending = null;
-    if (!getJson) return Promise.resolve();
+    if (!getJson) return lastAttempt;
     const json = getJson();
     // SIN CAMBIOS, SIN ESCRITURA. Varios caminos llaman persist() aunque no
     // haya cambiado nada (el barrido, reintentos, endpoints que releen). Cada
     // una de esas subía el blob entero de nuevo para dejarlo igual que estaba.
-    if (json === lastWritten) return USE_REDIS ? chain : Promise.resolve();
+    if (json === lastWritten) return lastAttempt;
     lastWritten = json;
     if (USE_REDIS) {
-      chain = chain
-        .then(() => redisSet(redisKey, json))
-        .catch((e) => {
-          // La escritura falló: olvidamos el "último escrito" para que el
-          // próximo intento vuelva a mandar este contenido aunque nadie lo
-          // haya modificado mientras tanto.
-          lastWritten = null;
+      const attempt = chain.then(async () => {
+        // Antes de subir el blob, confirmar que la posta sigue siendo mía (una
+        // lectura chica): una instancia que la perdió sin enterarse —colgada,
+        // por ejemplo— no pisa el estado de la dueña.
+        if (handoverEnabled && !(await confirmHolder())) throw new NotHolderError(name);
+        await redisSet(redisKey, json);
+      });
+      chain = attempt.catch((e) => {
+        // Falló: se olvida como "escrito" y queda pendiente, así el próximo
+        // flush lo vuelve a mandar aunque nadie lo haya modificado.
+        if (lastWritten === json) lastWritten = null;
+        pending ??= getJson;
+        if (!(e instanceof NotHolderError)) {
           console.error(`persist ${name} (redis):`, (e as Error).message);
-        });
-      return chain;
+        }
+      });
+      lastAttempt = attempt;
+      return attempt;
     }
     try {
       if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -237,11 +154,14 @@ export function jsonStore(name: string): JsonStore {
       const tmp = `${file}.tmp`;
       writeFileSync(tmp, json);
       renameSync(tmp, file);
+      lastAttempt = Promise.resolve();
     } catch (e) {
       lastWritten = null; // igual que en Redis: que el próximo intento reescriba
+      pending ??= getJson;
       console.error(`persist ${name} (file):`, (e as Error).message);
+      lastAttempt = failed(e);
     }
-    return Promise.resolve();
+    return lastAttempt;
   }
 
   const store: JsonStore = {
@@ -260,43 +180,35 @@ export function jsonStore(name: string): JsonStore {
       if (timer) return;
       timer = setTimeout(() => {
         timer = null;
-        void writeNow();
+        // El agrupador no tiene a quién avisarle: la falla ya quedó en el log
+        // y lo pendiente, para el próximo intento.
+        writeNow().catch(() => {});
       }, DEBOUNCE_MS);
       timer.unref?.();
     },
     async flush() {
+      if (!ENABLED) return;
       if (timer) {
         clearTimeout(timer);
         timer = null;
       }
       await writeNow();
-      if (USE_REDIS) await chain; // esperar también lo que ya estaba en vuelo
     },
   };
   stores.push(store);
   return store;
 }
 
-/** Apagado ordenado: un último flush de TODOS los stores y, recién después,
- *  soltar la posta (si todavía es de esta instancia) para que la nueva cargue
- *  lo que quedó guardado. */
-export async function shutdownPersistence(): Promise<void> {
-  await Promise.allSettled(stores.map((s) => s.flush()));
-  if (!USE_REDIS || !writable) return;
-  const lease = await readLease();
-  if (lease && lease.id !== INSTANCE_ID) return;
-  await writeLease(true);
-  writable = false;
-}
-
-// SIGTERM/SIGINT (típico de un redeploy): centralizado acá para que ningún
-// módulo corte el proceso antes de que otro termine de escribir.
-if (ENABLED) {
-  for (const sig of ["SIGTERM", "SIGINT"] as const) {
-    process.once(sig, () => {
-      shutdownPersistence()
-        .catch((e) => console.error("persist shutdown:", (e as Error).message))
-        .finally(() => process.exit(0));
-    });
+/** Guarda YA todos los stores (entrega de la posta, apagado). RECHAZA si alguno
+ *  no se pudo guardar: soltar la posta sin haber guardado haría cargar a la
+ *  instancia nueva un estado viejo. El SIGTERM lo maneja handover.ts. */
+export async function flushAll(): Promise<void> {
+  const results = await Promise.allSettled(stores.map((s) => s.flush()));
+  const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+  if (failures.length) {
+    const first = failures[0].reason as Error | undefined;
+    throw new Error(
+      `no se guardaron ${failures.length} de ${stores.length} stores: ${first?.message ?? "?"}`,
+    );
   }
 }

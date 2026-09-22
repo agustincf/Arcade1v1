@@ -26,6 +26,7 @@ import {
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { checkLiveReveals, isLiveMatch } from "@arcade1v1/game-sdk/live";
 import { playFlappyLive, type FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
+import { waitUntilSealed } from "@arcade1v1/game-sdk/chain";
 import {
   ALEPH_RULES_V,
   ALEPH_ESCROW_STATUS,
@@ -692,6 +693,10 @@ export function createAgent(opts: {
       if (receipt.status !== "success") {
         throw new Error(`USDC approve reverted on-chain: ${usdc} spender ${escrow} (tx ${hash})`);
       }
+      // El recibo puede ser PRECONFIRMADO: sin esperar a que se selle su bloque,
+      // la simulación de abajo lee `latest` sin el permiso y revierte con
+      // ERC20InsufficientAllowance (ver waitUntilSealed).
+      await waitUntilSealed(pub, receipt.blockNumber);
     }
 
     // Simular antes de mandar: un revert seguro no quema gas, y el motivo del
@@ -723,6 +728,10 @@ export function createAgent(opts: {
       });
       const hash = await w.writeContract({ ...request, gas: (gas * 5n) / 4n });
       const receipt = await pub.waitForTransactionReceipt({ hash });
+      // Con el recibo preconfirmado, `latest` todavía no tiene esta transacción
+      // ni la que la hizo revertir: el catch de abajo leería la sala sin abrir, y
+      // quien llame después vería un depósito que todavía no está.
+      await waitUntilSealed(pub, receipt.blockNumber);
       // Un revert MINADO no lanza: viem devuelve el recibo con status
       // "reverted" y el hash parece un éxito. Sin este control, un depósito que
       // nunca entró se reportaría como hecho y el agente esperaría una sala que

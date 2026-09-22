@@ -313,9 +313,24 @@ export async function runAgentsTick(now = Date.now()): Promise<void> {
   }
 }
 
-if (ENABLED) {
-  const timer = setInterval(() => {
-    runAgentsTick().catch((e) => console.error("agent runner:", (e as Error).message));
+let runner: NodeJS.Timeout | undefined;
+const ticksInFlight = new Set<Promise<void>>();
+
+/** Arranca el runner. Lo llama index.ts DESPUÉS de cargar el estado; antes
+ *  arrancaba al importar el módulo y podía correr sobre un estado vacío. */
+export function startAgentRunner(): void {
+  if (runner || !ENABLED) return;
+  runner = setInterval(() => {
+    const tick = runAgentsTick().catch((e) => console.error("agent runner:", (e as Error).message));
+    ticksInFlight.add(tick);
+    void tick.finally(() => ticksInFlight.delete(tick));
   }, TICK_MS);
-  timer.unref?.(); // no mantener vivo un proceso que ya terminó (tests, scripts)
+  runner.unref?.(); // no mantener vivo un proceso que ya terminó (tests, scripts)
+}
+
+/** Frena el runner y espera las vueltas en curso (entrega de la posta). */
+export async function stopAgentRunner(): Promise<void> {
+  if (runner) clearInterval(runner);
+  runner = undefined;
+  await Promise.all([...ticksInFlight]);
 }

@@ -410,6 +410,93 @@ body::before {
     }
   }
 
+  /* --- Aleph, etapa 5: la criatura y la terminal --- */
+
+  /* Los tamaños son múltiplos de 16: la grilla es de 16x16 y a 1,5x los píxeles
+     se reparten desparejos, con lo que `crispEdges` deja de servir. En PR2 la
+     escena declara `container-type: inline-size` y `criatura--mesa` pasa a
+     64px adentro del corte de 560px. */
+  .criatura--mesa {
+    width: 48px;
+    height: 48px;
+  }
+  .criatura--charla {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Respira en dos cuadros. El desfase lo pone cada criatura desde el byte 11
+     de su dirección, en negativo, para que ocho no latan en bloque.
+     `jump-none` y no el `steps(2)` pelado del spec: `steps(2)` es `jump-end` y
+     deja el cuerpo en -0,5px, medio píxel, que es exactamente el puré
+     antialiaseado que `crispEdges` fue a evitar. Con `jump-none` los dos
+     cuadros son 0 y -1px enteros, que es lo que el spec pide en palabras. */
+  .aleph-respira {
+    animation: aleph-respira 3.2s steps(2, jump-none) infinite;
+  }
+  @keyframes aleph-respira {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-1px);
+    }
+  }
+
+  /* La terminal: fondo de tinta, mono chico y `anywhere` para que una wallet
+     larga no rompa la caja. El mono NO se declara acá: no existe ninguna
+     `--font-mono` en el repo (las variables de fuente son `--font-inter`,
+     `--font-pixel` y `--font-devanagari`), y el resto de la página ya usa la
+     utilidad `font-mono` de Tailwind en el markup. `Charla.tsx` hace lo mismo:
+     así no hay un `var()` que caiga en vacío sin que nadie se entere. */
+  .charla {
+    background: var(--color-ink);
+    font-size: 12.5px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .charla-linea {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .charla-linea--susurro {
+    border-left: 2px solid var(--color-accent);
+    padding-left: 8px;
+  }
+  .charla-quien {
+    color: var(--color-muted-3);
+  }
+  .charla-a {
+    color: var(--color-accent);
+  }
+  /* El `>` va coral en TODAS las líneas, también en los susurros (desvío 12):
+     el spec lo pide coral al describir el renglón normal, y el cyan ya está
+     tomado acá adentro por `.charla-etapa` y `.charla-sistema`, que son
+     justamente lo que NO es un mensaje. */
+  .charla-prompt {
+    color: var(--color-accent);
+  }
+  .charla-texto {
+    color: var(--color-muted-bright);
+  }
+  .charla-etapa {
+    margin-top: 10px;
+    color: var(--color-accent-2);
+  }
+  .charla-sistema {
+    color: var(--color-accent-2);
+  }
+  .charla-aviso {
+    margin-top: 10px;
+    color: var(--color-muted-bright);
+  }
+  .charla-nota {
+    color: var(--color-muted-3);
+  }
+
   /* Respetar "reducir movimiento" del sistema: el ticker infinito y el parpadeo
      se frenan (el ticker se reubica visible, sin quedar empujado fuera de
      pantalla). Los spinners usan la variante motion-reduce en su markup. */
@@ -422,6 +509,9 @@ body::before {
       animation: none;
     }
     .tile-pop {
+      animation: none;
+    }
+    .aleph-respira {
       animation: none;
     }
     /* Sin animacion el cartel no tiene fin: directamente no se muestra. */

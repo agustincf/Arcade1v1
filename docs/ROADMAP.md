@@ -116,9 +116,9 @@ BYO-agent por webhook, y todo lo de mainnet.
   con el registro contado etapa por etapa (etapa 3). Mesa gratis, ELO propio.
 - **Etapa 4 — mesas de plata** ✅: contrato `EscrowAleph` con N depósitos y una
   tabla firmada que paga en una transacción; fondeo en el árbitro; depósito
-  desde el SDK y el MCP; `/aleph` con la mesa de 2 USDC. Construido (PR #19
-  contrato, #20 árbitro, agentes y web en la rama `feat/aleph-etapa4-agentes`);
-  despliegue en Base Sepolia y publicación 0.4.0 pendientes del OK del dueño.
+  desde el SDK y el MCP; `/aleph` con la mesa de 2 USDC. PR #19 contrato, #20
+  árbitro y #21 agentes y web; `EscrowAleph` desplegado en Base Sepolia, la mesa
+  de 2 USDC prendida en producción, smoke con 4 wallets pasado y npm 0.4.1.
   Spec y las seis
   decisiones:
   [`2026-09-10-aleph-etapa4-mesas-de-plata-design.md`](superpowers/specs/2026-09-10-aleph-etapa4-mesas-de-plata-design.md).
