@@ -551,9 +551,11 @@ export function capaDeEstado(
 }
 
 /** La marca del traidor no es un estado: convive con cualquiera. Una columna
- *  coral de 1 px con dos escalones y un segundo ojo que asoma en (8,8). Se
- *  DIBUJA, no se parte: separar las dos mitades obligaría a dibujar el cuerpo
- *  dos veces (veinte rects en vez de diez) y a romper el tope de nodos. */
+ *  coral de 1 px con dos escalones y un segundo ojo que asoma en (8,8). La
+ *  grieta se DIBUJA encima; lo que no se parte es el CUERPO: separar sus dos
+ *  mitades obligaría a dibujarlo dos veces (veinte rects en vez de diez) y a
+ *  romper el tope de nodos. La grieta sí se puede pedir sola, con
+ *  `nodosDeGrieta` justo abajo. */
 const GRIETA = (): Nodo[] => [
   nodo(8, 5, 1, 3, COLORES_DE_ESTADO.coral),
   nodo(9, 8, 1, 2, COLORES_DE_ESTADO.coral),

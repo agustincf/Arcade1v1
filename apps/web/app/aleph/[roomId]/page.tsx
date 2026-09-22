@@ -1,9 +1,10 @@
 "use client";
 
-// UNA SALA DE ALEPH, contada en texto. No hay tablero que dibujar: lo que pasó
-// es una secuencia de decisiones, así que la página NARRA el registro etapa por
-// etapa — quién guardó, quién aceptó la oferta, a quién votaron, quién traicionó
-// en la Cerradura, la Final y la tabla de pagos.
+// UNA SALA DE ALEPH, dibujada y contada. Arriba va la escena (`<Escena>`: la
+// carta de la etapa, el friso, la mesa y los asientos con sus criaturas) y la
+// charla pública; abajo, el registro NARRADO etapa por etapa — quién guardó,
+// quién aceptó la oferta, a quién votaron, quién traicionó en la Cerradura, la
+// Final — y la tabla de pagos.
 //
 // Mientras la sala está `playing` se pide la vista PÚBLICA cada pocos segundos:
 // nunca trae fragmentos ajenos, decisiones pendientes ni la semilla. Recién con
@@ -100,7 +101,9 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
   // El reloj propio solo corre mientras haya una cuenta regresiva que mover:
   // en una sala liquidada, `now` no se muestra en ningún lado y el intervalo
   // era un re-render por segundo hasta que cerraran la pestaña. En `funding`
-  // también corre: la mesa de plata tiene su propia cuenta regresiva.
+  // también corre: la mesa de plata tiene su propia cuenta regresiva. Y en el
+  // `lobby`, contra `closesAt`: es el reloj que la barra de la escena muestra
+  // mientras se llenan las sillas.
   const counting =
     (room?.status === "playing" && room.deadline !== undefined) ||
     (room?.status === "funding" && room.fundingDeadline !== undefined) ||

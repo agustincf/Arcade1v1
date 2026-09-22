@@ -1,5 +1,9 @@
-// LA PUESTA EN ESCENA. Todo contra `modeloDeEscena`, que devuelve datos: los
-// componentes solo dibujan lo que hay acá adentro y no deciden nada.
+// LA PUESTA EN ESCENA. El grueso va contra `modeloDeEscena`, que devuelve
+// datos: los componentes solo dibujan lo que hay acá adentro y no deciden nada.
+// Además, los otros núcleos puros que la escena usa: los guardas del oro y la
+// grieta suelta (`criatura`), la charla liquidada (`charla`), los grupos de
+// votos y la preferencia de movimiento. El marcado accesible, que sí dibuja
+// componentes, va aparte en `aleph-marcado.test.ts`.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
