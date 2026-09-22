@@ -271,6 +271,15 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
       firmara dos tablas para una sala, se podría usar la vieja. Mientras tanto rige
       la regla del árbitro de firmar una sola tabla por sala. Los dos arreglos van
       en un mismo redespliegue (decidido el 2026-09-18).
+- [ ] **Flappy en vivo: cada compromiso guardado antes de revelar.** Hoy los
+      compromisos de un intento viajan con el blob de partidas, que se guarda cada
+      20 s. Un deploy ya no pierde nada (traspaso con timbre), pero una caída dura
+      (crash, OOM) a mitad de un intento lo rebobina hasta 20 s, y quien ya vio
+      esos tubos podría rehacer ese tramo. Arreglo: una clave chica por intento,
+      con el registro de compromisos, escrita ANTES de revelar valores nuevos
+      (spec `docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md`, "Por
+      qué alcanza"). Decidido el 2026-09-22: se prende sin esto en testnet y va
+      antes de mainnet.
 
 **Desplegar** (firma con hardware wallet, sin claves en disco):
 
