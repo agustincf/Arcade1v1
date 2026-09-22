@@ -29,10 +29,11 @@ import { restoreAleph, startAlephTicker, stopAlephTicker } from "./aleph.js";
 import { restoreAlephHouse } from "./aleph-house-seats.js";
 import { startAlephHouse, stopAlephHouse } from "./aleph-house.js";
 import { persistenceBackend, handoverEnabled, flushAll } from "./persist.js";
-import { readLease, startLeaseHeartbeat, confirmHolder } from "./lease.js";
+import { readLease, startLeaseHeartbeat } from "./lease.js";
 import {
   takeOver,
   abortStartup,
+  confirmAfterLoad,
   answerDoorbell,
   doorbellAt,
   installFence,
@@ -447,7 +448,7 @@ try {
 
   // Si otra instancia tomó la posta mientras cargábamos, el cerco ya dejó esta en
   // "fenced" (/health 503) y Render la reinicia: no se atiende ni corren relojes.
-  if (!handoverEnabled || (await confirmHolder())) {
+  if (!handoverEnabled || (await confirmAfterLoad(handoverDeps))) {
     setMode("ready");
     startJobs();
     console.log("Árbitro listo: estado cargado");

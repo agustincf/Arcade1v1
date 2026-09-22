@@ -588,6 +588,28 @@ test("si el arranque falla después de tomar la posta, la suelta SIN guardar y s
   assert.ok(d.logs.some((l) => /Upstash caído cargando las partidas/.test(l)));
 });
 
+test("confirmar la posta después de cargar reintenta un error de red antes de rendirse", async () => {
+  await L.acquireLease();
+  fake.failWith = 500;
+  const d = deps({
+    sleep: async () => {
+      fake.failWith = null; // Upstash vuelve después del primer reintento
+    },
+  });
+  assert.equal(await H.confirmAfterLoad(d), true);
+  assert.equal(d.logs.filter((l) => /reintento/.test(l)).length, 1);
+
+  fake.failWith = 500;
+  const d2 = deps();
+  await assert.rejects(() => H.confirmAfterLoad(d2, 3));
+  assert.equal(d2.logs.filter((l) => /reintento/.test(l)).length, 2);
+  assert.equal(L.isHolder(), true, "un error de red no la da por perdida");
+  fake.failWith = null;
+
+  fake.kv.set("arcade:lease:epoch", "9"); // otra instancia la tomó
+  assert.equal(await H.confirmAfterLoad(deps()), false);
+});
+
 test("si ni siquiera puede soltar la posta al fallar el arranque, igual sale con 1", async () => {
   await L.acquireLease();
   R.setMode("starting");

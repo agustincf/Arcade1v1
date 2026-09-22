@@ -521,6 +521,22 @@ export async function shutdown(sig: string, d: HandoverDeps): Promise<void> {
   }
 }
 
+/** Después de cargar el estado: ¿esta instancia sigue siendo la dueña? Un
+ *  error de red al preguntar no es evidencia de haberla perdido, y abortar ahí
+ *  tiraba un arranque que ya había cargado todo: se reintenta unas veces antes
+ *  de rendirse. Un "no" (otra época) no se reintenta: el cerco ya actuó. */
+export async function confirmAfterLoad(d: HandoverDeps, tries = 4): Promise<boolean> {
+  for (let i = 1; ; i++) {
+    try {
+      return await confirmHolder();
+    } catch (e) {
+      if (i >= tries) throw e;
+      d.log(`Traspaso: falló confirmar la posta (${(e as Error).message}); reintento`);
+      await d.sleep(500 * 2 ** (i - 1));
+    }
+  }
+}
+
 /** El arranque falló DESPUÉS de tomar la posta (por ejemplo, Upstash se cayó
  *  mientras se cargaba el estado). Se suelta antes de salir: si no, la posta
  *  quedaba "active" con un latido fresco, y la próxima instancia la veía viva,
