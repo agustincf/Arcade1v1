@@ -242,6 +242,8 @@ const rooms = new Map<string, AlephRoom>();
 const openLobby = new Map<number, string>(); // stake -> roomId del lobby abierto
 const states = new Map<string, AlephState>(); // cache del estado derivado
 const store$ = jsonStore("aleph");
+/** Salas cuya tabla firmada ya quedó GUARDADA en este proceso (ver settleOnchain). */
+const payoutSaved = new Set<string>();
 const normAddr = (a: string) => String(a).toLowerCase();
 const ADDRESS_RE = /^0x[0-9a-f]{40}$/;
 const randomHex32 = () => ("0x" + randomBytes(32).toString("hex")) as Hex;
@@ -908,18 +910,24 @@ async function settleOnchain(room: AlephRoom, now: number): Promise<boolean> {
       rec.feeBps = feeBps;
       rec.payoutsUsdc = Object.fromEntries(seats.map((a, i) => [a, amounts[i].toString()]));
       rec.payoutSig = await signAlephPayout(room.id, alephTableHash(seats, amounts));
-      // LA TABLA FIRMADA SE GUARDA ANTES DE PUBLICARSE. Una sala firma UNA sola
-      // tabla en su vida: la firma no lleva nonce y `settle` es permissionless,
-      // así que dos tablas firmadas de la misma sala son dos órdenes de pago
-      // válidas y cobra la que alguien presente primero. Lo único que puede
-      // romper esa garantía es perder ESTA en una caída dura (OOM/crash; un
-      // redeploy manda SIGTERM y flushea): si la ventana perdida se lleva
-      // también las últimas acciones, la sala restaurada re-simula a OTRA tabla
-      // y la firma. Con el debounce de 20 s esa ventana dura 20 s; con este
-      // flush queda en UN viaje al store, no en cero: el event loop sigue
-      // atendiendo requests mientras se espera, y `roomView` ya devuelve la
-      // firma desde memoria. Cuesta una escritura por mesa de plata liquidada.
+    }
+    // LA TABLA FIRMADA SE GUARDA ANTES DE PUBLICARSE. Una sala firma UNA sola
+    // tabla en su vida: la firma no lleva nonce y `settle` es permissionless,
+    // así que dos tablas firmadas de la misma sala son dos órdenes de pago
+    // válidas y cobra la que alguien presente primero. Lo único que puede
+    // romper esa garantía es perder ESTA en una caída dura (OOM/crash; un
+    // redeploy la guarda al entregar la posta): si la ventana perdida se lleva
+    // también las últimas acciones, la sala restaurada re-simula a OTRA tabla y
+    // la firma. Con el debounce de 20 s esa ventana dura 20 s; con este flush
+    // queda en UN viaje al store, no en cero: el event loop sigue atendiendo
+    // requests mientras se espera, y `roomView` ya devuelve la firma desde
+    // memoria. Va en CADA intento hasta que quede guardada: si el guardado de
+    // un intento falla (persist.ts rechaza), este intento no publica, y el
+    // reintento guarda antes de publicar. Cuesta una escritura por mesa de
+    // plata liquidada.
+    if (!payoutSaved.has(room.id)) {
       await persistNow();
+      payoutSaved.add(room.id);
     }
     const amounts = seats.map((a) => BigInt(rec.payoutsUsdc![a]));
     rec.settleTx = await chain.settle(room.id, seats, amounts, rec.payoutSig);
@@ -986,6 +994,7 @@ async function refundOnchain(room: AlephRoom, now: number): Promise<boolean> {
 // ---- Ticker -------------------------------------------------------------------
 
 let ticker: NodeJS.Timeout | undefined;
+const chainTicksInFlight = new Set<Promise<void>>();
 
 /** Respaldo: vence lobbies y fases aunque nadie consulte la sala. Lo arranca
  *  index.ts (nunca al importar: los tests usan su propio reloj). Arranca SIEMPRE:
@@ -999,9 +1008,20 @@ export function startAlephTicker(): void {
     } catch (e) {
       console.error("[aleph] tick:", (e as Error).message);
     }
-    alephChainTick().catch((e) => console.error("[aleph-chain] tick:", (e as Error).message));
+    const tick = alephChainTick().catch((e) =>
+      console.error("[aleph-chain] tick:", (e as Error).message),
+    );
+    chainTicksInFlight.add(tick);
+    void tick.finally(() => chainTicksInFlight.delete(tick));
   }, ALEPH_TICK_MS);
   ticker.unref?.();
+}
+
+/** Frena el ticker y espera la vuelta on-chain en curso (entrega de la posta). */
+export async function stopAlephTicker(): Promise<void> {
+  if (ticker) clearInterval(ticker);
+  ticker = undefined;
+  await Promise.all([...chainTicksInFlight]);
 }
 
 // ---- Vistas -------------------------------------------------------------------
@@ -1140,4 +1160,5 @@ export function __resetAlephForTest(): void {
   rooms.clear();
   openLobby.clear();
   states.clear();
+  payoutSaved.clear();
 }

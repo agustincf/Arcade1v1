@@ -26,6 +26,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { ALEPH_ESCROW_STATUS, type AlephAction } from "@arcade1v1/game-sdk/aleph";
 
 // ---- Un Upstash de mentira, para VER las escrituras del store -----------------
+let failSetsLeft = 0;
 const writes: { key: string; body: string }[] = [];
 const upstash = createServer((req, res) => {
   const chunks: Buffer[] = [];
@@ -33,6 +34,12 @@ const upstash = createServer((req, res) => {
   req.on("end", () => {
     const url = decodeURIComponent(req.url ?? "");
     if (url.startsWith("/set/")) {
+      if (failSetsLeft > 0) {
+        failSetsLeft--;
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: "caído" }));
+        return;
+      }
       writes.push({ key: url.slice("/set/".length), body: Buffer.concat(chunks).toString("utf8") });
       res.end(JSON.stringify({ result: "OK" }));
     } else {
@@ -207,6 +214,34 @@ test("la tabla de pagos firmada llega al store ANTES de que salga el settle", as
   );
   assert.equal(guardada?.chain?.payoutSig, v.payoutSig, "y es EXACTAMENTE la tabla que se mandó");
   assert.deepEqual(guardada?.chain?.payoutsUsdc, v.payoutsUsdc);
+  C.setAlephChainForTest(undefined);
+});
+
+test("si guardar la tabla firmada falla, el settle NO sale; el reintento la guarda antes de publicar", async () => {
+  V.__resetAlephForTest();
+  writes.length = 0;
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { ws, roomId } = await fundingRoom(T0);
+  for (const w of ws) chain.deposit(roomId, w.address, 4);
+  await V.alephChainTick(T0 + 1_000);
+  const end = await playToSettled(roomId, ws, T0 + 2_000);
+
+  failSetsLeft = 1; // Upstash rechaza la próxima escritura
+  await V.alephChainTick(end + 1);
+  assert.deepEqual(chain.calls, [], "sin la tabla guardada, el settle no sale");
+  const firmada = (await V.getAlephRoom(roomId, undefined, end + 2))!.payoutSig;
+  assert.ok(firmada, "la tabla quedó firmada en memoria");
+
+  // Pasado el backoff, el reintento guarda PRIMERO y recién ahí publica, con la
+  // MISMA tabla (una sala firma una sola en su vida).
+  await V.alephChainTick(end + 10 * 60_000);
+  assert.deepEqual(chain.calls, ["settle"]);
+  assert.ok(chain.blobAtSettle, "en el instante del settle, la tabla ya estaba guardada");
+  const guardada = (
+    JSON.parse(chain.blobAtSettle!) as { id: string; chain?: { payoutSig?: string } }[]
+  ).find((r) => r.id === roomId);
+  assert.equal(guardada?.chain?.payoutSig, firmada);
   C.setAlephChainForTest(undefined);
 });
 

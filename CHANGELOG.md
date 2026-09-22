@@ -43,17 +43,27 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   Como efecto secundario, la actualización se puede desplegar **con salas
   jugándose**: terminan con las reglas con las que empezaron.
 
-### Corregido — los deploys ya no pierden estado del árbitro
+### Corregido — los deploys ya no pierden ni duplican estado del árbitro
 
-- **Traspaso entre instancias.** En un deploy sin cortes de Render, la
-  instancia nueva cargaba el estado al arrancar, mientras la vieja seguía
-  atendiendo. Todo lo que pasaba en ese rato se perdía: partidas, agentes
-  recién creados, ratings. En una mesa de plata, una partida podía decidirse
-  dos veces, con firmas válidas de ganadores distintos. Ahora la instancia que
-  escribe tiene una "posta" en Redis; al apagarse guarda todo y la suelta, y la
-  nueva recién carga entonces. Mientras tanto responde 503 ("reiniciando,
-  probá de nuevo") a todo salvo `/health`: unos segundos por deploy. Si la
-  anterior se cayó sin avisar, la posta deja de latir y no se la espera.
+- **Traspaso con timbre entre instancias.** Render arranca la instancia nueva,
+  le pasa el tráfico y recién **60 s después** le manda SIGTERM a la vieja. La
+  primera versión del arreglo (PR #33) esperaba ese SIGTERM con un tope de 60 s
+  que vencía siempre antes: en cada deploy había casi un minuto de 503 y unos
+  segundos con dos árbitros escribiendo a la vez. Ahora la nueva no se declara
+  sana hasta tener el estado, y le **pide la posta a la vieja** con un pedido a
+  la URL pública (que en ese momento solo le llega a la vieja). La vieja frena
+  sus relojes, guarda todo y suelta la posta, y la nueva carga exactamente eso.
+  La pausa es de segundos. Si la nueva se cae a mitad de camino, la vieja retoma
+  sola. La posta es atómica (épocas con `INCR`) y cada escritura chequea antes
+  que siga siendo de esta instancia, así que ninguna pisa el estado de otra.
+- **Un guardado que falla ya no dice "listo".** `flush()` rechaza si no se pudo
+  guardar (Upstash caído o sin la posta), y Aleph guarda la tabla de pagos
+  firmada antes de cada intento de publicarla hasta que quede guardada. Antes
+  podía publicar una tabla que nunca se guardó.
+- El primer deploy con este cambio todavía tiene el minuto de 503 de antes
+  (la vieja no conoce el timbre), pero ya con una sola dueña. No hacer rollback
+  a una versión anterior a este cambio sin avisar: esas no conocen la posta
+  por épocas.
 
 ### Corregido — el primer depósito en Base ya no revierte
 
