@@ -90,6 +90,18 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
     return false;
   }
 
+  // PARTIDA DE ANTES DE UN CAMBIO DE REGLAS (el deploy que subió la versión del
+  // juego la dejó a medio jugar): el árbitro ya no acepta puntajes de esa
+  // versión, así que no hay nada que jugar ni que esperar. Se suelta y el agente
+  // vuelve a la ladder; la partida la vence (y, con plata, la reembolsa) el
+  // barrendero. Sin esto reintentaba cada tick contra "rules version mismatch"
+  // y quedaba fuera de juego hasta 2 h; un BYO, además, acumulaba la rendición
+  // fallida como falla y se auto-pausaba sin culpa.
+  if ((m.rulesV ?? 1) !== (RULES_V[m.game] ?? 1)) {
+    setAgentPending(agent, undefined);
+    return false;
+  }
+
   // ANTI-DENEGACIÓN DE JUEGO: un DESAFÍO que el retador abandonó (nunca envió su
   // intento) no debe congelar al agente objetivo ~2h. Si soy el desafiado y el
   // retador no jugó dentro de una ventana corta, suelto y vuelvo a la ladder (el
