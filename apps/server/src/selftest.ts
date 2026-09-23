@@ -263,7 +263,12 @@ async function main() {
   }
   const lv = publicReplay(lm.matchId);
   const lvSecret = lv?.secret;
-  const liveDecidedOk = lv !== null && lv.outcome !== "draw" && lv.winner === L1;
+  // Gana L1, salvo que también haga 0: en 5000 secretos al azar nunca pasó, pero
+  // el secreto es aleatorio, así que en ese caso tiene que dar empate (y no un
+  // falso rojo en CI).
+  const [s1, s2] = [L1, L2].map((a) => lv?.players.find((p) => p.address === a)?.score ?? -1);
+  const liveDecidedOk =
+    lv !== null && (s1 > s2 ? lv.winner === L1 : s1 === s2 && lv.outcome === "draw");
   const liveSecretOk = !!lvSecret && liveSecretHash(lvSecret) === lm.secretHash;
   const liveReverifyOk =
     !!lvSecret &&
@@ -272,7 +277,7 @@ async function main() {
       (p) => verifyFlappyLive(lvSecret, p.replay as { ticks: number; flaps: number[] }) === p.score,
     );
   console.log(
-    `✓ flappy EN VIVO: sin semilla = ${liveNoSeedOk} · decidida (gana L1) = ${liveDecidedOk}` +
+    `✓ flappy EN VIVO: sin semilla = ${liveNoSeedOk} · decidida bien = ${liveDecidedOk}` +
       ` · secreto = hash = ${liveSecretOk} · los dos re-verifican = ${liveReverifyOk}`,
     `(${lv?.players.map((p) => p.score).join(" a ")})`,
   );
