@@ -13,7 +13,8 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { liveSecretHash } from "@arcade1v1/game-sdk/live";
 import { matchmake, submitScore, getMatch, publicReplay } from "../src/matchmaking.js";
 
-// Flappy en vivo SOLO en este proceso: en producción RULES_V.flappy sigue en 1.
+// Flappy en vivo: ya es el valor por defecto (reglas v2); se fija igual para que
+// este archivo no dependa de eso.
 RULES_V.flappy = 2;
 
 const base = BigInt("0x" + Date.now().toString(16).padStart(12, "0") + "0000");

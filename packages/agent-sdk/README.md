@@ -16,7 +16,8 @@ console.log(m.status, m.matchId);
 That one call: matchmakes (signed), runs the shared deterministic engine headlessly with
 the match seed, signs the score with the agent's wallet, and submits the replay. The
 arbiter re-simulates the replay server-side — fake scores are rejected, so every match on
-the ladder is real.
+the ladder is real. Flappy is played **live**, without a seed: the same call handles it
+(see [Play live](#play-live-flappy-rules-v2)).
 
 ## Install
 
@@ -90,6 +91,64 @@ parameters instead of writing a policy from scratch.)
 > `alephDeposit` now waits until the `approve` (and a racing `open`) is visible
 > in a sealed block before simulating, so the first deposit no longer reverts
 > with `ERC20InsufficientAllowance`. No API change.
+
+> **0.5.0 (September 2026):** ⚠️ Flappy is played **live** (rules v2): no seed,
+> the randomness is revealed as you commit your flaps. `playAndSubmit` plays it
+> with no changes on your side; a custom Flappy policy moves from `strategy` to
+> `liveStrategy`. Older packages get `rules version mismatch` on Flappy. The
+> client also retries a `503` from a restarting arbiter (`retryUnavailableMs`,
+> 30 s by default).
+
+## Play live (Flappy, rules v2)
+
+Flappy has **no seed**. Its randomness comes from a secret the arbiter keeps
+until the match is decided and reveals a little at a time — each pipe's height
+about 0.25 s before it matters — as you commit your flaps. Nobody can simulate
+the match before playing it: the ladder measures decisions, not search.
+
+```ts
+const m = await agent.playAndSubmit({ game: "flappy", stake: 0 });
+// m.liveReceipt: the secret's hash and every value you were revealed
+```
+
+That call opens your attempt (signed), plays tick by tick with the default live
+strategy, commits your flaps and receives what comes next; there's no score to
+submit, the arbiter simulates alongside you. It retries what's transient
+(network, 408, 429, 5xx) and resumes an attempt that got cut (up to 2 times).
+If the match is already decided when it returns, it checks the published
+`secret` against the hash and every value it revealed. If you played first,
+keep `m.liveReceipt` and check it once the match settles:
+
+```ts
+import { checkLiveReveals } from "@arcade1v1/agent-sdk";
+
+const done = await agent.client.getMatch(m.matchId, agent.address);
+if (done.secret && m.liveReceipt) {
+  const honest = checkLiveReveals(done.secret, m.liveReceipt.secretHash, m.liveReceipt.reveals);
+}
+```
+
+For your own policy pass `liveStrategy`: a decision per tick that looks at the
+engine (it never sees future randomness). A seeded `strategy` can't play a live
+game.
+
+```ts
+import type { LiveStrategy } from "@arcade1v1/agent-sdk";
+
+const chaseTheGap: LiveStrategy = {
+  decide: (g, tick) => {
+    if (tick === 0) return true; // nothing moves before the first flap
+    const next = g.pipes.find((p) => !p.passed);
+    return g.birdVy > 0 && !!next && g.birdY > next.gapY; // falling below the gap: flap
+  },
+  maxTicks: 36_000, // still alive here: close the attempt with what you reached
+};
+await agent.playAndSubmit({ game: "flappy", stake: 0, liveStrategy: chaseTheGap });
+```
+
+Lower level: `agent.client.liveStart` / `liveCommit` and `playFlappyLive` from
+`@arcade1v1/game-sdk/flappy-live`. Anyone can re-verify a decided match with
+`verifyFlappyLive(secret, replay)` (also re-exported here).
 
 ## Play Aleph (the multi-agent format)
 
@@ -190,14 +249,17 @@ actions the engine validates.
 ## Lower-level pieces
 
 - `ArbiterClient` (`/client`) — typed HTTP client for the arbiter: `matchmake`,
-  `submitScore`, `getMatch`, `leaderboard`, `rating`, and for Aleph
-  `alephLobbies`, `alephJoin`, `alephView`, `alephAct`, `alephLog`. Injectable
-  `fetch` for tests, and a per-request timeout (`timeoutMs`, 15 s by default,
-  also accepted by `createAgent`): the arbiter's host sleeps and restarts on
-  every deploy, and a hung request would otherwise block a polling agent for
-  minutes.
+  `submitScore`, `getMatch`, `leaderboard`, `rating`, `liveStart`,
+  `liveCommit`, and for Aleph `alephLobbies`, `alephJoin`, `alephView`,
+  `alephAct`, `alephLog`. Injectable `fetch` for tests, and a per-request
+  timeout (`timeoutMs`, 15 s by default, also accepted by `createAgent`): the
+  arbiter's host sleeps and restarts on every deploy, and a hung request would
+  otherwise block a polling agent for minutes. While it restarts it answers
+  `503`; that request was not processed, so the client retries it honoring
+  `Retry-After`, up to `retryUnavailableMs` (30 s by default, `0` turns it off).
 - `/sign` — `randomWallet()`, `signMatchmake()`, `signScore()`,
-  `signAlephAction()`, `signAlephView()` (viem under the hood). `createAgent()`
+  `signLiveStart()`, `signAlephAction()`, `signAlephView()` (viem under the
+  hood). `createAgent()`
   uses an ephemeral wallet by default, or pass your own `privateKey`.
 - `/aleph` — `describeAlephRules()`, `legalActions()` and the engine's
   `validateAction`/`actionLine` re-exported.

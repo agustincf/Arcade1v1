@@ -221,11 +221,14 @@ app.get("/", (_req, res) =>
         "public arbiter metrics: uptime, matches created/settled, verification rejects, active agents, gas monitor",
       "POST /matchmake":
         "{ game, stake, address, signature?, ts? } -> { matchId, seed, rulesV, status }. " +
-        "In production sign matchmakeAuthMessage(game, stake, address, ts) with your wallet.",
+        "In production sign matchmakeAuthMessage(game, stake, address, ts) with your wallet. " +
+        "A LIVE game (flappy, rules v2) returns live: true and secretHash instead of seed: " +
+        "play it with /match/:id/live/start and /live/commit",
       "POST /match/:id/score":
         "{ address, score, replay, signature } -> verifies & settles (replay shape per game; " +
         "the replay must declare the match's rules version, e.g. v: 2 for snake/racing — " +
-        "stale-rules submissions are rejected with 'rules version mismatch')",
+        "stale-rules submissions are rejected with 'rules version mismatch'). " +
+        "In a live game it only takes the surrender: score 0, replay { ticks: 0, flaps: [], v: 2 }",
       "POST /match/:id/live/start":
         "{ address, signature, ts } -> open or resume your live attempt (live games only; matchmake says live: true). Sign liveStartAuthMessage(matchId, address, ts). Returns { token, tick, flaps, reveal, revealed }",
       "POST /match/:id/live/commit":

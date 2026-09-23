@@ -109,3 +109,41 @@ test("un agente que ya jugó no vuelve a intentarlo mientras espera al rival", a
   );
   assert.equal(getAgent(agent.id)!.pendingMatchId, pending, "y sigue esperando su resultado");
 });
+
+test("una partida pendiente de ANTES del cambio de reglas se suelta: el agente vuelve a la ladder sin reintentar", async () => {
+  // El deploy que sube Flappy a v2 encuentra a un agente con una partida v1 a
+  // medio jugar. El árbitro ya no acepta puntajes de esas reglas: reintentar
+  // cada tick solo acumulaba "rules version mismatch" y lo dejaba fuera de
+  // juego hasta 2 h, hasta que la partida vencía.
+  RULES_V.flappy = 1;
+  let pending: string;
+  const rival = privateKeyToAccount(generatePrivateKey());
+  const rivalAddr = rival.address.toLowerCase();
+  const agent = createHostedAgent({
+    owner: "0x" + "b".repeat(40),
+    name: "AntesDelCambio",
+    avatar: "🤖",
+    game: "flappy",
+    strategyId: "flappy.threshold",
+    params: undefined,
+  });
+  try {
+    await runAgentsTick(); // se encola en una partida v1
+    pending = getAgent(agent.id)!.pendingMatchId!;
+    assert.ok(pending, "quedó esperando rival");
+    const ts = Date.now();
+    const signature = await rival.signMessage({
+      message: matchmakeAuthMessage("flappy", 0, rivalAddr, ts),
+    });
+    const m = await matchmake("flappy", 0, rivalAddr, { signature, ts });
+    assert.equal(m.matchId, pending);
+    assert.equal(m.rulesV, 1);
+  } finally {
+    RULES_V.flappy = 2; // el deploy prende las reglas v2
+  }
+  await runAgentsTick();
+  assert.equal(getAgent(agent.id)!.pendingMatchId, undefined, "soltó la partida vieja");
+  const rec = matchRecord(pending)!;
+  assert.equal(rec.scores[agent.address.toLowerCase()], undefined, "no intentó enviar");
+  assert.equal(rec.failedAttempts?.[agent.address.toLowerCase()], undefined);
+});

@@ -165,3 +165,72 @@ test("el tope del SDK no pisa el signal que ya traiga quien llama", async () => 
   mine.abort(new Error("lo canceló quien llama"));
   assert.equal(merged.aborted, true);
 });
+
+// ---- 503: el árbitro reiniciándose (deploy) ----------------------------------
+
+/** Un fetch falso que contesta, en orden, los status de `statuses` (el último
+ *  se repite) y cuenta los pedidos. */
+function statusFetch(statuses: number[], retryAfter = "0") {
+  const seen = { calls: 0, bodies: [] as string[] };
+  const impl = (async (_url: string, init?: RequestInit) => {
+    const status = statuses[Math.min(seen.calls, statuses.length - 1)];
+    seen.calls++;
+    seen.bodies.push(String(init?.body ?? ""));
+    const body =
+      status === 200
+        ? { matchId: "0xabc", game: "2048", stake: 0, seed: 1, status: "waiting", scores: {} }
+        : { error: "arbiter restarting, retry in a few seconds" };
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json", "Retry-After": retryAfter },
+    });
+  }) as typeof fetch;
+  return { seen, impl };
+}
+
+test("un 503 (árbitro reiniciándose en un deploy) se reintenta y el pedido sale", async () => {
+  const { seen, impl } = statusFetch([503, 503, 200]);
+  const client = new ArbiterClient("http://arbiter.test", { fetchImpl: impl });
+  const m = await client.matchmake("2048", 0, "0xPLAYER");
+  assert.equal(m.matchId, "0xabc");
+  assert.equal(seen.calls, 3);
+  assert.equal(new Set(seen.bodies).size, 1, "reenvía el mismo pedido");
+});
+
+test("con retryUnavailableMs 0, el 503 sale enseguida como error con su status", async () => {
+  const { seen, impl } = statusFetch([503]);
+  const client = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: impl,
+    retryUnavailableMs: 0,
+  });
+  await assert.rejects(
+    () => client.matchmake("2048", 0, "0xPLAYER"),
+    (e: Error & { status?: number }) => e.status === 503 && /restarting/.test(e.message),
+  );
+  assert.equal(seen.calls, 1);
+});
+
+test("si la espera de Retry-After no entra en el tope, no espera: el 503 sale", async () => {
+  const { seen, impl } = statusFetch([503], "5");
+  const client = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: impl,
+    retryUnavailableMs: 1_000,
+  });
+  const t0 = Date.now();
+  await assert.rejects(
+    () => client.getMatch("0xabc"),
+    (e: Error & { status?: number }) => e.status === 503,
+  );
+  assert.equal(seen.calls, 1);
+  assert.ok(Date.now() - t0 < 1_000, "no se quedó esperando");
+});
+
+test("otros 5xx no se reintentan: el pedido pudo haberse procesado", async () => {
+  const { seen, impl } = statusFetch([502, 200]);
+  const client = new ArbiterClient("http://arbiter.test", { fetchImpl: impl });
+  await assert.rejects(
+    () => client.submitScore("0xabc", "0xPLAYER", 10, {}),
+    (e: Error & { status?: number }) => e.status === 502,
+  );
+  assert.equal(seen.calls, 1);
+});

@@ -198,6 +198,15 @@ doesn't match — the anti-cheat model depends entirely on this determinism
 holding for every game module. Any new game engine must follow the same
 rule, or replay verification (and therefore payment) breaks silently.
 
+**Live games are the exception to the seed, not to determinism.** Flappy
+(rules v2) is played live: its engine takes a `RandomSource`, and in a live
+match that source is `SecretSource(secret)` — values derived from a 32-byte
+secret the arbiter reveals as the player commits moves
+(`packages/game-sdk/src/live.ts`, `flappy-live.ts`). The same secret and the
+same flaps still give the same run, which is how `verifyFlappyLive`
+re-simulates an attempt once the secret is published. Spec:
+`docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md`.
+
 ### Signed-action error classification (`apps/web/app/lib/errors.ts`)
 
 Every UI action that requires a wallet signature (deploying/pausing/deleting

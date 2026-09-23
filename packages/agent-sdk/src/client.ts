@@ -254,8 +254,28 @@ export const DEFAULT_TIMEOUT_MS = 15_000;
  *  web venía usando. */
 export const COLD_START_TIMEOUT_MS = 75_000;
 
+/** Cuánto se reintenta, en total, un pedido que el árbitro contesta con 503.
+ *  Durante un deploy la instancia que entrega (y la que todavía carga) contesta
+ *  503 con `Retry-After` a todo: el pedido NO se procesó, así que reintentarlo
+ *  es seguro. Con el traspaso por timbre la pausa dura segundos; si pasa del
+ *  tope, el 503 sale como error. */
+export const UNAVAILABLE_RETRY_MS = 30_000;
+
+/** Cuánto esperar antes de reintentar un 503: lo que diga `Retry-After` en
+ *  segundos, entre 250 ms (un "0" no puede volverse un bucle sin pausa) y
+ *  10 s; o 2 s si no dice nada legible. */
+function retryAfterMs(header: string | null): number {
+  const s = header === null ? NaN : Number(header);
+  if (!Number.isFinite(s) || s < 0) return 2_000;
+  return Math.min(Math.max(s * 1_000, 250), 10_000);
+}
+
 export interface ArbiterClientOptions {
   fetchImpl?: typeof fetch;
+  /** Tiempo total para reintentar un 503 (árbitro reiniciándose), respetando
+   *  `Retry-After` (default `UNAVAILABLE_RETRY_MS`). 0 lo desactiva. Solo el
+   *  503: otro 5xx pudo haberse procesado y no se reintenta. */
+  retryUnavailableMs?: number;
   /** Tope por pedido en ms (default `DEFAULT_TIMEOUT_MS`). 0 lo desactiva. */
   timeoutMs?: number;
   /** Tope del primer pedido, hasta que el árbitro conteste una vez (default
@@ -269,6 +289,7 @@ export class ArbiterClient {
   private fetchImpl: typeof fetch;
   private timeoutMs: number;
   private coldStartTimeoutMs: number;
+  private retryUnavailableMs: number;
   /** ¿Ya contestó el árbitro alguna vez? Hasta entonces puede estar dormido. */
   private awake = false;
 
@@ -279,6 +300,7 @@ export class ArbiterClient {
     this.coldStartTimeoutMs =
       opts.coldStartTimeoutMs ??
       (opts.timeoutMs === undefined ? COLD_START_TIMEOUT_MS : this.timeoutMs);
+    this.retryUnavailableMs = opts.retryUnavailableMs ?? UNAVAILABLE_RETRY_MS;
   }
 
   /** Tope de ESTE pedido: el largo mientras el árbitro no haya dado señales de
@@ -314,6 +336,23 @@ export class ArbiterClient {
     label: string,
     init?: RequestInit,
   ): Promise<Response> {
+    // 503 = el árbitro se está reiniciando (deploy) y el pedido no se procesó:
+    // se reintenta el MISMO pedido mientras la espera entre en el tope. Si no
+    // entra, vuelve el 503 y quien llamó lo convierte en error como siempre.
+    const t0 = Date.now();
+    for (;;) {
+      const r = await this.fetchOnce(url, label, init);
+      if (r.status !== 503) return r;
+      const wait = retryAfterMs(r.headers.get("Retry-After"));
+      if (this.retryUnavailableMs <= 0 || Date.now() - t0 + wait > this.retryUnavailableMs) {
+        return r;
+      }
+      await r.body?.cancel().catch(() => {});
+      await new Promise((ok) => setTimeout(ok, wait));
+    }
+  }
+
+  private async fetchOnce(url: string, label: string, init?: RequestInit): Promise<Response> {
     const budget = this.budgetMs();
     try {
       const r = await this.fetchImpl(url, this.init(init));

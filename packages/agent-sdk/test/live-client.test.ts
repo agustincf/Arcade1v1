@@ -10,7 +10,10 @@ import { liveStartAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { ArbiterClient } from "../src/client.ts";
 import { randomWallet, signLiveStart } from "../src/sign.ts";
 
-function clientWith(replies: { status: number; body: unknown }[]) {
+function clientWith(
+  replies: { status: number; body: unknown }[],
+  opts: { retryUnavailableMs?: number } = {},
+) {
   const calls: { url: string; body: Record<string, unknown> }[] = [];
   const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({ url: String(url), body: JSON.parse(String(init?.body)) });
@@ -20,7 +23,7 @@ function clientWith(replies: { status: number; body: unknown }[]) {
       headers: { "Content-Type": "application/json" },
     });
   }) as typeof fetch;
-  return { calls, client: new ArbiterClient("http://arb", { fetchImpl, timeoutMs: 0 }) };
+  return { calls, client: new ArbiterClient("http://arb", { fetchImpl, timeoutMs: 0, ...opts }) };
 }
 
 test("liveStart manda address y firma a la ruta del intento", async () => {
@@ -80,11 +83,15 @@ test("signLiveStart firma el mensaje de apertura con la wallet del agente", asyn
 });
 
 test("los errores del árbitro llevan el código HTTP en `status` (para saber si reintentar)", async () => {
-  const { client } = clientWith([
-    { status: 400, body: { error: "bad token" } },
-    { status: 429, body: { error: "too many requests" } },
-    { status: 503, body: { error: "starting" } },
-  ]);
+  // Sin el reintento del 503 (lo prueba client.test.ts): acá importa el status.
+  const { client } = clientWith(
+    [
+      { status: 400, body: { error: "bad token" } },
+      { status: 429, body: { error: "too many requests" } },
+      { status: 503, body: { error: "starting" } },
+    ],
+    { retryUnavailableMs: 0 },
+  );
   const body = { token: "tk", from: 0, to: 30, flaps: [], have: 1 };
   const statusOf = (p: Promise<unknown>) =>
     p.then(
