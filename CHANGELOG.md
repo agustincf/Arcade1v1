@@ -10,6 +10,17 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [3.8.0] — 2026-09-23
+
+**Flappy se juega en vivo, Aleph pone plata en la mesa y los deploys dejan de
+cortar.** Flappy es el primer juego sin semilla anticipada: el azar llega de a
+poco y el ranking mide decisiones, no cómputo de búsqueda. Aleph suma la mesa de
+2 USDC de testnet (contrato `EscrowAleph`, prendida en producción), reglas v2
+con un azar que no se puede barrer y las primeras criaturas del espectador
+visual. Y el árbitro pasa la posta entre instancias sin perder ni duplicar
+estado. Paquetes de npm en **0.5.0** (`game-sdk`, `strategies`, `agent-sdk` y
+`mcp`). Todo esto ya está en producción.
+
 ### Cambiado — ⚠️ ruptura: Flappy se juega en vivo (reglas v2)
 
 - **Por qué.** Con la semilla en la mano y los motores públicos en npm, un
@@ -132,6 +143,31 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   `open` que pierde la carrera contra otro asiento pasa a `deposit` en vez de
   tirar. Publicado en npm como **0.4.1** (`game-sdk`, `agent-sdk` y `mcp`; la
   API no cambia).
+- **Un `open` ajeno todavía sin minar ya no tira abajo un depósito de Aleph.**
+  El nodo estima el gas sobre el bloque pendiente y la simulación mira el último
+  minado: con el `open` de otro asiento en el pool, `alephDeposit` pasaba a
+  `deposit` y revertía "not funding". Ahora espera (hasta 30 s) a ver la sala
+  abierta en el último bloque antes de depositar. Era la falla intermitente del
+  e2e de Aleph en CI.
+
+### Corregido — una transacción del árbitro minada revertida ya no cuenta como hecha
+
+- **Aleph.** El árbitro esperaba el recibo del `settle` o del reembolso pero no
+  miraba su estado, y viem no tira error cuando una transacción se mina
+  revertida. Si otra transacción cambiaba la sala mientras viajaba, el árbitro
+  guardaba ese hash como pago y la web linkeaba una transacción que no movió
+  nada. Ahora, tras un revert minado, lee la sala: solo cierra si está
+  `Settled` o `Refunded`, y en cualquier otro estado reintenta, porque la tabla
+  se sigue debiendo.
+- **1v1.** Lo mismo con `cancelMatch`: un cancel que revertía en el bloque se
+  tomaba como reembolso hecho. Ahora corta solo si la partida quedó `Refunded`
+  o `Settled`; si sigue `Open` o `Funded` (el `join` del rival dejó al cancel
+  sin gas para devolver dos depósitos) reintenta y vuelve a estimar. Los e2e en
+  anvil reproducen las dos carreras, y `check-payment-e2e.sh` firma con una
+  cuenta pública de anvil en vez de leer la clave del árbitro.
+- **CI fija Foundry en v1.8.3** en vez de `stable`: esos e2e dependen de cómo
+  anvil estima el gas y ordena el mempool, y una release nueva podía cambiarlos
+  sin que nadie tocara el repo.
 
 ### Agregado
 
@@ -180,6 +216,22 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   `ALEPH_ESCROW_ADDRESS`, `ALEPH_FUNDING_MS`, `ALEPH_PLAY_WINDOW_MS`.
   `scripts/aleph-verify.mjs` recalcula también la tabla en USDC. Sigue en
   testnet: esta etapa no desbloquea mainnet.
+
+  **Prendida en producción:** `EscrowAleph` está desplegado en Base Sepolia y
+  `GET /aleph/lobbies` sirve `stakes: [0, 2]`. El smoke
+  (`scripts/aleph-money-smoke.mjs`) sienta 4 wallets efímeras del SDK contra el
+  árbitro publicado, depositan, juegan la sala entera y comprueba que el
+  contrato le pagó a cada asiento lo que da la tabla; pasó con el pin de escrow
+  puesto y el gas calculado.
+
+- **Aleph, etapa 5 (PR 1 de 2): las criaturas y la charla.** Cada asiento de
+  `/aleph/[roomId]` tiene una criatura que sale de su dirección: 8 rasgos
+  tomados de los últimos bytes de la wallet, 8.388.608 combinaciones, siempre
+  la misma para la misma wallet. Tiene 8 estados (entre ellos la corona dorada,
+  la grieta del traidor y el oro del bolsillo), y al lado corre la charla
+  pública de la sala, con los susurros marcados cuando se desclasifican al
+  liquidar. Usa solo lo que el árbitro ya publica: no toca el árbitro ni los
+  paquetes. La escena completa (PR 2) está en revisión.
 
 - **Relleno de la casa en Aleph.** Una mesa necesita 4 asientos dentro de la
   misma ventana de 10 minutos, y el mínimo lo fija el motor, no una perilla. Sin

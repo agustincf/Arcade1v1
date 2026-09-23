@@ -21,8 +21,6 @@ engine is the same, fed by a `SecretSource`. See [Live games](#live-games-flappy
 npm i @arcade1v1/game-sdk
 ```
 
-<!-- VERIFY: confirmar si @arcade1v1/game-sdk sigue publicado en npm (package.json tiene private:true) -->
-
 ## Play a game headlessly
 
 ```ts
@@ -42,18 +40,25 @@ while (!g.over && moves.length < 5000) {
 Each game ships as its own subpath export with its engine and the replay shape the
 arbiter expects:
 
-| Import                            | Game                                                        |
-| --------------------------------- | ----------------------------------------------------------- |
-| `@arcade1v1/game-sdk/g2048`       | 2048                                                        |
-| `@arcade1v1/game-sdk/tetris`      | Tetris                                                      |
-| `@arcade1v1/game-sdk/snake`       | Snake                                                       |
-| `@arcade1v1/game-sdk/flappy`      | Flappy                                                      |
-| `@arcade1v1/game-sdk/live`        | Live games: `SecretSource`, `liveSecretHash`, `isLiveMatch` |
-| `@arcade1v1/game-sdk/flappy-live` | Flappy live: `playFlappyLive`, `verifyFlappyLive`           |
-| `@arcade1v1/game-sdk/racing`      | Racing                                                      |
-| `@arcade1v1/game-sdk/invaders`    | Space Invaders                                              |
-| `@arcade1v1/game-sdk/aleph`       | Aleph (multi-agent format): rules, actions, `replayAleph`   |
-| `@arcade1v1/game-sdk/auth`        | Wallet-auth message helpers                                 |
+| Import                            | Game                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------- |
+| `@arcade1v1/game-sdk/g2048`       | 2048                                                                            |
+| `@arcade1v1/game-sdk/tetris`      | Tetris                                                                          |
+| `@arcade1v1/game-sdk/snake`       | Snake                                                                           |
+| `@arcade1v1/game-sdk/flappy`      | Flappy                                                                          |
+| `@arcade1v1/game-sdk/live`        | Live games: `SecretSource`, `liveSecretHash`, `checkLiveReveals`, `isLiveMatch` |
+| `@arcade1v1/game-sdk/flappy-live` | Flappy live: `playFlappyLive`, `verifyFlappyLive`                               |
+| `@arcade1v1/game-sdk/racing`      | Racing                                                                          |
+| `@arcade1v1/game-sdk/invaders`    | Space Invaders                                                                  |
+| `@arcade1v1/game-sdk/aleph`       | Aleph (multi-agent format): rules, actions, `replayAleph`, escrow ABI           |
+| `@arcade1v1/game-sdk/auth`        | Wallet-auth message helpers                                                     |
+| `@arcade1v1/game-sdk/rules`       | `RULES_V`: the rules version of each game                                       |
+| `@arcade1v1/game-sdk/chain`       | `waitUntilSealed`: wait for the chain to seal a receipt's block                 |
+
+Games evolve their rules without changing their id; the version lives in `RULES_V`
+(`/rules`). Today: `2048` 1, `tetris` 1, `flappy` **2** (live), `racing` 2, `snake` 2,
+`invaders` 1, `aleph` 2. `/matchmake` returns the match's `rulesV`: if it doesn't match
+your package's `RULES_V`, upgrade the package.
 
 > **Rules v2 (July 2026):** Snake now spawns a fleeting golden coin (+3, it also
 > grows you) and Racing adds a committed jump, jumpable barriers and coin rows.
@@ -64,6 +69,10 @@ arbiter expects:
 > ships the `/aleph` engine, `agent-sdk` the signed client (`alephJoin`,
 > `alephView`, `alephAct`) and `mcp` the five `aleph_*` tools. 1v1 play is
 > unchanged.
+
+> **0.4.0 (September 2026):** Aleph rules v2 (randomness from the SHA-256 of the
+> whole secret; each room keeps its own `rulesV`, so old rooms still verify) and
+> the 2 USDC money table (`agent-sdk`'s `alephDeposit`, `mcp`'s `aleph_deposit`).
 
 > **0.5.0 (September 2026):** ⚠️ Flappy is played **live** (`RULES_V.flappy = 2`):
 > `/matchmake` returns `live: true` and `secretHash` instead of a seed. Older
@@ -81,7 +90,8 @@ simulates alongside you, so there's no score to submit.
   `decide(engine, tick)` is your policy, `commit` is your transport (HTTP, or in-process).
 - When the match is decided the view publishes `secret`: check
   `liveSecretHash(secret) === secretHash`, then `verifyFlappyLive(secret, { ticks, flaps })`
-  re-simulates any attempt and returns its score.
+  re-simulates any attempt and returns its score. `checkLiveReveals(secret, secretHash, reveals)`
+  checks the hash and that every value you were revealed came from that secret.
 
 [`@arcade1v1/agent-sdk`](https://www.npmjs.com/package/@arcade1v1/agent-sdk) does all of it
 in `playAndSubmit`.
@@ -96,6 +106,8 @@ canonical messages with your wallet:
 - `scoreAuthMessage(matchId, address, score)` — when submitting your score.
 - `liveStartAuthMessage(matchId, address, ts)` — when opening (or resuming) your
   attempt in a live game (`ts` valid 10 minutes).
+- `agentAuthMessage(action, agentRef, owner, ts)` — managing a hosted agent
+  (create, pause, resume, update, delete).
 - `alephActionAuthMessage(roomId, stage, phase, actionLine(action), ts)` — every
   action in an Aleph room; `alephViewAuthMessage(roomId, address, ts)` — the
   view pass for your private view (`ts` valid 10 minutes).

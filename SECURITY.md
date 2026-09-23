@@ -1,8 +1,8 @@
 # Repaso de seguridad — Arcade1v1 (Fase 6)
 
 Fecha: 2026-06-21 (1ª ronda) · 2026-06-26 (2ª ronda) · 2026-07-02 (3ª ronda —
-preparación mainnet, ver abajo) · Estado actualizado: **v3.0.1 en testnet**
-(no opera con dinero real).
+preparación mainnet, ver abajo) · Estado actualizado: **3.8.0 en testnet**
+(2026-09-23; no opera con dinero real).
 
 > Nota de mantenimiento (2026-07-11): los hallazgos y la verificación de la
 > tercera ronda siguen fechados el 2026-07-02. Este documento ya refleja las
@@ -40,6 +40,22 @@ preparación mainnet, ver abajo) · Estado actualizado: **v3.0.1 en testnet**
 > asiento firmado ata _quién_ entra pero no _con qué condiciones_ (stake y
 > plazos los elige quien abre); (4) el árbitro nunca lee el escrow, así que
 > empareja y firma sin saber si alguien depositó.
+>
+> Nota de mantenimiento (2026-09-23, versión 3.8.0): de esa lista de la quinta
+> ronda, el punto (1) se cerró en la 3.6.0 (topes de acciones por tick, medidos
+> sobre la estrategia oficial). El punto (2) está **cerrado solo para Flappy**:
+> desde sus reglas v2 se juega en vivo, sin semilla; el azar sale de un secreto
+> de 32 bytes que el árbitro revela de a poco mientras el jugador compromete sus
+> aleteos, y se publica al decidirse la partida para re-verificarla
+> (`liveSecretHash`, `verifyFlappyLive`). Los otros cinco juegos siguen
+> entregando la semilla por adelantado. Límite conocido del modo en vivo: los
+> compromisos se guardan con el resto de las partidas cada 20 s, así que una
+> caída dura a mitad de un intento lo rebobina hasta 20 s; guardar cada intento
+> en su propia clave, escrita antes de revelar valores nuevos, va antes de
+> mainnet (`DEPLOY.md`). En Aleph, las reglas v2 sacan el azar de la sala del
+> SHA-256 del secreto entero en vez de 32 bits (auditoría en
+> `docs/auditorias/2026-09-18-aleph-azar-32-bits.md`), y la mesa de 2 USDC de
+> testnet está prendida en producción (ver la sección de Aleph abajo).
 
 ---
 
@@ -181,9 +197,11 @@ humana ni tests locales de Foundry sería un riesgo mayor que el que resuelven:
 
 ## Aleph (formato multi-agente) — qué garantiza hoy
 
-Aleph tiene dos mesas: la gratis (sin USDC ni contrato: su superficie de riesgo
-es la del árbitro) y la de **2 USDC de testnet**, custodiada por
-`EscrowAleph.sol`, un contrato aparte del 1v1. Lo que el contrato garantiza
+Aleph tiene dos mesas, las dos prendidas en producción (testnet): la gratis
+(sin USDC ni contrato: su superficie de riesgo es la del árbitro) y la de
+**2 USDC de testnet**, custodiada por `EscrowAleph.sol`, un contrato aparte del
+1v1, desplegado en Base Sepolia (smoke con 4 wallets pasado:
+`scripts/aleph-money-smoke.mjs`). Lo que el contrato garantiza
 aunque la llave del árbitro se filtre: la tabla de pagos solo puede pagar a los
 asientos de ESA sala, en su orden, y la plataforma nunca cobra más que la
 comisión más el polvo del redondeo (menos de N micro-USDC); una llave robada
@@ -195,6 +213,15 @@ liquidación que no llega (tras `playDeadline` + 30 min de gracia) y disputa. La
 colusión está medida y aceptada (spec de la etapa 4, decisión 4): contra un
 asiento que se defiende no paga; contra uno ingenuo, la comisión se come casi
 todo. Esta etapa NO desbloquea mainnet: un contrato más para auditar.
+
+Dos arreglos del contrato quedan decididos para **antes de mainnet**, en un
+mismo redespliegue (detalle en `DEPLOY.md` y `packages/contracts/README.md`):
+pasar de pagos empujados a que cada asiento retire lo suyo, porque hoy un
+depositante en la blacklist de USDC de Circle traba el reembolso de toda la
+mesa; y atar la tabla firmada a un vencimiento o nonce, porque hoy la firma
+cubre solo `(roomId, tableHash)` y, si el árbitro firmara dos tablas para una
+sala, se podría presentar la vieja. Mientras tanto rige la regla del árbitro de
+firmar una sola tabla por sala.
 
 La misma promesa vale del lado del agente, en el SDK y en el MCP. La wallet que
 deposita solo aprueba USDC al escrow que clavó quien la configura (`escrow` en
@@ -405,6 +432,12 @@ entre agentes son datos, no instrucciones, y un agente que los trate como
 - [x] Rate limiting — _medio_ — configurado en el árbitro.
 - [ ] HTTPS y monitoreo operativo (RPC propio + saldo de gas) — _medio_
 - [ ] Pruebas de extremo a extremo en testnet con varios usuarios reales — _medio_
+- [ ] `EscrowAleph`: retiro por asiento (blacklist de USDC) y tabla firmada con
+      vencimiento o nonce — _alto_ — decididos para antes de mainnet.
+- [ ] Flappy en vivo: cada intento guardado en su propia clave antes de revelar
+      valores nuevos — _medio_ — decidido para antes de mainnet.
+- [ ] Semilla anticipada en los otros cinco juegos (2048, Tetris, Snake,
+      Carrera, Space Invaders): se puede optimizar la corrida offline — _medio_
 
 > **Conclusión:** la base está sólida y el contrato es seguro en lo que cubre,
 > pero **NO se debe activar dinero real** hasta cerrar al menos los 4 puntos

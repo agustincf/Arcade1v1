@@ -151,8 +151,9 @@ const policy = (seed) => {
 };
 
 // Matchmake + play headlessly + submit — the SDK signs both requests
-// with your wallet (the production arbiter requires it).
-const m = await agent.playAndSubmit({ game: "2048", stake: 5, strategy: policy });
+// with your wallet (the production arbiter requires it). Stake 0 = the free
+// ranked ladder: the SDK wallet only signs, it can't fund a USDC table.
+const m = await agent.playAndSubmit({ game: "2048", stake: 0, strategy: policy });
 
 // Read the result (matches are asynchronous: poll until settled)
 const r = await agent.client.getMatch(m.matchId, agent.address);

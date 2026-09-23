@@ -8,13 +8,16 @@ simula por fuera del motor salvo para _evaluar_ jugadas), así que el replay que
 siempre pasa la reverificación del árbitro. Es el motor detrás del **builder no-code** de
 la web: elegís juego + estrategia + parámetros, y el agente resultante juega solo.
 
-Paquete interno del monorepo (`private: true`), no se publica a npm.
+Publicado en npm (`npm i @arcade1v1/strategies`); dentro del monorepo se usa como
+workspace.
 
 ## Qué contiene
 
 - **Un contrato** (`src/types.ts`): toda estrategia es un `StrategyDef` con un `id` estable
   (p. ej. `"snake.greedy"`), el `game` al que pertenece, una lista de `params` (`ParamSpec`)
-  y una función `play(seed, params) -> { score, replay }`.
+  y una función `play(seed, params) -> { score, replay }`. Los juegos en vivo (hoy solo
+  Flappy) agregan `step(params) -> LiveStep`: la decisión tick a tick (ver
+  [Juegos en vivo](#juegos-en-vivo-flappy)).
 - **Un registro único** (`src/registry.ts`): la lista default-deny (`STRATEGIES`) que
   comparten el builder de la web (para dibujar los controles), el servidor (para validar y
   correr agentes hosteados) y el `agent-sdk` (estrategias por defecto).
@@ -26,7 +29,7 @@ Paquete interno del monorepo (`private: true`), no se publica a npm.
 | `2048.corner`      | 2048     | "Esquinero": ordena el tablero hacia una esquina, fusiona solo por paciencia                                             | `corner` (esquina), `patience` (0–1)                              |
 | `snake.greedy`     | Snake    | Persigue la comida (distancia con wrap) y la moneda dorada cuando llega a tiempo, con cautela opcional por espacio libre | `caution` (0–1), `coinGreed` (0–1)                                |
 | `snake.survivor`   | Snake    | El espacio libre alcanzable manda; va por la comida o la moneda dorada cuando es seguro                                  | `foodPull` (0–1), `coinGreed` (0–1)                               |
-| `flappy.threshold` | Flappy   | Aletea por umbral: cuando cae por debajo del centro del próximo hueco                                                    | `riskOffset` (-40–40), `reaction` (1–8)                           |
+| `flappy.threshold` | Flappy   | Aletea por umbral: cuando cae por debajo del centro del próximo hueco. Juega en vivo con `step`                          | `riskOffset` (-40–40), `reaction` (1–8)                           |
 | `racing.dodger`    | Racing   | Sigue en un carril preferido, esquiva y salta las vallas rayadas cuando no hay carril limpio, con desvíos por monedas    | `lookahead` (80–240), `preferredLane` (carril), `coinGreed` (0–1) |
 | `racing.weaver`    | Racing   | Encara siempre el carril con más pista despejada por delante, saltando vallas rayadas cuando hace falta                  | `boldness` (0–1), `coinGreed` (0–1)                               |
 | `invaders.hunter`  | Invaders | Persigue la columna de aliens más cercana (o el OVNI), dispara alineado y esquiva bombas                                 | `aggression` (0–1), `dodge` (0–1)                                 |
@@ -36,6 +39,19 @@ Paquete interno del monorepo (`private: true`), no se publica a npm.
 > grows you) and Racing adds a committed jump, jumpable barriers and coin rows.
 > Replays must declare `v` — packages older than 0.2.0 are rejected by the
 > arbiter with a clear `rules version mismatch` error. Update to `>=0.2.0`.
+
+### Juegos en vivo (Flappy)
+
+Desde las reglas v2 Flappy se juega **en vivo**: la partida no tiene semilla y el azar
+llega de a poco, a medida que el jugador compromete sus aleteos. Una estrategia con
+semilla (`play`) no puede jugarla. Por eso `flappy.threshold` expone además
+`step(params)`, que devuelve un `LiveStep` `{ decide(engine, tick), maxTicks }`: la misma
+decisión que `play`, tomada solo con lo que muestra el motor en ese tick. `play` queda
+para las vistas previas locales con semillas al azar, que no rankean.
+
+Quien juega en vivo (el runner de agentes hosteados, o `playAndSubmit` del `agent-sdk`
+vía `defaultLiveStrategy`) le pasa esa decisión a `playFlappyLive` de
+`@arcade1v1/game-sdk/flappy-live`.
 
 Los tests (`test/strategies.test.ts`) exigen que, para cada par de estrategias del mismo
 juego (`2048.priority`/`2048.corner`, `snake.greedy`/`snake.survivor`,
@@ -55,8 +71,14 @@ visiblemente distinto, no ser variaciones cosméticas.
 
 ## Instalación
 
-Es un workspace del monorepo — no requiere instalación aparte. Cualquier paquete o app del
-repo lo declara como dependencia de workspace:
+Desde npm:
+
+```bash
+npm i @arcade1v1/strategies
+```
+
+Dentro del monorepo es un workspace y no requiere instalación aparte. Cualquier paquete o
+app del repo lo declara como dependencia de workspace:
 
 ```json
 "dependencies": {
@@ -101,7 +123,8 @@ hostil no puede persistir parámetros corruptos.
 `apps/server/src/agent-runner.ts` es quien llama `runStrategy` en producción: cuando le
 toca jugar a un agente hosteado, corre su estrategia sobre el `seed` de la partida, firma
 el puntaje con la wallet del agente y lo somete por el mismo code path que un jugador
-externo (matchmaking → firma → verificación de replay → ELO).
+externo (matchmaking → firma → verificación de replay → ELO). En Flappy no hay semilla:
+el runner abre el intento en vivo y juega con el `step` de la estrategia.
 
 ### Uso desde un agente (vía `@arcade1v1/agent-sdk`)
 
@@ -150,4 +173,5 @@ agente creado en el builder nunca puede ser rechazado por "score mismatch". Tamb
 determinismo (misma semilla + params ⇒ mismo replay), que cada estrategia haga al menos
 algún punto con sus valores por defecto, que el replay entre en el límite de 256kb del
 árbitro, el saneamiento default-deny de `validateParams`, y que los pares de estrategias
-del mismo juego jueguen visiblemente distinto entre sí.
+del mismo juego jueguen visiblemente distinto entre sí. `test/live-step.test.ts` comprueba que
+`step` decide exactamente lo mismo que `play`.

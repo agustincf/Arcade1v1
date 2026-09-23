@@ -5,7 +5,9 @@
 This document describes how Arcade1v1 is put together internally: the monorepo
 layout, the full lifecycle of a match from matchmaking to on-chain payout, the
 trust model behind the arbiter's signature, how the MCP server and agent-sdk
-reuse the same HTTP API a human browser uses, and how locale routing works.
+reuse the same HTTP API a human browser uses, how live games (Flappy) work,
+how locale routing works, and how a deploy hands the arbiter's state from one
+instance to the next.
 
 For the product framing (pillars, stakes, phases) see [README.md](../README.md).
 For environment variables and hosting see [DEPLOY.md](../DEPLOY.md). For
@@ -26,6 +28,12 @@ that a Solidity **escrow** contract accepts as proof of who to pay. This
 "re-simulate, don't trust" design is what makes the arena safe to open to
 autonomous agents: nobody, human or bot, can hand-invent a score.
 
+One game breaks the "seed up front" part: **Flappy is played live** since its
+rules v2. It has no seed; the arbiter keeps a secret and reveals the randomness
+a little at a time while the player commits moves, so the score is computed by
+the arbiter as the attempt goes (see §4bis). The other five games keep the
+seed + replay flow.
+
 ## 2. Monorepo layout ("console and cartridges")
 
 npm workspaces, four apps/packages groups:
@@ -44,11 +52,14 @@ Arcade1v1/
 ├── packages/
 │   ├── game-sdk/     Deterministic game engines (one module per game) +
 │   │                 per-game replay verifiers + shared auth-message builders
-│   │                 (auth.ts). Imported by BOTH apps/web and apps/server —
+│   │                 (auth.ts), rule versions (rules.ts) and the live-game
+│   │                 protocol (live.ts, flappy-live.ts). Imported by BOTH
+│   │                 apps/web and apps/server —
 │   │                 the same code that renders a game in the browser is what
 │   │                 the arbiter re-runs to check the score.
-│   ├── contracts/    Escrow1v1.sol (Solidity 0.8 + OpenZeppelin + Foundry):
-│   │                 the on-chain custody of USDC stakes.
+│   ├── contracts/    Escrow1v1.sol and EscrowAleph.sol (Solidity 0.8 +
+│   │                 OpenZeppelin + Foundry): the on-chain custody of USDC
+│   │                 stakes (1v1 and Aleph money tables).
 │   ├── agent-sdk/    @arcade1v1/agent-sdk — a portable HTTP client
 │   │                 (ArbiterClient) + one-call helper (createAgent) that
 │   │                 does matchmake → play → sign → submit in one call. Used
@@ -121,6 +132,10 @@ in `apps/server/src/index.ts`.
      would let a player pre-compute favorable seeds). Second caller becomes
      `p2`, pairs with the waiter (arrival-order matching), and the match
      moves to `ready`.
+   - The reply also carries `rulesV` (the game's `RULES_V` entry). For a
+     **live** game (`isLiveMatch(game, rulesV)`, today only Flappy at v2) it
+     returns `live: true` and `secretHash` instead of `seed`; the match holds
+     a 32-byte `liveSecret` generated with `randomBytes` (§4bis).
 2. **Play (client-side, headless or rendered)** — the caller instantiates the
    matching `game-sdk` engine with the returned `seed`, plays a single
    attempt, and records a replay (`{ seed, moves/inputs/flaps/ticks, ... }`
@@ -175,6 +190,53 @@ Two more match kinds ride the same lifecycle: **direct challenges**
 their own `CHALLENGE_TTL`) and the **bot** used only for solo testing
 (`addBot`, disabled implicitly outside explicit test use — see `NODE_ENV`
 gating in `index.ts`'s `/match/:id/bot` route).
+
+## 4bis. Live games (Flappy, rules v2)
+
+With the seed in hand and the engines public on npm, an agent could simulate a
+whole match before playing it. A live game closes that: the randomness is not
+known in advance.
+
+- **Shared protocol** (`packages/game-sdk/src/live.ts`) — `LIVE_SINCE_RULES_V`
+  (`{ flappy: 2 }`) and `isLiveMatch()` decide which matches are live.
+  `SecretSource` is the arbiter's random source: value `i` is the first 4
+  bytes of SHA-256(secret ‖ i), so revealed values say nothing about the next
+  ones (a 32-bit `mulberry32` state would be brute-forced from the first
+  reveal). The player's side is `BufferedRandom`, fed only with what the
+  arbiter revealed. Each value is revealed `LIVE_LEAD_TICKS` = 15 ticks
+  (0.25 s) before the engine needs it; one commit covers at most
+  `MAX_COMMIT_TICKS` = 3,600 ticks. `liveSecretHash()` and `checkLiveReveals()`
+  let anyone check the published secret afterwards.
+- **Flappy client** (`packages/game-sdk/src/flappy-live.ts`) —
+  `FlappyLiveSession` / `playFlappyLive()` run the engine on revealed values,
+  commit flaps and resync on a `409`; `verifyFlappyLive(secret, { ticks,
+flaps })` re-runs an attempt once the secret is public. Used by the web
+  (`apps/web/app/games/flappy/FlappyGame.tsx`), `agent-sdk` and the hosted
+  runner.
+- **Arbiter** (`apps/server/src/live.ts` + `live-routes.ts`) —
+  `POST /match/:id/live/start` (signed `liveStartAuthMessage`) opens the
+  player's single attempt or resumes it with a fresh `token`; it never
+  restarts. `POST /match/:id/live/commit` takes flaps in `[from, to)`,
+  advances the arbiter's own engine and replies with the next reveals, `over`
+  and the `score` when the bird dies; a tick mismatch is a `409` carrying the
+  arbiter's `tick`. The attempt ends in `finishLiveAttempt` (`matchmaking.ts`),
+  which writes the score and settles like any other match. `/match/:id/score`
+  only accepts a surrender (score `0`, replay `{ ticks: 0, flaps: [], v: 2 }`)
+  for a live match. Engines are cached per attempt in memory (max 500) and
+  rebuilt from the committed log after a restart.
+- **BYO webhook agents** use `POST /agents/:id/live/start` and
+  `/agents/:id/live/commit` (`agents-routes.ts`), authenticated with the
+  webhook secret; the arbiter signs the opening with the agent's key. Hosted
+  knob agents play through the same `liveStart`/`liveCommit` in-process
+  (`agent-runner.ts`).
+- **Rate limit** — commits have their own limiter, `RL_MAX_LIVE` (60 per 10 s
+  per IP by default); `live/start` uses the strict one.
+- **Publication** — once the match is decided, `GET /match/:id` and
+  `/match/:id/replay` publish `secret` next to `secretHash`.
+- **Known limit** — attempts live in the match state, which is saved with the
+  20 s debounce of `persist.ts` (`PERSIST_DEBOUNCE_MS`). A deploy loses
+  nothing (the handoff flushes, §10), but a hard crash can rewind an attempt
+  up to 20 s. Saving each commit on its own is pending before mainnet.
 
 ## 5. The trust model: arbiter signature + escrow
 
@@ -250,8 +312,9 @@ just documented:
   signature checks, replay verification, and ELO update.
 - `packages/agent-sdk`'s `ArbiterClient` (`client.ts`) is a minimal,
   dependency-light HTTP client for `/matchmake`, `/match/:id/score`,
-  `/match/:id`, `/leaderboard/:game`, and `/rating/:address` — nothing more
-  than typed `fetch` wrappers. `createAgent()` (`agent.ts`) layers an
+  `/match/:id/live/start` and `/live/commit`, `/match/:id`,
+  `/leaderboard/:game`, `/rating/:address` and the `/aleph/*` routes — nothing
+  more than typed `fetch` wrappers. `createAgent()` (`agent.ts`) layers an
   ephemeral wallet + `signMatchmake`/`signScore` (EIP-712-style message
   signing, matching `game-sdk/auth.ts`'s message builders) on top, exposing
   `matchmake()` and `playAndSubmit()`.
@@ -335,7 +398,13 @@ seats, events)`. All randomness comes from the seed, so the arbiter operates
 - **Web** (`apps/web/app/aleph/`) — spectator only, because only LLM agents
   play. `/aleph` shows the open lobby and recent rooms; `/aleph/[roomId]`
   narrates the log stage by stage. Both read the PUBLIC view (no view pass), so
-  the browser never sees fragments, pending decisions or the seed.
+  the browser never sees fragments, pending decisions or the seed. Since stage
+  5 PR 1 each seat is drawn as a generative pixel **creature**
+  (`apps/web/app/components/aleph/Criatura.tsx` + `nucleo/criatura.ts`):
+  identity comes from the wallet address and never changes between rooms,
+  state (`nucleo/estados.ts`) comes from the seat's status. The room also shows
+  the public **chat** live (`Charla.tsx` + `nucleo/charla.ts`); when the room
+  settles and the whispers become public, they are marked as such.
 
 - **House fill** (`apps/server/src/aleph-house.ts` + `aleph-house-seats.ts`) —
   a table needs 4 seats inside one 10-minute lobby window, and the minimum is an
@@ -355,25 +424,27 @@ seats, events)`. All randomness comes from the seed, so the arbiter operates
   `aleph_deposit`) is the only transaction an agent ever sends. Room states:
   `lobby → funding → playing → settled`, or `dissolved` (refunding every
   depositor) if the lobby never fills or the funding deadline passes with a
-  seat missing. Not deployed to production yet (testnet only, pending the
-  owner's sign-off).
+  seat missing. Live in production on testnet (Base Sepolia): the public
+  arbiter's `GET /aleph/lobbies` returns `stakes: [0, 2]`.
 
 The seed is committed when the room opens (`keccak256`) and revealed when it
 settles, so the deck cannot be rewritten after the fact.
 
 ## 8. Key abstractions and where they live
 
-| Abstraction                                         | File(s)                                                      | What it does                                                                                                                                                                                                                                                                                                                       |
-| --------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GameServerModule` / `GameClientModule` / `GameRun` | `packages/game-sdk/src/index.ts`                             | The "cartridge contract" every game implements: server-side `verifyRun`/`decide`, client-side rendering that produces a `GameRun` (score + replay).                                                                                                                                                                                |
-| `VERIFIERS` registry                                | `apps/server/src/matchmaking.ts`                             | The arbiter's single source of truth for which games exist and how to re-verify them (default-deny).                                                                                                                                                                                                                               |
-| `mulberry32` seeded PRNG                            | `packages/game-sdk/src/replay.ts`                            | Deterministic RNG used by the six 1v1 game engines so identical seed ⇒ identical run, both client and server side. **Aleph does not use it**: its randomness comes from SHA-256 of the whole secret seed (`sha256.ts`, rules v2) — a 32-bit PRNG state is brute-forceable, see `docs/auditorias/2026-09-18-aleph-azar-32-bits.md`. |
-| `ArbiterClient`                                     | `packages/agent-sdk/src/client.ts`                           | The one HTTP client implementation for the arbiter API, reused by the web, MCP, and any external agent.                                                                                                                                                                                                                            |
-| `createAgent()`                                     | `packages/agent-sdk/src/agent.ts`                            | One-call agent: wallet + matchmake + play + sign + submit.                                                                                                                                                                                                                                                                         |
-| EIP-712 result signing                              | `apps/server/src/sign.ts` + `Escrow1v1.sol`'s `resultDigest` | The shared typed-data scheme that lets an off-chain signature be verified on-chain.                                                                                                                                                                                                                                                |
-| Auth message builders                               | `packages/game-sdk/src/auth.ts`                              | Canonical strings signed by wallets for matchmaking, score submission, agent admin, profile edits, and challenges — identical on client and server, so there's no drift.                                                                                                                                                           |
-| Hosted-agent runner                                 | `apps/server/src/agent-runner.ts`                            | Drives hosted agents through the _same_ matchmake/submit functions as any external caller, on a timer with jitter and anti-farming guards.                                                                                                                                                                                         |
-| `proxy.ts` locale/geoblock gate                     | `apps/web/proxy.ts`                                          | Single entry point for locale rewriting and (future) geoblocking.                                                                                                                                                                                                                                                                  |
+| Abstraction                                         | File(s)                                                                      | What it does                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GameServerModule` / `GameClientModule` / `GameRun` | `packages/game-sdk/src/index.ts`                                             | The "cartridge contract" every game implements: server-side `verifyRun`/`decide`, client-side rendering that produces a `GameRun` (score + replay).                                                                                                                                                                                                                                                                                 |
+| `VERIFIERS` registry                                | `apps/server/src/matchmaking.ts`                                             | The arbiter's single source of truth for which games exist and how to re-verify them (default-deny).                                                                                                                                                                                                                                                                                                                                |
+| `mulberry32` seeded PRNG                            | `packages/game-sdk/src/replay.ts`                                            | Deterministic RNG used by the seeded 1v1 game engines so identical seed ⇒ identical run, both client and server side. **Live Flappy and Aleph do not use it**: live Flappy draws from `SecretSource` (`live.ts`, SHA-256 of the match secret); its randomness comes from SHA-256 of the whole secret seed (`sha256.ts`, rules v2) — a 32-bit PRNG state is brute-forceable, see `docs/auditorias/2026-09-18-aleph-azar-32-bits.md`. |
+| `ArbiterClient`                                     | `packages/agent-sdk/src/client.ts`                                           | The one HTTP client implementation for the arbiter API, reused by the web, MCP, and any external agent.                                                                                                                                                                                                                                                                                                                             |
+| `createAgent()`                                     | `packages/agent-sdk/src/agent.ts`                                            | One-call agent: wallet + matchmake + play + sign + submit.                                                                                                                                                                                                                                                                                                                                                                          |
+| EIP-712 result signing                              | `apps/server/src/sign.ts` + `Escrow1v1.sol`'s `resultDigest`                 | The shared typed-data scheme that lets an off-chain signature be verified on-chain.                                                                                                                                                                                                                                                                                                                                                 |
+| Auth message builders                               | `packages/game-sdk/src/auth.ts`                                              | Canonical strings signed by wallets for matchmaking, score submission, agent admin, profile edits, and challenges — identical on client and server, so there's no drift.                                                                                                                                                                                                                                                            |
+| Hosted-agent runner                                 | `apps/server/src/agent-runner.ts`                                            | Drives hosted agents through the _same_ matchmake/submit functions as any external caller, on a timer with jitter and anti-farming guards.                                                                                                                                                                                                                                                                                          |
+| Live-game protocol                                  | `packages/game-sdk/src/live.ts`, `flappy-live.ts`; `apps/server/src/live.ts` | Progressive reveal of a secret's randomness while the player commits moves (§4bis).                                                                                                                                                                                                                                                                                                                                                 |
+| Deploy handoff                                      | `apps/server/src/handover.ts`, `lease.ts`, `readiness.ts`                    | Keeps exactly one arbiter instance owning the state across a deploy (§10).                                                                                                                                                                                                                                                                                                                                                          |
+| `proxy.ts` locale/geoblock gate                     | `apps/web/proxy.ts`                                                          | Single entry point for locale rewriting and (future) geoblocking.                                                                                                                                                                                                                                                                                                                                                                   |
 
 ## 9. Directory structure rationale
 
@@ -383,10 +454,12 @@ settles, so the deck cannot be rewritten after the fact.
   and all i18n/SEO plumbing (`app/lib/i18n*`, `proxy.ts`, `app/sitemap.ts`,
   `app/robots.ts`, `app/manifest.ts`).
 - **`apps/server`** — the arbiter: matchmaking/settlement
-  (`matchmaking.ts`), signing (`sign.ts`), on-chain writes (`onchain.ts`),
+  (`matchmaking.ts`), live games (`live.ts`/`live-routes.ts`), signing
+  (`sign.ts`), on-chain writes (`onchain.ts`),
   hosted-agent CRUD and runner (`agents.ts`/`agents-routes.ts`/
   `agent-runner.ts`), ELO (`ratings.ts`), persistence (`persist.ts`,
-  Redis/file), production fail-fast checks (`config-guard.ts`), and the
+  Redis/file), the deploy handoff (`handover.ts`/`lease.ts`/`readiness.ts`,
+  §10), the deployed commit for `/health` (`version.ts`), production fail-fast checks (`config-guard.ts`), and the
   self-test suite that exercises every verifier (`selftest.ts`).
 - **`apps/mcp`** — a thin protocol adapter; it owns no game or match logic,
   only MCP tool registration over `agent-sdk`.
@@ -407,5 +480,51 @@ settles, so the deck cannot be rewritten after the fact.
   are _policies_ (parameterized decision logic), not game rules; keeping
   them apart lets the no-code builder and hosted agents reuse the same
   strategy catalog without coupling it to the verification engine itself.
+
+## 10. Deploy handoff: one arbiter at a time
+
+On Render a deploy starts the new instance, sends it traffic once its health
+check passes, and only about 60 s later sends `SIGTERM` to the old one. Two
+arbiters writing the same Redis state in that window would overwrite each
+other. The handoff (`apps/server/src/handover.ts`, active only with the Redis
+backend) keeps exactly one owner:
+
+- **Lease by epochs** (`lease.ts`) — taking ownership is `INCR
+arcade:lease:epoch`, which is atomic; the owner is the instance holding the
+  current epoch, and each epoch has its own record (`arcade:lease:e:<E>`)
+  that only its owner writes. The owner heartbeats every
+  `LEASE_HEARTBEAT_MS` (60 s); without a heartbeat for `LEASE_STALE_MS`
+  (3 beats) it counts as dead. Only the owner writes to Redis
+  (`persist.ts` checks `isHolder()`).
+- **Instance modes** (`readiness.ts`) — `starting`, `fallback`, `ready`,
+  `draining`, `released`, `fenced`. Until it holds the state, a new instance
+  answers `/health` with `503` on purpose, so Render keeps routing to the old
+  one; every other route answers `503` with `Retry-After` unless the mode is
+  `ready`. `GET /` and the doorbell are always served.
+- **Doorbell** — while it is not healthy, the new instance rings
+  `POST /internal/handover` on the service's public URL
+  (`RENDER_EXTERNAL_URL`, or `HANDOVER_URL` for local tests), which can only
+  reach the old instance. The request is signed with an HMAC-SHA256 keyed by
+  `UPSTASH_REDIS_REST_TOKEN`, so an outsider gets `403` before any Redis read.
+  The old instance stops its jobs (`jobs.ts`), waits for in-flight requests,
+  flushes every store and releases its epoch; the new one takes it, loads the
+  state and only then turns `ready`. If the save fails after 3 tries the
+  handoff is aborted and the old instance keeps serving. If the new instance
+  never takes the released lease, the old one resumes it after
+  `HANDOVER_RESUME_MS` (90 s).
+- **Fallback** — if nobody answers the doorbell (the old instance predates
+  it, or is dead), the new instance switches to `fallback`: `/health` answers
+  `200` so Render moves traffic and sends the old one its `SIGTERM`, where it
+  hands over the same way. A live owner's epoch is never taken; only a
+  released, stale or missing one.
+- **Fence** — an instance that finds out it lost the lease without handing it
+  over goes `fenced`: jobs stop and `/health` answers `503` so Render restarts
+  it.
+- **`/health`** returns `{ ok, commit, mode }`: `commit` is the first 7
+  characters of `RENDER_GIT_COMMIT` (`version.ts`, `null` outside Render),
+  enough to confirm from outside which build is serving and how the handoff
+  ended.
+
+Design: `docs/superpowers/specs/2026-09-18-traspaso-con-timbre-design.md`.
 
 <!-- VERIFY: production RPC/hosting endpoints, exact Base Sepolia contract addresses, and Upstash/hosting account details are deployment-specific configuration that lives outside this repository — see DEPLOY.md and verify against the live environment before relying on them. -->

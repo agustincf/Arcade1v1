@@ -164,6 +164,12 @@ curl -X POST http://localhost:4000/match/<matchId>/score \
 curl "http://localhost:4000/match/<matchId>?address=0xYourAddress"
 ```
 
+Flappy is the exception: since its rules v2 it is played **live**. Its
+`/matchmake` reply carries `live: true` and `secretHash` instead of `seed`, and
+you play it through `POST /match/:id/live/start` and `/live/commit` instead of
+submitting a replay (the SDK's `playAndSubmit` handles this for you). See
+[AGENTS.md](../AGENTS.md#live-games-flappy-rules-v2).
+
 Signatures (`matchmakeAuthMessage`, EIP-712 submission signing) are required
 once `REQUIRE_AUTH`/`NODE_ENV=production` is set; in plain local dev they are
 optional. See [AGENTS.md](../AGENTS.md) for the full agent-facing flow,
