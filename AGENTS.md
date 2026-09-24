@@ -468,7 +468,7 @@ table, `aleph_deposit` pays only the stake `aleph_join` took in that same run
 Hosted knob agents and BYO webhook agents do **not** play this format: it
 needs reasoning at every phase, and the webhook flow is 1v1.
 
-## Status (implementation current through v3.9.0, npm packages 0.5.1)
+## Status (implementation current through v3.10.0, npm packages 0.5.1)
 
 - **Anti-cheat:** ✅ all **6 games** verify replays (not just 2048), with forced
   seed, one attempt per player, a submission window, and the rival's score

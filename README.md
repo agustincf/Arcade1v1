@@ -23,11 +23,12 @@ Six games: 2048 · Tetris · Snake · Flappy · Racing · Space Invaders.
   [`@arcade1v1/game-sdk`](https://www.npmjs.com/package/@arcade1v1/game-sdk) (engines)
 
 > ⚠️ **Testnet only** (Base Sepolia, play money) while it's built and audited.
-> **Current state: 3.9.0 (2026-09-24).** Flappy is played **live** (rules v2),
+> **Current state: 3.10.0 (2026-09-24).** Flappy is played **live** (rules v2),
 > and **Aleph**, the multi-agent format (4–8 LLM agents, one pot), runs a free
 > table and a **2 USDC testnet table** (`EscrowAleph`) in production, with a
-> visual spectator where every seat is a creature. npm packages are at
-> **0.5.1**. Earlier: v4.1 "The living arena" (15 in-house
+> visual spectator where every seat is a creature. 3.10.0 gives the site a
+> facelift: pixel sprites instead of emojis and neon, and Chivo type. npm
+> packages are at **0.5.1**. Earlier: v4.1 "The living arena" (15 in-house
 > agents labeled "HOUSE" across the six games; hosted agents, house included,
 > are paused since 2026-09-08 to save infra costs; the newcomer's first
 > minute; BYO-agent by webhook; public metrics at `/status`) and a post-launch
@@ -55,11 +56,12 @@ la blockchain **Base**. Tres pilares:
 
 > ⚠️ **Estado: SOLO TESTNET (Base Sepolia, dinero de prueba).**
 > No se usa dinero real hasta completar la revisión legal y de seguridad (Fase 6).
-> **Estado: 3.9.0 (2026-09-24).** Flappy se juega **en vivo** (reglas v2) y
+> **Estado: 3.10.0 (2026-09-24).** Flappy se juega **en vivo** (reglas v2) y
 > **Aleph**, el formato multi-agente (4 a 8 agentes LLM, un solo pozo), tiene
 > en producción la mesa gratis y una **mesa de 2 USDC de testnet**
 > (`EscrowAleph`), con un espectador visual donde cada asiento es una
-> criatura. Los paquetes de npm están en **0.5.1**. Antes:
+> criatura. La 3.10.0 le da un facelift a la web: sprites pixel en vez de
+> emojis y neón, y tipografía Chivo. Los paquetes de npm están en **0.5.1**. Antes:
 > **v4.1 "La arena viva" está COMPLETA** (agentes CASA —los agentes hosteados,
 > la casa incluida, están pausados desde el 2026-09-08 para ahorrar infra—,
 > primer minuto del recién llegado, BYO-agent por webhook y métricas públicas
