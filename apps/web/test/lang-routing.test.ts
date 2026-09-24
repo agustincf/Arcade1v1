@@ -4,7 +4,7 @@
 // idioma local en cada navegación.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pickLang, config } from "../proxy";
+import { pickLang, config, retiredLocaleTarget } from "../proxy";
 import { localePath, stripLocale } from "../app/lib/localePath";
 
 test("la cookie explícita le gana al idioma del navegador", () => {
@@ -15,19 +15,21 @@ test("la cookie explícita le gana al idioma del navegador", () => {
   // Y al revés: navegador en inglés, el usuario eligió español.
   assert.equal(pickLang("es", "en-US,en;q=0.9"), "es");
   assert.equal(pickLang("fr", "en-US,en;q=0.9"), "fr");
-  assert.equal(pickLang("hi", "en-US,en;q=0.9"), "hi");
 });
 
 test("sin cookie se respeta el idioma del navegador", () => {
   assert.equal(pickLang(undefined, "es-AR,es;q=0.9"), "es");
   assert.equal(pickLang(undefined, "fr-CA,fr;q=0.8"), "fr");
-  assert.equal(pickLang(undefined, "hi-IN"), "hi");
   assert.equal(pickLang(undefined, "en-GB,en;q=0.9"), "en");
 });
 
 test("un idioma que no servimos cae a inglés", () => {
   assert.equal(pickLang(undefined, "de-DE,de;q=0.9"), "en");
   assert.equal(pickLang(undefined, "pt-BR"), "en");
+  // El hindi se quitó el 2026-09-24: un navegador o una cookie vieja en hindi
+  // ahora caen a inglés.
+  assert.equal(pickLang(undefined, "hi-IN"), "en");
+  assert.equal(pickLang("hi", "en-US,en;q=0.9"), "en");
   assert.equal(pickLang(undefined, null), "en");
   assert.equal(pickLang(undefined, ""), "en");
 });
@@ -62,9 +64,19 @@ test("localePath prefija las rutas de Aleph y stripLocale las devuelve enteras",
   assert.equal(localePath("en", "/aleph"), "/aleph"); // inglés: sin prefijo
   assert.equal(localePath("es", "/aleph"), "/es/aleph");
   assert.equal(localePath("fr", `/aleph/${ROOM}`), `/fr/aleph/${ROOM}`);
-  assert.equal(localePath("hi", `/aleph/${ROOM}`), `/hi/aleph/${ROOM}`);
   // Idempotente: re-prefijar una ruta ya prefijada no la duplica.
   assert.equal(localePath("es", "/es/aleph"), "/es/aleph");
-  assert.equal(localePath("en", `/hi/aleph/${ROOM}`), `/aleph/${ROOM}`);
+  assert.equal(localePath("en", `/fr/aleph/${ROOM}`), `/aleph/${ROOM}`);
   assert.equal(stripLocale(`/fr/aleph/${ROOM}`), `/aleph/${ROOM}`);
+});
+
+test("/hi, idioma retirado, redirige a la misma ruta en inglés", () => {
+  assert.equal(retiredLocaleTarget("/hi"), "/");
+  assert.equal(retiredLocaleTarget("/hi/"), "/");
+  assert.equal(retiredLocaleTarget("/hi/build"), "/build");
+  assert.equal(retiredLocaleTarget("/hi/aleph/0x9f2c"), "/aleph/0x9f2c");
+  // Nada más se toca: ni los idiomas vivos ni rutas que solo empiezan con "hi".
+  assert.equal(retiredLocaleTarget("/es/build"), null);
+  assert.equal(retiredLocaleTarget("/build"), null);
+  assert.equal(retiredLocaleTarget("/history"), null);
 });

@@ -1,6 +1,6 @@
 import type { Lang } from "./i18n-dict";
 
-const PREFIXED = new Set(["es", "hi", "fr"]);
+const PREFIXED = new Set(["es", "fr"]);
 
 /** Quita el prefijo de idioma si lo tuviera (para re-prefijar al cambiar). */
 export function stripLocale(path: string): string {

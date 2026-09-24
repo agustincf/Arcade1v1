@@ -18,11 +18,6 @@ const COPY: Record<Lang, { h1: string; body: string; help: string }> = {
     body: "Arcade1v1 no está disponible en tu región. El acceso al skill-gaming por valor está restringido en tu jurisdicción.",
     help: "Si creés que es un error, escribinos.",
   },
-  hi: {
-    h1: "यहाँ उपलब्ध नहीं",
-    body: "Arcade1v1 आपके क्षेत्र में उपलब्ध नहीं है। आपके अधिकार-क्षेत्र में मूल्य के लिए स्किल-गेमिंग पर पाबंदी है।",
-    help: "अगर आपको लगता है कि यह ग़लती है, तो हमसे संपर्क करें।",
-  },
   fr: {
     h1: "Indisponible ici",
     body: "Arcade1v1 n'est pas disponible dans ta région. L'accès au skill-gaming pour de l'argent est restreint dans ta juridiction.",

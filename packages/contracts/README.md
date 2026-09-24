@@ -1,7 +1,10 @@
 # contracts — Contrato de escrow (Solidity, para Base)
 
-Contrato `Escrow1v1` que custodia el pozo y paga solo segun las reglas. Hecho
-con **Foundry** y piezas de seguridad de **OpenZeppelin**.
+Dos contratos: `Escrow1v1` (el pozo de una partida 1v1) y `EscrowAleph` (las
+mesas de plata de Aleph, 4 a 8 asientos). Custodian el pozo y pagan solo segun
+las reglas. Hechos con **Foundry** (CI lo fija en **v1.8.3**) y piezas de
+seguridad de **OpenZeppelin**. Los dos estan desplegados en **Base Sepolia**
+(testnet, con `TestUSDC`).
 
 ## Que hace
 
@@ -80,8 +83,14 @@ bash deploy-aleph-base-sepolia.sh
 ```
 
 Ensayo del deploy en anvil, sin gastar nada: `bash check-aleph-deploy.sh`.
-Todavía no se desplegó en ninguna red: el deploy real queda para el PR 3, con
-el OK del dueño.
+Está desplegado en Base Sepolia y el árbitro publicado ofrece la mesa de 2 USDC
+(`GET /aleph/lobbies` → `stakes: [0, 2]`). Smoke de punta a punta contra ese
+árbitro (4 wallets efímeras se sientan, depositan, juegan y cobran; cuesta gas
+de testnet y tarda 15-30 min): `bash smoke-aleph-base-sepolia.sh <ALEPH_ESCROW_ADDRESS>`
+(`--preflight` corre solo el chequeo previo, de solo lectura).
+
+Pendiente antes de mainnet (decisión del dueño): el pago push frente a la
+blacklist de USDC (arriba) y la firma de la tabla de pagos sin nonce.
 
 ## Correr las pruebas (local, sin gastar nada)
 
@@ -139,8 +148,9 @@ Requiere `.env.mainnet` (copiado de `.env.mainnet.example`) con
 `PLATFORM_WALLET`, `FEE_BPS` y `OWNER_ADDRESS` (la wallet de hardware que
 firma y queda como dueña del contrato).
 
-> Estado: contrato probado (14/14 pruebas) y flujo completo verificado en Anvil
-> (deposito, pago y reembolso). Las direcciones de un entorno publicado y sus
+> Estado: `Escrow1v1` probado (14/14 pruebas) y flujo completo verificado en Anvil
+> (deposito, pago y reembolso); `EscrowAleph` probado (43/43) y con smoke en
+> Base Sepolia. Las direcciones de un entorno publicado y sus
 > secretos no se guardan en Git (`.env`, `.env.mainnet` y `broadcast/` estan
 > en `.gitignore`), por lo que deben verificarse en la configuracion de ese
-> entorno. <!-- VERIFY: direccion desplegada del contrato en Base Sepolia/mainnet -->
+> entorno.

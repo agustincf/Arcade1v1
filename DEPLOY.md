@@ -11,12 +11,10 @@ Hay **3 piezas** que se publican por separado:
 > ⚠️ **Solo testnet.** No actives dinero real hasta cerrar los puntos críticos de
 > [SECURITY.md](SECURITY.md) — sobre todo lo **legal** (licencias, KYC, edad, país).
 
-> 🔴 **Pendiente antes del próximo merge a `main`:**
-> [`docs/MIGRACION-aleph.md`](docs/MIGRACION-aleph.md). El identificador técnico
-> del formato multi-agente pasó de `vault` a `aleph`, y eso cambia las variables
-> de entorno del árbitro (`VAULT_*` → `ALEPH_*`). Como el merge dispara el
-> redeploy solo y las variables viejas **se ignoran en silencio**, hay que mirar
-> el panel de Render **antes**. Son 4 pasos y el primero tarda un minuto.
+> ✅ **Migración `vault` → `aleph`: ejecutada el 2026-09-11.**
+> [`docs/MIGRACION-aleph.md`](docs/MIGRACION-aleph.md) queda como registro. Las
+> variables del formato multi-agente son `ALEPH_*`; si alguna vez aparece una
+> `VAULT_*` en un panel, se ignora en silencio: hay que renombrarla.
 
 ---
 
@@ -106,7 +104,9 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     arrancar vacío y pisar los datos buenos).
   - Opcionales: `STAKES_ALLOWED=1,2,5,10` (mesas que acepta el árbitro; deben
     coincidir con el contrato), `SUBMIT_WINDOW_MS` (ventana de envío, default 2h)
-    y `RL_MAX` / `RL_MAX_EXPENSIVE` (rate limit global / de endpoints caros).
+    y `RL_MAX` / `RL_MAX_EXPENSIVE` / `RL_MAX_LIVE` (rate limit global / de
+    endpoints caros / de los compromisos de las partidas en vivo, default 60
+    cada 10 s).
   - `PERSIST_DEBOUNCE_MS` — cada cuánto, como mucho, se sube el estado a Redis
     (default 20 s). **Ojo con bajarlo:** cada escritura manda el blob entero
     (~1,3 MB con los replays adentro), así que la frecuencia se paga en ancho de
@@ -137,6 +137,11 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     `Traspaso: fallback`, `Traspaso: stale`, `Instancia cercada` o
     `Entrega abortada`.
 
+- **Qué versión está corriendo:** `curl -s https://arcade1v1.onrender.com/health`
+  devuelve `{"ok":true,"commit":"<7 caracteres>","mode":"ready"}`. `commit` sale
+  de `RENDER_GIT_COMMIT` (lo define Render en cada build; fuera de Render da
+  `null`) y `mode` es el estado de la instancia en el traspaso. Si `commit` no
+  es el del merge, el deploy todavía no salió (o falló).
 - Anotá la **URL pública** del árbitro (ej. `https://arcade1v1-arbiter.onrender.com`).
 
 ## Paso 3 — Publicar la web (Vercel)
@@ -219,13 +224,15 @@ está en `.house-wallet.json` (local, gitignoreado — el repo es público).
   existen; respeta el rate limit del árbitro solo). Sin `--url` apunta a
   `localhost:4000`. Si no existe `.house-wallet.json`, el script genera la
   wallet y te muestra la address para pegar en `HOUSE_WALLETS`.
-- **Keep-alive:** `.github/workflows/keep-alive.yml` pinguea `/stats` cada
+- **Keep-alive:** `.github/workflows/keep-alive.yml` pinguea `/health` cada
   ~10 min para que el Render gratuito no duerma (sin eso, el runner de la
   casa se para hasta la próxima visita). Si GitHub desactiva el cron por
   inactividad del repo (60 días), se rehabilita desde la pestaña Actions.
 - **Verificar:** `curl -s "https://arcade1v1.onrender.com/agents?owner=<address>"`
   debe listar 15 agentes con `"house": true`, y el ranking de la web debe
-  mostrar el chip CASA.
+  mostrar el chip CASA. Con `AGENTS_ENABLED=false` (la palanca de costo del
+  Paso 2) los agentes siguen existiendo pero no juegan: la arena no queda
+  viva sola.
 
 ## 📊 Medición mínima (v4.1)
 
@@ -315,5 +322,7 @@ La red la elige `NEXT_PUBLIC_CHAIN_ID`: sin setear queda en **testnet** (seguro)
 - [ ] Auditoría externa del contrato.
 - [x] **Anti-trampa:** los **6 juegos** verifican el replay (legítimo aceptado,
       inventado rechazado en `selftest`), semilla forzada, un intento por jugador,
-      ventana de envío.
+      ventana de envío. Flappy, desde sus reglas v2, se juega **en vivo**: sin
+      semilla, el árbitro simula a la par de los compromisos y publica el secreto
+      al decidirse la partida.
 - [ ] **Legal:** asesoría + licencias + KYC/AML + edad + geobloqueo.

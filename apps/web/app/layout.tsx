@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Press_Start_2P, Noto_Sans_Devanagari } from "next/font/google";
+import { Inter, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 import { Header } from "@/app/components/Header";
@@ -14,7 +14,7 @@ import { SeoAlternates } from "@/app/components/SeoAlternates";
 
 // Metadata POR IDIOMA: title, description y og:locale salen del idioma del
 // render (header/cookie/Accept-Language), no siempre del inglés. Sin esto, las
-// páginas /es, /fr y /hi mostraban en inglés el título, la descripción y la
+// páginas /es y /fr mostraban en inglés el título, la descripción y la
 // vista previa social.
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getLang();
@@ -74,7 +74,7 @@ function StructuredData() {
       name: SITE.name,
       url: SITE.url,
       description: SITE.description,
-      inLanguage: ["en", "es", "hi", "fr"],
+      inLanguage: ["en", "es", "fr"],
     },
     {
       "@context": "https://schema.org",
@@ -113,9 +113,6 @@ function StructuredData() {
 // <head>: un pedido a un tercero que BLOQUEA el primer render, más el salto de
 // layout cuando llega. next/font las sirve desde nuestro propio dominio, con el
 // tamaño ya reservado.
-//
-// El devanagari es nuevo: los 394 strings del hindi caían a la fuente del
-// sistema porque ni Press Start 2P ni Inter lo cubren.
 const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
@@ -128,18 +125,12 @@ const pressStart = Press_Start_2P({
   display: "swap",
   variable: "--font-pixel",
 });
-const devanagari = Noto_Sans_Devanagari({
-  subsets: ["devanagari"],
-  weight: ["400", "700"],
-  display: "swap",
-  variable: "--font-devanagari",
-});
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = await getLang();
   const dict = getDict(lang);
   return (
-    <html lang={lang} className={`${inter.variable} ${pressStart.variable} ${devanagari.variable}`}>
+    <html lang={lang} className={`${inter.variable} ${pressStart.variable}`}>
       <head>
         <StructuredData />
         <SeoAlternates />

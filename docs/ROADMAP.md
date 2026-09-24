@@ -8,14 +8,18 @@ on-chain reputation). Dates are intentionally absent: this is a direction, not
 a promise. Detailed sections below are in Spanish — the project's working
 language.
 
-> Estado actual: **3.5.4 en testnet** (Base Sepolia, dinero de juego). v3 quedó
+> Estado actual: **3.8.0 en testnet** (Base Sepolia, dinero de juego), del
+> 2026-09-23. v3 quedó
 > completa (7 fases + parche 3.0.1) y **v4.1 "La arena viva" también está
 > construida y en producción** (3.1.0 → 3.2.0): agentes CASA, primer minuto del
 > recién llegado, métricas públicas en `/status`; después llegaron BYO-agent por
 > webhook (3.3.0), la auditoría de seguridad post-lanzamiento (**3.3.1** y
 > **3.4.0**, esta última con su redeploy de contrato **ya ejecutado y verificado
 > el 2026-07-15**), los juegos v2 con versión de reglas (3.5.0) y la tanda de
-> arte y sonido de los seis juegos (3.5.1 → 3.5.4).
+> arte y sonido de los seis juegos (3.5.1 → 3.5.4). Después vino **v4.2**:
+> Aleph, el formato multi-agente, con sus mesas gratis y de 2 USDC de testnet
+> en producción (3.7.0 → 3.8.0), y **Flappy jugado en vivo** (3.8.0), el primer
+> juego sin semilla anticipada. Paquetes de npm en 0.5.0.
 > Historial en [CHANGELOG.md](../CHANGELOG.md).
 
 Los tres pilares del proyecto ordenan cada versión:
@@ -42,7 +46,8 @@ con wallets reales — detalle en [CHANGELOG.md](../CHANGELOG.md).
   avatar, sin reemplazar la identidad de su wallet.
 - **✅ i18n servido por idioma (v2.7–v2.8)**: cada visitante recibe solo su
   idioma (menos bundle) y cada lengua tiene URL propia (`/es`, `/hi`, `/fr`) con
-  hreflang y sitemap — SEO real en español, hindi y francés.
+  hreflang y sitemap — SEO real en español y francés. (El hindi se retiró el
+  2026-09-24: cero visitas en 31 días; `/hi/...` redirige al inglés.)
 
 ### Agentes de IA
 
@@ -105,11 +110,14 @@ vacío. Cuatro frentes, en este orden:
    test del embudo destapó y arregló un bug del frente 1: el anti-farming
    impedía que la casa jugara entre sí — invaders, flappy y racing estaban
    muertos en producción; ahora los 6 juegos tienen actividad 24/7.
+   _(Nota 2026-09-23: desde el 2026-09-08 los agentes hosteados, la casa
+   incluida, están pausados para ahorrar infra, así que hoy la ladder no tiene
+   esa actividad de fondo.)_
 
 Queda fuera de v4.1 (pasa a v4.2+): torneos, agentes con cerebro LLM,
 BYO-agent por webhook, y todo lo de mainnet.
 
-### v4.2 — Aleph, el formato multi-agente ✅ _(etapas 1–4)_
+### v4.2 — Aleph, el formato multi-agente ✅ _(etapas 1–4; etapa 5 a medias)_
 
 - **Hecho**: motor determinístico y árbitro sin lógica de juego (etapa 1), capa
   de agentes con SDK, MCP y ejemplo LLM (etapa 2), y web de espectador `/aleph`
@@ -122,8 +130,17 @@ BYO-agent por webhook, y todo lo de mainnet.
   Spec y las seis
   decisiones:
   [`2026-09-10-aleph-etapa4-mesas-de-plata-design.md`](superpowers/specs/2026-09-10-aleph-etapa4-mesas-de-plata-design.md).
-- **Etapa 5 — espectador visual**: la sala como un reality, con la charla, los
-  votos y la Final en escena. Hoy `/aleph` es texto a propósito. Spec propio.
+- **Etapa 5 — espectador visual** 🟡: la sala como un reality, con la charla,
+  los votos y la Final en escena
+  ([spec](superpowers/specs/2026-09-19-aleph-etapa5-espectador-visual-design.md)).
+  **PR 1 en producción** (#36): una criatura por asiento, generada desde la
+  wallet (8 rasgos, 8.388.608 combinaciones, 8 estados), y la charla pública en
+  vivo, con los susurros marcados cuando se desclasifican. **PR 2, la escena
+  completa, en producción** (#39): la mesa con el pozo, la carta de etapa, el
+  friso, la Final y tres animaciones. Queda un PR chico de pulido visual.
+- **Reglas v2** ✅ (#31): el azar de la sala sale del SHA-256 del secreto
+  entero, no de 32 bits, y el mazo sale parejo. Cada sala guarda con qué reglas
+  nació, así que las viejas siguen verificando.
 - **Más adelante**: cartas nuevas en el mazo, más de un lobby por stake, salas
   privadas o por invitación.
 
@@ -133,9 +150,9 @@ BYO-agent por webhook, y todo lo de mainnet.
   compañía; el paso siguiente es hostearlos — un agente cuyo `play()` consulta
   un modelo (con presupuesto de tokens del dueño) y cuyo replay sigue pasando
   la verificación anti-trampa por construcción.
-- **BYO-agent por webhook**: registrás una URL; el árbitro te avisa cuando hay
-  rival y tu agente (corriendo donde quieras, en el lenguaje que quieras)
-  juega por la API. Sin SDK obligatorio.
+- **✅ BYO-agent por webhook (3.3.0)**: registrás una URL; el árbitro te avisa
+  cuando hay rival y tu agente (corriendo donde quieras, en el lenguaje que
+  quieras) juega por la API. Sin SDK obligatorio.
 - **Estrategias custom en sandbox**: subir tu propia estrategia (JS/WASM) que
   corre en un sandbox determinista con límites de CPU/memoria. El registro
   default-deny pasa de 6 estrategias a infinitas, sin comprometer al árbitro.
@@ -150,15 +167,32 @@ BYO-agent por webhook, y todo lo de mainnet.
 - **Auditoría externa del contrato** + llave del árbitro en KMS/HSM y dueño
   del contrato en multisig. Los tres requisitos que SECURITY.md marca como
   bloqueantes para dinero real.
+- **`EscrowAleph` antes de mainnet**: que cada asiento retire lo suyo (hoy un
+  depositante en la blacklist de USDC traba el reembolso de toda la mesa) y la
+  tabla firmada con vencimiento o nonce. Van juntos en un mismo redespliegue.
 - **Account abstraction**: smart wallets (passkey/social login) + paymaster
   para patrocinar el gas. Jugar por USDC sin extensión de navegador, sin frase
   semilla y sin tener ETH: la fricción número uno de todo el embudo.
+
+### Benchmark en vivo
+
+- **✅ Flappy en vivo (3.8.0)**: sin semilla anticipada. El azar sale de un
+  secreto que el árbitro revela de a poco mientras el jugador compromete sus
+  jugadas, así que simular la partida antes de jugarla ya no sirve y el ranking
+  mide decisiones, no cómputo de búsqueda. Sigue siendo asincrónico
+  ([spec](superpowers/specs/2026-09-16-benchmark-en-vivo-design.md)).
+- **Los otros cinco juegos** (2048, Tetris, Snake, Carrera, Space Invaders)
+  siguen con semilla anticipada: pasarlos al mismo modelo.
+- **Antes de mainnet**: guardar cada intento en vivo en su propia clave,
+  escrita antes de revelar valores nuevos (hoy va con el resto de las partidas
+  cada 20 s).
 
 ### Conexión del usuario
 
 - **Partidas en vivo (opcional)**: hoy todo es asincrónico por diseño; un modo
   "ambos ahora" con la misma verificación por replay, para el que quiere el
-  cara a cara.
+  cara a cara. (No es lo mismo que el benchmark en vivo de arriba: ahí cada uno
+  sigue jugando cuando quiere.)
 
 ---
 

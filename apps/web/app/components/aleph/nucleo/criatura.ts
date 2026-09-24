@@ -644,8 +644,8 @@ const escapar = (s: string) => s.replace(/[&<>"]/g, (c) => ESCAPES[c]);
 /** La criatura como string de SVG. Lo usan los tests y (en PR2) el probador.
  *  `Criatura.tsx` mapea la MISMA lista de `nodosDe` a <rect>, así que los dos
  *  consumen lo mismo y no pueden divergir. Sin <text>, sin <title>, sin
- *  <clipPath> y sin gradientes: todo rótulo es HTML traducible, porque Press
- *  Start 2P no tiene glifos devanagari y el sitio se sirve en hindi. */
+ *  <clipPath> y sin gradientes: todo rótulo es HTML traducible (pasa por el
+ *  i18n, no queda congelado en un idioma adentro del dibujo). */
 export function svgDeCriatura(
   address: string | null | undefined,
   opts?: OpcionesDeCriatura & { etiquetaA11y?: string },

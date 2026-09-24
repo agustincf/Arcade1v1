@@ -92,7 +92,6 @@ body {
     -apple-system,
     "Segoe UI",
     Roboto,
-    var(--font-devanagari),
     sans-serif;
 }
 
@@ -156,7 +155,7 @@ body::before {
 /* --- Tipografías --- */
 @layer components {
   .font-pixel {
-    font-family: var(--font-pixel), var(--font-devanagari), "Courier New", monospace;
+    font-family: var(--font-pixel), "Courier New", monospace;
     letter-spacing: 0.5px;
     line-height: 1.6;
   }
@@ -167,7 +166,6 @@ body::before {
       -apple-system,
       "Segoe UI",
       Roboto,
-      var(--font-devanagari),
       sans-serif;
     letter-spacing: 0;
   }
@@ -187,7 +185,7 @@ body::before {
     justify-content: space-between;
     gap: 8px;
     padding: 9px 12px;
-    font-family: var(--font-pixel), var(--font-devanagari), monospace;
+    font-family: var(--font-pixel), monospace;
     font-size: 10px;
     letter-spacing: 0.5px;
     color: var(--color-muted-bright);
@@ -223,7 +221,7 @@ body::before {
 
   /* --- Botón pixel "apretable" (plano + una sombra dura) --- */
   .btn3d {
-    font-family: var(--font-pixel), var(--font-devanagari), monospace;
+    font-family: var(--font-pixel), monospace;
     font-size: 11px;
     line-height: 1.4;
     color: var(--color-ink-2);
@@ -307,7 +305,7 @@ body::before {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-family: var(--font-inter), var(--font-devanagari), sans-serif;
+    font-family: var(--font-inter), sans-serif;
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -356,7 +354,7 @@ body::before {
     display: inline-block;
     padding: 5px 0 5px 100%;
     animation: marquee 30s linear infinite;
-    font-family: var(--font-inter), var(--font-devanagari), sans-serif;
+    font-family: var(--font-inter), sans-serif;
     font-size: 13px;
     font-weight: 500;
     letter-spacing: 0.04em;
@@ -446,8 +444,8 @@ body::before {
 
   /* La terminal: fondo de tinta, mono chico y `anywhere` para que una wallet
      larga no rompa la caja. El mono NO se declara acá: no existe ninguna
-     `--font-mono` en el repo (las variables de fuente son `--font-inter`,
-     `--font-pixel` y `--font-devanagari`), y el resto de la página ya usa la
+     `--font-mono` en el repo (las variables de fuente son `--font-inter`
+     y `--font-pixel`), y el resto de la página ya usa la
      utilidad `font-mono` de Tailwind en el markup. `Charla.tsx` hace lo mismo:
      así no hay un `var()` que caiga en vacío sin que nadie se entere. */
   .charla {
@@ -854,7 +852,7 @@ body::before {
     justify-content: space-between;
     gap: 8px;
     padding: 9px 12px;
-    font-family: var(--font-pixel), var(--font-devanagari), monospace;
+    font-family: var(--font-pixel), monospace;
     font-size: 10px;
     letter-spacing: 0.5px;
     color: var(--color-paper-ink);

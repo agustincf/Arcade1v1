@@ -4,7 +4,7 @@
 // en `public/`.
 //
 // Todos van `aria-hidden="true"`: su información está en el texto de al lado.
-// Y nada de texto adentro del SVG (Press Start 2P no tiene glifos devanagari).
+// Y nada de texto adentro del SVG: todo rótulo va en HTML, por el i18n.
 
 import type { EtapaKind } from "./nucleo/estados";
 

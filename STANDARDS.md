@@ -38,14 +38,19 @@ dejar esperando, perdiendo plata o leyendo un mensaje que miente, está mal.
    store que crezca sin límite.
 6. **Determinismo en los juegos.** Misma semilla → misma partida. Los motores del
    game-sdk no usan `Math.random()` ni relojes: solo la semilla. La semilla la
-   genera el árbitro con CSPRNG; el cliente jamás manda sobre el azar.
+   genera el árbitro con CSPRNG; el cliente jamás manda sobre el azar. Los
+   juegos EN VIVO (Flappy desde sus reglas v2) no tienen semilla: el azar sale
+   de un secreto de 32 bytes que el árbitro revela de a poco mientras el
+   jugador compromete sus jugadas (`game-sdk/src/live.ts`). El determinismo
+   sigue: mismo secreto y mismas jugadas → misma partida, y el secreto se
+   publica al decidirse para que cualquiera re-verifique.
 
 ## Convenciones
 
 - **Idioma**: comentarios y mensajes de commit en castellano; identificadores de
   código en inglés. Los comentarios explican el PORQUÉ (el riesgo que evitan),
   no el qué.
-- **Textos de UI**: SIEMPRE por i18n (`i18n-dict.ts`, 4 idiomas: en/es/hi/fr) vía
+- **Textos de UI**: SIEMPRE por i18n (`i18n-dict.ts`, 3 idiomas: en/es/fr) vía
   `t("clave")`. Prohibido hardcodear texto visible.
 - **Direcciones**: normalizar a minúsculas (`normAddr`) antes de usarlas como
   clave o compararlas. Nunca comparar addresses crudas.
@@ -81,7 +86,10 @@ dejar esperando, perdiendo plata o leyendo un mensaje que miente, está mal.
   requests firmadas).
 - **Commits**: convención `tipo(ámbito): descripción en castellano`
   (`fix(server): …`, `feat(web): …`, `docs: …`).
-- **Deploy**: `git push` a `main` despliega SOLO (Vercel + Render). No pushear
-  sin verificación completa y OK del dueño del proyecto.
+- **Deploy**: el merge a `main` despliega SOLO (Vercel + Render). `main` no
+  acepta push directo: todo entra por PR, con los 2 checks de CI en verde y el
+  OK del dueño del proyecto. En Render, el traspaso con timbre
+  (`apps/server/src/handover.ts`) evita que convivan dos árbitros durante el
+  deploy; `GET /health` devuelve el `commit` que quedó corriendo.
 - **Documentos de diseño**: los planes/specs van en `docs/superpowers/`; la
   operativa del milestone vigente en `docs/superpowers/v3/`.

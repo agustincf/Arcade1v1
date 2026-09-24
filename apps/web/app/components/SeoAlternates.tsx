@@ -3,7 +3,7 @@ import { SITE } from "@/app/lib/seo";
 import { LANGS } from "@/app/lib/i18n-dict";
 import { localePath, stripLocale } from "@/app/lib/localePath";
 
-/** Emite canonical (a la propia URL por idioma) + hreflang de los 4 idiomas y
+/** Emite canonical (a la propia URL por idioma) + hreflang de los 3 idiomas y
  *  x-default (inglés), desde el `x-bare-path` que setea el portero. Centraliza lo
  *  que antes hacían canonicals dispersos (varias páginas apuntaban a la home). */
 export async function SeoAlternates() {

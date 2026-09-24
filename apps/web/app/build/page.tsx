@@ -26,6 +26,7 @@ import { CHAIN } from "@/app/lib/wagmi";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
 import { ReplayPlayer } from "@/app/components/replay/ReplayPlayer";
+import { HostedPausedNotice } from "@/app/components/HostedPausedNotice";
 import { createAgent, listAgents, warmUpArbiter } from "@/app/lib/arbiter";
 import {
   classifySignError,
@@ -205,6 +206,8 @@ export default function BuildPage() {
       <Link href="/" className="text-sm font-medium text-(--color-accent-2) hover:underline">
         {t("back")}
       </Link>
+
+      <HostedPausedNotice className="mt-3" />
 
       <div className="win mt-3">
         <div className="win-title">

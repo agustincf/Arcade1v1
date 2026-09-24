@@ -25,17 +25,18 @@ npm workspaces, declared in the root `package.json`:
 | `packages/game-sdk`   | `@arcade1v1/game-sdk`   | Deterministic game engines (one module per game) + the replay contract every game implements.                               |
 | `packages/agent-sdk`  | `@arcade1v1/agent-sdk`  | Client for AI agents to matchmake, play headlessly, sign and submit a score.                                                |
 | `packages/strategies` | `@arcade1v1/strategies` | Parameterized strategies that drive the real game-sdk engines — powers the no-code agent builder and hosted agents.         |
-| `packages/contracts`  | —                       | Solidity escrow contract (Foundry). Its own toolchain; excluded from the root ESLint/Prettier/TS setup.                     |
+| `packages/contracts`  | —                       | Solidity escrow contracts, `Escrow1v1` and `EscrowAleph` (Foundry). Own toolchain; excluded from root ESLint/Prettier/TS.   |
 
 Internally, workspaces reference each other by package name with `"*"` as
 the version (e.g. `apps/server` depends on `"@arcade1v1/game-sdk": "*"`) and
 npm resolves them to the local workspace folder — no build step is needed to
 consume another workspace's TypeScript source directly.
 
-`game-sdk`, `agent-sdk`, and `contracts` are also published standalone via
+`game-sdk`, `agent-sdk` and `strategies` are also published standalone via
 `scripts/publish-sdk.mjs` (invoked as `npm run release --workspace packages/game-sdk`,
 etc.) so external consumers can `npm install @arcade1v1/game-sdk` without
-pulling in the rest of the monorepo.
+pulling in the rest of the monorepo. `apps/mcp` is published on its own
+(`@arcade1v1/mcp`). All four are at `0.5.0` on npm today.
 
 ### Adding a new workspace
 
@@ -87,6 +88,7 @@ etc.) — from each workspace's own `package.json`:
 - `apps/mcp`: `build` (esbuild bundle via `build.mjs`), `start` (tsx).
 - `packages/agent-sdk`: `example` (2048), `example:racing-llm`, `example:aleph-llm`
   (both need `ANTHROPIC_API_KEY`), `release`.
+- `packages/game-sdk`, `packages/strategies`: `release`.
 
 Contract-specific tooling (`forge test`, deploy scripts) lives entirely in
 `packages/contracts` and uses Foundry, not npm scripts — see that package's
@@ -154,23 +156,27 @@ own README/docs.
   Feature branches seen in the remote follow a loose `claude/<slug>` pattern
   for AI-assisted work; there is no enforced human branch-naming rule beyond
   that.
-- **Deploy**: pushing to `main` triggers auto-deploy (Vercel for the web app,
-  Render for the arbiter server) — see STANDARDS.md and `DEPLOY.md`. Do not
-  push to `main` without a full `npm run check` pass.
+- **Deploy**: a merge to `main` triggers auto-deploy (Vercel for the web app,
+  Render for the arbiter server) — see STANDARDS.md and `DEPLOY.md`. `main`
+  does not accept direct pushes: every change goes through a pull request
+  with the two CI checks green. Run a full `npm run check` before opening it.
 
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull
 request, with two jobs:
 
-- **`web-and-server`** — Node 22, `npm ci`, then a single `npm run check`
-  step (typecheck + lint + format + tests + selftest — the same command you
-  run locally).
-- **`contracts`** — installs Foundry, runs `forge test -vv` in
-  `packages/contracts`, then the on-chain integration/e2e scripts
-  (`check-integration.sh`, `check-payment-e2e.sh`, `check-deploy.sh`) against
-  a local `anvil` chain, signing with a test-only arbiter key stored as a
-  GitHub secret.
+- **`web-and-server`** — Node 22, `npm ci`, then `npm run check`
+  (typecheck + lint + format + tests + selftest — the same command you run
+  locally), then the production build of the web
+  (`npm run build --workspace apps/web`), which `check` does not cover.
+- **`contracts`** — installs Foundry pinned to **v1.8.3** (the e2e scripts
+  depend on anvil details; bump it in a PR), runs `forge test -vv` in
+  `packages/contracts`, then the on-chain scripts against a local `anvil`
+  chain: `check-integration.sh`, `check-payment-e2e.sh`, `check-deploy.sh`,
+  `check-aleph-deploy.sh` and `check-aleph-e2e.sh`. No script reads a key
+  from a `.env` or a GitHub secret: the arbiter signs with fixed public anvil
+  accounts.
 
 ## Core engineering standards (summary — see STANDARDS.md for full detail)
 
