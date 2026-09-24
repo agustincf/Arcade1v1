@@ -862,13 +862,19 @@ async function saveDecision(m: Match): Promise<boolean> {
   }
 }
 
-/** ¿Es una mesa de plata decidida que el árbitro todavía tiene que liquidar? */
+/** ¿Es una mesa de plata decidida que el árbitro todavía tiene que liquidar?
+ *  Solo las firmadas por este código (llevan `signatureDeadline`): una partida
+ *  que decidió el árbitro anterior tiene una firma de la v1 del contrato, que el
+ *  v2 no acepta, y la cobró el ganador desde la web. Sin este filtro, el primer
+ *  arranque contra el contrato nuevo intentaba liquidar en él las partidas de
+ *  los últimos dos días, que no existen ahí. */
 function needsSettle(m: Match): boolean {
   return (
     paidOnchain(m) &&
     m.status === "settled" &&
     !!m.winner &&
     !!m.signature &&
+    m.signatureDeadline !== undefined &&
     !m.settleTx &&
     !m.settleOutcome
   );
@@ -893,7 +899,7 @@ function kickSettle(m: Match, now = Date.now()): Promise<void> {
 
 async function settleOnchain(m: Match, now: number): Promise<void> {
   const chain = escrowChain();
-  const deadline = m.signatureDeadline ?? resultDeadlineOf(m);
+  const deadline = m.signatureDeadline!; // needsSettle lo exige
   try {
     if (!(await saveDecision(m))) throw new Error("the decision is not saved yet");
     if (Math.floor(now / 1000) > deadline) {

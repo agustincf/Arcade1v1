@@ -295,3 +295,41 @@ test("partida gratis: sin condiciones on-chain, la firma sale enseguida y no hay
   assert.equal(settlesOf(v1.matchId).length, 0);
   assert.equal(MM.getMatch(v1.matchId, A)!.settleTx, undefined);
 });
+
+test("una partida pagada que decidió el árbitro anterior (firma v1) no se liquida contra el contrato nuevo", async () => {
+  // Así vuelve del store, en el primer arranque del árbitro nuevo, una partida
+  // de plata decidida por la versión anterior: firma sin vencimiento, y la
+  // cobró el ganador desde la web (el árbitro no se enteró).
+  const id = ("0x" + "0d".repeat(32)) as Hex;
+  const createdAt = Date.now() - 60 * 60_000;
+  upstash.kv.set(
+    "arcade:matches",
+    JSON.stringify([
+      {
+        id,
+        game: "2048",
+        stake: 1,
+        seed: 1,
+        rulesV: 1,
+        p1: A,
+        p2: B,
+        scores: { [A]: 10, [B]: 5 },
+        replays: {},
+        createdAt,
+        status: "settled",
+        winner: A,
+        outcome: "p1",
+        signature: "0x" + "ab".repeat(65),
+      },
+    ]),
+  );
+  await MM.restoreMatches();
+  MM.sweepMatches(Date.now());
+  MM.sweepMatches(Date.now() + 3 * 60 * 60_000); // pasado cualquier plazo
+  await MM.onchainSettled(id);
+  assert.equal(settlesOf(id).length, 0, "no se manda un settle con una firma v1");
+  assert.ok(!cancels.includes(id), "ni se cancela: esa partida vive en el contrato viejo");
+  const v = MM.getMatch(id, A)!;
+  assert.equal(v.settleOutcome, undefined, "y la vista no inventa un reembolso");
+  assert.equal(v.signatureDeadline, undefined);
+});
