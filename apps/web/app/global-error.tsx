@@ -2,17 +2,16 @@
 
 // Red de seguridad de ÚLTIMO recurso: atrapa errores lanzados por el layout
 // raíz mismo (donde error.tsx no llega). Reemplaza al <html> entero, así que
-// no puede usar el i18n ni los estilos del layout — estilo inline y las cuatro
+// no puede usar el i18n ni los estilos del layout — estilo inline y las tres
 // traducciones acá adentro, igual que hace unavailable/page.tsx.
 //
-// Antes decía "Something went wrong / Algo salió mal": el francés y el hindi
-// quedaban afuera justo en la pantalla donde el usuario ya está perdido.
+// Antes decía "Something went wrong / Algo salió mal": el francés quedaba
+// afuera justo en la pantalla donde el usuario ya está perdido.
 
 const TEXTOS = {
   en: { title: "Something went wrong", retry: "Retry" },
   es: { title: "Algo salió mal", retry: "Reintentar" },
   fr: { title: "Une erreur est survenue", retry: "Réessayer" },
-  hi: { title: "कुछ गड़बड़ हो गई", retry: "फिर से कोशिश करें" },
 } as const;
 
 /** El idioma del navegador, leído sin provider (acá no hay contexto de React

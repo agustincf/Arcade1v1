@@ -10,6 +10,23 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **La web avisa que los agentes hosteados están en pausa.** El árbitro los
+  tiene apagados desde el 2026-09-08 para ahorrar infra, pero `/build` y
+  `/my-agents` prometían que juegan solos. Ahora las dos páginas lo dicen con un
+  cartel, que se controla con `HOSTED_AGENTS_PAUSED` en
+  `apps/web/app/lib/config.ts`. El tooltip de CASA y la nota de `/status`
+  dejaron de decir que la casa mantiene la arena viva.
+
+### Quitado
+
+- **El hindi.** En 31 días no tuvo ni una visita (Vercel Analytics), y cada
+  texto nuevo había que traducirlo a un idioma que nadie revisaba. La web queda
+  en inglés, español y francés. Cualquier `/hi/...` redirige (301) a la misma
+  ruta en inglés, así no se rompen links viejos, y un navegador en hindi ve el
+  inglés. También se deja de descargar la fuente devanagari.
+
 ## [3.8.0] — 2026-09-23
 
 **Flappy se juega en vivo, Aleph pone plata en la mesa y los deploys dejan de

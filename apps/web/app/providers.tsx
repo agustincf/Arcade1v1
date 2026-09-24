@@ -31,13 +31,12 @@ function ReconnectOnFocus() {
 }
 
 // Envoltorio que da soporte de billetera real a toda la app.
-// Idioma del sitio -> locale de RainbowKit. No tiene hindi, así que ese caso
+// Idioma del sitio -> locale de RainbowKit. Cualquier idioma que no esté acá
 // cae a inglés (su default) en el punto de uso.
 const RAINBOWKIT_LOCALE: Record<string, "en-US" | "es-419" | "fr-FR"> = {
   en: "en-US",
   es: "es-419",
   fr: "fr-FR",
-  hi: "en-US",
 };
 
 export function Providers({
@@ -56,9 +55,8 @@ export function Providers({
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           // El modal de la wallet trae sus traducciones y no se las estábamos
-          // pasando: en /es, /fr y /hi el paso más delicado del flujo —conectar
-          // y firmar— aparecía entero en inglés. RainbowKit no tiene hindi, así
-          // que ese idioma cae a inglés (su default) igual que antes.
+          // pasando: en /es y /fr el paso más delicado del flujo —conectar
+          // y firmar— aparecía entero en inglés.
           locale={RAINBOWKIT_LOCALE[lang] ?? "en-US"}
           theme={darkTheme({
             // Era #6d5efc, un violeta que no existe en la paleta del sitio: el

@@ -352,8 +352,10 @@ renamed in Next 16) with two responsibilities, evaluated in order:
    in that list are rewritten to `/unavailable` (checked via
    `x-vercel-ip-country` or `cf-ipcountry` headers). Empty by default — no-op
    until real-money operation requires it.
-2. **Locale routing** — supported prefixed locales are `es`, `hi`, `fr`;
-   English is served unprefixed at `/` (the `x-default`). If the URL already
+2. **Locale routing** — supported prefixed locales are `es` and `fr`;
+   English is served unprefixed at `/` (the `x-default`). Hindi (`/hi`) was
+   retired on 2026-09-24: any `/hi/...` URL gets a 301 to the same path in
+   English (`retiredLocaleTarget` in `proxy.ts`). If the URL already
    has a locale segment (`/es/...`), the proxy strips it, rewrites to the
    bare path, and sets two request headers so the render layer knows the
    active locale: `x-lang` and `x-bare-path`. If the URL has **no** prefix,
@@ -370,7 +372,7 @@ renamed in Next 16) with two responsibilities, evaluated in order:
      prefix consistently (idempotent, leaves external URLs, anchors, and
      `mailto:` untouched).
    - Translated strings live in `apps/web/app/lib/i18n-dict.ts` and
-     `apps/web/app/lib/i18n/{en,es,hi,fr}.ts`, consumed via `t("key")` — per
+     `apps/web/app/lib/i18n/{en,es,fr}.ts`, consumed via `t("key")` — per
      STANDARDS.md, hardcoded visible UI text is disallowed.
 3. The proxy's `matcher` config excludes static assets and SEO/agent-facing
    files (`_next/`, `favicon`, `robots.txt`, `sitemap.xml`, `llms.txt`,

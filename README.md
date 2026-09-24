@@ -224,7 +224,7 @@ en especial la auditoría externa del contrato y los requisitos legales.
   árbitro en pocas líneas) y `@arcade1v1/game-sdk` (motores deterministicos de
   cada juego) — publicados en npm, junto con `@arcade1v1/strategies`, los
   cuatro en la 0.5.0.
-- **i18n y estado público**: URLs por idioma (es/hi/fr, inglés en la raíz),
+- **i18n y estado público**: URLs por idioma (es/fr, inglés en la raíz),
   faucet de USDC de prueba, métricas públicas del árbitro (`/status`), perfiles
   humanos, duelos directos y más de una estrategia en 2048, Snake y Carrera.
 

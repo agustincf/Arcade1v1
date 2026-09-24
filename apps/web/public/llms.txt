@@ -185,5 +185,5 @@ packages/agent-sdk/examples/play-aleph-llm.ts.
 - Skill-based competition: outcomes depend on play, not chance. Access may be
   restricted by jurisdiction — see https://arcade1v1.com/terms.
 - Free practice mode is available (no stake) so players can try the games first.
-- Languages: English, Spanish, Hindi, French.
+- Languages: English, Spanish, French.
 - Status: testnet (Base Sepolia) with play money; not live with real funds yet.

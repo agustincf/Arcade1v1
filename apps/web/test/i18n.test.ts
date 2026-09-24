@@ -1,4 +1,4 @@
-// Garantías de i18n: (1) los 4 idiomas exponen EXACTAMENTE las mismas claves
+// Garantías de i18n: (1) los 3 idiomas exponen EXACTAMENTE las mismas claves
 // (ningún idioma sale incompleto — habilita servir solo el activo sin mostrar
 // claves crudas); (2) translate es puro (interpola vars; clave cruda si falta).
 
@@ -7,14 +7,13 @@ import assert from "node:assert/strict";
 
 import { en } from "../app/lib/i18n/en.js";
 import { es } from "../app/lib/i18n/es.js";
-import { hi } from "../app/lib/i18n/hi.js";
 import { fr } from "../app/lib/i18n/fr.js";
 import { translate } from "../app/lib/i18n-dict.js";
 import { ALEPH_RULES } from "@arcade1v1/game-sdk/aleph";
 
-const DICTS = { en, es, hi, fr };
+const DICTS = { en, es, fr };
 
-test("los 4 idiomas tienen exactamente las mismas claves", () => {
+test("los 3 idiomas tienen exactamente las mismas claves", () => {
   const keys = Object.fromEntries(
     Object.entries(DICTS).map(([l, d]) => [l, new Set(Object.keys(d))]),
   );
@@ -26,12 +25,12 @@ test("los 4 idiomas tienen exactamente las mismas claves", () => {
 });
 
 test("translate: interpola vars y cae a la clave cruda si no existe", () => {
-  assert.equal(translate({ hi: "Hola {name}" }, "hi", { name: "Ada" }), "Hola Ada");
+  assert.equal(translate({ hola: "Hola {name}" }, "hola", { name: "Ada" }), "Hola Ada");
   assert.equal(translate({}, "no.existe"), "no.existe");
   assert.equal(translate({ a: "{n}+{n}" }, "a", { n: 2 }), "2+2");
 });
 
-test("las 19 claves de la etapa 5 (PR1) están en los 4 idiomas", () => {
+test("las 19 claves de la etapa 5 (PR1) están en los 3 idiomas", () => {
   const nuevas = [
     // Estados que no existían (7)
     "aleph.state.esperando",
@@ -63,7 +62,7 @@ test("las 19 claves de la etapa 5 (PR1) están en los 4 idiomas", () => {
       assert.ok(dict[k].trim().length > 0, `${lang} tiene ${k} vacía`);
     }
   }
-  // Las que llevan variable tienen que llevarla en los 4 idiomas: si una
+  // Las que llevan variable tienen que llevarla en los 3 idiomas: si una
   // traducción se come el {k}, el número desaparece sin que nadie se entere.
   const conVariables: Record<string, string[]> = {
     "aleph.chat.whisperTo": ["{who}"],
@@ -77,7 +76,7 @@ test("las 19 claves de la etapa 5 (PR1) están en los 4 idiomas", () => {
       for (const v of vars) assert.ok(dict[k].includes(v), `${lang}: ${k} perdió ${v}`);
 });
 
-test("los ocho estados de la criatura se leen distinto en los 4 idiomas", () => {
+test("los ocho estados de la criatura se leen distinto en los 3 idiomas", () => {
   // Es la mitad de texto del test 8 del spec ("los ocho textos son distintos
   // entre sí"). Va acá y no en `aleph-criatura.test.ts` porque el que puede
   // romperla es el DICCIONARIO, no el generador: dos estados que compartan
@@ -101,17 +100,14 @@ test("los ocho estados de la criatura se leen distinto en los 4 idiomas", () => 
   }
 });
 
-test("el cartel de topes de la charla dice FASE, no etapa, en los 4 idiomas", () => {
+test("el cartel de topes de la charla dice FASE, no etapa, en los 3 idiomas", () => {
   // `aleph.chat.caps` es el ÚNICO lugar donde se le explica al lector el tope
   // de mensajes, y el motor lo cuenta por FASE (ALEPH_RULES.MAX_MSGS_PER_PHASE):
   // cada etapa tiene dos fases, así que decir "por etapa" publica la mitad del
-  // tope real. En hindi la confusión es fácil porque son dos palabras distintas
-  // que el diccionario ya usa separadas: «चरण» es etapa (aleph.room.stageHead)
-  // y «फ़ेज़» es fase (aleph.room.nowPlaying).
+  // tope real.
   const PALABRAS: Record<string, { fase: string; etapa: string }> = {
     en: { fase: "phase", etapa: "stage" },
     es: { fase: "fase", etapa: "etapa" },
-    hi: { fase: "फ़ेज़", etapa: "चरण" },
     fr: { fase: "phase", etapa: "étape" },
   };
   for (const [lang, dict] of Object.entries(DICTS)) {

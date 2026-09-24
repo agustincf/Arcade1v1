@@ -152,7 +152,7 @@ export default async function AgentStartPage() {
               headline: START_TITLE,
               description: START_DESCRIPTION,
               url: `${SITE.url}/agents/start`,
-              inLanguage: ["en", "es", "hi", "fr"],
+              inLanguage: ["en", "es", "fr"],
               proficiencyLevel: "Beginner",
               audience: {
                 "@type": "Audience",

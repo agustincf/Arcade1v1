@@ -30,7 +30,7 @@ const ROUTES: { path: string; priority: number; freq: Freq }[] = [
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   const abs = (p: string) => `${SITE.url}${p === "/" ? "" : p}`;
-  // Una entrada por ruta (URL inglesa = x-default), con las 4 variantes por
+  // Una entrada por ruta (URL inglesa = x-default), con las 3 variantes por
   // idioma como alternates para que Google indexe cada idioma.
   return ROUTES.map(({ path, priority, freq }) => ({
     url: abs(path),

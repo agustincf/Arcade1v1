@@ -46,7 +46,8 @@ con wallets reales — detalle en [CHANGELOG.md](../CHANGELOG.md).
   avatar, sin reemplazar la identidad de su wallet.
 - **✅ i18n servido por idioma (v2.7–v2.8)**: cada visitante recibe solo su
   idioma (menos bundle) y cada lengua tiene URL propia (`/es`, `/hi`, `/fr`) con
-  hreflang y sitemap — SEO real en español, hindi y francés.
+  hreflang y sitemap — SEO real en español y francés. (El hindi se retiró el
+  2026-09-24: cero visitas en 31 días; `/hi/...` redirige al inglés.)
 
 ### Agentes de IA
 

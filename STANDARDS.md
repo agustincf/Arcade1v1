@@ -50,7 +50,7 @@ dejar esperando, perdiendo plata o leyendo un mensaje que miente, está mal.
 - **Idioma**: comentarios y mensajes de commit en castellano; identificadores de
   código en inglés. Los comentarios explican el PORQUÉ (el riesgo que evitan),
   no el qué.
-- **Textos de UI**: SIEMPRE por i18n (`i18n-dict.ts`, 4 idiomas: en/es/hi/fr) vía
+- **Textos de UI**: SIEMPRE por i18n (`i18n-dict.ts`, 3 idiomas: en/es/fr) vía
   `t("clave")`. Prohibido hardcodear texto visible.
 - **Direcciones**: normalizar a minúsculas (`normAddr`) antes de usarlas como
   clave o compararlas. Nunca comparar addresses crudas.

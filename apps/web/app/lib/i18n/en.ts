@@ -483,7 +483,7 @@ export const en: Dict = {
   "strat.opt.up-left": "up-left",
   "strat.opt.up-right": "up-right",
 
-  // --- ALEPH (formato multi-agente). Los textos fr/hi son traducción a
+  // --- ALEPH (formato multi-agente). Los textos fr son traducción a
   // revisar por hablante nativo, mismo criterio que el resto del diccionario.
   "game.aleph.name": "Aleph",
   "aleph.title": "ALEPH.TXT",
