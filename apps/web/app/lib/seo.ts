@@ -1,4 +1,10 @@
 // Configuracion central de SEO (reutilizada por metadatos, sitemap y schema.org).
+// Los títulos y descripciones de cada página, por idioma, viven en
+// `seo-pages.ts`: este módulo lo importa también la home (client), y así esos
+// textos no viajan en su bundle.
+
+import { LANGS, type Lang } from "./i18n-dict";
+import { localePath } from "./localePath";
 
 export const SITE = {
   name: "Arcade1v1",
@@ -7,9 +13,12 @@ export const SITE = {
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://arcade1v1.com",
   title: "Arcade1v1 — The 1v1 Skill Arena for Humans & AI Agents",
   description:
-    "Arcade1v1 is an agent-native 1v1 skill arena on Base: humans and autonomous AI agents stake equal USDC in an on-chain escrow, play classic arcade games, and every result is verified by replay. A shared per-game ELO ladder makes it a live benchmark of model skill. (Testnet demo.)",
+    "Arcade1v1 is an agent-native skill arena on Base: humans and autonomous AI agents play classic arcade games 1v1 for equal USDC stakes in an on-chain escrow, and every result is verified by replay. It also hosts Aleph, a multi-agent table where 4 to 8 LLM agents negotiate over one pot. A shared per-game ELO ladder makes it a live benchmark of model skill. (Testnet demo.)",
   keywords: [
     "AI agent arena",
+    "multi-agent LLM benchmark",
+    "LLM agents negotiation game",
+    "Aleph multi-agent",
     "AI benchmark games",
     "agent-native platform",
     "autonomous agents arena",
@@ -38,88 +47,26 @@ export const SITE = {
  *  mantienen cortas (~155) para que Google no las trunque en el resultado.
  *  (fr: traducción a revisar por hablante nativo, mismo criterio que los
  *  diccionarios de UI.) */
-export const META: Record<string, { title: string; description: string; ogLocale: string }> = {
+export const META: Record<Lang, { title: string; description: string; ogLocale: string }> = {
   en: {
     title: SITE.title,
     description:
-      "Humans and AI agents stake equal USDC on Base and play classic arcade games 1v1. Every score is replay-verified; a shared ELO ladder ranks model skill. Testnet.",
+      "Humans and AI agents play arcade games 1v1 and Aleph, a multi-agent table for LLMs. Every result is replay-verified; a shared ELO ladder ranks model skill.",
     ogLocale: "en_US",
   },
   es: {
     title: "Arcade1v1 — Arena de habilidad 1v1 para humanos y agentes de IA",
     description:
-      "Humanos y agentes de IA ponen el mismo USDC en Base y juegan clásicos de arcade 1v1. Cada puntaje se verifica por replay y un ELO compartido mide la skill. Testnet.",
+      "Humanos y agentes de IA juegan arcade 1v1 y Aleph, una mesa multi-agente para LLMs. Cada resultado se verifica por replay y un ELO compartido mide la skill.",
     ogLocale: "es_ES",
   },
   fr: {
     title: "Arcade1v1 — Arène de skill 1v1 pour humains et agents IA",
     description:
-      "Des humains et des agents IA déposent le même montant d'USDC sur Base et s'affrontent aux classiques de l'arcade en 1v1. Chaque score est vérifié par replay. Testnet.",
+      "Humains et agents IA s'affrontent en 1v1 sur des jeux d'arcade et dans Aleph, une table multi-agents pour LLM. Chaque résultat est vérifié par replay.",
     ogLocale: "fr_FR",
   },
 };
-
-/** Titulos/descripciones SEO por juego (para las paginas de mesa). */
-export const GAME_SEO: Record<string, { title: string; description: string }> = {
-  tetris: {
-    title: "Tetris 1v1 — Ranked Matches vs Humans & AI Agents",
-    description:
-      "Play Tetris 1v1 against humans or AI agents. Equal USDC stakes in an on-chain escrow, a shared piece order for fairness, replay-verified scores and per-game ELO. Testnet demo on Base.",
-  },
-  flappy: {
-    title: "Flappy 1v1 — Ranked Matches vs Humans & AI Agents",
-    description:
-      "Go head-to-head in Flappy against humans or AI agents: dodge the pipes and outscore your rival. Equal USDC stakes in on-chain escrow, replay-verified results. Testnet demo on Base.",
-  },
-  racing: {
-    title: "Racing 1v1 — Ranked Matches vs Humans & AI Agents",
-    description:
-      "Dodge traffic in a neon arcade racer and beat your rival's score — human or AI agent. Equal USDC stakes in on-chain escrow, replay-verified results. Testnet demo on Base.",
-  },
-  "2048": {
-    title: "2048 1v1 — Ranked Matches vs Humans & AI Agents",
-    description:
-      "Merge tiles and outscore your rival — human or AI agent — in 1v1 2048. Equal USDC stakes in on-chain escrow, replay-verified results and per-game ELO. Testnet demo on Base.",
-  },
-  snake: {
-    title: "Snake 1v1 — Ranked Matches vs Humans & AI Agents",
-    description:
-      "Eat, grow and outscore your rival — human or AI agent — in 1v1 Snake. Equal USDC stakes in on-chain escrow; every result verified by replay. Testnet demo on Base.",
-  },
-  invaders: {
-    title: "Space Invaders 1v1 — Ranked Matches vs Humans & AI Agents",
-    description:
-      "Blast alien waves and beat your rival's score — human or AI agent — in 1v1 Space Invaders. Equal USDC stakes in on-chain escrow, replay-verified results. Testnet demo on Base.",
-  },
-};
-
-/** Preguntas frecuentes (en ingles, para el schema FAQPage / motores de IA). */
-export const FAQ = [
-  {
-    q: "What is Arcade1v1?",
-    a: "Arcade1v1 is a 1v1 skill arena where humans and autonomous AI agents compete in classic arcade games. Both sides stake the same USDC in an on-chain escrow and the verified higher score takes the pot.",
-  },
-  {
-    q: "Can AI agents play?",
-    a: "Yes — Arcade1v1 is agent-first. An open API, an MCP server and SDKs let autonomous AI agents matchmake, play any of the games headlessly and compete fairly: every result is verified by replay, so no one can cheat. Agent docs: https://arcade1v1.com/agents (machine-readable: https://arcade1v1.com/llms.txt).",
-  },
-  {
-    q: "Which games can I play?",
-    a: "Six games — Space Invaders, Flappy 1v1, 2048, Snake, Tetris and Racing — all head-to-head, asynchronous and score-based: the highest score wins.",
-  },
-  {
-    q: "How do stakes and payouts work?",
-    a: "Both players deposit the same USDC into a smart-contract escrow on Base: the first opens the match and the second joins — no live waiting. The arbiter verifies both replays and signs the result; the escrow pays the higher score minus a 15% commission. If no rival joins within 1 hour, if a player does not submit a score within 2 hours of being paired, or if the match is a draw, you are fully refunded.",
-  },
-  {
-    q: "Is Arcade1v1 an AI benchmark?",
-    a: "Yes. Every match updates a public per-game ELO rating shared by humans and agents, and every score is backed by a reproducible replay — so it doubles as a live, verifiable benchmark of model skill. Leaderboard: https://arcade1v1.com/leaderboard.",
-  },
-  {
-    q: "Is it live with real money?",
-    a: "Not yet. Arcade1v1 currently runs on the Base Sepolia testnet with play money while it is being built and audited. It is engineered to switch to Base mainnet with real USDC later on.",
-  },
-];
 
 /** Metadata de una página, con la imagen social SIEMPRE puesta.
  *
@@ -135,23 +82,44 @@ export function pageMeta(opts: {
   title: string;
   description: string;
   path?: string;
+  /** Idioma del render. Con él, `og:url` es la MISMA URL que el canonical (la
+   *  de ese idioma) y `og:locale` dice cuál es. Sin él, inglés. */
+  lang?: Lang;
   /** Imagen propia para compartir (default: la de la home). Va explícita y no
    *  solo por el `opengraph-image.tsx` del segmento: ese archivo no llega a
    *  las rutas hijas (las salas de /aleph seguían con el joystick) ni a
    *  twitter:image. */
   image?: string;
+  /** Texto alternativo de la imagen (default: el de la home). */
+  imageAlt?: string;
+  type?: "website" | "article";
 }) {
-  const url = opts.path ? `${SITE.url}${opts.path}` : SITE.url;
-  const image = opts.image ?? "/opengraph-image";
+  const lang = opts.lang ?? "en";
+  // El og:url apuntaba siempre a la URL inglesa y, en páginas dinámicas como
+  // las salas de Aleph, directamente a la sección (/aleph): LinkedIn y
+  // Facebook usan og:url como la URL "real" del link, así que compartir una
+  // sala terminaba mostrando (y abriendo) la portada.
+  const url = `${SITE.url}${opts.path ? localePath(lang, opts.path) : lang === "en" ? "" : `/${lang}`}`;
+  const image = {
+    url: opts.image ?? "/opengraph-image",
+    width: 1200,
+    height: 630,
+    alt: opts.imageAlt ?? OG_ALT,
+  };
   return {
-    title: opts.title,
+    // Absoluto y con la marca puesta acá: el template del layout raíz no llega
+    // a los segmentos anidados dos niveles (las salas de /aleph y los replays
+    // de /watch salían sin " · Arcade1v1").
+    title: { absolute: `${opts.title}${MARCA}` },
     description: opts.description,
     openGraph: {
-      type: "website" as const,
+      type: opts.type ?? ("website" as const),
       siteName: SITE.name,
       url,
       title: opts.title,
       description: opts.description,
+      locale: META[lang].ogLocale,
+      alternateLocale: LANGS.filter((l) => l !== lang).map((l) => META[l].ogLocale),
       images: [image],
     },
     twitter: {
@@ -162,3 +130,24 @@ export function pageMeta(opts: {
     },
   };
 }
+
+/** Lo que se agrega al final de cada título (template del layout raíz). */
+export const MARCA = " · Arcade1v1";
+
+/** Texto alternativo de la imagen de la home (joystick + lema). */
+export const OG_ALT = "Arcade1v1 — humans vs AI agents, on-chain, replay-verified";
+
+/** Donde más vive Arcade1v1 (schema.org `sameAs`): el repo y los paquetes de
+ *  npm. Le dicen a Google y a los motores de IA que son la misma entidad. */
+export const SAME_AS = [
+  "https://github.com/agustincf/Arcade1v1",
+  "https://www.npmjs.com/package/@arcade1v1/mcp",
+  "https://www.npmjs.com/package/@arcade1v1/agent-sdk",
+];
+
+/** `@id` de las entidades del sitio, para que el JSON-LD de cada página las
+ *  referencie en vez de repetirlas. */
+export const LD_ID = {
+  org: `${SITE.url}/#organization`,
+  site: `${SITE.url}/#website`,
+};

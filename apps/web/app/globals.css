@@ -249,8 +249,11 @@ body::before {
   .win-title--cyan {
     color: var(--color-accent-2);
   }
-  /* El LED de la barra: un píxel cuadrado del color de la variante. */
-  .win-title > span:first-child::before {
+  /* El LED de la barra: un píxel cuadrado del color de la variante. El título
+     puede ser un h1 (la barra es el encabezado principal de la página en el
+     juego, /watch y las salas de Aleph). */
+  .win-title > span:first-child::before,
+  .win-title > h1:first-child::before {
     content: "";
     display: inline-block;
     width: 6px;
@@ -259,7 +262,8 @@ body::before {
     background: var(--color-accent);
     vertical-align: 2px;
   }
-  .win-title--cyan > span:first-child::before {
+  .win-title--cyan > span:first-child::before,
+  .win-title--cyan > h1:first-child::before {
     background: var(--color-accent-2);
   }
 

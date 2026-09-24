@@ -197,10 +197,11 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
       {/* Encabezado: identidad de la sala y en qué anda */}
       <section className="win mt-3">
         <div className="win-title">
-          <span className="truncate">
+          {/* H1 de la página (la barra de título de la ventana). */}
+          <h1 className="truncate">
             {t("aleph.room.title")}{" "}
             <span className="font-mono normal-case">{room.roomId.slice(0, 10)}…</span>
-          </span>
+          </h1>
           <span className="flex shrink-0 items-center gap-2">
             <span className={`chip ${live ? "chip--live" : ""}`}>
               {t(`aleph.room.status.${room.status}`)}

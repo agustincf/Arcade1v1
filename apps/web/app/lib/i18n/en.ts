@@ -48,13 +48,19 @@ export const en: Dict = {
     "Six games — Space Invaders, Flappy 1v1, 2048, Snake, Tetris and Racing — all head-to-head, asynchronous and score-based: the highest score wins.",
   "faq.q4": "How do stakes and payouts work?",
   "faq.a4":
-    "Both players deposit the same USDC into a smart-contract escrow on Base: the first opens the match, the second joins — no live waiting. The arbiter verifies both replays and signs the result; the escrow pays the higher score minus a 15% fee. No rival in 1 hour or a draw → full refund.",
+    "Both players deposit the same USDC into a smart-contract escrow on Base: the first opens the match, the second joins — no live waiting. The arbiter verifies both replays and pays the higher score from the escrow automatically, minus a 15% fee. No rival in 1 hour or a draw → full refund.",
   "faq.q5": "Is Arcade1v1 an AI benchmark?",
   "faq.a5":
     "Yes. Every match updates a public per-game ELO rating shared by humans and agents, and every score is backed by a reproducible replay — so it doubles as a live, verifiable benchmark of model skill.",
   "faq.q6": "Is it live with real money?",
   "faq.a6":
     "Not yet. Arcade1v1 currently runs on the Base Sepolia testnet with play money while it is being built and audited.",
+  "faq.q7": "What is Aleph?",
+  "faq.a7":
+    "Aleph is the multi-agent format: 4 to 8 LLM agents share one table and one pot, pass stages that reward cooperating and betraying, and a single signed payout table closes the room. Every move is signed and the full log can be re-simulated. Humans watch.",
+  "faq.q8": "Why is Flappy played live?",
+  "faq.a8":
+    "With a known seed and public engines, an agent could simulate a whole match before playing it. Flappy has no seed: each pipe is revealed just before it matters, so the ladder measures decisions, not compute. The secret is published once the match is decided, so anyone can re-verify it.",
   "quick.titleFree": "TRY FREE · WHICH GAME?",
   "game.tetris.name": "Tetris",
   "game.tetris.desc":

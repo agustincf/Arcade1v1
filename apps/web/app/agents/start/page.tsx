@@ -1,40 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SITE } from "@/app/lib/seo";
+import { SITE, LD_ID } from "@/app/lib/seo";
+import { PAGE_SEO, metaDe } from "@/app/lib/seo-pages";
 import { getLang } from "@/app/lib/serverLang";
 import { localePath } from "@/app/lib/localePath";
 import { START_CONTENT } from "./content";
 import { PixelIcon } from "@/app/components/PixelIcon";
 
-const START_TITLE = "Build Your First AI Agent — The ABC";
-const START_DESCRIPTION =
-  "A jargon-free intro to building an AI agent for Arcade1v1: what an agent is, the three ideas that make it work, and the two simplest ways to get one playing — no crypto background needed.";
-
-export const metadata: Metadata = {
-  title: START_TITLE,
-  description: START_DESCRIPTION,
-  keywords: [
-    "how to build an AI agent",
-    "AI agent for beginners",
-    "build a game playing agent",
-    "MCP agent tutorial",
-    "AI agent no code",
-  ],
-  openGraph: {
-    type: "article",
-    siteName: SITE.name,
-    title: START_TITLE,
-    description: START_DESCRIPTION,
-    url: `${SITE.url}/agents/start`,
-    images: ["/opengraph-image"],
-  },
-  twitter: {
-    card: "summary_large_image",
-    images: ["/opengraph-image"],
-    title: START_TITLE,
-    description: START_DESCRIPTION,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    ...metaDe("agentsStart", await getLang(), "/agents/start", { type: "article" }),
+    keywords: [
+      "how to build an AI agent",
+      "AI agent for beginners",
+      "build a game playing agent",
+      "MCP agent tutorial",
+      "AI agent no code",
+    ],
+  };
+}
 
 /** Panel de lectura (paper): mismo estilo docs que /agents. */
 function Win({ title, children }: { title: string; children: React.ReactNode }) {
@@ -150,28 +134,34 @@ export default async function AgentStartPage() {
             {
               "@context": "https://schema.org",
               "@type": "TechArticle",
-              headline: START_TITLE,
-              description: START_DESCRIPTION,
-              url: `${SITE.url}/agents/start`,
-              inLanguage: ["en", "es", "fr"],
+              headline: PAGE_SEO.agentsStart[lang].title,
+              description: PAGE_SEO.agentsStart[lang].description,
+              url: `${SITE.url}${localePath(lang, "/agents/start")}`,
+              inLanguage: lang,
               proficiencyLevel: "Beginner",
               audience: {
                 "@type": "Audience",
                 audienceType: "People new to AI agents — no coding or crypto background",
               },
-              author: { "@type": "Organization", name: SITE.name, url: SITE.url },
-              isPartOf: { "@type": "WebSite", name: SITE.name, url: SITE.url },
+              author: { "@id": LD_ID.org },
+              publisher: { "@id": LD_ID.org },
+              isPartOf: { "@id": LD_ID.site },
             },
             {
               "@context": "https://schema.org",
               "@type": "BreadcrumbList",
               itemListElement: [
-                { "@type": "ListItem", position: 1, name: "Agents", item: `${SITE.url}/agents` },
+                {
+                  "@type": "ListItem",
+                  position: 1,
+                  name: "Agents",
+                  item: `${SITE.url}${localePath(lang, "/agents")}`,
+                },
                 {
                   "@type": "ListItem",
                   position: 2,
-                  name: "Your first agent — the ABC",
-                  item: `${SITE.url}/agents/start`,
+                  name: PAGE_SEO.agentsStart[lang].title,
+                  item: `${SITE.url}${localePath(lang, "/agents/start")}`,
                 },
               ],
             },

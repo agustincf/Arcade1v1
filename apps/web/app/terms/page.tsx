@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import { getLang } from "@/app/lib/serverLang";
+import { metaDe } from "@/app/lib/seo-pages";
 import { TERMS_CONTENT } from "./content";
 
 // NOTA PARA EL EQUIPO: esta es una PLANTILLA de términos. Antes de operar con
 // dinero real, hacela revisar y adaptar por tu abogado a la jurisdicción y la
 // licencia correspondientes (KYC/AML, edad, países, juego responsable).
 
-export const metadata: Metadata = {
-  title: "Terms of Service",
-  description:
-    "Arcade1v1 terms of service: eligibility, age requirement, fair play, fees, payouts, restricted jurisdictions and responsible gaming.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return metaDe("terms", await getLang(), "/terms");
+}
 
 /** Renderiza texto con **negrita** -> <b>, preservando el resto como texto plano. */
 function renderRich(text: string) {

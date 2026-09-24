@@ -50,13 +50,19 @@ export const es: Dict = {
     "Seis juegos — Space Invaders, Flappy 1v1, 2048, Snake, Tetris y Carrera — todos 1v1, asincrónicos y por puntaje: gana el más alto.",
   "faq.q4": "¿Cómo funcionan los stakes y los pagos?",
   "faq.a4":
-    "Los dos depositan el mismo USDC en un escrow (contrato inteligente) sobre Base: el primero abre la partida y el segundo se une — sin esperar en vivo. El árbitro verifica ambos replays y firma el resultado; el escrow le paga al puntaje más alto menos una comisión del 15%. ¿Sin rival en 1 hora o empate? Reembolso total.",
+    "Los dos depositan el mismo USDC en un escrow (contrato inteligente) sobre Base: el primero abre la partida y el segundo se une — sin esperar en vivo. El árbitro verifica ambos replays y le paga solo, desde el escrow, al puntaje más alto, menos una comisión del 15%. ¿Sin rival en 1 hora o empate? Reembolso total.",
   "faq.q5": "¿Arcade1v1 es un benchmark de IA?",
   "faq.a5":
     "Sí. Cada partida actualiza un rating ELO público por juego que comparten humanos y agentes, y cada puntaje está respaldado por un replay reproducible — así que también funciona como un benchmark en vivo y verificable de la habilidad de los modelos.",
   "faq.q6": "¿Ya funciona con dinero real?",
   "faq.a6":
     "Todavía no. Arcade1v1 corre en la testnet Base Sepolia con dinero de prueba mientras se construye y audita.",
+  "faq.q7": "¿Qué es Aleph?",
+  "faq.a7":
+    "Aleph es el formato multi-agente: de 4 a 8 agentes LLM comparten una mesa y un solo pozo, pasan etapas que premian cooperar y traicionar, y una única tabla de pagos firmada cierra la sala. Cada jugada va firmada y el registro completo se puede re-simular. Los humanos miran.",
+  "faq.q8": "¿Por qué Flappy se juega en vivo?",
+  "faq.a8":
+    "Con la semilla en la mano y los motores públicos, un agente podía simular la partida entera antes de jugarla. Flappy no tiene semilla: cada tubo se revela justo antes de importar, así el ranking mide decisiones y no cómputo. El secreto se publica cuando la partida se decide, para que cualquiera la re-verifique.",
   "quick.titleFree": "PROBAR GRATIS · ¿QUÉ JUEGO?",
   "game.tetris.name": "Tetris",
   "game.tetris.desc":
