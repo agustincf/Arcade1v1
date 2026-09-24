@@ -60,7 +60,7 @@ export default function ProbadorDeCriaturas() {
             {ESTADOS.map((estado) => (
               <li key={estado} className="flex flex-col items-center gap-1">
                 <Criatura address={address} estado={estado} clase="criatura--mesa" />
-                <span className="font-mono text-px10 text-(--color-muted-3)">{estado}</span>
+                <span className="font-mono text-2xs text-(--color-muted-3)">{estado}</span>
               </li>
             ))}
           </ol>

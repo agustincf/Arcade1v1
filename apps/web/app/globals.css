@@ -5,6 +5,7 @@
   --color-bg: #15111b;
   --color-surface: #1f1a29;
   --color-surface-2: #292236;
+  --color-surface-3: #332b44; /* hover de la secundaria */
   --color-border: #3a3150;
 
   /* Acentos con rol asignado */
@@ -16,6 +17,15 @@
   /* Estados */
   --color-win: #5fd68a;
   --color-lose: #f0716f;
+
+  /* La mitad oscura de cada acento: la sombra dura de los botones y el volumen
+     de los sprites. Antes eran hex sueltos adentro de .btn3d, y un sprite no
+     tenía de dónde sacar su sombra sin inventar un color nuevo. */
+  --color-accent-deep: #a04f30;
+  --color-accent-2-deep: #3f8797;
+  --color-gold-deep: #a97f1e;
+  --color-lime-deep: #6f9a45;
+  --color-lose-deep: #8f3230;
 
   /* Estructurales */
   --color-ink: #0e0b13; /* negro oficial (bordes, barras, código) */
@@ -47,19 +57,40 @@
      puede dar el lujo de no leerse. */
   --color-paper-muted-2: #6b6459;
 
+  /* Coral y verde para TEXTO sobre papel. El coral de marca da 2,29:1 ahí; los
+     links usaban #b05230 (4,4:1, apenas bajo AA) y dos links de /aleph, el cyan
+     de marca (1,6:1: no se leían). Este coral da 6,5:1. El verde es el de los
+     métodos GET de /agents, que daba 4,2:1 y ahora 5,4:1. */
+  --color-accent-on-paper: #8f3a1c;
+  --color-win-on-paper: #3f6b26;
+
   /* Foco: había UNO solo, calibrado contra el fondo oscuro (7:1, bien). Sobre
      los paneles claros ese mismo coral daba 2,29:1 — por debajo del 3:1 que
      pide WCAG 2.4.11 — y ahí vive lo importante: el CTA de "Crear agente", el
      FAQ, toda la doc de /agents. Ahora hay uno por fondo. */
   --color-focus: #e8845e;
-  --color-focus-on-paper: #8f3a1c;
+  --color-focus-on-paper: var(--color-accent-on-paper);
 
   /* Velo de los modales. Antes había cuatro opacidades distintas de negro puro
      conviviendo, ignorando el token que esta misma hoja llama "negro oficial". */
   --color-scrim: color-mix(in srgb, var(--color-ink) 88%, transparent);
 
-  /* Tipografía — tamaño pixel chico (antes text-[10px] suelto) */
-  --text-px10: 10px;
+  /* Tipografías. Las variables de cada familia las publica next/font en <html>
+     (layout.tsx). Pisar --font-sans y --font-mono hace que las utilidades de
+     Tailwind (`font-sans`, `font-mono`) usen Chivo y Chivo Mono en todo el
+     sitio: antes `font-mono` caía en la mono del sistema, distinta en cada OS. */
+  --font-sans: var(--font-chivo), -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-chivo-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Escala de la pixel. Press Start 2P está dibujada sobre una grilla de 8 px:
+     solo se ve nítida en múltiplos de 8. En 10, 11 o 30 px cada píxel de la
+     letra cae entre dos del monitor y el borde se lava. */
+  --text-px8: 8px;
+  --text-px16: 16px;
+  --text-px24: 24px;
+  --text-px32: 32px;
+  /* Mono chica para direcciones en lugares angostos (asientos de Aleph). */
+  --text-2xs: 10px;
 }
 
 html,
@@ -87,12 +118,7 @@ button {
 
 /* Fondo: sólido con grilla única ultra-sutil (sin radiales ni scanlines) */
 body {
-  font-family:
-    var(--font-inter),
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* La grilla vive en un pseudo-elemento fijo, FUERA del flujo.
@@ -154,40 +180,67 @@ body::before {
 
 /* --- Tipografías --- */
 @layer components {
+  /* La pixel va SIEMPRE en mayúsculas: está dibujada para caps y en minúsculas
+     ("Space Invaders", "Elegí el juego") se ve rota. La única excepción es el
+     logotipo "Arcade1v1" (Header y footer), que lleva `normal-case`. */
   .font-pixel {
     font-family: var(--font-pixel), "Courier New", monospace;
     letter-spacing: 0.5px;
     line-height: 1.6;
+    text-transform: uppercase;
+  }
+  /* Dónde cae el centro de las mayúsculas de cada fuente (lo usa .px-icon). */
+  :root {
+    --caps-center: 0.35em;
+  }
+  .font-pixel,
+  .btn3d {
+    --caps-center: 0.44em;
   }
   /* Antes VT323; ahora el cuerpo legible del sitio (mismo nombre para no tocar markup) */
   .font-screen {
-    font-family:
-      var(--font-inter),
-      -apple-system,
-      "Segoe UI",
-      Roboto,
-      sans-serif;
+    font-family: var(--font-sans);
     letter-spacing: 0;
   }
 
-  /* --- Tarjeta "ventana" (chrome retro, cuerpo sobrio) --- */
+  /* Rótulo: la voz técnica del sitio (lo que antes eran rótulos en pixel de
+     10 px, que no se leían y se lavaban). Mono en mayúsculas con aire. */
+  .rotulo {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  /* --- Tarjeta "ventana" = una MÁQUINA: algo que corre (el juego, el ranking,
+     el pozo, el espectador). Lo que se LEE va en .paper. Sin la sombra difusa
+     de antes (la misma en todas las cajas: nada se destacaba) y con radio 6,
+     el de los botones. --- */
   .win {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 10px;
+    border-radius: 6px;
     overflow: hidden;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
   }
 
+  /* La barra de título ya no va en pixel: en 10 px se lavaba y en minúsculas
+     se rompía. Es un rótulo técnico, en la mono. Tampoco lleva los puntitos
+     de ventana ni el `.TXT` / `.EXE` de antes: cuando todo es una ventana, la
+     ventana deja de decir algo. */
   .win-title {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 9px 12px;
-    font-family: var(--font-pixel), monospace;
-    font-size: 10px;
-    letter-spacing: 0.5px;
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+    text-transform: uppercase;
     color: var(--color-muted-bright);
     background: var(--color-ink);
     border-bottom: 1px solid var(--color-border);
@@ -196,40 +249,53 @@ body::before {
   .win-title--cyan {
     color: var(--color-accent-2);
   }
+  /* El LED de la barra: un píxel cuadrado del color de la variante. */
   .win-title > span:first-child::before {
     content: "";
     display: inline-block;
-    width: 8px;
-    height: 8px;
-    margin-right: 8px;
+    width: 6px;
+    height: 6px;
+    margin-right: 10px;
     background: var(--color-accent);
-    vertical-align: 1px;
+    vertical-align: 2px;
   }
   .win-title--cyan > span:first-child::before {
     background: var(--color-accent-2);
   }
-  .win-dots {
+
+  /* --- Pantalla: el fondo de tinta con grilla de puntos donde viven los
+     sprites (las tarjetas de juego, el ícono de la mesa). Un sprite de color
+     de marca no se lee sobre papel ni sobre un botón coral (1,0 a 2,3:1):
+     su lugar es una pantalla. --- */
+  .pantalla {
     display: flex;
-    gap: 4px;
-  }
-  .win-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
-    background: var(--color-border);
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-ink);
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--color-text) 7%, transparent) 1px,
+      transparent 1.2px
+    );
+    background-size: 8px 8px;
   }
 
-  /* --- Botón pixel "apretable" (plano + una sombra dura) --- */
+  /* --- Botón pixel "apretable" (plano + una sombra dura) ---
+     Siempre en mayúsculas: Press Start 2P está dibujada para caps y en
+     minúsculas ("Seguir", "Space Invaders") se ve rota. Es la ÚNICA pixel
+     fuera de la escala de 8 (--text-px*): en 8 px un CTA pierde todo el peso
+     y en 16 "ENTRAR AL DUELO · 10 USDC" no entra en un celular. 11 px lava un
+     poco el borde de la letra; se prefiere a un botón que no se lee. */
   .btn3d {
     font-family: var(--font-pixel), monospace;
     font-size: 11px;
     line-height: 1.4;
+    text-transform: uppercase;
     color: var(--color-ink-2);
     padding: 12px 18px;
     border: 1px solid var(--color-ink);
     border-radius: 6px;
     background: var(--color-gold);
-    box-shadow: 0 3px 0 #a97f1e;
+    box-shadow: 0 3px 0 var(--color-gold-deep);
     cursor: pointer;
     transition:
       transform 0.05s,
@@ -251,7 +317,7 @@ body::before {
   .btn3d--magenta {
     color: var(--color-ink-2);
     background: var(--color-accent);
-    box-shadow: 0 3px 0 #a04f30;
+    box-shadow: 0 3px 0 var(--color-accent-deep);
   }
   .btn3d--magenta:active {
     box-shadow: 0 0 0 rgba(0, 0, 0, 0);
@@ -265,7 +331,7 @@ body::before {
   }
   .btn3d--cyan:hover {
     filter: none;
-    background: #332b44;
+    background: var(--color-surface-3);
   }
   .btn3d--cyan:active {
     box-shadow: 0 0 0 rgba(0, 0, 0, 0);
@@ -276,7 +342,7 @@ body::before {
   .btn3d--danger {
     color: var(--color-ink-2);
     background: var(--color-lose);
-    box-shadow: 0 3px 0 #8f3230;
+    box-shadow: 0 3px 0 var(--color-lose-deep);
   }
   .btn3d--danger:active {
     box-shadow: 0 0 0 rgba(0, 0, 0, 0);
@@ -305,10 +371,11 @@ body::before {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-family: var(--font-inter), sans-serif;
-    font-size: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     padding: 3px 10px;
     border: 1px solid var(--color-border);
     border-radius: 999px;
@@ -343,7 +410,8 @@ body::before {
     }
   }
 
-  /* Ticker (fino y discreto) */
+  /* Ticker (fino y discreto): cinta de datos en la mono. Los separadores son
+     un rombo pixel (Marquee.tsx), no la ★ de texto de antes. */
   .marquee {
     overflow: hidden;
     white-space: nowrap;
@@ -352,13 +420,18 @@ body::before {
   }
   .marquee > span {
     display: inline-block;
-    padding: 5px 0 5px 100%;
+    padding: 6px 0 6px 100%;
     animation: marquee 30s linear infinite;
-    font-family: var(--font-inter), sans-serif;
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: 12px;
     font-weight: 500;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: color-mix(in srgb, var(--color-gold) 75%, var(--color-muted-2));
+  }
+  .marquee-sep {
+    margin-inline: 14px;
+    color: var(--color-accent);
   }
   @keyframes marquee {
     to {
@@ -443,11 +516,10 @@ body::before {
   }
 
   /* La terminal: fondo de tinta, mono chico y `anywhere` para que una wallet
-     larga no rompa la caja. El mono NO se declara acá: no existe ninguna
-     `--font-mono` en el repo (las variables de fuente son `--font-inter`
-     y `--font-pixel`), y el resto de la página ya usa la
-     utilidad `font-mono` de Tailwind en el markup. `Charla.tsx` hace lo mismo:
-     así no hay un `var()` que caiga en vacío sin que nadie se entere. */
+     larga no rompa la caja. El mono NO se declara acá: el resto de la página
+     ya usa la utilidad `font-mono` de Tailwind en el markup (que desde el
+     facelift apunta a Chivo Mono vía `--font-mono`, en el @theme de arriba).
+     `Charla.tsx` hace lo mismo: una sola fuente de verdad para la mono. */
   .charla {
     background: var(--color-ink);
     font-size: 12.5px;
@@ -686,9 +758,15 @@ body::before {
     grid-column: 2;
   }
   /* La columna de texto de la tarjeta angosta mide ~83 px: con el padding
-     normal del chip, "sin decidir" ya no entraba en un renglón. */
+     normal del chip, "sin decidir" ya no entraba en un renglón. Por eso acá
+     el chip conserva la sans en minúsculas: la mono en mayúsculas del resto
+     del sitio es ~20 % más ancha y lo partía en dos. */
   .asiento .chip {
     padding-inline: 6px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: none;
   }
   .asiento--vacia {
     display: flex;
@@ -856,24 +934,27 @@ body::before {
     }
   }
 
-  /* --- Panel "paper": bloque claro de lectura (contraste de secciones) --- */
+  /* --- Panel "paper" = el MANUAL: bloque claro de lectura (cómo funciona, FAQ,
+     docs, términos). Las máquinas van en .win. --- */
   .paper {
     background: var(--color-paper);
     border: 1px solid var(--color-paper-border);
-    border-radius: 10px;
+    border-radius: 6px;
     overflow: hidden;
     color: var(--color-paper-ink);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
   }
   .paper-title {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 9px 12px;
-    font-family: var(--font-pixel), monospace;
-    font-size: 10px;
-    letter-spacing: 0.5px;
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+    text-transform: uppercase;
     color: var(--color-paper-ink);
     background: var(--color-paper-2);
     border-bottom: 1px solid var(--color-paper-border);
@@ -881,14 +962,17 @@ body::before {
   .paper-title > span:first-child::before {
     content: "";
     display: inline-block;
-    width: 8px;
-    height: 8px;
-    margin-right: 8px;
+    width: 6px;
+    height: 6px;
+    margin-right: 10px;
     background: var(--color-accent);
-    vertical-align: 1px;
+    vertical-align: 2px;
   }
+  /* Ojo: una utilidad de color en el markup (`text-(--color-accent-2)`) le gana
+     a esta regla (en Tailwind v4 las utilities van en una capa posterior). Un
+     link dentro del papel no lleva clase de color: hereda esta. */
   .paper a {
-    color: #b05230;
+    color: var(--color-accent-on-paper);
     text-decoration: underline;
     text-underline-offset: 2px;
   }
@@ -901,5 +985,62 @@ body::before {
   }
   .paper a.btn3d--cyan {
     color: var(--color-text);
+  }
+
+  /* --- Sprites e íconos pixel (GameIcon.tsx, PixelIcon.tsx) ---
+     Un <svg> es `display: block` en el preflight de Tailwind: sin esto, un
+     ícono en medio de un texto lo parte en dos renglones. */
+  .px-icon {
+    display: inline-block;
+    flex-shrink: 0;
+    /* Centrado sobre las MAYÚSCULAS del texto que acompaña, mida lo que mida
+       el ícono (PixelIcon publica su alto en --px-icon-h): el centro de las
+       mayúsculas menos la mitad del ícono. En un flex con items-center esto
+       no corre y manda el flex. */
+    vertical-align: calc(var(--caps-center) - var(--px-icon-h, 1em) / 2);
+  }
+  /* La paleta de los sprites son los tokens: cambiar un color de marca acá
+     arriba re-pinta los seis cartuchos. GameIcon.tsx traduce cada letra de
+     sus bitmaps a una de estas clases. */
+  .spr-ink {
+    fill: var(--color-ink);
+  }
+  .spr-coral {
+    fill: var(--color-accent);
+  }
+  .spr-coral-deep {
+    fill: var(--color-accent-deep);
+  }
+  .spr-cyan {
+    fill: var(--color-accent-2);
+  }
+  .spr-cyan-deep {
+    fill: var(--color-accent-2-deep);
+  }
+  .spr-gold {
+    fill: var(--color-gold);
+  }
+  .spr-gold-deep {
+    fill: var(--color-gold-deep);
+  }
+  .spr-lime {
+    fill: var(--color-lime);
+  }
+  .spr-lime-deep {
+    fill: var(--color-lime-deep);
+  }
+  .spr-ivory {
+    fill: var(--color-text);
+  }
+  .spr-white {
+    fill: var(--color-text-strong);
+  }
+  .spr-red {
+    fill: var(--color-lose);
+  }
+  /* Neumáticos y detalles oscuros: el ink no se ve sobre la pantalla (es su
+     mismo color), el borde sí. */
+  .spr-tire {
+    fill: color-mix(in srgb, var(--color-border) 70%, var(--color-muted-3));
   }
 }

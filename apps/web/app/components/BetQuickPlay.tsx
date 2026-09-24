@@ -5,6 +5,7 @@ import { LocaleLink as Link, useLocalePath } from "@/app/components/LocaleLink";
 import { useRouter } from "next/navigation";
 import { GAMES } from "@/app/lib/games";
 import { GameIcon } from "@/app/components/GameIcon";
+import { PixelIcon } from "@/app/components/PixelIcon";
 import { useT } from "@/app/lib/i18n";
 
 export function BetQuickPlay() {
@@ -27,14 +28,16 @@ export function BetQuickPlay() {
           así que acá no compite con la decisión principal. */}
       <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
         <Link href="/build" className="btn3d btn3d--magenta inline-block whitespace-nowrap">
-          🤖 {t("build.cta")}
+          <PixelIcon name="agent" className="mr-2" />
+          {t("build.cta")}
         </Link>
-        <span className="font-pixel flex items-center gap-3 text-[9px] text-(--color-muted-3)">
+        <span className="rotulo flex items-center gap-3 text-(--color-muted-3)">
           <span aria-hidden className="h-px w-10 bg-(--color-border) sm:hidden" />
           {t("hero.or")}
           <span aria-hidden className="h-px w-10 bg-(--color-border) sm:hidden" />
         </span>
         <button onClick={() => setPicking(true)} className="btn3d btn3d--cyan whitespace-nowrap">
+          <PixelIcon name="gamepad" className="mr-2" />
           {t("free.btn")}
         </button>
       </div>
@@ -53,10 +56,12 @@ export function BetQuickPlay() {
                   <button
                     key={g.id}
                     onClick={() => go(g.id)}
-                    className="win flex items-center gap-3 p-3 text-left transition hover:-translate-y-0.5 hover:border-(--color-accent)"
+                    className="win flex items-center gap-3 p-2 pr-3 text-left transition hover:-translate-y-0.5 hover:border-(--color-accent)"
                   >
-                    <GameIcon id={g.id} size={34} />
-                    <span className="font-pixel text-xs text-(--color-text)">
+                    <span className="pantalla h-10 w-10 shrink-0 rounded-sm">
+                      <GameIcon id={g.id} size={32} />
+                    </span>
+                    <span className="font-pixel text-px8 leading-relaxed text-(--color-text)">
                       {t(`game.${g.id}.name`)}
                     </span>
                   </button>

@@ -12,6 +12,7 @@ import { shortAddress } from "@/app/lib/wallet";
 import { Criatura } from "./Criatura";
 import { modeloDeEscena, type AsientoDeEscena, type Traductor } from "./nucleo/escena";
 import type { SalaDeAleph } from "./nucleo/estados";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 /** Cuatro sillas grises mientras llega la sala: mismo alto que la fila real,
  *  así la página no salta cuando carga. */
@@ -48,10 +49,8 @@ export function Portada({
   return (
     <section className="win mt-3">
       <div className="px-4 py-6 text-center sm:px-8 sm:py-8">
-        <p className="font-pixel text-px10 tracking-wide text-(--color-accent-2)">
-          ALEPH · {t("aleph.portada.kicker")}
-        </p>
-        <h1 className="mt-4 font-pixel text-base leading-relaxed text-(--color-text-strong) sm:text-xl">
+        <p className="rotulo text-(--color-accent-2)">ALEPH · {t("aleph.portada.kicker")}</p>
+        <h1 className="mt-4 font-pixel text-px16 leading-relaxed text-(--color-text-strong) sm:text-px24">
           {t("aleph.portada.titulo")}
         </h1>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-(--color-muted) sm:text-base">
@@ -84,7 +83,7 @@ export function Portada({
                         clase="criatura--portada"
                         etiquetaA11y={`${shortAddress(a.address)}, ${chip}, ${a.bolsillo}`}
                       />
-                      <span className="mt-1 font-pixel text-px10 text-(--color-gold)">
+                      <span className="mt-1 font-pixel text-px8 text-(--color-gold)">
                         {a.bolsillo}
                       </span>
                       <span
@@ -104,7 +103,8 @@ export function Portada({
         <div className="mt-6 flex flex-col items-center gap-3">
           {roomId && sala && (
             <Link href={`/aleph/${roomId}`} className="btn3d">
-              ► {t("aleph.portada.mirar")}
+              <PixelIcon name="play" className="mr-2" />
+              {t("aleph.portada.mirar")}
             </Link>
           )}
           <a

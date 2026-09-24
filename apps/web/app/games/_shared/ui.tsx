@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useT } from "@/app/lib/i18n";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 // Piezas visuales COMPARTIDAS por todos los juegos, para que tengan el mismo
 // lenguaje: misma caja de overlay, mismos botones, misma pantalla de fin.
@@ -71,12 +72,13 @@ export function StartScreen({
   return (
     <GameOverlay>
       <div>{icon}</div>
-      <h3 className="font-pixel mt-2 text-sm text-(--color-gold)">{title}</h3>
+      <h3 className="font-pixel mt-3 text-px16 uppercase text-(--color-gold)">{title}</h3>
       <p className="mt-2 max-w-[260px] text-sm leading-relaxed text-(--color-text)">
         {instructions}
       </p>
       <button onClick={onStart} className="btn3d btn3d--magenta mt-4">
         {t("g.start")}
+        <PixelIcon name="play" className="ml-2" />
       </button>
     </GameOverlay>
   );
@@ -103,9 +105,10 @@ export function GameOverScreen({
     <GameOverlay>
       <h3 className="font-pixel text-base text-(--color-lose)">{headline}</h3>
       <p className="mt-3 text-base text-(--color-muted-bright)">{t("g.yourScore")}</p>
-      <p className="font-pixel mt-1 text-3xl text-(--color-accent-2)">{score}</p>
+      <p className="font-pixel mt-1 text-px32 text-(--color-accent-2)">{score}</p>
       <button onClick={onConfirm} className="btn3d btn3d--magenta mt-4">
         {t(free || recorded ? "g.confirmFree" : "g.confirm")}
+        <PixelIcon name="play" className="ml-2" />
       </button>
     </GameOverlay>
   );

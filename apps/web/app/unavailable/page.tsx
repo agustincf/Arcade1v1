@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getLang } from "@/app/lib/serverLang";
 import type { Lang } from "@/app/lib/i18n-dict";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 export const metadata: Metadata = {
   title: "Not available in your region",
@@ -30,8 +31,8 @@ export default async function UnavailablePage() {
   const c = COPY[lang];
   return (
     <div className="mx-auto flex max-w-md flex-col items-center py-16 text-center">
-      <div className="text-6xl">🌍</div>
-      <h1 className="font-pixel mt-4 text-lg text-(--color-gold)">{c.h1}</h1>
+      <PixelIcon name="globe" px={5} className="text-(--color-accent-2)" />
+      <h1 className="font-pixel mt-5 text-px16 leading-relaxed text-(--color-gold)">{c.h1}</h1>
       <p className="mt-4 text-lg leading-relaxed text-(--color-muted)">{c.body}</p>
       <p className="mt-3 text-base leading-relaxed text-(--color-muted-3)">{c.help}</p>
     </div>

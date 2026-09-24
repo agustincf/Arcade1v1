@@ -5,6 +5,7 @@
 
 import { useT } from "@/app/lib/i18n";
 import { HOSTED_AGENTS_PAUSED } from "@/app/lib/config";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 export function HostedPausedNotice({ className = "" }: { className?: string }) {
   const { t } = useT();
@@ -14,6 +15,7 @@ export function HostedPausedNotice({ className = "" }: { className?: string }) {
       role="status"
       className={`win border-(--color-gold) p-4 text-sm leading-relaxed text-(--color-gold) ${className}`}
     >
+      <PixelIcon name="pause" className="mr-2" />
       {t("hosted.paused")}
     </p>
   );

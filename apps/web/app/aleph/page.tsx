@@ -19,6 +19,7 @@ import {
   type AlephRoomView,
   type RecentAlephRoom,
 } from "@/app/lib/arbiter";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 const REFRESH_MS = 10_000;
 const ARBITER = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
@@ -150,10 +151,7 @@ export default function AlephPage() {
             {t("aleph.p3")} {moneyStake !== undefined ? t("aleph.p3Money") : t("aleph.p3Free")}
           </p>
           <p className="mt-4 text-sm text-(--color-paper-muted)">
-            <Link
-              href="/leaderboard"
-              className="font-medium text-(--color-accent-2) hover:underline"
-            >
+            <Link href="/leaderboard" className="font-medium">
               {t("aleph.eloLink")}
             </Link>
           </p>
@@ -236,7 +234,7 @@ export default function AlephPage() {
 
           <p className="mt-4 text-sm leading-relaxed text-(--color-paper-muted)">
             {t("aleph.join.rules")}{" "}
-            <Link href="/agents" className="font-medium text-(--color-accent-2) hover:underline">
+            <Link href="/agents" className="font-medium">
               {t("aleph.join.agentsLink")}
             </Link>
           </p>
@@ -265,14 +263,14 @@ export default function AlephPage() {
                   href={`/aleph/${r.roomId}`}
                   className="win flex items-center gap-3 p-3 transition hover:-translate-y-0.5 hover:border-(--color-accent)"
                 >
-                  <GameIcon id="aleph" size={24} />
+                  <GameIcon id="aleph" size={32} />
                   <span className="min-w-0 flex-1 truncate text-sm text-(--color-muted-bright)">
                     <span className="font-mono">{shortId(r.roomId)}</span>{" "}
                     <span className="text-(--color-muted-3)">
                       · {t("aleph.recent.line", { seats: r.seats.length, stages: r.stages })}
                     </span>
                   </span>
-                  <span className="font-medium text-(--color-accent-2)">📜</span>
+                  <PixelIcon name="play" className="text-(--color-accent-2)" />
                 </Link>
               ))}
             </div>
@@ -299,7 +297,7 @@ function LobbyCard({ l, now, t }: { l: AlephLobby; now: number; t: T }) {
         className="block rounded-lg bg-(--color-surface-2) p-4 transition hover:-translate-y-0.5"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="font-pixel text-sm text-(--color-gold)">
+          <span className="font-pixel text-px8 text-(--color-gold)">
             {t("aleph.lobby.funding", { deposited: dep, seats: l.seats })}
           </span>
           <span className="font-mono text-sm text-(--color-muted-bright)">
@@ -323,7 +321,7 @@ function LobbyCard({ l, now, t }: { l: AlephLobby; now: number; t: T }) {
   return (
     <div className="rounded-lg bg-(--color-surface-2) p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="font-pixel text-sm text-(--color-gold)">
+        <span className="font-pixel text-px8 text-(--color-gold)">
           {t("aleph.lobby.seats", { n: l.seats, max: l.max })}
         </span>
         <span className="font-mono text-sm text-(--color-muted-bright)">

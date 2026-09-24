@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Press_Start_2P } from "next/font/google";
+import { Chivo, Chivo_Mono, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 import { Header } from "@/app/components/Header";
@@ -113,11 +113,22 @@ function StructuredData() {
 // <head>: un pedido a un tercero que BLOQUEA el primer render, más el salto de
 // layout cuando llega. next/font las sirve desde nuestro propio dominio, con el
 // tamaño ya reservado.
-const inter = Inter({
+//
+// Chivo reemplaza a Inter: Inter es la tipografía por defecto de casi toda la
+// UI generada, y el sitio se leía como plantilla. Chivo y Chivo Mono son de
+// Omnibus-Type (Buenos Aires): una grotesca con algo deportivo y retro que
+// se lee bien en 16 px, y su mono hermana para lo técnico (títulos de
+// ventana, chips, código, wallets). Las dos son variables: un solo archivo
+// cubre todos los pesos.
+const chivo = Chivo({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-chivo",
+});
+const chivoMono = Chivo_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-chivo-mono",
 });
 const pressStart = Press_Start_2P({
   subsets: ["latin"],
@@ -130,7 +141,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const lang = await getLang();
   const dict = getDict(lang);
   return (
-    <html lang={lang} className={`${inter.variable} ${pressStart.variable}`}>
+    <html lang={lang} className={`${chivo.variable} ${chivoMono.variable} ${pressStart.variable}`}>
       <head>
         <StructuredData />
         <SeoAlternates />

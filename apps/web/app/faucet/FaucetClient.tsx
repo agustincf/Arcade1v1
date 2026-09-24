@@ -86,7 +86,7 @@ export function FaucetClient() {
         {t("back")}
       </Link>
 
-      <h1 className="mt-3 font-pixel text-xl leading-relaxed text-(--color-text-strong)">
+      <h1 className="mt-3 font-pixel text-px16 leading-relaxed text-(--color-text-strong) sm:text-px24">
         {t("faucet.title")}
       </h1>
       <p className="mt-3 text-base leading-relaxed text-(--color-muted)">{t("faucet.intro")}</p>

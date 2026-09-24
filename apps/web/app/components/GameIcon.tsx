@@ -1,195 +1,162 @@
-// Iconos propios de los juegos (SVG neon), en vez de emojis del sistema.
-// Sin estado: se puede usar en componentes de servidor o cliente.
+// Íconos de los juegos: sprites pixel dibujados con la paleta de la marca.
+// Antes eran vectores neón (#ff3df0, #39ff7a…) con un glow de drop-shadow: la
+// paleta vieja del sitio, que chocaba con el ciruela, el coral y el marfil, y
+// mezclaba pixel art (el invader) con vectores lisos (el pájaro, el auto).
+// Ahora los siete comparten grilla, tamaño de píxel y colores: son la etiqueta
+// del cartucho.
+//
+// Sin estado: se puede usar en componentes de servidor o cliente. Los colores
+// salen de clases `.spr-*` (globals.css), que leen los tokens: el sprite
+// cambia solo si cambia la marca.
+//
+// Van SIEMPRE sobre un fondo oscuro (la `.pantalla`, una tarjeta, la barra):
+// sobre papel o sobre un botón coral los colores de marca dan 1,0 a 2,3:1.
 
-function Sheen({ x, y, w, h, r }: { x: number; y: number; w: number; h: number; r: number }) {
-  return <rect x={x} y={y} width={w} height={h * 0.45} rx={r} fill="rgba(255,255,255,0.45)" />;
-}
+import { fitBitmap, runs, type Bitmap } from "@/app/lib/pixel";
 
-function Blk({ x, y, s, c }: { x: number; y: number; s: number; c: string }) {
-  return (
-    <g>
-      <rect x={x} y={y} width={s} height={s} rx={2} fill={c} />
-      <Sheen x={x + 1} y={y + 1} w={s - 2} h={s - 2} r={1.5} />
-    </g>
-  );
-}
+/** Letra del bitmap -> clase de color (globals.css). */
+const FILL: Record<string, string> = {
+  k: "spr-ink",
+  c: "spr-coral",
+  C: "spr-coral-deep",
+  y: "spr-cyan",
+  Y: "spr-cyan-deep",
+  g: "spr-gold",
+  G: "spr-gold-deep",
+  l: "spr-lime",
+  L: "spr-lime-deep",
+  w: "spr-ivory",
+  W: "spr-white",
+  r: "spr-red",
+  t: "spr-tire",
+};
+
+const SPRITES: Record<string, Bitmap> = {
+  // El invader "pulpo" de 12x8 del original, en coral.
+  invaders: [
+    "......cccc......",
+    "...cccccccccc...",
+    "..cccccccccccc..",
+    "..ccc..cc..ccc..",
+    "..cccccccccccc..",
+    ".....cc..cc.....",
+    "....cc.cc.cc....",
+    "..cc........cc..",
+  ],
+  flappy: [
+    ".....gggggg.....",
+    "...ggggggWWWW...",
+    "..gggggggWWkkg..",
+    "..gggggggWWkkg..",
+    ".ggggggggWWWWgg.",
+    ".GwwwGggggggcccc",
+    ".GwwwGggggggCCC.",
+    "..GGGggggggggg..",
+    "..gggggggggggg..",
+    "...GGGGGGGGGG...",
+    ".....GGGGGG.....",
+  ],
+  // Las cuatro fichas del original ("2 0 / 4 8"), con dígitos de 3x5.
+  "2048": [
+    ".ggggg...ccccc.",
+    "ggkkkgg.cckkkcc",
+    "ggggkgg.cckckcc",
+    "ggkkkgg.cckckcc",
+    "ggkgggg.cckckcc",
+    "ggkkkgg.cckkkcc",
+    ".ggggg...ccccc.",
+    "...............",
+    ".yyyyy...lllll.",
+    "yykykyy.llkkkll",
+    "yykykyy.llklkll",
+    "yykkkyy.llkkkll",
+    "yyyykyy.llklkll",
+    "yyyykyy.llkkkll",
+    ".yyyyy...lllll.",
+  ],
+  // Snake v2 tiene moneda: va la moneda, no la fruta.
+  snake: [
+    ".lll.lll.lll....",
+    "clkl.lll.lll....",
+    ".lll.lll.lll....",
+    "................",
+    ".........lll....",
+    ".........lll..g.",
+    ".........lll.gWg",
+    "..............g.",
+    ".lll.lll.lll....",
+    ".lll.lll.lll....",
+    ".lll.lll.lll....",
+  ],
+  tetris: [
+    ".....ggggGyyyyY",
+    ".....gWggGyWyyY",
+    ".....ggggGyyyyY",
+    ".....ggggGyyyyY",
+    ".....GGGGGYYYYY",
+    "ccccCllllL.....",
+    "cWccClWllL.....",
+    "ccccCllllL.....",
+    "ccccCllllL.....",
+    "CCCCCLLLLL.....",
+  ],
+  racing: [
+    "...yyyy...",
+    "..yWyyyy..",
+    "ttyyyyyytt",
+    "ttykkkkytt",
+    "ttykkkkytt",
+    "..yyyyyy..",
+    "..yyYYyy..",
+    "..yyYYyy..",
+    "..yyYYyy..",
+    "ttyyYYyytt",
+    "ttyyyyyytt",
+    "ttykkkkytt",
+    "..yyyyyy..",
+    "..ryyyyr..",
+  ],
+  // Aleph no es un cartucho: es la mesa. Ocho asientos alrededor del pozo,
+  // cuatro ocupados.
+  aleph: [
+    ".......yy.......",
+    ".......yy.......",
+    "..YY........yy..",
+    "..YY........yy..",
+    "......gggg......",
+    ".....gWgggg.....",
+    "....gWgggggg....",
+    "YY..gggggggg..yy",
+    "YY..gggggggg..yy",
+    "....gggggggg....",
+    ".....GggggG.....",
+    "......GGGG......",
+    "..YY........yy..",
+    "..YY........yy..",
+    ".......YY.......",
+    ".......YY.......",
+  ],
+};
+
+/** Todos los sprites se miden contra la misma grilla de 16: a un mismo `size`,
+ *  el píxel mide lo mismo en los siete (floor(size / 16)). */
+const GRID = 16;
 
 export function GameIcon({ id, size = 48 }: { id: string; size?: number }) {
-  const glow =
-    id === "aleph"
-      ? "#6cc9da"
-      : id === "tetris"
-        ? "#27e8ff"
-        : id === "flappy"
-          ? "#ffd23d"
-          : id === "racing"
-            ? "#39ff7a"
-            : id === "2048"
-              ? "#ffd23d"
-              : id === "snake"
-                ? "#39ff7a"
-                : "#ff3df0";
-
+  const rows = SPRITES[id] ?? [];
+  const { viewBox } = fitBitmap(rows, size, GRID);
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 48 48"
-      style={{ filter: `drop-shadow(0 0 4px ${glow})` }}
+      viewBox={viewBox}
+      shapeRendering="crispEdges"
+      className="px-icon"
+      aria-hidden="true"
     >
-      {id === "tetris" && (
-        <>
-          {/* Pieza S de bloques neon */}
-          <Blk x={16} y={6} s={13} c="#ffd23d" />
-          <Blk x={29} y={6} s={13} c="#27e8ff" />
-          <Blk x={3} y={19} s={13} c="#c06bff" />
-          <Blk x={16} y={19} s={13} c="#39ff7a" />
-        </>
-      )}
-
-      {id === "flappy" && (
-        <>
-          <ellipse cx="24" cy="40" rx="11" ry="3" fill="rgba(0,0,0,0.25)" />
-          <circle cx="23" cy="25" r="14" fill="#ffd23d" />
-          <path d="M9 25 a14 14 0 0 1 28 0 z" fill="rgba(255,255,255,0.35)" />
-          <ellipse cx="17" cy="28" rx="7" ry="5" fill="#ff9f1c" />
-          <circle cx="30" cy="20" r="5" fill="#fff" />
-          <circle cx="31" cy="20" r="2.4" fill="#0a0518" />
-          <path d="M36 23 L46 25 L36 28 Z" fill="#ff7a00" />
-        </>
-      )}
-
-      {id === "racing" && (
-        <>
-          <ellipse cx="24" cy="42" rx="13" ry="3" fill="rgba(0,0,0,0.25)" />
-          {/* ruedas */}
-          <rect x="9" y="12" width="6" height="11" rx="2" fill="#0a0510" />
-          <rect x="33" y="12" width="6" height="11" rx="2" fill="#0a0510" />
-          <rect x="9" y="28" width="6" height="11" rx="2" fill="#0a0510" />
-          <rect x="33" y="28" width="6" height="11" rx="2" fill="#0a0510" />
-          {/* carroceria */}
-          <rect x="14" y="5" width="20" height="38" rx="8" fill="#39ff7a" />
-          <rect x="15" y="6" width="18" height="14" rx="7" fill="rgba(255,255,255,0.4)" />
-          {/* parabrisas y franjas */}
-          <rect x="18" y="14" width="12" height="9" rx="3" fill="rgba(0,0,0,0.55)" />
-          <rect x="22" y="26" width="4" height="14" fill="#0a3d1f" />
-          {/* luces */}
-          <rect x="16" y="39" width="6" height="3" rx="1" fill="#ff3b3b" />
-          <rect x="26" y="39" width="6" height="3" rx="1" fill="#ff3b3b" />
-        </>
-      )}
-
-      {id === "2048" && (
-        <>
-          {[
-            { x: 4, y: 4, c: "#27e8ff", n: "2" },
-            { x: 26, y: 4, c: "#ffd23d", n: "0" },
-            { x: 4, y: 26, c: "#39ff7a", n: "4" },
-            { x: 26, y: 26, c: "#ff3df0", n: "8" },
-          ].map((t, i) => (
-            <g key={i}>
-              <rect x={t.x} y={t.y} width={18} height={18} rx={3} fill={t.c} />
-              <rect
-                x={t.x + 1}
-                y={t.y + 1}
-                width={16}
-                height={7}
-                rx={2}
-                fill="rgba(255,255,255,0.4)"
-              />
-              <text
-                x={t.x + 9}
-                y={t.y + 14}
-                textAnchor="middle"
-                fontSize={13}
-                fontWeight="bold"
-                fontFamily="monospace"
-                fill="#1a0033"
-              >
-                {t.n}
-              </text>
-            </g>
-          ))}
-        </>
-      )}
-
-      {id === "snake" && (
-        <>
-          {/* cuerpo de la serpiente */}
-          {[
-            [8, 30],
-            [18, 30],
-            [28, 30],
-            [28, 20],
-            [28, 10],
-            [18, 10],
-          ].map(([x, y], i) => (
-            <rect key={i} x={x} y={y} width={10} height={10} rx={2} fill="#39ff7a" />
-          ))}
-          {/* cabeza */}
-          <rect x={8} y={10} width={10} height={10} rx={2} fill="#b6ff3d" />
-          <rect x={10} y={12} width={2} height={2} fill="#0a0518" />
-          {/* comida */}
-          <circle cx={40} cy={40} r={4} fill="#ff3df0" />
-        </>
-      )}
-
-      {id === "invaders" && (
-        <>
-          {/* invader clasico en pixeles */}
-          {(() => {
-            const P = ["00100100", "01111110", "11011011", "11111111", "10111101", "10100101"];
-            const s = 5;
-            const ox = 4;
-            const oy = 8;
-            const cells: React.ReactNode[] = [];
-            P.forEach((rowStr, r) =>
-              rowStr.split("").forEach((ch, c) => {
-                if (ch === "1")
-                  cells.push(
-                    <rect
-                      key={`${r}-${c}`}
-                      x={ox + c * s}
-                      y={oy + r * s}
-                      width={s}
-                      height={s}
-                      fill="#ff3df0"
-                    />,
-                  );
-              }),
-            );
-            return cells;
-          })()}
-        </>
-      )}
-
-      {id === "aleph" && (
-        <>
-          {/* La mesa: ocho asientos alrededor de un pozo unico. No es un
-              cartucho, asi que no lleva pixeles ni nave: lleva la mesa. */}
-          {Array.from({ length: 8 }, (_, i) => {
-            const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
-            return (
-              <circle
-                key={i}
-                cx={24 + Math.cos(a) * 17}
-                cy={24 + Math.sin(a) * 17}
-                r={3.6}
-                fill={i < 4 ? "#6cc9da" : "rgba(108,201,218,0.45)"}
-              />
-            );
-          })}
-          <circle cx={24} cy={24} r={10} fill="#f2c14e" />
-          <circle cx={24} cy={21} r={7} fill="rgba(255,255,255,0.35)" />
-        </>
-      )}
-
-      {id === "coming-soon" && (
-        <>
-          <path d="M24 4 L29 19 L44 24 L29 29 L24 44 L19 29 L4 24 L19 19 Z" fill="#ff3df0" />
-          <path d="M24 4 L29 19 L44 24 L24 24 Z" fill="rgba(255,255,255,0.4)" />
-        </>
-      )}
+      {runs(rows).map((r, i) => (
+        <rect key={i} x={r.x} y={r.y} width={r.w} height={1} className={FILL[r.ch]} />
+      ))}
     </svg>
   );
 }

@@ -15,6 +15,7 @@ import { failureText } from "@/app/lib/errors";
 import { ProfileEditor } from "./ProfileEditor";
 import { HostedPausedNotice } from "@/app/components/HostedPausedNotice";
 import { HOSTED_AGENTS_PAUSED } from "@/app/lib/config";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 export default function MyAgentsPage() {
   const { t } = useT();
@@ -109,7 +110,8 @@ export default function MyAgentsPage() {
             <div className="py-8 text-center">
               <p className="text-base text-(--color-muted)">{t("myagents.empty")}</p>
               <Link href="/build" className="btn3d btn3d--magenta mt-5 inline-block">
-                🤖 {t("myagents.buildFirst")}
+                <PixelIcon name="agent" className="mr-2" />
+                {t("myagents.buildFirst")}
               </Link>
             </div>
           ) : (
@@ -126,7 +128,7 @@ export default function MyAgentsPage() {
                     <div className="min-w-0 flex-1">
                       <Link
                         href={`/my-agents/${a.id}`}
-                        className="font-pixel block truncate text-xs text-(--color-text) hover:text-(--color-accent-2)"
+                        className="font-pixel block truncate text-px8 leading-relaxed text-(--color-text) hover:text-(--color-accent-2)"
                       >
                         {a.name}
                       </Link>
@@ -148,7 +150,10 @@ export default function MyAgentsPage() {
                       disabled={busy === a.id}
                       className="btn3d btn3d--sm btn3d--cyan disabled:opacity-50"
                     >
-                      {a.active ? "❚❚" : "▶"}
+                      <PixelIcon
+                        name={a.active ? "pause" : "play"}
+                        label={a.active ? t("agent.pause") : t("agent.resume")}
+                      />
                     </button>
                   </div>
                 ))}

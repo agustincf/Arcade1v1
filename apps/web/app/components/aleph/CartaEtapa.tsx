@@ -27,7 +27,7 @@ export function CartaEtapa({
     <div className="carta-etapa mt-4">
       {carta.etapa && (
         <>
-          <p className="font-pixel text-sm text-(--color-muted-bright)">
+          <p className="font-pixel text-px16 leading-relaxed text-(--color-muted-bright)">
             {t("aleph.room.stageHead", {
               n: carta.etapa.n,
               kind: t(`aleph.stage.${carta.etapa.kind}`),
@@ -56,7 +56,7 @@ export function CartaEtapa({
       )}
       {carta.cierre && (
         <>
-          <p className="font-pixel text-sm text-(--color-muted-bright)">
+          <p className="font-pixel text-px16 leading-relaxed text-(--color-muted-bright)">
             {t("aleph.scene.settledTitle")}
           </p>
           <p className="mt-2 text-sm leading-relaxed text-(--color-muted)">

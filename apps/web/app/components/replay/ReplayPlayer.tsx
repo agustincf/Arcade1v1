@@ -28,6 +28,7 @@ import {
   tetrisCanvasSize,
   g2048CanvasSize,
 } from "./render";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 /** Simulación normalizada: avanzar un tick y dibujar, para cualquier juego. */
 interface Sim {
@@ -238,6 +239,7 @@ export function ReplayPlayer({
   replay,
   secret,
   label,
+  winner = false,
   autoPlay = true,
   onEnd,
 }: {
@@ -247,6 +249,8 @@ export function ReplayPlayer({
   secret?: string;
   /** Etiqueta chica arriba del canvas (ej. nombre del jugador). */
   label?: string;
+  /** Este intento ganó la partida: la etiqueta lleva el trofeo. */
+  winner?: boolean;
   autoPlay?: boolean;
   onEnd?: (finalScore: number) => void;
 }) {
@@ -304,8 +308,9 @@ export function ReplayPlayer({
   return (
     <div className="flex flex-col items-center gap-2">
       {label && (
-        <div className="font-pixel w-full truncate text-center text-px10 text-(--color-muted-2)">
+        <div className="w-full truncate text-center font-mono text-xs text-(--color-muted-2)">
           {label}
+          {winner && <PixelIcon name="trophy" className="ml-1.5 text-(--color-gold)" />}
         </div>
       )}
       <div
@@ -315,7 +320,7 @@ export function ReplayPlayer({
         <canvas ref={canvasRef} width={size.w} height={size.h} className="block h-auto w-full" />
         {ended && (
           <div className="absolute inset-x-0 bottom-0 bg-(--color-scrim) py-2 text-center">
-            <span className="font-pixel text-xs text-(--color-gold)">
+            <span className="font-pixel text-px8 text-(--color-gold)">
               {t("replay.final")}: {score}
             </span>
           </div>
@@ -329,7 +334,10 @@ export function ReplayPlayer({
           }}
           className="btn3d btn3d--cyan btn3d--sm"
         >
-          {ended ? "⟲" : playing ? "❚❚" : "▶"}
+          <PixelIcon
+            name={ended ? "rewind" : playing ? "pause" : "play"}
+            label={ended ? t("replay.again") : playing ? t("replay.pause") : t("replay.play")}
+          />
         </button>
         <button
           onClick={() => setSpeedIdx((i) => (i + 1) % SPEEDS.length)}
@@ -337,7 +345,7 @@ export function ReplayPlayer({
         >
           {SPEEDS[speedIdx]}x
         </button>
-        <span className="font-pixel ml-2 text-xs text-(--color-gold)">{score}</span>
+        <span className="font-pixel ml-2 text-px8 text-(--color-gold)">{score}</span>
       </div>
     </div>
   );
