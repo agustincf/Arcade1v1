@@ -28,7 +28,7 @@ import {
   updateAgent,
   type HostedAgent,
 } from "./agents.js";
-import { liveStart, liveCommit, LiveError } from "./live.js";
+import { liveStart, liveCommit, LiveError, LiveUnavailableError } from "./live.js";
 import { webhookAgentsEnabled } from "./webhook-fetch.js";
 import { resolveDisplay } from "./profiles.js";
 
@@ -268,6 +268,12 @@ agentsRouter.post("/agents/:id/play", async (req, res) => {
 function liveFail(res: Response, e: unknown): void {
   if (e instanceof LiveError) {
     res.status(400).json({ error: e.message });
+    return;
+  }
+  // El intento no se pudo guardar: nada se reveló, y reintentar es lo correcto.
+  if (e instanceof LiveUnavailableError) {
+    res.setHeader("Retry-After", "2");
+    res.status(503).json({ error: e.message });
     return;
   }
   console.error("[live byo]", (e as Error)?.stack ?? e);

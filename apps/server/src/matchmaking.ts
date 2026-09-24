@@ -26,6 +26,7 @@ import {
 } from "./onchain.js";
 import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
 import { jsonStore } from "./persist.js";
+import { forgetLiveAttempts, saveLiveAttempt, withLiveLock } from "./live-store.js";
 import { recordMatchCreated, recordMatchSettled, recordVerificationRejected } from "./stats.js";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
@@ -233,6 +234,13 @@ export const SUBMIT_WINDOW_MS = Number(process.env.SUBMIT_WINDOW_MS ?? 2 * 60 * 
 const store$ = jsonStore("matches");
 const FINISHED_TTL = 2 * 24 * 60 * 60 * 1000; // 2 días: purga partidas terminadas viejas
 
+/** Saca una partida de memoria, y con ella los registros de sus intentos en
+ *  vivo (live-store.ts), si tenía: sin esto quedarían en el store para siempre. */
+function dropMatch(m: Match): void {
+  matches.delete(m.id);
+  if (m.live) forgetLiveAttempts(m.id, Object.keys(m.live));
+}
+
 function serializeMatches(): string {
   const now = Date.now();
   const arr = [...matches.values()].filter((m) => {
@@ -415,7 +423,7 @@ export async function matchmake(
   // Limpieza: un waiter ya emparejado o abandonado (viejo) no debe trabar la cola.
   if (waiter && (waiter.p2 || Date.now() - waiter.createdAt > WAIT_TTL)) {
     queue.delete(k);
-    if (!waiter.p2) matches.delete(waiter.id);
+    if (!waiter.p2) dropMatch(waiter);
     waiter = undefined;
   }
   // Un waiter nacido con OTRAS reglas (el deploy que subió la versión del juego
@@ -540,19 +548,37 @@ export async function submitScore(
         `replay not allowed: ${m.game} is live — play through /match/:id/live/start and /live/commit`,
       );
     }
-    m.live ??= {};
-    const prev = m.live[address];
-    m.live[address] = {
-      tokenHash: prev?.tokenHash ?? "",
-      startedAt: prev?.startedAt ?? Date.now(),
-      tick: prev?.tick ?? 0,
-      flaps: prev?.flaps ?? [],
-      revealed: prev?.revealed ?? 0,
-      over: true,
-      score: 0,
-    };
-    await finishLiveAttempt(m, address, 0, { ticks: 0, flaps: [], v: currentV });
-    return view(m, address, { revealOwnScore: true });
+    // Mismo cerrojo y mismo guardado que un cierre desde live.ts: la rendición
+    // cierra el intento, y un intento cerrado sale guardado (live-store.ts).
+    return withLiveLock(m.id, address, async () => {
+      if (m.scores[address] !== undefined) throw new Error("score already submitted");
+      m.live ??= {};
+      const prev = m.live[address];
+      if (prev?.over) {
+        // Ya lo había cerrado el juego y se cortó antes de anotar el puntaje
+        // (no se pudo guardar): vale ese cierre, no la rendición.
+        await saveLiveAttempt(m.id, address, prev);
+        await finishLiveAttempt(m, address, prev.score ?? 0, {
+          ticks: prev.tick,
+          flaps: [...prev.flaps],
+          v: currentV,
+        });
+        return view(m, address, { revealOwnScore: true });
+      }
+      const closed: LiveAttempt = {
+        tokenHash: prev?.tokenHash ?? "",
+        startedAt: prev?.startedAt ?? Date.now(),
+        tick: prev?.tick ?? 0,
+        flaps: prev?.flaps ?? [],
+        revealed: prev?.revealed ?? 0,
+        over: true,
+        score: 0,
+      };
+      await saveLiveAttempt(m.id, address, closed);
+      m.live[address] = closed;
+      await finishLiveAttempt(m, address, 0, { ticks: 0, flaps: [], v: currentV });
+      return view(m, address, { revealOwnScore: true });
+    });
   }
 
   let finalScore = Math.max(0, Math.floor(score));
@@ -764,7 +790,7 @@ export function dropWaitingMatch(id: string) {
   if (!m || m.p2 || m.status !== "waiting") return;
   const k = qkey(m.game, m.stake);
   if (queue.get(k) === m.id) queue.delete(k);
-  matches.delete(m.id);
+  dropMatch(m);
   persist();
 }
 
@@ -965,7 +991,7 @@ export function sweepMatches(now = Date.now()) {
     const finished = m.status === "settled" || m.status === "draw";
     if (finished) {
       if (now - m.createdAt > FINISHED_TTL) {
-        matches.delete(m.id);
+        dropMatch(m);
       }
       continue;
     }
@@ -992,7 +1018,7 @@ export function sweepMatches(now = Date.now()) {
             console.error("cancelMatch (sin rival) onchain:", (e as Error).message),
           );
         }
-        matches.delete(m.id);
+        dropMatch(m);
         dirty = true;
       }
       continue;

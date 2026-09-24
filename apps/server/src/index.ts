@@ -25,6 +25,7 @@ import { restoreProfiles, resolveDisplay } from "./profiles.js";
 import { challengeRouter } from "./challenge-routes.js";
 import { alephRouter } from "./aleph-routes.js";
 import { liveRouter } from "./live-routes.js";
+import { LiveUnavailableError, restoreLiveAttempts } from "./live.js";
 import { restoreAleph, startAlephTicker, stopAlephTicker } from "./aleph.js";
 import { restoreAlephHouse } from "./aleph-house-seats.js";
 import { startAlephHouse, stopAlephHouse } from "./aleph-house.js";
@@ -91,6 +92,13 @@ const ERRORES_ESPERABLES =
 function responderError(req: express.Request, res: express.Response, e: unknown): void {
   const err = e as Error;
   const msg = err?.message ?? String(e);
+  // La rendición de un juego en vivo guarda el intento antes de contestar; si
+  // no pudo, se reintenta (no es un error del cliente ni un bug).
+  if (e instanceof LiveUnavailableError) {
+    res.setHeader("Retry-After", "2");
+    res.status(503).json({ error: msg });
+    return;
+  }
   if (ERRORES_ESPERABLES.test(msg)) {
     res.status(400).json({ error: msg });
     return;
@@ -433,7 +441,9 @@ if (handoverEnabled) startLeaseHeartbeat();
 // instancia no espera a que venza.
 try {
   await Promise.all([
-    restoreMatches(),
+    // Los intentos en vivo, DESPUÉS de las partidas: su registro manda sobre la
+    // copia que trae el blob (ver live-store.ts).
+    restoreMatches().then(() => restoreLiveAttempts()),
     restoreRatings(),
     restoreAgents(),
     restoreStats(),

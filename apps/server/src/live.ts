@@ -26,6 +26,14 @@ import {
   type LiveAttempt,
   type Match,
 } from "./matchmaking.js";
+import {
+  forgetLiveAttempts,
+  loadLiveAttempts,
+  saveLiveAttempt,
+  withLiveLock,
+} from "./live-store.js";
+
+export { LiveUnavailableError } from "./live-store.js";
 
 /** Un error esperable del protocolo: las rutas lo devuelven como 400. */
 export class LiveError extends Error {}
@@ -121,6 +129,33 @@ function assertOpen(m: Match): void {
   if (Date.now() - m.createdAt > SUBMIT_WINDOW_MS) throw new LiveError("match expired");
 }
 
+/** El replay de un intento cerrado, tal como lo guarda la partida. */
+const replayOf = (m: Match, a: LiveAttempt) => ({
+  ticks: a.tick,
+  flaps: [...a.flaps],
+  v: RULES_V[m.game] ?? 1,
+});
+
+/** NADA SALE ANTES DE QUEDAR GUARDADO. Todo lo que una respuesta le muestra al
+ *  jugador por primera vez (valores del azar, el final del intento, un token)
+ *  sale del estado del intento en memoria, y ese estado tiene que estar en su
+ *  registro durable antes de contestar (live-store.ts). Si no se puede guardar,
+ *  el pedido sale con 503 y sin revelar nada: el jugador reintenta con lo que ya
+ *  sabía. */
+async function durable(m: Match, address: string, a: LiveAttempt): Promise<void> {
+  await saveLiveAttempt(m.id, address, a);
+}
+
+/** Un intento cerrado: guardado, y su puntaje en la partida (que liquida si ya
+ *  están los dos). Si el cierre se cortó a mitad (se cerró en memoria y no se
+ *  pudo guardar), el reintento del jugador pasa por acá y lo completa. */
+async function finishClosed(m: Match, address: string, a: LiveAttempt): Promise<void> {
+  await durable(m, address, a);
+  if (m.scores[address] === undefined) {
+    await finishLiveAttempt(m, address, a.score ?? 0, replayOf(m, a));
+  }
+}
+
 /** Revela lo que el motor va a consumir en los próximos LIVE_LEAD_TICKS y
  *  devuelve los valores desde `have`. */
 function reveal(a: LiveAttempt, e: { eng: FlappyEngine; src: SecretSource }, have: number) {
@@ -156,33 +191,38 @@ export async function liveStart(
   } else if (AUTH_REQUIRED) {
     throw new LiveError("signature required");
   }
-  const earlier = m.live?.[address];
-  if (earlier?.over) return { over: true, score: earlier.score ?? 0, tick: earlier.tick };
-  assertOpen(m);
-  try {
-    await assertDepositOnchain(m, address);
-  } catch (e) {
-    throw new LiveError((e as Error).message);
-  }
-
-  // Desde acá, sin awaits: dos aperturas a la vez no pueden pisarse el intento.
-  const now = m.live?.[address];
-  if (now?.over) return { over: true, score: now.score ?? 0, tick: now.tick };
-  assertOpen(m);
-  m.live ??= {};
-  const a: LiveAttempt = now ?? {
-    tokenHash: "",
-    startedAt: Date.now(),
-    tick: 0,
-    flaps: [],
-    revealed: 0,
-  };
-  m.live[address] = a;
-  const token = randomBytes(32).toString("hex");
-  a.tokenHash = sha256(token);
-  const r = reveal(a, engineFor(m, address, a), 0);
-  persistMatches();
-  return { over: false, token, tick: a.tick, flaps: [...a.flaps], ...r };
+  // De a un pedido por intento (ver withLiveLock): guardar es asíncrono.
+  return withLiveLock(m.id, address, async () => {
+    const earlier = m.live?.[address];
+    if (earlier?.over) {
+      await finishClosed(m, address, earlier);
+      return { over: true, score: earlier.score ?? 0, tick: earlier.tick };
+    }
+    assertOpen(m);
+    try {
+      await assertDepositOnchain(m, address);
+    } catch (e) {
+      throw new LiveError((e as Error).message);
+    }
+    assertOpen(m);
+    m.live ??= {};
+    const a: LiveAttempt = m.live[address] ?? {
+      tokenHash: "",
+      startedAt: Date.now(),
+      tick: 0,
+      flaps: [],
+      revealed: 0,
+    };
+    m.live[address] = a;
+    const token = randomBytes(32).toString("hex");
+    a.tokenHash = sha256(token);
+    const r = reveal(a, engineFor(m, address, a), 0);
+    // El token nuevo y los valores que se revelan salen recién guardados: una
+    // caída no puede devolver a la vida el token anterior (que este invalida).
+    await durable(m, address, a);
+    persistMatches();
+    return { over: false, token, tick: a.tick, flaps: [...a.flaps], ...r };
+  });
 }
 
 /** Compromete los aleteos en `[from, to)` y devuelve el azar de los próximos
@@ -194,69 +234,75 @@ export async function liveCommit(
 ): Promise<LiveCommitView> {
   address = address.toLowerCase();
   const m = liveMatchFor(id, address);
-  const a = m.live?.[address];
-  if (!a) throw new LiveError("missing live attempt: call /match/:id/live/start first");
-  const given = Buffer.from(sha256(String(body.token ?? "")), "hex");
-  const stored = Buffer.from(a.tokenHash, "hex");
-  if (stored.length !== given.length || !timingSafeEqual(stored, given)) {
-    throw new LiveError("bad token");
-  }
-  if (a.over) {
-    return { over: true, score: a.score ?? 0, tick: a.tick, reveal: [], revealed: a.revealed };
-  }
-  assertOpen(m);
+  return withLiveLock(m.id, address, async () => {
+    const a = m.live?.[address];
+    if (!a) throw new LiveError("missing live attempt: call /match/:id/live/start first");
+    const given = Buffer.from(sha256(String(body.token ?? "")), "hex");
+    const stored = Buffer.from(a.tokenHash, "hex");
+    if (stored.length !== given.length || !timingSafeEqual(stored, given)) {
+      throw new LiveError("bad token");
+    }
+    if (a.over) {
+      await finishClosed(m, address, a);
+      return { over: true, score: a.score ?? 0, tick: a.tick, reveal: [], revealed: a.revealed };
+    }
+    assertOpen(m);
 
-  const { from, to, have, flaps } = body;
-  const final = body.final === true;
-  if (![from, to, have].every(Number.isInteger)) {
-    throw new LiveError("invalid commit range: from, to and have must be integers");
-  }
-  if (from !== a.tick) {
-    return { conflict: true, tick: a.tick, ...reveal(a, engineFor(m, address, a), have) };
-  }
-  if (
-    to < from ||
-    (to === from && !final) ||
-    to - from > MAX_COMMIT_TICKS ||
-    to > MAX_REPLAY_TICKS
-  ) {
-    throw new LiveError(`invalid commit range [${from}, ${to})`);
-  }
-  if (
-    !Array.isArray(flaps) ||
-    flaps.some(
-      (f, i) => !Number.isInteger(f) || f < from || f >= to || (i > 0 && f <= flaps[i - 1]),
-    )
-  ) {
-    throw new LiveError("invalid flaps: integer ticks, strictly increasing, inside [from, to)");
-  }
+    const { from, to, have, flaps } = body;
+    const final = body.final === true;
+    if (![from, to, have].every(Number.isInteger)) {
+      throw new LiveError("invalid commit range: from, to and have must be integers");
+    }
+    if (from !== a.tick) {
+      const r = reveal(a, engineFor(m, address, a), have);
+      await durable(m, address, a);
+      return { conflict: true, tick: a.tick, ...r };
+    }
+    if (
+      to < from ||
+      (to === from && !final) ||
+      to - from > MAX_COMMIT_TICKS ||
+      to > MAX_REPLAY_TICKS
+    ) {
+      throw new LiveError(`invalid commit range [${from}, ${to})`);
+    }
+    if (
+      !Array.isArray(flaps) ||
+      flaps.some(
+        (f, i) => !Number.isInteger(f) || f < from || f >= to || (i > 0 && f <= flaps[i - 1]),
+      )
+    ) {
+      throw new LiveError("invalid flaps: integer ticks, strictly increasing, inside [from, to)");
+    }
 
-  const e = engineFor(m, address, a);
-  const flapSet = new Set(flaps);
-  let t = from;
-  for (; t < to && !e.eng.over; t++) {
-    if (flapSet.has(t)) e.eng.flap();
-    e.eng.update(FLAPPY_DT);
-  }
-  // Los aleteos después de morir no se aplicaron: no entran al registro.
-  for (const f of flaps) if (f < t) a.flaps.push(f);
-  a.tick = t;
-  e.tick = t;
+    const e = engineFor(m, address, a);
+    const flapSet = new Set(flaps);
+    let t = from;
+    for (; t < to && !e.eng.over; t++) {
+      if (flapSet.has(t)) e.eng.flap();
+      e.eng.update(FLAPPY_DT);
+    }
+    // Los aleteos después de morir no se aplicaron: no entran al registro.
+    for (const f of flaps) if (f < t) a.flaps.push(f);
+    a.tick = t;
+    e.tick = t;
 
-  const r = reveal(a, e, have);
-  if (e.eng.over || final || a.tick >= MAX_REPLAY_TICKS) {
-    a.over = true;
-    a.score = e.eng.score;
-    engines.delete(`${m.id}:${address}`);
-    await finishLiveAttempt(m, address, a.score, {
-      ticks: a.tick,
-      flaps: [...a.flaps],
-      v: RULES_V[m.game] ?? 1,
-    });
-    return { over: true, score: a.score, tick: a.tick, ...r };
-  }
-  persistMatches();
-  return { over: false, tick: a.tick, ...r };
+    const r = reveal(a, e, have);
+    if (e.eng.over || final || a.tick >= MAX_REPLAY_TICKS) {
+      a.over = true;
+      a.score = e.eng.score;
+      engines.delete(`${m.id}:${address}`);
+      // El final (y el puntaje) sale guardado: una caída no puede devolverle al
+      // jugador un intento que ya vio terminar.
+      await finishClosed(m, address, a);
+      return { over: true, score: a.score, tick: a.tick, ...r };
+    }
+    // Sin persistMatches: el tramo ya quedó en el registro del intento, y subir
+    // el blob de partidas en cada compromiso es lo que fundió la cuota de ancho
+    // de banda de Render. El blob se guarda al abrir y al cerrar el intento.
+    await durable(m, address, a);
+    return { over: false, tick: a.tick, ...r };
+  });
 }
 
 /** Cierra un intento abierto en su último tick comprometido y cuenta lo
@@ -267,21 +313,61 @@ export async function liveCommit(
 export async function closeLiveAttempt(id: string, address: string): Promise<boolean> {
   address = address.toLowerCase();
   const m = matchRecord(id);
-  const a = m?.live?.[address];
-  if (!m || !a || a.over || !m.liveSecret) return false;
-  try {
-    assertOpen(m);
-  } catch {
-    return false; // decidida o vencida: el barrendero se encarga
-  }
-  const e = engineFor(m, address, a);
-  a.over = true;
-  a.score = e.eng.score;
-  engines.delete(`${m.id}:${address}`);
-  await finishLiveAttempt(m, address, a.score, {
-    ticks: a.tick,
-    flaps: [...a.flaps],
-    v: RULES_V[m.game] ?? 1,
+  if (!m?.live?.[address] || !m.liveSecret) return false;
+  return withLiveLock(m.id, address, async () => {
+    const a = m.live?.[address];
+    if (!a || a.over) return false;
+    try {
+      assertOpen(m);
+    } catch {
+      return false; // decidida o vencida: el barrendero se encarga
+    }
+    const e = engineFor(m, address, a);
+    a.over = true;
+    a.score = e.eng.score;
+    engines.delete(`${m.id}:${address}`);
+    await finishClosed(m, address, a);
+    return true;
   });
-  return true;
+}
+
+/** Al arrancar, DESPUÉS de restaurar las partidas: cada registro guardado manda
+ *  sobre la copia del intento que traía el blob (que se guarda cada 20 s y puede
+ *  ir atrás), salvo que el blob ya lo tenga cerrado o más avanzado. Un intento
+ *  que terminó sin llegar al blob se completa acá: su puntaje entra a la partida
+ *  y, si estaban los dos, se liquida. Los registros de partidas que ya no están
+ *  se borran. */
+export async function restoreLiveAttempts(): Promise<void> {
+  const stored = await loadLiveAttempts();
+  const gone = new Map<string, string[]>();
+  let merged = 0;
+  let finished = 0;
+  for (const { matchId, address, attempt } of stored) {
+    const m = matchRecord(matchId);
+    if (!m || !m.liveSecret) {
+      gone.set(matchId, [...(gone.get(matchId) ?? []), address]);
+      continue;
+    }
+    m.live ??= {};
+    const cur = m.live[address];
+    // Nunca se reabre un intento cerrado, y un blob más avanzado (un tramo que
+    // no se llegó a guardar ni a revelar) tampoco se pisa: no le dio nada al
+    // jugador, y descartarlo le haría repetir un tramo que ya jugó.
+    if (!cur || (!cur.over && (attempt.over || attempt.tick >= cur.tick))) {
+      m.live[address] = attempt;
+      merged++;
+    }
+    const a = m.live[address];
+    if (a.over && m.scores[address] === undefined) {
+      await finishLiveAttempt(m, address, a.score ?? 0, replayOf(m, a));
+      finished++;
+    }
+  }
+  for (const [matchId, addresses] of gone) forgetLiveAttempts(matchId, addresses);
+  if (stored.length) {
+    console.log(
+      `Intentos en vivo recuperados: ${merged} de ${stored.length}` +
+        (finished ? ` (${finished} cerrados que no habían llegado a su partida)` : ""),
+    );
+  }
 }

@@ -7,6 +7,8 @@ import type { AddressInfo } from "node:net";
 export interface FakeUpstash {
   url: string;
   kv: Map<string, string>;
+  /** Los hashes (HSET/HGETALL/HDEL), aparte de las claves simples. */
+  hashes: Map<string, Map<string, string>>;
   /** Cada comando recibido, en orden: [NOMBRE, clave]. */
   log: string[][];
   /** Con un número, TODO pedido responde ese status de error (Upstash caído). */
@@ -24,6 +26,7 @@ export interface FakeUpstash {
 
 export async function startFakeUpstash(): Promise<FakeUpstash> {
   const kv = new Map<string, string>();
+  const hashes = new Map<string, Map<string, string>>();
   const log: string[][] = [];
 
   function run(cmd: string[]): unknown {
@@ -54,6 +57,28 @@ export async function startFakeUpstash(): Promise<FakeUpstash> {
       case "EXPIRE":
         result = kv.has(args[0]) ? 1 : 0;
         break;
+      case "HSET": {
+        const h = hashes.get(args[0]) ?? new Map<string, string>();
+        let added = 0;
+        for (let i = 1; i + 1 < args.length; i += 2) {
+          if (!h.has(args[i])) added++;
+          h.set(args[i], args[i + 1]);
+        }
+        hashes.set(args[0], h);
+        result = added;
+        break;
+      }
+      case "HGETALL":
+        // Como Upstash por REST: un arreglo plano [campo, valor, campo, valor...].
+        result = [...(hashes.get(args[0]) ?? new Map<string, string>())].flat();
+        break;
+      case "HDEL": {
+        const h = hashes.get(args[0]);
+        let removed = 0;
+        for (const f of args.slice(1)) if (h?.delete(f)) removed++;
+        result = removed;
+        break;
+      }
       default:
         throw new Error(`fake-upstash: comando no soportado ${name}`);
     }
@@ -97,6 +122,7 @@ export async function startFakeUpstash(): Promise<FakeUpstash> {
   const fake: FakeUpstash = {
     url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
     kv,
+    hashes,
     log,
     failWith: null,
     failCommands: new Set<string>(),

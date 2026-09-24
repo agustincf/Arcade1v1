@@ -165,6 +165,21 @@ function markLost(why: string): void {
   for (const fn of lostHandlers) fn();
 }
 
+/** Para una escritura CHICA que confirma la posta en el MISMO pedido que
+ *  escribe (un pipeline de Upstash: una sola ida y vuelta): el comando que lee
+ *  la época. Con su respuesta, `epochStillMine` dice si la escritura la hizo la
+ *  dueña; si no, la posta se da por perdida, igual que en `confirmHolder`. Lo
+ *  usa el registro de los intentos en vivo (live-store.ts), que va en el camino
+ *  de cada respuesta al jugador y no puede pagar dos idas y vueltas. */
+export const EPOCH_READ: readonly ["GET", string] = ["GET", EPOCH_KEY];
+
+export function epochStillMine(cur: unknown): boolean {
+  if (!holding || epoch === null) return false;
+  if (Number(cur) === epoch) return true;
+  markLost(`la época actual es ${String(cur)}, la mía era ${epoch}`);
+  return false;
+}
+
 /** ¿La época actual sigue siendo la mía? Si no, se da por perdida. Un error de
  *  red TIRA: no es lo mismo que "ya no soy la dueña". */
 export async function confirmHolder(): Promise<boolean> {
