@@ -20,6 +20,9 @@ export interface OpenMatch {
    *  verdad vive on-chain/servidor; esto es un atajo local. */
   winSig?: `0x${string}`;
   winner?: `0x${string}`;
+  /** Hasta cuándo vale `winSig` (segundos, epoch). Desde la v2 del contrato la
+   *  firma vence; una guardada sin esto es de la v1 y ya no sirve para cobrar. */
+  winDeadline?: number;
 }
 
 const KEY = "arcade.openMatches";
@@ -59,14 +62,16 @@ export function rememberMatch(address: string, m: OpenMatch) {
   }
 }
 
-/** Guarda la firma para cobrar cuando GANÁS. Actualiza el registro existente
- *  (creado al depositar); si no existe todavía, lo crea con lo que sabemos.
- *  Así el premio se puede reclamar desde /recover aunque cierres la pestaña. */
+/** Guarda la firma para cobrar cuando GANÁS, con su vencimiento. Actualiza el
+ *  registro existente (creado al depositar); si no existe todavía, lo crea con
+ *  lo que sabemos. Normalmente el árbitro paga solo; esto es el respaldo para
+ *  reclamar desde /recover aunque cierres la pestaña. */
 export function rememberWin(
   address: string,
   m: { matchId: `0x${string}`; game: string; bet: number; role: "p1" | "p2" },
   winSig: `0x${string}`,
   winner: `0x${string}`,
+  winDeadline: number,
 ) {
   if (!address) return;
   const s = readStore();
@@ -76,8 +81,9 @@ export function rememberWin(
   if (existing) {
     existing.winSig = winSig;
     existing.winner = winner;
+    existing.winDeadline = winDeadline;
   } else {
-    list.unshift({ ...m, ts: Date.now(), winSig, winner });
+    list.unshift({ ...m, ts: Date.now(), winSig, winner, winDeadline });
   }
   s[k] = list.slice(0, 50);
   writeStore(s);

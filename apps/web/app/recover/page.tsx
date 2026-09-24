@@ -4,10 +4,12 @@
 // a las que se unió on-chain, lee el estado REAL del contrato y, si corresponde,
 // permite:
 //   - COBRAR el premio: partida LLENA (Funded) que GANASTE -> settle con la firma
-//     del árbitro (guardada localmente o pedida al servidor). Sin esto, el ganador
-//     que se iba antes de reclamar perdía la ganancia.
+//     del árbitro (guardada localmente o pedida al servidor), mientras no venza.
+//     Desde la v2 el árbitro paga solo; esto es el respaldo si su pago no salió.
 //   - Reembolso, partida ABIERTA (Open) sin rival al vencer el plazo -> refundUnfunded
 //   - Reembolso, partida LLENA sin resultado al vencer el plazo -> refundExpired
+//   - RETIRAR lo acreditado: pagos o reembolsos que el USDC rechazó al enviarlos
+//     (la wallet en la blacklist de Circle, el token en pausa) -> withdraw
 // Cumple "depositá y andate": aunque cierres la pestaña, volvés y cobrás o te
 // reembolsan. La verdad vive on-chain; el índice local es solo un atajo.
 
@@ -39,28 +41,40 @@ interface Row extends OpenMatch {
   /** Presentes solo cuando kind === "claimable": para enviar el settle. */
   claimSig?: `0x${string}`;
   claimWinner?: `0x${string}`;
+  /** Hasta cuándo vale `claimSig` (segundos). */
+  claimDeadline?: number;
 }
 
-/** Si esta partida (Funded on-chain) la GANASTE, devuelve la firma para cobrar.
- *  Primero la firma guardada localmente; si no está (otro dispositivo), se la
- *  pedimos al árbitro, que la recuerda mientras la partida es reciente. */
+/** Si esta partida (Funded on-chain) la GANASTE, devuelve la firma para cobrar
+ *  y hasta cuándo vale. Primero la firma guardada localmente; si no está (otro
+ *  dispositivo, o una guardada con la v1 del contrato, que no vence y ya no
+ *  sirve), se la pedimos al árbitro, que la recuerda mientras la partida es
+ *  reciente. */
 async function resolveWin(
   m: OpenMatch,
   addr: string,
-): Promise<{ sig: `0x${string}`; winner: `0x${string}` } | null> {
-  if (m.winSig && m.winner && m.winner.toLowerCase() === addr.toLowerCase()) {
-    return { sig: m.winSig, winner: m.winner };
+): Promise<{ sig: `0x${string}`; winner: `0x${string}`; deadline: number } | null> {
+  const mine = (w?: string) => !!w && w.toLowerCase() === addr.toLowerCase();
+  if (m.winSig && mine(m.winner) && m.winDeadline !== undefined) {
+    return { sig: m.winSig, winner: m.winner!, deadline: m.winDeadline };
   }
   try {
     const v = await getMatch(m.matchId, addr);
-    if (v?.winner && v.signature && v.winner.toLowerCase() === addr.toLowerCase()) {
-      return { sig: v.signature as `0x${string}`, winner: v.winner as `0x${string}` };
+    if (v?.signature && mine(v.winner) && v.signatureDeadline !== undefined) {
+      return {
+        sig: v.signature as `0x${string}`,
+        winner: v.winner as `0x${string}`,
+        deadline: v.signatureDeadline,
+      };
     }
   } catch {
     /* árbitro inalcanzable: sin cobro automático, quedan los reembolsos */
   }
   return null;
 }
+
+/** Micro-USDC -> "8.50". */
+const usdc = (units: bigint) => (Number(units) / 1_000_000).toFixed(2);
 
 function classify(
   status: number,
@@ -95,6 +109,8 @@ export default function RecoverPage() {
 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [scanning, setScanning] = useState(false);
+  // Lo acreditado a esta wallet en el contrato (null: todavía no se leyó).
+  const [owed, setOwed] = useState<bigint | null>(null);
 
   const scan = useCallback(async () => {
     if (!address || !onchainEnabled) return;
@@ -103,21 +119,25 @@ export default function RecoverPage() {
       const stored = listMatches(address);
       const nowSec = Math.floor(Date.now() / 1000);
       const out: Row[] = [];
+      setOwed(await escrow.readOwed(address as `0x${string}`).catch(() => null));
       for (const m of stored) {
         try {
           const s = await escrow.readMatch(m.matchId);
           // Partida LLENA: si la ganaste, lo que corresponde es COBRAR (no esperar
           // ni reembolsar). Antes /recover solo ofrecía reembolsos y el premio
           // quedaba sin reclamar si te ibas del modal de victoria.
+          // La firma VENCE justo cuando se abre el reembolso (playDeadline +
+          // gracia): vencida, la partida cae en el reembolso de abajo.
           if (s.status === MatchStatus.Funded) {
             const win = await resolveWin(m, address);
-            if (win) {
+            if (win && nowSec <= win.deadline) {
               out.push({
                 ...m,
                 kind: "claimable",
                 deadline: s.playDeadline,
                 claimSig: win.sig,
                 claimWinner: win.winner,
+                claimDeadline: win.deadline,
               });
               continue;
             }
@@ -184,6 +204,8 @@ export default function RecoverPage() {
             </button>
           </div>
 
+          {owed !== null && owed > 0n && <OwedCard amount={owed} />}
+
           {rows === null || scanning ? (
             <p className="mt-6 py-10 text-center text-base text-(--color-accent-2)">
               {t("recover.scanning")}
@@ -249,12 +271,13 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
     }
   }
 
-  // Cobrar el premio ganado: envía la firma del árbitro al contrato (settle).
+  // Cobrar el premio ganado: envía la firma del árbitro al contrato (settle). Si
+  // el árbitro ya pagó mientras tanto, `claim` lo ve en la cadena y no manda nada.
   async function doClaim() {
-    if (!row.claimSig || !row.claimWinner) return;
+    if (!row.claimSig || !row.claimWinner || row.claimDeadline === undefined) return;
     setState("working");
     try {
-      await escrow.claim(row.matchId, row.claimWinner, row.claimSig);
+      await escrow.claim(row.matchId, row.claimWinner, row.claimDeadline, row.claimSig);
       setState("done");
       if (address) forgetMatch(address, row.matchId);
     } catch {
@@ -336,6 +359,58 @@ function MatchRow({ row, onResolved }: { row: Row; onResolved: () => void }) {
           >
             {t("recover.dismiss")}
           </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Lo ACREDITADO a esta wallet: pagos o reembolsos que el USDC rechazó al
+ *  enviarlos. Es un saldo por wallet (suma lo de todas sus partidas), y solo
+ *  puede salir hacia ella. Retirado, la tarjeta queda con la confirmación hasta
+ *  el próximo "Actualizar". */
+function OwedCard({ amount }: { amount: bigint }) {
+  const { t } = useT();
+  const escrow = useEscrow();
+  const [state, setState] = useState<"idle" | "working" | "done" | "error">("idle");
+
+  async function doWithdraw() {
+    setState("working");
+    try {
+      await escrow.withdraw();
+      setState("done");
+    } catch {
+      setState("error");
+    }
+  }
+
+  return (
+    <div className="win mt-4">
+      <div className="win-title">
+        <span>{t("recover.owedTitle")}</span>
+        <span className="chip chip--money">{usdc(amount)} USDC</span>
+      </div>
+      <div className="p-4">
+        <p className="text-base text-(--color-muted)">
+          {t("recover.owedText", { amount: usdc(amount) })}
+        </p>
+        {state === "done" ? (
+          <p className="mt-3 text-base font-medium text-(--color-win)">{t("recover.owedDone")}</p>
+        ) : (
+          <>
+            <button
+              onClick={doWithdraw}
+              disabled={state === "working"}
+              className="btn3d btn3d--magenta mt-4 w-full disabled:opacity-60"
+            >
+              {state === "working"
+                ? t("recover.processing")
+                : t("recover.owedBtn", { amount: usdc(amount) })}
+            </button>
+            {state === "error" && (
+              <p className="mt-2 text-sm text-(--color-lose)">{t("recover.owedErr")}</p>
+            )}
+          </>
         )}
       </div>
     </div>

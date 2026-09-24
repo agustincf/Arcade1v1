@@ -142,6 +142,14 @@ export const en: Dict = {
   "match.claimBtn": "CLAIM {prize} USDC",
   "match.claimDone": "Claimed! The pot is in your wallet.",
   "match.claimErr": "Couldn't claim — try again.",
+  "match.claimAuto":
+    "The arbiter is paying your prize: it lands in your wallet on its own in a few seconds. If it takes too long, you can claim it yourself.",
+  "match.claimTx": "View the payment ↗",
+  "match.claimRefunded":
+    "The prize couldn't be paid in time and the match was refunded: you got your stake back.",
+  "match.claimCredited":
+    "You won! 🎉 The prize was credited to you in the contract: your wallet couldn't receive it at that moment.",
+  "match.claimCreditedLink": "Withdraw it from Recover funds →",
   "lb.title": "LEADERBOARD",
   "lb.subtitle": "Top humans and AI agents by skill rating (ELO), per game.",
   "lb.rating": "ELO",
@@ -268,7 +276,7 @@ export const en: Dict = {
   "status.loading": "Reading status…",
   "recover.title": "RECOVER FUNDS",
   "recover.intro":
-    "If you opened a paid match and no rival showed up in time — or the match was full but ended without a result — you can get your deposit back here. Won a match but left before claiming? Collect your prize here too. Funds are always safe in the contract.",
+    "If you opened a paid match and no rival showed up in time — or the match was full but ended without a result — you can get your deposit back here. If you won, the arbiter pays you on its own; if something went wrong, collect your prize here. And a payment that couldn't reach your wallet stays credited in the contract: you withdraw it here too. Funds are always safe in the contract.",
   "recover.notConfigured":
     "On-chain payments aren't configured in this environment, so there's nothing to recover.",
   "recover.connectPrompt": "Connect your wallet to see your open matches.",
@@ -294,6 +302,13 @@ export const en: Dict = {
   "recover.done": "Refunded ✓",
   "recover.error": "Couldn't refund. Try again in a moment.",
   "recover.dismiss": "Dismiss",
+  "recover.owedTitle": "CREDITED BALANCE",
+  "recover.owedText":
+    "You have {amount} USDC credited in the contract: payments your wallet couldn't receive when they went out (for example, while USDC was paused). They're yours and can only go to your wallet.",
+  "recover.owedBtn": "Withdraw {amount} USDC",
+  "recover.owedDone": "Withdrawn ✓",
+  "recover.owedErr":
+    "Couldn't withdraw. If your wallet is still blocked for USDC, the balance stays safe: try again later.",
   // ---- v3 fase 1: faucet integrado (solo testnet) ----
   "faucet.title": "GET TEST TOKENS",
   "faucet.intro":

@@ -145,6 +145,14 @@ export const es: Dict = {
   "match.claimBtn": "COBRAR {prize} USDC",
   "match.claimDone": "¡Cobrado! El pozo está en tu wallet.",
   "match.claimErr": "No se pudo cobrar — probá de nuevo.",
+  "match.claimAuto":
+    "El árbitro te está pagando el premio: llega solo a tu wallet en unos segundos. Si tarda, podés cobrarlo vos.",
+  "match.claimTx": "Ver el pago ↗",
+  "match.claimRefunded":
+    "El premio no se pudo pagar a tiempo y la partida se reembolsó: recuperaste tu apuesta.",
+  "match.claimCredited":
+    "¡Ganaste! 🎉 El premio quedó acreditado a tu nombre en el contrato: tu wallet no pudo recibirlo en ese momento.",
+  "match.claimCreditedLink": "Retiralo desde Recuperar fondos →",
   "lb.title": "RANKING",
   "lb.subtitle": "Los mejores humanos y agentes de IA por rating de habilidad (ELO), por juego.",
   "lb.rating": "ELO",
@@ -274,7 +282,7 @@ export const es: Dict = {
   "status.loading": "Leyendo el estado…",
   "recover.title": "RECUPERAR FONDOS",
   "recover.intro":
-    "Si abriste una partida de plata y no apareció rival a tiempo —o la partida se llenó pero terminó sin resultado— acá podés recuperar tu depósito. ¿Ganaste pero te fuiste antes de cobrar? También reclamás tu premio acá. Los fondos siempre están seguros en el contrato.",
+    "Si abriste una partida de plata y no apareció rival a tiempo —o la partida se llenó pero terminó sin resultado— acá podés recuperar tu depósito. Si ganaste, el árbitro te paga solo; si algo falló, reclamás el premio acá. Y un pago que no pudo llegar a tu wallet queda acreditado en el contrato: también se retira acá. Los fondos siempre están seguros en el contrato.",
   "recover.notConfigured":
     "Los pagos on-chain no están configurados en este entorno, así que no hay nada para recuperar.",
   "recover.connectPrompt": "Conectá tu wallet para ver tus partidas abiertas.",
@@ -300,6 +308,13 @@ export const es: Dict = {
   "recover.done": "Reembolsado ✓",
   "recover.error": "No se pudo reembolsar. Probá de nuevo en un momento.",
   "recover.dismiss": "Descartar",
+  "recover.owedTitle": "SALDO ACREDITADO",
+  "recover.owedText":
+    "Tenés {amount} USDC acreditados en el contrato: pagos que tu wallet no pudo recibir cuando salieron (por ejemplo, con el USDC en pausa). Son tuyos y solo pueden salir hacia tu wallet.",
+  "recover.owedBtn": "Retirar {amount} USDC",
+  "recover.owedDone": "Retirado ✓",
+  "recover.owedErr":
+    "No se pudo retirar. Si tu wallet sigue bloqueada para USDC, el saldo queda guardado: probá de nuevo más tarde.",
   // ---- v3 fase 1: faucet integrado (solo testnet) ----
   "faucet.title": "CONSEGUÍ FICHAS",
   "faucet.intro":

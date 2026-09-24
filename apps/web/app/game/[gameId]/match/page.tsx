@@ -11,6 +11,7 @@ import { useT } from "@/app/lib/i18n";
 import { useWallet, useEnsureChain } from "@/app/lib/wallet";
 import { useEscrow } from "@/app/lib/useEscrow";
 import { onchainEnabled } from "@/app/lib/escrow";
+import { txUrl } from "@/app/lib/explorer";
 import { moneyTableBlocked } from "@/app/lib/config-guard";
 import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
 import { failureText } from "@/app/lib/errors";
@@ -134,6 +135,12 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // partida). Llega en la respuesta de matchmake y el contrato lo exige en
   // open/join para atar al rival on-chain (anti-secuestro del slot).
   const [seatSig, setSeatSig] = useState<string | null>(null);
+  // Los plazos on-chain que ese asiento ata (segundos). Desde la v2 los fija el
+  // árbitro al crear la partida: `open` va con estos, o el contrato rechaza.
+  const [seatTerms, setSeatTerms] = useState<{
+    fundDeadline: number;
+    playDeadline: number;
+  } | null>(null);
   const [deposited, setDeposited] = useState(false);
   const [funding, setFunding] = useState<"" | "approving" | "depositing">("");
   // El motivo REAL del fallo, no un booleano: cancelaste la firma, estás en la
@@ -146,11 +153,23 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [submitting, setSubmitting] = useState(false); // enviando puntaje (firma + envío)
   const [winnerSig, setWinnerSig] = useState<string | null>(null);
   const [winnerAddr, setWinnerAddr] = useState<string | null>(null);
+  // Hasta cuándo vale la firma del ganador (segundos): va con ella en `settle`.
+  const [winnerDeadline, setWinnerDeadline] = useState<number | null>(null);
+  // El pago que mandó el árbitro (v2: liquida él solo apenas decide).
+  const [settleTx, setSettleTx] = useState<string | null>(null);
+  // El premio quedó ACREDITADO en el contrato en vez de llegar a la wallet (el
+  // USDC lo rechazó: wallet en la blacklist, token en pausa): se retira desde
+  // /recover.
+  const [prizeCredited, setPrizeCredited] = useState(false);
   // Replay del rival (llega con el resultado): se puede MIRAR su corrida para
   // aprender — es el mismo feedback rico que reciben los agentes.
   const [rivalReplay, setRivalReplay] = useState<unknown>(null);
   const [showRival, setShowRival] = useState(false);
-  const [claimState, setClaimState] = useState<"idle" | "claiming" | "done" | "error">("idle");
+  // "refunded": la firma no se pudo presentar a tiempo y la partida se
+  // reembolsó (el ganador recupera su apuesta, no el premio). Rarísimo.
+  const [claimState, setClaimState] = useState<"idle" | "claiming" | "done" | "error" | "refunded">(
+    "idle",
+  );
   // PARTIDA EN VIVO (Flappy desde las reglas v2): no trae semilla. El intento se
   // abre al empezar, con firma, y el puntaje lo confirma el árbitro.
   const [live, setLive] = useState(false);
@@ -261,6 +280,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
         setSecretHash(v.secretHash ?? null);
         setRole(v.role ?? null);
         setSeatSig(v.seatSig ?? null); // asiento para depositar (mesas de plata)
+        setSeatTerms(
+          v.fundDeadline !== undefined && v.playDeadline !== undefined
+            ? { fundDeadline: v.fundDeadline, playDeadline: v.playDeadline }
+            : null,
+        );
       } catch {
         mmStarted.current = false;
         if (devMode) {
@@ -338,6 +362,58 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     };
   }, [waiting, matchId]);
 
+  // PAGO AUTOMÁTICO (v2): el árbitro liquida solo apenas decide, así que el
+  // ganador no tiene que hacer nada. Mientras la vista no diga que pagó, se
+  // consulta cada 3 s (en pausa con la pestaña oculta), igual que la espera.
+  // No espera a tener la firma: el árbitro la muestra recién cuando quedó
+  // guardada, y la trae una de estas consultas.
+  const awaitingPayment =
+    outcome === "win" &&
+    !rankedFree &&
+    onchainEnabled &&
+    claimState !== "done" &&
+    claimState !== "refunded";
+  useEffect(() => {
+    if (!awaitingPayment || !matchId) return;
+    let vivo = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const consultar = async () => {
+      if (!vivo) return;
+      if (document.visibilityState !== "hidden") {
+        try {
+          const v = await getMatch(matchId, pidRef.current);
+          if (!vivo) return;
+          applyPayment(v);
+        } catch {
+          /* reintenta en la próxima vuelta */
+        }
+      }
+      if (vivo) timer = setTimeout(consultar, 3000);
+    };
+    timer = setTimeout(consultar, 3000);
+    return () => {
+      vivo = false;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [awaitingPayment, matchId, address, role]);
+
+  // Pagado: ¿llegó a la wallet o quedó ACREDITADO en el contrato? Pasa si el
+  // USDC rechazó el envío (la wallet en la blacklist de Circle, el token en
+  // pausa); entonces el premio se retira desde /recover.
+  useEffect(() => {
+    if (claimState !== "done" || !address || !onchainEnabled || rankedFree) return;
+    let vivo = true;
+    escrow
+      .creditedIn(settleTx as `0x${string}` | null, address as `0x${string}`)
+      .then((credited) => vivo && setPrizeCredited(credited))
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claimState, address, settleTx]);
+
   if (!game) return null;
 
   // Mesa de plata con el pago on-chain apagado: pantalla honesta en vez de una
@@ -371,21 +447,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     if (v.outcome === "draw") setOutcome("draw");
     else if (v.outcome && v.role === v.outcome) {
       setOutcome("win");
-      // Guardamos la firma del arbitro para que el ganador pueda cobrar on-chain.
-      if (v.signature && v.winner) {
-        setWinnerSig(v.signature);
-        setWinnerAddr(v.winner);
-        // Y la PERSISTIMOS: si el ganador se va antes de cobrar, puede reclamar
-        // el premio desde /recover (antes solo vivía en memoria y se perdía).
-        if (address && onchainEnabled && bet > 0 && role) {
-          rememberWin(
-            address,
-            { matchId: v.matchId as `0x${string}`, game: game!.id, bet, role },
-            v.signature as `0x${string}`,
-            v.winner as `0x${string}`,
-          );
-        }
-      }
+      applyPayment(v);
     } else setOutcome("lose");
     if (typeof v.rating === "number") {
       setRating(v.rating);
@@ -401,6 +463,39 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     }
   }
 
+  /** Lo que la vista del GANADOR dice del cobro. La firma del árbitro sale
+   *  recién cuando la decisión quedó guardada (puede llegar en una consulta
+   *  posterior); el ganador la conserva para el botón de respaldo. Y desde la
+   *  v2 liquida el árbitro: `settleTx` es su pago; "external", que la pagó otro
+   *  con la misma firma (el botón de respaldo, por ejemplo); "refunded" o
+   *  "expired", que terminó en reembolso. */
+  function applyPayment(v: MatchView) {
+    if (v.signature && v.winner && v.signatureDeadline !== undefined) {
+      setWinnerSig(v.signature);
+      setWinnerAddr(v.winner);
+      setWinnerDeadline(v.signatureDeadline);
+      // Y la PERSISTIMOS: si el ganador se va antes de ver el pago, puede
+      // reclamar el premio desde /recover (antes solo vivía en memoria).
+      if (address && onchainEnabled && bet > 0 && role) {
+        rememberWin(
+          address,
+          { matchId: v.matchId as `0x${string}`, game: game!.id, bet, role },
+          v.signature as `0x${string}`,
+          v.winner as `0x${string}`,
+          v.signatureDeadline,
+        );
+      }
+    }
+    if (v.settleTx) {
+      setSettleTx(v.settleTx);
+      setClaimState("done");
+    } else if (v.settleOutcome === "external") {
+      setClaimState("done");
+    } else if (v.settleOutcome === "refunded" || v.settleOutcome === "expired") {
+      setClaimState("refunded");
+    }
+  }
+
   // UNA sola acción para entrar a la partida: aprueba el USDC (solo la 1ra vez;
   // si ya hay allowance suficiente, no pide nada) y enseguida abre (p1) o se une
   // (p2) depositando. Así el jugador no pasa por dos pantallas separadas.
@@ -410,7 +505,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     const mid = matchId as `0x${string}`;
     // Sin el asiento del árbitro no se puede depositar (el contrato lo exige).
     // No debería faltar en una mesa de plata; si falta, avisamos y no seguimos.
-    if (!seatSig) {
+    if (!seatSig || !seatTerms) {
       setDepositErr({ key: "match.depositNoSeat" });
       return;
     }
@@ -454,7 +549,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       if (role === "p2") {
         await escrow.join(mid, bet, seat);
       } else {
-        await escrow.open(mid, bet, seat);
+        await escrow.open(mid, bet, seat, seatTerms);
       }
       setDeposited(true);
     } catch (e) {
@@ -464,13 +559,16 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     }
   }
 
+  // Cobrar a mano: el RESPALDO por si el pago del árbitro tarda. Si el árbitro
+  // ya pagó, `claim` lo ve en la cadena y no manda nada.
   async function doClaim() {
-    if (!matchId || !winnerSig || !winnerAddr) return;
+    if (!matchId || !winnerSig || !winnerAddr || winnerDeadline === null) return;
     setClaimState("claiming");
     try {
       await escrow.claim(
         matchId as `0x${string}`,
         winnerAddr as `0x${string}`,
+        winnerDeadline,
         winnerSig as `0x${string}`,
       );
       setClaimState("done");
@@ -698,12 +796,12 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
         }
       : undefined;
 
-  // ¿Hay un premio ganado que TODAVÍA no se cobró? Mientras lo haya, "Cobrar" es
+  // ¿Hay un premio ganado que TODAVÍA no se pagó? Mientras lo haya, "Cobrar" es
   // la única acción destacada del modal: "Revancha"/"Inicio" bajan a enlaces
   // secundarios. Sin esto competían dos botones magenta y un toque en "Revancha"
-  // cerraba el modal y perdía la firma del árbitro (una sola vive en memoria).
-  const prizePending =
-    outcome === "win" && !rankedFree && onchainEnabled && !!winnerSig && claimState !== "done";
+  // cerraba el modal. Desde la v2 el árbitro paga solo (y la firma queda
+  // guardada para /recover), así que esto dura lo que tarda su pago.
+  const prizePending = awaitingPayment;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -1078,23 +1176,49 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                   </div>
                 </div>
               )}
-              {outcome === "win" && !rankedFree && onchainEnabled && winnerSig && (
+              {outcome === "win" && !rankedFree && onchainEnabled && (
                 <div className="mt-4">
                   {claimState === "done" ? (
-                    <p className="text-base font-medium text-(--color-win)">
-                      {t("match.claimDone")}
-                    </p>
+                    <>
+                      <p className="text-base font-medium text-(--color-win)">
+                        {prizeCredited ? t("match.claimCredited") : t("match.claimDone")}
+                      </p>
+                      {prizeCredited && (
+                        <Link
+                          href="/recover"
+                          className="mt-1 inline-block text-sm text-(--color-accent-2) underline"
+                        >
+                          {t("match.claimCreditedLink")}
+                        </Link>
+                      )}
+                      {settleTx && (
+                        <a
+                          href={txUrl(settleTx)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 block text-sm text-(--color-accent-2) underline"
+                        >
+                          {t("match.claimTx")}
+                        </a>
+                      )}
+                    </>
+                  ) : claimState === "refunded" ? (
+                    <p className="text-base text-(--color-muted)">{t("match.claimRefunded")}</p>
                   ) : (
                     <>
-                      <button
-                        onClick={doClaim}
-                        disabled={claimState === "claiming"}
-                        className="btn3d btn3d--magenta w-full disabled:opacity-60"
-                      >
-                        {claimState === "claiming"
-                          ? t("match.depositWait")
-                          : t("match.claimBtn", { prize: payout.prize })}
-                      </button>
+                      <p className="mb-3 text-sm text-(--color-muted)">{t("match.claimAuto")}</p>
+                      {/* El respaldo necesita la firma, que llega recién guardada. */}
+                      {winnerSig && (
+                        <button
+                          onClick={doClaim}
+                          disabled={claimState === "claiming"}
+                          className="btn3d btn3d--magenta w-full disabled:opacity-60"
+                        >
+                          {claimState === "claiming"
+                            ? t("match.depositWait")
+                            : t("match.claimBtn", { prize: payout.prize })}
+                        </button>
+                      )}
                       {claimState === "error" && (
                         <p className="mt-2 text-sm text-(--color-lose)">{t("match.claimErr")}</p>
                       )}
