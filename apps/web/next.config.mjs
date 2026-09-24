@@ -4,6 +4,12 @@ const nextConfig = {
   // vienen en TypeScript: Next los transpila.
   transpilePackages: ["@arcade1v1/game-sdk", "@arcade1v1/agent-sdk", "@arcade1v1/strategies"],
 
+  // Next 16 escribe AGENTS.md y CLAUDE.md en apps/web cada vez que `next dev`
+  // detecta un agente de código. En este repo el AGENTS.md de la raíz es la
+  // guía para los agentes que JUEGAN; un segundo AGENTS.md con reglas de Next
+  // lo confunde, y además quedaban como archivos sueltos sin commitear.
+  agentRules: false,
+
   // Cabeceras de seguridad para una app que firma transacciones de dinero:
   // sobre todo prohibir que OTRO sitio nos meta en un iframe (clickjacking
   // sobre los botones de depositar/cobrar).

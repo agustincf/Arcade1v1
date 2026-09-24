@@ -34,6 +34,11 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
     lugar del chip "ABIERTO". Toda la tarjeta es el link, así que deja de
     haber seis botones coral compitiendo con el del hero. En el celular van en
     fila: los seis juegos pasan de ~3.600 px de scroll a ~800.
+- **`next dev` ya no escribe `AGENTS.md` ni `CLAUDE.md` en `apps/web`**
+  (`agentRules: false`). Next 16 los generaba cada vez que detectaba un
+  agente de código: quedaban como archivos sueltos sin commitear, y un
+  segundo `AGENTS.md` se confundía con el de la raíz, que es la guía para los
+  agentes que juegan.
 - **Regla nueva: todo cambio actualiza la documentación en el mismo PR.**
   `STANDARDS.md` suma la lista de qué revisar según el cambio (CHANGELOG
   siempre; AGENTS.md, `llms.txt` y los README si toca a los agentes; las docs
