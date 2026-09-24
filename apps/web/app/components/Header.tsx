@@ -19,7 +19,9 @@ export function Header() {
             wallet se sale de la pantalla a 360 y a 320 px. */}
         <Link href="/" aria-label="Arcade1v1" className="flex shrink-0 items-center gap-2">
           <Logo size={24} />
-          <span className="font-pixel text-xs text-(--color-accent) max-[349px]:hidden sm:text-sm">
+          {/* El logotipo es la única pixel en minúsculas del sitio (normal-case).
+              8 px en celular (a 16 no entra junto a la wallet) y 16 en adelante. */}
+          <span className="font-pixel text-px8 normal-case text-(--color-accent) max-[349px]:hidden sm:text-px16">
             Arcade1v1
           </span>
         </Link>
@@ -47,10 +49,12 @@ export function Header() {
               return (
                 <button
                   onClick={connected ? openAccountModal : openConnectModal}
-                  className={`btn3d min-w-0 whitespace-nowrap !px-3 !py-2 !text-px10 ${connected ? "btn3d--cyan" : "btn3d--magenta"}`}
+                  className={`btn3d min-w-0 whitespace-nowrap !px-3 !py-2 ${connected ? "btn3d--cyan" : "btn3d--magenta"}`}
                 >
                   {connected ? (
-                    <span className="block max-w-[7.5rem] truncate sm:max-w-none">
+                    // normal-case: el botón va en mayúsculas, pero "0x…" no se
+                    // escribe "0X…" (y un nombre ENS tampoco se grita).
+                    <span className="block max-w-[7.5rem] truncate normal-case sm:max-w-none">
                       ● {account.displayName}
                     </span>
                   ) : (

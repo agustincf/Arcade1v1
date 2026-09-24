@@ -23,7 +23,7 @@ export function HelpTip({ k }: { k: string }) {
           {/* clic afuera = cerrar */}
           <span className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
           <span className="win absolute bottom-full left-1/2 z-40 mb-2 block w-64 -translate-x-1/2 p-3 text-left text-sm font-normal normal-case leading-relaxed text-(--color-muted-bright)">
-            <span className="font-pixel block text-px10 text-(--color-gold)">
+            <span className="font-pixel block text-px8 text-(--color-gold)">
               {t(`gloss.${k}.term`)}
             </span>
             <span className="mt-1 block">{t(`gloss.${k}.def`)}</span>

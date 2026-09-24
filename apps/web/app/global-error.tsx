@@ -8,6 +8,8 @@
 // Antes decía "Something went wrong / Algo salió mal": el francés quedaba
 // afuera justo en la pantalla donde el usuario ya está perdido.
 
+import { PixelIcon } from "@/app/components/PixelIcon";
+
 const TEXTOS = {
   en: { title: "Something went wrong", retry: "Retry" },
   es: { title: "Algo salió mal", retry: "Reintentar" },
@@ -46,7 +48,11 @@ export default function GlobalError({
         }}
       >
         <div>
-          <div style={{ fontSize: 48 }}>💾💥</div>
+          {/* Sin globals.css acá (este componente reemplaza al layout): el
+              color va en línea y el ícono lo hereda por currentColor. */}
+          <div style={{ color: "#e8845e" }}>
+            <PixelIcon name="boom" px={4} />
+          </div>
           <h1 style={{ fontSize: 18, marginTop: 12 }}>{txt.title}</h1>
           <button
             onClick={reset}

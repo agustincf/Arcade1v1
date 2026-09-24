@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ensureAudio, setMuted } from "@/app/lib/sound";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 export function SoundToggle() {
   const [on, setOn] = useState(true);
@@ -38,7 +39,7 @@ export function SoundToggle() {
       aria-pressed={on}
       className="rounded-md p-1.5 text-base opacity-60 transition hover:bg-(--color-surface-2) hover:opacity-100"
     >
-      <span aria-hidden="true">{on ? "🔊" : "🔇"}</span>
+      <PixelIcon name={on ? "sound" : "mute"} className="align-middle" />
     </button>
   );
 }

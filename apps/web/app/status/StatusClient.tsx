@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/app/lib/i18n";
 import { getStats, type StatsView } from "@/app/lib/arbiter";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 /** Uptime legible a partir de segundos: "2d 3h", "5h 12m", "44m", "30s". */
 function fmtUptime(totalSeconds: number): string {
@@ -30,7 +31,7 @@ function StatTile({ label, value, sub }: { label: string; value: string; sub?: s
   return (
     <div className="win flex flex-col gap-1 p-4">
       <span className="text-sm text-(--color-muted-2)">{label}</span>
-      <span className="font-pixel text-lg text-(--color-gold)">{value}</span>
+      <span className="font-pixel text-px24 text-(--color-gold)">{value}</span>
       {sub && <span className="text-sm text-(--color-muted-3)">{sub}</span>}
     </div>
   );
@@ -60,7 +61,7 @@ export function StatusClient() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="font-pixel text-xl leading-relaxed text-(--color-text-strong)">
+      <h1 className="font-pixel text-px16 leading-relaxed text-(--color-text-strong) sm:text-px24">
         {t("status.title")}
       </h1>
       <p className="mt-2 text-base text-(--color-muted)">{t("status.subtitle")}</p>
@@ -173,10 +174,10 @@ export function StatusClient() {
                       >
                         <span className="font-mono text-(--color-muted-bright)">{row.date}</span>
                         <span className="flex gap-6">
-                          <span className="w-16 text-right font-pixel text-px10 text-(--color-gold)">
+                          <span className="w-16 text-right font-pixel text-px8 text-(--color-gold)">
                             {row.matchesCreated}
                           </span>
-                          <span className="w-16 text-right font-pixel text-px10 text-(--color-accent-2)">
+                          <span className="w-16 text-right font-pixel text-px8 text-(--color-accent-2)">
                             {row.matchesSettled}
                           </span>
                         </span>
@@ -193,7 +194,8 @@ export function StatusClient() {
               <div className="win-title">
                 <span>{t("status.gas")}</span>
                 <span className={`chip ${stats.gas.low ? "chip--danger" : "chip--live"}`}>
-                  {stats.gas.low ? `⚠ ${t("status.gasLow")}` : `● ${t("status.gasOk")}`}
+                  <PixelIcon name={stats.gas.low ? "warn" : "diamond"} />
+                  {stats.gas.low ? t("status.gasLow") : t("status.gasOk")}
                 </span>
               </div>
               <div className="p-4">
@@ -203,7 +205,7 @@ export function StatusClient() {
                   <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
                     <span className="text-sm text-(--color-muted-2)">
                       {t("status.gasBalance")}{" "}
-                      <span className="font-pixel text-px10 text-(--color-gold)">
+                      <span className="font-pixel text-px8 text-(--color-gold)">
                         {stats.gas.balanceEth ?? "…"} ETH
                       </span>
                     </span>

@@ -10,9 +10,19 @@ import { useWallet } from "@/app/lib/wallet";
 import { HelpTip } from "@/app/components/onboarding/HelpTip";
 import { HouseChip } from "@/app/components/HouseChip";
 import { WebhookChip } from "@/app/components/WebhookChip";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
-const medal = (i: number) => (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`);
+// El podio va en el número, no en un emoji de medalla (cada sistema dibuja la
+// suya): oro, plata y bronce con los colores de la paleta.
+const podium = (i: number) =>
+  i === 0
+    ? "text-(--color-gold)"
+    : i === 1
+      ? "text-(--color-muted-bright)"
+      : i === 2
+        ? "text-(--color-accent)"
+        : "text-(--color-muted-3)";
 
 export default function LeaderboardPage() {
   const { t } = useT();
@@ -33,13 +43,14 @@ export default function LeaderboardPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="font-pixel text-xl leading-relaxed text-(--color-text-strong)">
+      <h1 className="font-pixel text-px16 leading-relaxed text-(--color-text-strong) sm:text-px24">
         {t("lb.title")}
       </h1>
       <p className="mt-2 text-base text-(--color-muted)">
         {t("lb.subtitle")} <HelpTip k="elo" /> ·{" "}
         <Link href="/watch" className="font-medium text-(--color-accent-2) hover:underline">
-          🎬 {t("watch.cta")}
+          <PixelIcon name="play" className="mr-1.5" />
+          {t("watch.cta")}
         </Link>
       </p>
 
@@ -49,9 +60,13 @@ export default function LeaderboardPage() {
           <button
             key={g.id}
             onClick={() => setGame(g.id)}
-            className={`btn3d ${game === g.id ? "btn3d--magenta" : "btn3d--cyan"} flex items-center gap-2 !px-3 !py-2 !text-px10`}
+            className={`btn3d btn3d--sm ${game === g.id ? "btn3d--magenta" : "btn3d--cyan"} flex items-center gap-2 !px-3 !py-2`}
           >
-            <GameIcon id={g.id} size={16} />
+            {/* El sprite va sobre su pantallita de tinta: en la pestaña activa
+                (coral) el invader coral desaparecía. */}
+            <span className="rounded-[2px] bg-(--color-ink) p-0.5 leading-none">
+              <GameIcon id={g.id} size={16} />
+            </span>
             {t(`game.${g.id}.name`)}
           </button>
         ))}
@@ -94,8 +109,8 @@ export default function LeaderboardPage() {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="font-pixel w-8 text-center text-sm text-(--color-muted-bright)">
-                        {medal(i)}
+                      <span className={`font-pixel w-8 text-center text-px16 ${podium(i)}`}>
+                        {i + 1}
                       </span>
                       <span className="font-mono text-sm text-(--color-muted-bright)">
                         {row.name ? (
@@ -133,7 +148,7 @@ export default function LeaderboardPage() {
                         )}
                       </span>
                     </div>
-                    <span className="font-pixel text-sm text-(--color-gold)">{row.rating}</span>
+                    <span className="font-pixel text-px16 text-(--color-gold)">{row.rating}</span>
                   </li>
                 );
               })}

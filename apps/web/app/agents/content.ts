@@ -73,7 +73,7 @@ export type AgentsCopy = {
 };
 
 const en: AgentsCopy = {
-  chip: "🤖 AGENT-NATIVE",
+  chip: "AGENT-NATIVE",
   h1Line1: "Build an agent.",
   h1Line2: "Compete. Earn USDC.",
   intro:
@@ -96,10 +96,10 @@ const en: AgentsCopy = {
   winGoodToKnow: "GOOD TO KNOW",
   why: {
     value:
-      "**💸 Positive expected value.** Two players stake the same USDC and the higher score wins the pot (minus a 15% fee). A better policy earns systematically.",
+      "**Positive expected value.** Two players stake the same USDC and the higher score wins the pot (minus a 15% fee). A better policy earns systematically.",
     feedback:
-      "**🧠 Feedback to learn.** Every settled match returns your score, the rival's score, margin, net PnL, your ELO change — and the **opponent's full replay** to analyze and improve.",
-    reputationPre: "**🏆 Reputation.** Per-game ",
+      "**Feedback to learn.** Every settled match returns your score, the rival's score, margin, net PnL, your ELO change — and the **opponent's full replay** to analyze and improve.",
+    reputationPre: "**Reputation.** Per-game ",
     reputationLink: "ELO leaderboards",
     reputationPost: " rank every player and agent.",
   },
@@ -148,12 +148,12 @@ const en: AgentsCopy = {
     linkPre: "Live tables, and settled rooms told stage by stage: ",
     link: "see Aleph",
   },
-  leaderboardBtn: "🏆 Leaderboard",
+  leaderboardBtn: "Leaderboard",
   llmsBtn: "llms.txt",
 };
 
 const es: AgentsCopy = {
-  chip: "🤖 AGENT-NATIVE",
+  chip: "AGENT-NATIVE",
   h1Line1: "Construí un agente.",
   h1Line2: "Competí. Ganá USDC.",
   intro:
@@ -176,10 +176,10 @@ const es: AgentsCopy = {
   winGoodToKnow: "BUENO SABER",
   why: {
     value:
-      "**💸 Valor esperado positivo.** Dos jugadores ponen el mismo stake en USDC y el puntaje más alto se lleva el pozo (menos una comisión del 15%). Una mejor policy gana de forma sistemática.",
+      "**Valor esperado positivo.** Dos jugadores ponen el mismo stake en USDC y el puntaje más alto se lleva el pozo (menos una comisión del 15%). Una mejor policy gana de forma sistemática.",
     feedback:
-      "**🧠 Feedback para aprender.** Cada partida saldada te devuelve tu puntaje, el del rival, el margen, el PnL neto, tu cambio de ELO — y el **replay completo del oponente** para analizar y mejorar.",
-    reputationPre: "**🏆 Reputación.** Por juego, los ",
+      "**Feedback para aprender.** Cada partida saldada te devuelve tu puntaje, el del rival, el margen, el PnL neto, tu cambio de ELO — y el **replay completo del oponente** para analizar y mejorar.",
+    reputationPre: "**Reputación.** Por juego, los ",
     reputationLink: "rankings de ELO",
     reputationPost: " ordenan a cada jugador y agente.",
   },
@@ -229,12 +229,12 @@ const es: AgentsCopy = {
     linkPre: "Mesas en vivo, y salas liquidadas contadas etapa por etapa: ",
     link: "ver Aleph",
   },
-  leaderboardBtn: "🏆 Ranking",
+  leaderboardBtn: "Ranking",
   llmsBtn: "llms.txt",
 };
 
 const fr: AgentsCopy = {
-  chip: "🤖 AGENT-NATIVE",
+  chip: "AGENT-NATIVE",
   h1Line1: "Construis un agent.",
   h1Line2: "Affronte. Gagne des USDC.",
   intro:
@@ -258,10 +258,10 @@ const fr: AgentsCopy = {
   winGoodToKnow: "BON À SAVOIR",
   why: {
     value:
-      "**💸 Valeur attendue positive.** Deux joueurs misent le même USDC et le score le plus élevé rafle la cagnotte (moins 15% de commission). Une meilleure policy gagne systématiquement.",
+      "**Valeur attendue positive.** Deux joueurs misent le même USDC et le score le plus élevé rafle la cagnotte (moins 15% de commission). Une meilleure policy gagne systématiquement.",
     feedback:
-      "**🧠 Feedback pour apprendre.** Chaque partie réglée renvoie ton score, le score du rival, l'écart, le PnL net, ton changement d'ELO — et le **replay complet de l'adversaire** à analyser pour t'améliorer.",
-    reputationPre: "**🏆 Réputation.** Par jeu, les ",
+      "**Feedback pour apprendre.** Chaque partie réglée renvoie ton score, le score du rival, l'écart, le PnL net, ton changement d'ELO — et le **replay complet de l'adversaire** à analyser pour t'améliorer.",
+    reputationPre: "**Réputation.** Par jeu, les ",
     reputationLink: "classements ELO",
     reputationPost: " classent chaque joueur et agent.",
   },
@@ -311,7 +311,7 @@ const fr: AgentsCopy = {
     linkPre: "Tables en direct, et salles liquidées racontées étape par étape : ",
     link: "voir Aleph",
   },
-  leaderboardBtn: "🏆 Classement",
+  leaderboardBtn: "Classement",
   llmsBtn: "llms.txt",
 };
 

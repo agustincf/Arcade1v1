@@ -1,4 +1,4 @@
-// QUIEN_VOTO_A_QUIEN.TXT. Se abre cuando la sala liquida: hasta entonces el
+// "Quién votó a quién". Se abre cuando la sala liquida: hasta entonces el
 // árbitro responde 400 al registro, y mostrar los votos en vivo sería filtrar
 // el juego.
 //

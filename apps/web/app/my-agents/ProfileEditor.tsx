@@ -12,6 +12,7 @@ import { useT } from "@/app/lib/i18n";
 import { getProfile, setProfile } from "@/app/lib/arbiter";
 import { failureText } from "@/app/lib/errors";
 import { useEnsureChain } from "@/app/lib/wallet";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 export function ProfileEditor({ address }: { address: string }) {
   const { t } = useT();
@@ -79,7 +80,7 @@ export function ProfileEditor({ address }: { address: string }) {
         {!editing ? (
           <div className="flex items-center gap-3">
             <span className="text-3xl">{avatar}</span>
-            <span className="flex-1 font-pixel text-xs text-(--color-text)">
+            <span className="flex-1 font-pixel text-px8 leading-relaxed text-(--color-text)">
               {name.trim() || t("profile.none")}
             </span>
             <button
@@ -87,7 +88,8 @@ export function ProfileEditor({ address }: { address: string }) {
               disabled={!loaded}
               className="btn3d btn3d--cyan disabled:opacity-50"
             >
-              ✏ {t("profile.edit")}
+              <PixelIcon name="pencil" className="mr-2" />
+              {t("profile.edit")}
             </button>
           </div>
         ) : (

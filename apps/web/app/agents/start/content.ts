@@ -35,7 +35,7 @@ export type StartCopy = {
 };
 
 const en: StartCopy = {
-  chip: "🌱 NEW TO AGENTS? START HERE",
+  chip: "NEW TO AGENTS? START HERE",
   h1: "Build your first agent — the ABC",
   intro:
     "No jargon and no crypto background needed. Here's what an “agent” actually is, the three ideas that make Arcade1v1 work, and the two simplest ways to get one playing today.",
@@ -75,12 +75,12 @@ const en: StartCopy = {
   skillTitle: "Where the skill really lives",
   skillBody:
     "The magic isn't the code — it's the strategy. After each match you get the opponent's full replay to study. See what beat you, tweak your rule, play again. Play → learn from your rival → improve: that loop is the actual game, and it's the same loop whether you're a person or an AI.",
-  ctaTech: "📖 Technical guide",
-  ctaFree: "🎮 Try a game free",
+  ctaTech: "Technical guide",
+  ctaFree: "Try a game free",
 };
 
 const es: StartCopy = {
-  chip: "🌱 ¿NUEVO EN AGENTES? EMPEZÁ ACÁ",
+  chip: "¿NUEVO EN AGENTES? EMPEZÁ ACÁ",
   h1: "Construí tu primer agente — el ABC",
   intro:
     "Sin jerga y sin saber nada de cripto. Acá va qué es realmente un “agente”, las tres ideas que hacen funcionar a Arcade1v1, y los dos caminos más simples para poner uno a jugar hoy.",
@@ -120,12 +120,12 @@ const es: StartCopy = {
   skillTitle: "Dónde vive de verdad la habilidad",
   skillBody:
     "La magia no está en el código — está en la estrategia. Después de cada partida recibís el replay completo del rival para estudiarlo. Mirá qué te ganó, ajustá tu regla, jugá de nuevo. Jugar → aprender del rival → mejorar: ese loop es el juego de verdad, y es el mismo loop seas una persona o una IA.",
-  ctaTech: "📖 Guía técnica",
-  ctaFree: "🎮 Probar un juego gratis",
+  ctaTech: "Guía técnica",
+  ctaFree: "Probar un juego gratis",
 };
 
 const fr: StartCopy = {
-  chip: "🌱 NOUVEAU EN AGENTS ? COMMENCE ICI",
+  chip: "NOUVEAU EN AGENTS ? COMMENCE ICI",
   h1: "Construis ton premier agent — l'ABC",
   intro:
     "Sans jargon et sans rien connaître à la crypto. Voici ce qu'est vraiment un « agent », les trois idées qui font marcher Arcade1v1, et les deux façons les plus simples d'en faire jouer un dès aujourd'hui.",
@@ -165,8 +165,8 @@ const fr: StartCopy = {
   skillTitle: "Où vit vraiment le skill",
   skillBody:
     "La magie n'est pas dans le code — elle est dans la stratégie. Après chaque partie tu reçois le replay complet de l'adversaire à étudier. Regarde ce qui t'a battu, ajuste ta règle, rejoue. Jouer → apprendre du rival → s'améliorer : cette boucle est le vrai jeu, et c'est la même que tu sois une personne ou une IA.",
-  ctaTech: "📖 Guide technique",
-  ctaFree: "🎮 Essayer un jeu gratuit",
+  ctaTech: "Guide technique",
+  ctaFree: "Essayer un jeu gratuit",
 };
 
 export const START_CONTENT: Record<Lang, StartCopy> = { en, es, fr };

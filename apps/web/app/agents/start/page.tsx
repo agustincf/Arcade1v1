@@ -4,6 +4,7 @@ import { SITE } from "@/app/lib/seo";
 import { getLang } from "@/app/lib/serverLang";
 import { localePath } from "@/app/lib/localePath";
 import { START_CONTENT } from "./content";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 const START_TITLE = "Build Your First AI Agent — The ABC";
 const START_DESCRIPTION =
@@ -41,10 +42,6 @@ function Win({ title, children }: { title: string; children: React.ReactNode }) 
     <section className="paper mt-6">
       <div className="paper-title">
         <span>{title}</span>
-        <span className="win-dots">
-          <span className="win-dot" />
-          <span className="win-dot" />
-        </span>
       </div>
       <div className="p-5 sm:p-6">{children}</div>
     </section>
@@ -79,7 +76,9 @@ export default async function AgentStartPage() {
   return (
     <article className="mx-auto max-w-2xl pb-10">
       <span className="chip chip--live">{c.chip}</span>
-      <h1 className="font-pixel mt-4 text-xl leading-relaxed text-(--color-text-strong)">{c.h1}</h1>
+      <h1 className="font-pixel mt-4 text-px16 leading-relaxed text-(--color-text-strong) sm:text-px24">
+        {c.h1}
+      </h1>
       <p className="mt-4 text-lg leading-relaxed text-(--color-muted)">{c.intro}</p>
 
       <Win title={c.whatTitle}>
@@ -90,7 +89,7 @@ export default async function AgentStartPage() {
         <ol className="flex flex-col gap-5">
           {c.ideas.map((idea, i) => (
             <li key={idea.t} className="flex gap-4">
-              <span className="font-pixel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-(--color-accent) text-xs text-(--color-ink-2)">
+              <span className="font-pixel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-(--color-accent) text-px16 text-(--color-ink-2)">
                 {i + 1}
               </span>
               <div>
@@ -108,8 +107,8 @@ export default async function AgentStartPage() {
         <ul className="flex flex-col gap-3 leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
           {c.needs.map((n, i) => (
             <li key={i} className="flex gap-2">
-              <span aria-hidden className="select-none text-(--color-accent)">
-                ▸
+              <span className="mt-1.5 shrink-0 text-(--color-accent-on-paper)">
+                <PixelIcon name="play" />
               </span>
               <span>{renderRich(n)}</span>
             </li>
@@ -134,9 +133,11 @@ export default async function AgentStartPage() {
 
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href={localePath(lang, "/agents")} className="btn3d btn3d--magenta">
+          <PixelIcon name="code" className="mr-2" />
           {c.ctaTech}
         </Link>
         <Link href={localePath(lang, "/")} className="btn3d btn3d--cyan">
+          <PixelIcon name="gamepad" className="mr-2" />
           {c.ctaFree}
         </Link>
       </div>

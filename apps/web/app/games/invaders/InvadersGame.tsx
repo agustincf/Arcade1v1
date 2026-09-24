@@ -22,6 +22,7 @@ import {
   drawBullet,
   drawBomb,
 } from "./sprites";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 const { WIDTH, HEIGHT, ALIEN_W, ALIEN_H, PLAYER_Y, BULLET_H, BOMB_H, UFO_W, UFO_H, UFO_Y } =
   INVADERS_CONST;
@@ -505,7 +506,7 @@ export function InvadersGame({
             aria-label="Disparar"
             className="btn3d btn3d--magenta !text-xl"
           >
-            <span aria-hidden="true">🔫</span>
+            <PixelIcon name="cannon" px={2} />
           </button>
           <button
             {...hold("r1")}

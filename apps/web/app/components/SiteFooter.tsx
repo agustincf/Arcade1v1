@@ -4,6 +4,7 @@ import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useState } from "react";
 import { useT } from "@/app/lib/i18n";
 import { IS_MAINNET } from "@/app/lib/config";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 // Dirección de propinas (BTC, on-chain nativo). Va como constante para copiarla
 // SIEMPRE exacta: transcribir a mano una bech32 de 42 chars es un desastre y un
@@ -15,7 +16,7 @@ export function SiteFooter() {
   return (
     <footer className="mt-12 border-t border-(--color-border) bg-(--color-ink)/60">
       <div className="mx-auto max-w-5xl px-4 py-7 text-center">
-        <p className="font-pixel text-px10 text-(--color-accent)">
+        <p className="font-pixel text-px8 normal-case text-(--color-accent)">
           Arcade1v1 <span className="ml-1 text-(--color-muted-3)">{t("footer.best")}</span>
         </p>
         {/* Un solo nivel de links, podado: "Tu primer agente" vive dentro de
@@ -71,7 +72,7 @@ export function SiteFooter() {
         {/* Agradecimiento y propina en renglones separados: juntos en una línea
             se empastaban con el aviso legal de arriba. */}
         <p className="mt-4 text-sm text-(--color-muted-3)">
-          {t("footer.love")} <span className="text-(--color-accent)">♥</span>
+          {t("footer.love")} <PixelIcon name="heart" className="ml-0.5 text-(--color-accent)" />
         </p>
         <div className="mt-2">
           <BtcTip />
@@ -102,7 +103,7 @@ function BtcTip() {
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center gap-1.5">
       <span className="text-sm text-(--color-muted-2)">
-        <span aria-hidden>☕</span> {t("footer.tip")}
+        <PixelIcon name="coffee" className="mr-1" /> {t("footer.tip")}
       </span>
       <button
         onClick={copy}

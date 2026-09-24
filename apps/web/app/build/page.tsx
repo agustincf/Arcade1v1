@@ -34,6 +34,7 @@ import {
   type ArbiterRejection,
   type SignFailure,
 } from "@/app/lib/errors";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 const TOTAL_STEPS = 5;
 // Tope de agentes por wallet. Debe coincidir con MAX_AGENTS_PER_OWNER del
@@ -217,7 +218,7 @@ export default function BuildPage() {
           </span>
         </div>
         <div className="p-5">
-          <h1 className="font-pixel text-sm text-(--color-accent-2)">
+          <h1 className="font-pixel text-px16 leading-relaxed text-(--color-accent-2)">
             {t(`build.s${step}.title`)}
           </h1>
           <p className="mt-2 text-base leading-relaxed text-(--color-muted)">
@@ -235,7 +236,9 @@ export default function BuildPage() {
                     game === g.id ? "!border-(--color-accent)" : ""
                   }`}
                 >
-                  <GameIcon id={g.id} size={44} />
+                  <span className="pantalla h-14 w-14 rounded-sm">
+                    <GameIcon id={g.id} size={48} />
+                  </span>
                   <span className="text-sm text-(--color-muted-bright)">
                     {t(`game.${g.id}.name`)}
                   </span>
@@ -263,9 +266,7 @@ export default function BuildPage() {
                           strategyId === s.id ? "!border-(--color-accent)" : ""
                         }`}
                       >
-                        <p className="font-pixel text-px10 text-(--color-accent-2)">
-                          {t(s.labelKey)}
-                        </p>
+                        <p className="rotulo text-(--color-accent-2)">{t(s.labelKey)}</p>
                         {s.descKey && (
                           <p className="mt-1 text-sm leading-snug text-(--color-muted)">
                             {t(s.descKey)}
@@ -277,7 +278,7 @@ export default function BuildPage() {
                 </>
               )}
               <div className="win mt-4 p-4">
-                <p className="font-pixel text-px10 text-(--color-accent-2)">{t(def.labelKey)}</p>
+                <p className="rotulo text-(--color-accent-2)">{t(def.labelKey)}</p>
                 {def.params.map((p) =>
                   p.kind === "slider" ? (
                     <SliderControl
@@ -305,7 +306,7 @@ export default function BuildPage() {
               </div>
               <div className="win mt-4 flex items-center justify-between p-4">
                 <span className="text-sm text-(--color-muted-2)">{t("build.estimate")}</span>
-                <span className="font-pixel text-sm text-(--color-gold)">{estimate ?? "…"}</span>
+                <span className="font-pixel text-px16 text-(--color-gold)">{estimate ?? "…"}</span>
               </div>
             </>
           )}
@@ -339,7 +340,7 @@ export default function BuildPage() {
               </div>
               <div className="win mt-4 flex items-center gap-3 p-3">
                 <span className="text-3xl">{avatar}</span>
-                <span className="font-pixel text-xs text-(--color-text)">
+                <span className="font-pixel text-px8 leading-relaxed text-(--color-text)">
                   {name.trim() || t("build.yourAgent")}
                 </span>
               </div>
@@ -351,7 +352,8 @@ export default function BuildPage() {
             <div className="mt-5">
               {!sandbox ? (
                 <button onClick={runSandbox} className="btn3d btn3d--magenta w-full">
-                  ▶ {t("build.test")}
+                  <PixelIcon name="play" className="mr-2" />
+                  {t("build.test")}
                 </button>
               ) : (
                 <>
@@ -363,7 +365,8 @@ export default function BuildPage() {
                     />
                   </div>
                   <button onClick={runSandbox} className="btn3d btn3d--cyan mt-4 w-full">
-                    ⟲ {t("build.testAgain")}
+                    <PixelIcon name="rewind" className="mr-2" />
+                    {t("build.testAgain")}
                   </button>
                 </>
               )}
@@ -376,7 +379,7 @@ export default function BuildPage() {
               <div className="win p-4 text-sm">
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">{avatar}</span>
-                  <span className="font-pixel text-xs text-(--color-text)">
+                  <span className="font-pixel text-px8 leading-relaxed text-(--color-text)">
                     {name.trim() || t("build.yourAgent")}
                   </span>
                 </div>
@@ -427,7 +430,8 @@ export default function BuildPage() {
                   disabled={deploying}
                   className="btn3d btn3d--magenta mt-4 w-full disabled:opacity-50"
                 >
-                  {deploying ? t("build.deploying") : `🚀 ${t("build.deploy")}`}
+                  {!deploying && <PixelIcon name="play" className="mr-2" />}
+                  {deploying ? t("build.deploying") : t("build.deploy")}
                 </button>
               )}
               {deploying && slowHint && (
@@ -466,7 +470,8 @@ export default function BuildPage() {
                 disabled={!canNext}
                 className="btn3d btn3d--magenta flex-1 disabled:opacity-50"
               >
-                {t("build.next")} ▶
+                {t("build.next")}
+                <PixelIcon name="play" className="ml-2" />
               </button>
             )}
           </div>
@@ -493,7 +498,7 @@ function SliderControl({
     <div className="mt-3">
       <div className="flex justify-between text-sm">
         <span className="text-(--color-muted-2)">{t(spec.labelKey)}</span>
-        <span className="font-pixel text-px10 text-(--color-gold)">{value}</span>
+        <span className="font-pixel text-px8 text-(--color-gold)">{value}</span>
       </div>
       <input
         type="range"
@@ -560,7 +565,7 @@ function PriorityControl({
       <div className="mt-1 flex flex-col gap-1">
         {value.map((opt, i) => (
           <div key={opt} className="flex items-center gap-2 text-sm">
-            <span className="font-pixel w-5 text-px10 text-(--color-gold)">{i + 1}</span>
+            <span className="font-pixel w-5 text-px8 text-(--color-gold)">{i + 1}</span>
             <span className="flex-1 text-(--color-text)">{t(`strat.opt.${opt}`)}</span>
             <button
               onClick={() => move(i, -1)}
