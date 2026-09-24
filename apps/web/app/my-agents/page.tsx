@@ -13,6 +13,8 @@ import { GameIcon } from "@/app/components/GameIcon";
 import { listAgents, agentAction, warmUpArbiter, type AgentView } from "@/app/lib/arbiter";
 import { failureText } from "@/app/lib/errors";
 import { ProfileEditor } from "./ProfileEditor";
+import { HostedPausedNotice } from "@/app/components/HostedPausedNotice";
+import { HOSTED_AGENTS_PAUSED } from "@/app/lib/config";
 
 export default function MyAgentsPage() {
   const { t } = useT();
@@ -81,6 +83,8 @@ export default function MyAgentsPage() {
           <ProfileEditor address={address} />
         </div>
       )}
+
+      <HostedPausedNotice className="mt-3" />
 
       <div className="win mt-3">
         <div className="win-title">
@@ -160,9 +164,11 @@ export default function MyAgentsPage() {
         </div>
       </div>
 
-      <p className="mt-3 text-center text-sm leading-relaxed text-(--color-muted-2)">
-        {t("myagents.note")}
-      </p>
+      {!HOSTED_AGENTS_PAUSED && (
+        <p className="mt-3 text-center text-sm leading-relaxed text-(--color-muted-2)">
+          {t("myagents.note")}
+        </p>
+      )}
     </div>
   );
 }

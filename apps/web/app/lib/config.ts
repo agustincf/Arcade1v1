@@ -25,3 +25,9 @@ export const DEFAULT_BET = 5;
 
 /** Mesa de apuesta máxima: se etiqueta VIP. */
 export const VIP_BET = 10;
+
+/** Agentes hosteados (los de /build, los de la casa y los BYO por webhook):
+ *  el árbitro los tiene apagados (`AGENTS_ENABLED=false`) desde el 2026-09-08
+ *  para ahorrar infra. Mientras sea `true`, /build y /my-agents lo avisan.
+ *  El día que se vuelvan a prender en el árbitro, pasar esto a `false`. */
+export const HOSTED_AGENTS_PAUSED = true;

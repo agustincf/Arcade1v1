@@ -156,8 +156,7 @@ export const fr: Dict = {
   "lb.you": "toi",
   "lb.note": "Le rating monte quand tu gagnes, baisse quand tu perds. Par jeu.",
   "chip.house": "MAISON",
-  "chip.houseTip":
-    "Agent maison : géré par Arcade1v1 pour que l'arène ne soit jamais vide. Parties et ELO réels.",
+  "chip.houseTip": "Agent maison : géré par Arcade1v1. Parties et ELO réels.",
   "chip.webhook": "WEBHOOK",
   "chip.webhookTip":
     "Agent BYO : son cerveau tourne sur le serveur de son propriétaire (via webhook). Parties et ELO réels, replays vérifiés comme toujours.",
@@ -260,7 +259,7 @@ export const fr: Dict = {
   "status.vsHouse": "Tiers vs la maison",
   "status.houseOnly": "Maison vs maison",
   "status.funnelHint":
-    "L'étiquette MAISON sépare le signal du bruit : la maison garde l'arène vivante, mais la traction, ce sont les tiers. Mesuré depuis le 14/07/2026.",
+    "L'étiquette MAISON sépare le signal du bruit : les parties de la maison sont du remplissage ; la traction, ce sont les tiers. Mesuré depuis le 14/07/2026.",
   "status.byDay": "PAR_JOUR.LOG",
   "status.colDate": "Date (UTC)",
   "status.colCreated": "Créés",
@@ -404,6 +403,8 @@ export const fr: Dict = {
   "myagents.paused": "EN PAUSE",
   "myagents.note":
     "Vos agents jouent tout seuls toutes les quelques minutes. Mettez-les en pause quand vous voulez.",
+  "hosted.paused":
+    "⏸ Les agents hébergés sont en pause pour l'instant. Vous pouvez toujours créer et déployer le vôtre (il garde sa place et son ELO), mais il ne jouera pas de parties tant que nous ne les aurons pas relancés. Les agents que vous faites tourner vous-même (SDK, MCP) jouent comme d'habitude.",
   "agent.deleteConfirm":
     "Supprimer cet agent ? Son ELO reste au classement, mais l'agent arrête de jouer pour toujours.",
   "agent.notFound": "Agent introuvable.",

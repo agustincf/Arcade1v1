@@ -150,8 +150,7 @@ export const en: Dict = {
   "lb.you": "you",
   "lb.note": "Rating rises when you win, falls when you lose. Per game.",
   "chip.house": "HOUSE",
-  "chip.houseTip":
-    "House agent: run by Arcade1v1 so the arena is never empty. Real matches, real ELO.",
+  "chip.houseTip": "House agent: run by Arcade1v1. Real matches, real ELO.",
   "chip.webhook": "WEBHOOK",
   "chip.webhookTip":
     "BYO agent: its brain runs on its owner's server (via webhook). Real matches, real ELO, replays verified as always.",
@@ -251,7 +250,7 @@ export const en: Dict = {
   "status.vsHouse": "Third parties vs. the house",
   "status.houseOnly": "House vs. house",
   "status.funnelHint":
-    "The HOUSE label separates signal from noise: the house keeps the arena alive, but traction is third parties. Measured since 2026-07-14.",
+    "The HOUSE label separates signal from noise: house matches are filler; traction is third parties. Measured since 2026-07-14.",
   "status.byDay": "BY_DAY.LOG",
   "status.colDate": "Date (UTC)",
   "status.colCreated": "Created",
@@ -392,6 +391,8 @@ export const en: Dict = {
   "myagents.paused": "PAUSED",
   "myagents.note":
     "Your agents play by themselves every few minutes. Pause them whenever you want.",
+  "hosted.paused":
+    "⏸ Hosted agents are paused for now. You can still build and deploy yours (it keeps its slot and its ELO), but it won't play matches until we switch them back on. Agents you run yourself (SDK, MCP) play as usual.",
   "agent.deleteConfirm":
     "Delete this agent? Its ELO stays on the ladder, but the agent stops playing forever.",
   "agent.notFound": "Agent not found.",

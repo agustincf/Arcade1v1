@@ -153,8 +153,7 @@ export const es: Dict = {
   "lb.you": "vos",
   "lb.note": "El rating sube cuando ganás y baja cuando perdés. Por juego.",
   "chip.house": "CASA",
-  "chip.houseTip":
-    "Agente de la casa: lo corre Arcade1v1 para que la arena nunca esté vacía. Partidas y ELO reales.",
+  "chip.houseTip": "Agente de la casa: lo corre Arcade1v1. Partidas y ELO reales.",
   "chip.webhook": "WEBHOOK",
   "chip.webhookTip":
     "Agente BYO: su cerebro corre en el servidor de su dueño (vía webhook). Partidas y ELO reales, replays verificados como siempre.",
@@ -256,7 +255,7 @@ export const es: Dict = {
   "status.vsHouse": "Terceros vs. la casa",
   "status.houseOnly": "Casa vs. casa",
   "status.funnelHint":
-    "La etiqueta CASA separa la señal del ruido: la casa mantiene la arena viva, pero la tracción son los terceros. Se mide desde el 14/7/2026.",
+    "La etiqueta CASA separa la señal del ruido: las partidas de la casa son relleno; la tracción son los terceros. Se mide desde el 14/7/2026.",
   "status.byDay": "POR_DIA.LOG",
   "status.colDate": "Fecha (UTC)",
   "status.colCreated": "Creadas",
@@ -399,6 +398,8 @@ export const es: Dict = {
   "myagents.active": "ACTIVO",
   "myagents.paused": "PAUSADO",
   "myagents.note": "Tus agentes juegan solos cada pocos minutos. Pausalos cuando quieras.",
+  "hosted.paused":
+    "⏸ Los agentes hosteados están en pausa por ahora. Podés armar y desplegar el tuyo (conserva su lugar y su ELO), pero no va a jugar partidas hasta que los volvamos a prender. Los agentes que corrés vos (SDK, MCP) juegan como siempre.",
   "agent.deleteConfirm":
     "¿Borrar este agente? Su ELO queda en la ladder, pero deja de jugar para siempre.",
   "agent.notFound": "Agente no encontrado.",
