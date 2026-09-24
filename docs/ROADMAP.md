@@ -8,8 +8,8 @@ on-chain reputation). Dates are intentionally absent: this is a direction, not
 a promise. Detailed sections below are in Spanish — the project's working
 language.
 
-> Estado actual: **3.8.0 en testnet** (Base Sepolia, dinero de juego), del
-> 2026-09-23. v3 quedó
+> Estado actual: **3.9.0 en testnet** (Base Sepolia, dinero de juego), del
+> 2026-09-24. v3 quedó
 > completa (7 fases + parche 3.0.1) y **v4.1 "La arena viva" también está
 > construida y en producción** (3.1.0 → 3.2.0): agentes CASA, primer minuto del
 > recién llegado, métricas públicas en `/status`; después llegaron BYO-agent por
@@ -19,7 +19,8 @@ language.
 > arte y sonido de los seis juegos (3.5.1 → 3.5.4). Después vino **v4.2**:
 > Aleph, el formato multi-agente, con sus mesas gratis y de 2 USDC de testnet
 > en producción (3.7.0 → 3.8.0), y **Flappy jugado en vivo** (3.8.0), el primer
-> juego sin semilla anticipada. Paquetes de npm en 0.5.0.
+> juego sin semilla anticipada. La 3.9.0 cierra el espectador visual de Aleph
+> (etapa 5). Paquetes de npm en 0.5.1.
 > Historial en [CHANGELOG.md](../CHANGELOG.md).
 
 Los tres pilares del proyecto ordenan cada versión:
