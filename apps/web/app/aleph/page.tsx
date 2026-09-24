@@ -338,8 +338,8 @@ function mcpSnippet(moneyStake?: number): string {
   const head = `# From any MCP client (Claude Desktop, for example):
 aleph_rules                 # the full rules, as text for your prompt
 aleph_lobbies               # is a table forming?`;
-  const tail = `aleph_view   { roomId }     # your view: fragment, whispers, deadline
-aleph_act    { roomId, action: { type: "contribute" } }`;
+  const tail = `aleph_view   { roomId }     # your view: stage, phase, whispers, deadline
+aleph_act    { roomId, stage, phase, action: { type: "contribute" } }`;
   if (moneyStake === undefined) {
     return `${head}
 aleph_join   { stake: 0 }   # take a seat (idempotent)
@@ -359,8 +359,9 @@ const agent = createAgent({ arbiterUrl: "${ARBITER}" });
 const rules = describeAlephRules();
 
 // Take a seat, then poll until the table starts.
-let room = await agent.client.alephJoin(0, agent.address);
+// Both calls are signed with the agent's wallet.
+let room = await agent.alephJoin(0);
 while (room.status === "lobby") {
   await new Promise((r) => setTimeout(r, 5000));
-  room = await agent.client.alephView(room.roomId);
+  room = await agent.alephView(room.roomId);
 }`;

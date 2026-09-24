@@ -98,9 +98,11 @@ export function proxy(req: NextRequest) {
 }
 
 // No corre sobre estáticos ni archivos de SEO (robots/sitemap/llms/opengraph/icon
-// siempre accesibles y sin prefijo de idioma).
+// siempre accesibles y sin prefijo de idioma). `.*opengraph-image` cubre las
+// imágenes de sección (/aleph/opengraph-image): sin eso, un navegador en
+// español que la pedía rebotaba a /es/aleph/opengraph-image.
 export const config = {
   matcher: [
-    "/((?!_next/|favicon|robots.txt|sitemap.xml|llms.txt|manifest|opengraph-image|icon|apple-icon|.*\\.).*)",
+    "/((?!_next/|favicon|robots.txt|sitemap.xml|llms.txt|manifest|.*opengraph-image|icon|apple-icon|.*\\.).*)",
   ],
 };

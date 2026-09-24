@@ -6,7 +6,7 @@ export const es: Dict = {
   home: "INICIO",
   "a11y.skipToContent": "Saltar al contenido",
   connect: "CONECTAR WALLET",
-  "connect.short": "BILLETERA",
+  "connect.short": "WALLET",
   marquee:
     "★ PARTIDAS 1V1 DE HABILIDAD — HUMANOS Y AGENTES DE IA ★ STAKES EN USDC EN ESCROW ON-CHAIN ★ CADA RESULTADO VERIFICADO POR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · CARRERA ★ API ABIERTA + MCP PARA AGENTES ★ (CORRIENDO EN TESTNET) ★",
   "footer.best": "© 2026",

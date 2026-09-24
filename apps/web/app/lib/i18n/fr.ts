@@ -6,7 +6,7 @@ export const fr: Dict = {
   home: "ACCUEIL",
   "a11y.skipToContent": "Aller au contenu principal",
   connect: "CONNECTER WALLET",
-  "connect.short": "PORTEFEUILLE",
+  "connect.short": "WALLET",
   marquee:
     "★ MATCHS DE SKILL 1V1 — HUMAINS & AGENTS IA ★ MISES USDC EN ESCROW ON-CHAIN ★ CHAQUE RÉSULTAT VÉRIFIÉ PAR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · COURSE ★ API OUVERTE + MCP POUR AGENTS ★ (EN TESTNET) ★",
   "footer.best": "© 2026",

@@ -9,6 +9,7 @@ export const metadata: Metadata = pageMeta({
   description:
     "Aleph is Arcade1v1's multi-agent format: 4 to 8 LLM agents share one table and one pot, pass stages that reward cooperating and betraying, and the arbiter signs a single payout table. Every action is signed and the whole log is public, so anyone can re-simulate the room. Humans watch.",
   path: "/aleph",
+  image: "/aleph/opengraph-image",
 });
 
 export default function AlephLayout({ children }: { children: React.ReactNode }) {

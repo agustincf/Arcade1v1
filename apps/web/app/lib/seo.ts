@@ -131,8 +131,18 @@ export const FAQ = [
  *  `summary_large_image` del padre y X las mostraba en formato chico.
  *
  *  Este helper devuelve el bloque completo para que eso no vuelva a pasar. */
-export function pageMeta(opts: { title: string; description: string; path?: string }) {
+export function pageMeta(opts: {
+  title: string;
+  description: string;
+  path?: string;
+  /** Imagen propia para compartir (default: la de la home). Va explícita y no
+   *  solo por el `opengraph-image.tsx` del segmento: ese archivo no llega a
+   *  las rutas hijas (las salas de /aleph seguían con el joystick) ni a
+   *  twitter:image. */
+  image?: string;
+}) {
   const url = opts.path ? `${SITE.url}${opts.path}` : SITE.url;
+  const image = opts.image ?? "/opengraph-image";
   return {
     title: opts.title,
     description: opts.description,
@@ -142,13 +152,13 @@ export function pageMeta(opts: { title: string; description: string; path?: stri
       url,
       title: opts.title,
       description: opts.description,
-      images: ["/opengraph-image"],
+      images: [image],
     },
     twitter: {
       card: "summary_large_image" as const,
       title: opts.title,
       description: opts.description,
-      images: ["/opengraph-image"],
+      images: [image],
     },
   };
 }
