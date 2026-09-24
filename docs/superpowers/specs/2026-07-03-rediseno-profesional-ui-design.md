@@ -89,3 +89,48 @@ Sólido con grilla ultra-sutil única. Se eliminan: radiales magenta/cyan, scanl
 - `npm run build` (o equivalente del monorepo) pasa.
 - Recorrida visual del flujo completo: home → mesa → partida gratis → resultado → leaderboard → agents → terms, coherente en desktop y mobile.
 - Menos de 3 acentos visibles por pantalla; cuerpo 100 % Inter; sin scanlines ni glows fuertes.
+
+## Enmienda 2026-09-24 — Facelift "menos plantilla"
+
+Estado: aprobado por el usuario ("implementá"), después de una auditoría visual
+con maqueta de antes y después. La estructura, la paleta, el logo, el
+`btn3d` y la pixel como identidad se conservan. Esto cambia sobre lo de arriba:
+
+- **Cuerpo: Chivo, no Inter.** Inter es la tipografía por defecto de casi toda
+  la UI generada y el sitio se leía como plantilla. Chivo y Chivo Mono (de
+  Omnibus-Type, Buenos Aires) vía `next/font`. `--font-sans` y `--font-mono`
+  del `@theme` apuntan a ellas, así que `font-sans`/`font-mono` de Tailwind
+  las usan en todo el sitio. `--font-inter` deja de existir.
+- **Pixel: solo títulos, nombres de juego y números.** Siempre en mayúsculas
+  (la clase `.font-pixel` lo fuerza; el logotipo "Arcade1v1" lleva
+  `normal-case`) y en la escala de 8 (`text-px8/16/24/32`): la fuente está
+  dibujada sobre 8 px y en 10, 11 o 30 se lava. **Excepción:** `.btn3d` sigue
+  en 11 px, porque en 8 un CTA pierde el peso y en 16 no entra en un celular.
+- **`.win-title` / `.paper-title` / `.chip` / ticker: en la mono**, 11-12 px
+  en mayúsculas con tracking. Los rótulos chicos que antes iban en pixel de
+  10 px pasan a `.rotulo` (la misma mono).
+- **Sin `win-dots` y sin `.TXT` / `.EXE` / `.LOG`** en los títulos (en los tres
+  idiomas). Esto revierte el "guiño retro" de arriba y el motivo que el plan
+  `2026-06-28-ui-unity-i18n-tokens.md` pedía mantener: cuando todo era una
+  ventana con nombre de archivo, la ventana dejó de decir algo. Una ventana
+  (`.win`) es ahora una máquina (el juego, el ranking, el pozo) y el papel
+  (`.paper`) es el manual (cómo funciona, FAQ, docs).
+- **`.win` / `.paper`: radio 6, sin la sombra difusa** (la misma en todas las
+  cajas: nada se destacaba). La única sombra del sitio es la dura del botón.
+- **Emojis: fuera también los expresivos.** Arriba se conservaban 🏆 💀 🤝; ahora
+  ningún emoji hace de ícono. `PixelIcon` (grilla de 12, `currentColor`) los
+  reemplaza, y `GameIcon` pasa de vectores neón con glow a sprites pixel de
+  16x16 con escala entera y colores de los tokens (clases `.spr-*`). Un sprite
+  va siempre sobre fondo oscuro (`.pantalla`): sobre papel o sobre un botón
+  coral los colores de marca dan 1,0 a 2,3:1. Los avatares de los agentes
+  siguen siendo emojis: son contenido.
+- **Home:** los pilares salen del panel (van sobre la página, con regla
+  arriba); las tarjetas de juego son "cartuchos" (pantalla, nombre, mesas) sin
+  un botón por tarjeta, y en el celular van en fila.
+- **Links sobre papel:** coral oscuro `--color-accent-on-paper` (6,5:1). Una
+  utilidad de color en el markup le gana a `.paper a`: un link dentro del
+  papel no lleva clase de color.
+- **Sigue fuera de alcance: el arte de los canvas.** Los juegos y los replays
+  (`replay/render.ts`) conservan la paleta neón de adentro de la pantalla. Un
+  replay tiene que verse igual que la partida que reproduce, así que se
+  recolorean los dos juntos o ninguno; queda para una pasada propia.

@@ -52,6 +52,14 @@ dejar esperando, perdiendo plata o leyendo un mensaje que miente, está mal.
   no el qué.
 - **Textos de UI**: SIEMPRE por i18n (`i18n-dict.ts`, 3 idiomas: en/es/fr) vía
   `t("clave")`. Prohibido hardcodear texto visible.
+- **Íconos y tipografía de la web**: ningún emoji hace de ícono en la interfaz
+  (cada sistema dibuja el suyo y un lector de pantalla los lee en voz alta):
+  se usa `PixelIcon` para la UI y `GameIcon` para los juegos, con los colores
+  de los tokens. Los avatares de los agentes sí son emojis: son contenido. La
+  pixel (`font-pixel`) va solo en mayúsculas y en `text-px8/16/24/32`; lo
+  técnico (títulos de ventana, chips, rótulos) va en la mono (`.rotulo`).
+  Detalle en el spec `2026-07-03-rediseno-profesional-ui-design.md` (enmienda
+  2026-09-24).
 - **Direcciones**: normalizar a minúsculas (`normAddr`) antes de usarlas como
   clave o compararlas. Nunca comparar addresses crudas.
 - **Dinero**: USDC con 6 decimales — convertir con `toUsdcUnits`, nunca aritmética

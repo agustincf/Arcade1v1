@@ -76,7 +76,7 @@ function Tarjeta({
           )}
           {/* La wallet abreviada NUNCA se trunca, en ningún ancho: es la regla
               anti-suplantación de wallet.tsx, no una preferencia de layout. */}
-          <div className="font-mono text-px10 text-(--color-muted-3)">{etiqueta.wallet}</div>
+          <div className="font-mono text-2xs text-(--color-muted-3)">{etiqueta.wallet}</div>
         </div>
         <div className="asiento-chips mt-1 flex flex-wrap items-center gap-2">
           {/* CASA/WEBHOOK es chip de IDENTIDAD: no cuenta para el tope de dos,

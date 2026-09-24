@@ -6,6 +6,7 @@ import { LocaleLink as Link, useLocalePath } from "@/app/components/LocaleLink";
 import { getGame } from "@/app/lib/games";
 import { getPayout, PLATFORM_FEE, IS_MAINNET } from "@/app/lib/config";
 import { GameIcon } from "@/app/components/GameIcon";
+import { PixelIcon } from "@/app/components/PixelIcon";
 import { useT } from "@/app/lib/i18n";
 import { useWallet, useEnsureChain } from "@/app/lib/wallet";
 import { useEscrow } from "@/app/lib/useEscrow";
@@ -746,10 +747,6 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       <div className="win mt-4">
         <div className="win-title win-title--cyan">
           <span>{t("match.playing")}</span>
-          <span className="win-dots">
-            <span className="win-dot" />
-            <span className="win-dot" />
-          </span>
         </div>
         <div className="p-5">
           {error ? (
@@ -787,6 +784,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                     onClick={() => window.location.assign(lp(`/game/${gameId}/match?free=1`))}
                     className="text-sm font-medium text-(--color-accent-2) hover:underline"
                   >
+                    <PixelIcon name="gamepad" className="mr-2" />
                     {t("match.guestBtn")}
                   </button>
                 </p>
@@ -805,7 +803,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
             </div>
           ) : needsDeposit && !deposited ? (
             <div className="py-6 text-center">
-              <p className="font-pixel text-sm text-(--color-gold)">{t("match.playTitle")}</p>
+              <p className="font-pixel text-px16 uppercase text-(--color-gold)">
+                {t("match.playTitle")}
+              </p>
               <p className="mx-auto mt-3 max-w-sm text-base leading-relaxed text-(--color-muted)">
                 {role === "p2" ? t("match.joinHint", { bet }) : t("match.openHint", { bet })}
               </p>
@@ -898,7 +898,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       {/* Enviando el puntaje: hay que confirmar la firma (clave en móvil por QR) */}
       {submitting && !waiting && outcome === null && (
         <Modal title={t("match.signing")}>
-          <div className="text-5xl">📲</div>
+          <PixelIcon name="phone" px={4} className="text-(--color-accent-2)" />
           <p className="mt-4 text-base leading-relaxed text-(--color-muted-bright)">
             {t("match.signingBody")}
           </p>
@@ -934,11 +934,15 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       {freeDone && (
         <Modal title={t("result.exe")}>
           <div className="flex justify-center">
-            <GameIcon id={game.id} size={56} />
+            <span className="pantalla h-16 w-16 rounded-sm">
+              <GameIcon id={game.id} size={48} />
+            </span>
           </div>
-          <h2 className="font-pixel mt-3 text-lg text-(--color-accent-2)">{t("match.freeHead")}</h2>
+          <h2 className="font-pixel mt-4 text-px16 uppercase text-(--color-accent-2)">
+            {t("match.freeHead")}
+          </h2>
           <p className="mt-3 text-base text-(--color-muted-bright)">{t("match.yourScore")}</p>
-          <p className="font-pixel mt-1 text-3xl text-(--color-gold)">{youScore}</p>
+          <p className="font-pixel mt-1 text-px32 text-(--color-gold)">{youScore}</p>
           <p className="mt-3 text-base leading-relaxed text-(--color-muted)">
             {t("match.freeUpsell")}
           </p>
@@ -947,6 +951,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
               onClick={() => router.push(lp(`/game/${gameId}`))}
               className="btn3d btn3d--magenta w-full"
             >
+              <PixelIcon name="bill" className="mr-2" />
               {t("match.playUsdc")}
             </button>
             <div className="flex gap-3">
@@ -964,11 +969,23 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       {/* Resultado partida de plata */}
       {outcome !== null && (
         <Modal title={t("result.exe")}>
-          <div className="text-6xl">
-            {forfeit ? "🏳️" : outcome === "win" ? "🏆" : outcome === "lose" ? "💀" : "🤝"}
-          </div>
+          <PixelIcon
+            name={
+              forfeit ? "flag" : outcome === "win" ? "trophy" : outcome === "lose" ? "skull" : "tie"
+            }
+            px={5}
+            className={
+              forfeit
+                ? "text-(--color-muted-bright)"
+                : outcome === "win"
+                  ? "text-(--color-gold)"
+                  : outcome === "lose"
+                    ? "text-(--color-lose)"
+                    : "text-(--color-text)"
+            }
+          />
           <h2
-            className={`font-pixel mt-3 text-lg ${
+            className={`font-pixel mt-4 text-px16 uppercase ${
               outcome === "win"
                 ? "text-(--color-win)"
                 : outcome === "draw"
@@ -1021,7 +1038,8 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                   onClick={() => setShowRival(true)}
                   className="btn3d btn3d--cyan mt-4 w-full"
                 >
-                  🎬 {t("match.watchRival")}
+                  <PixelIcon name="play" className="mr-2" />
+                  {t("match.watchRival")}
                 </button>
               )}
               {rankedFree && (
@@ -1045,7 +1063,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                         <div className="my-2 border-t border-(--color-border)" />
                         <div className="flex justify-between">
                           <span className="text-(--color-muted)">{t("match.cobras")}</span>
-                          <span className="font-pixel text-sm text-(--color-win)">
+                          <span className="font-pixel text-px16 text-(--color-win)">
                             {payout.prize} USDC
                           </span>
                         </div>
@@ -1166,9 +1184,6 @@ function Modal({ title, children }: { title: string; children: React.ReactNode }
       >
         <div className="win-title">
           <span>{title}</span>
-          <span className="win-dots" aria-hidden="true">
-            <span className="win-dot" />
-          </span>
         </div>
         <div className="p-6 text-center">{children}</div>
       </div>
@@ -1188,14 +1203,14 @@ function ScoreSide({
   return (
     <div className={`flex items-center gap-3 ${right ? "flex-row-reverse" : ""}`}>
       <div
-        className={`font-pixel flex h-12 w-12 items-center justify-center rounded-lg border border-(--color-border) bg-(--color-surface-2) text-sm ${
+        className={`font-pixel flex h-12 w-12 items-center justify-center rounded-md border border-(--color-border) bg-(--color-surface-2) text-px16 ${
           right ? "text-(--color-muted-2)" : "text-(--color-accent)"
         }`}
       >
         {right ? "P2" : "P1"}
       </div>
       <div className={right ? "text-right" : ""}>
-        <div className="font-pixel text-px10 text-(--color-muted-2)">{label}</div>
+        <div className="rotulo text-(--color-muted-2)">{label}</div>
         <div className="font-pixel text-base text-(--color-gold)">{score ?? "--"}</div>
       </div>
     </div>

@@ -25,6 +25,7 @@ import {
   type AgentMatchSummary,
 } from "@/app/lib/arbiter";
 import { failureText } from "@/app/lib/errors";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 export default function AgentDetailPage({ params }: { params: Promise<{ agentId: string }> }) {
   const { agentId } = use(params);
@@ -129,7 +130,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
         </div>
         <div className="p-5">
           <div className="flex items-center gap-4">
-            <GameIcon id={agent.game} size={44} />
+            <span className="pantalla h-14 w-14 shrink-0 rounded-sm">
+              <GameIcon id={agent.game} size={48} />
+            </span>
             <div className="text-base">
               <p className="text-(--color-muted-bright)">{t(`game.${agent.game}.name`)}</p>
               <p className="mt-1 text-sm text-(--color-muted-2)">
@@ -143,7 +146,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
           {/* Parámetros de la estrategia */}
           {def && (
             <div className="win mt-4 p-4 text-sm">
-              <p className="font-pixel text-px10 text-(--color-accent-2)">{t(def.labelKey)}</p>
+              <p className="rotulo text-(--color-accent-2)">{t(def.labelKey)}</p>
               {def.params.map((p) => (
                 <div key={p.key} className="mt-2 flex justify-between">
                   <span className="text-(--color-muted-2)">{t(p.labelKey)}</span>
@@ -171,14 +174,16 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
                 disabled={busy}
                 className="btn3d btn3d--cyan flex-1 disabled:opacity-50"
               >
-                {agent.active ? `❚❚ ${t("agent.pause")}` : `▶ ${t("agent.resume")}`}
+                <PixelIcon name={agent.active ? "pause" : "play"} className="mr-2" />
+                {agent.active ? t("agent.pause") : t("agent.resume")}
               </button>
               <button
                 onClick={() => doAction("delete")}
                 disabled={busy}
                 className="btn3d btn3d--danger flex-1 disabled:opacity-50"
               >
-                🗑 {t("agent.delete")}
+                <PixelIcon name="trash" className="mr-2" />
+                {t("agent.delete")}
               </button>
             </div>
           )}
@@ -213,7 +218,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
                   className="win flex items-center justify-between gap-2 p-2 text-sm"
                 >
                   <span
-                    className={`font-pixel text-px10 ${
+                    className={`font-pixel text-px8 ${
                       m.outcome === "win"
                         ? "text-(--color-win)"
                         : m.outcome === "loss"
@@ -242,7 +247,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ agentId:
                     href={`/watch/${m.matchId}`}
                     className="font-medium text-(--color-accent-2) hover:underline"
                   >
-                    🎬 {t("agent.watch")}
+                    <PixelIcon name="play" className="mr-1.5" />
+                    {t("agent.watch")}
                   </Link>
                 </div>
               ))}

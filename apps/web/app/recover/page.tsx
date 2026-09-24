@@ -20,6 +20,7 @@ import { listMatches, forgetMatch, type OpenMatch } from "@/app/lib/openMatches"
 import { getMatch } from "@/app/lib/arbiter";
 import { getPayout } from "@/app/lib/config";
 import { getGame } from "@/app/lib/games";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 type Kind =
   | "claimable" // llena, GANASTE y todavía no cobraste -> cobrar el premio
@@ -141,7 +142,7 @@ export default function RecoverPage() {
 
   return (
     <div className="mx-auto max-w-2xl pb-12">
-      <h1 className="font-pixel text-xl leading-relaxed text-(--color-text-strong)">
+      <h1 className="font-pixel text-px16 leading-relaxed text-(--color-text-strong) sm:text-px24">
         {t("recover.title")}
       </h1>
       <p className="mt-3 text-base leading-relaxed text-(--color-muted)">{t("recover.intro")}</p>
@@ -164,6 +165,7 @@ export default function RecoverPage() {
             <p className="text-base text-(--color-muted)">{t("recover.connectPrompt")}</p>
             <button onClick={connect} className="btn3d btn3d--magenta mt-5 w-full">
               {t("recover.connect")}
+              <PixelIcon name="play" className="ml-2" />
             </button>
           </div>
         </div>

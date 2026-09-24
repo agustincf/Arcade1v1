@@ -24,14 +24,14 @@ export function Mesa({ mesa, t }: { mesa: MesaDeEscena; t: Traductor }) {
           <Olla />
           <span>
             <span className="block text-sm text-(--color-muted-3)">{t("aleph.room.pot")}</span>
-            <span className="font-pixel text-sm text-(--color-gold)">{mesa.pozo}</span>
+            <span className="font-pixel text-px16 text-(--color-gold)">{mesa.pozo}</span>
           </span>
         </div>
         <div className="mesa-objeto">
           <Cofre parte={parte} clase={mesa.liquidada ? "objeto objeto--apagado" : "objeto"} />
           <span>
             <span className="block text-sm text-(--color-muted-3)">{t("aleph.room.box")}</span>
-            <span className="font-pixel text-sm text-(--color-muted-bright)">{mesa.caja}</span>
+            <span className="font-pixel text-px16 text-(--color-muted-bright)">{mesa.caja}</span>
           </span>
         </div>
         <div className="mesa-objeto">
@@ -42,7 +42,7 @@ export function Mesa({ mesa, t }: { mesa: MesaDeEscena; t: Traductor }) {
           <span>
             <span className="block text-sm text-(--color-muted-3)">{t("aleph.scene.deck")}</span>
             {!mesa.liquidada && (
-              <span className="font-pixel text-sm text-(--color-muted-bright)">
+              <span className="rotulo text-(--color-muted-bright)">
                 {t("aleph.scene.deckLeft", { n: mesa.cartasSinDar })}
               </span>
             )}

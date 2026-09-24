@@ -198,7 +198,8 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
       <section className="win mt-3">
         <div className="win-title">
           <span className="truncate">
-            {t("aleph.room.title")} <span className="font-mono">{room.roomId.slice(0, 10)}…</span>
+            {t("aleph.room.title")}{" "}
+            <span className="font-mono normal-case">{room.roomId.slice(0, 10)}…</span>
           </span>
           <span className="flex shrink-0 items-center gap-2">
             <span className={`chip ${live ? "chip--live" : ""}`}>
@@ -371,14 +372,14 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
                     key={address}
                     className="flex items-center justify-between rounded-lg bg-(--color-surface-2) px-3 py-2.5"
                   >
-                    <span className="font-pixel w-8 shrink-0 text-center text-sm text-(--color-muted-bright)">
+                    <span className="font-pixel w-8 shrink-0 text-center text-px16 text-(--color-muted-bright)">
                       {i + 1}
                     </span>
                     <span className="min-w-0 flex-1 truncate font-mono text-sm text-(--color-muted-bright)">
                       {etiquetaDePorDireccion(address)}
                     </span>
                     <span className="flex shrink-0 items-center gap-3">
-                      <span className="font-pixel text-sm text-(--color-gold)">{amount}</span>
+                      <span className="font-pixel text-px16 text-(--color-gold)">{amount}</span>
                       {room.payoutsUsdc && (
                         <span className="font-mono text-sm text-(--color-gold)">
                           {(Number(room.payoutsUsdc[address] ?? 0) / 1e6).toFixed(2)} USDC

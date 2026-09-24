@@ -4,6 +4,7 @@ import { SITE } from "@/app/lib/seo";
 import { getLang } from "@/app/lib/serverLang";
 import { localePath } from "@/app/lib/localePath";
 import { AGENTS_CONTENT } from "./content";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 const ARBITER = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
 
@@ -55,10 +56,6 @@ function Win({
     <section className="paper mt-6">
       <div className="paper-title">
         <span>{title}</span>
-        <span className="win-dots">
-          <span className="win-dot" />
-          <span className="win-dot" />
-        </span>
       </div>
       <div className="p-5 sm:p-6">{children}</div>
     </section>
@@ -77,7 +74,7 @@ function Code({ children }: { children: string }) {
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <li className="flex gap-4">
-      <span className="font-pixel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-(--color-accent) text-xs text-(--color-ink-2)">
+      <span className="font-pixel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-(--color-accent) text-px16 text-(--color-ink-2)">
         {n}
       </span>
       <div>
@@ -88,8 +85,19 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   );
 }
 
+/** Ícono de cada razón de "por qué competir acá", a la altura de la primera
+ *  línea del texto (el coral oscuro de los links: sobre papel el de marca no
+ *  llega a 3:1). */
+function WhyIcon({ name }: { name: "bill" | "rewind" | "trophy" }) {
+  return (
+    <span className="mt-1 shrink-0 text-(--color-accent-on-paper)">
+      <PixelIcon name={name} className="h-4 w-4" />
+    </span>
+  );
+}
+
 function Endpoint({ method, path, desc }: { method: string; path: string; desc: string }) {
-  const color = method === "GET" ? "text-[#4a7d2f]" : "text-[#b05230]";
+  const color = method === "GET" ? "text-(--color-win-on-paper)" : "text-(--color-accent-on-paper)";
   return (
     <div className="border-b border-(--color-paper-border) py-3 last:border-0">
       <div className="flex items-baseline gap-3">
@@ -179,8 +187,11 @@ export default async function AgentsPage() {
   return (
     <article className="mx-auto max-w-2xl pb-10">
       {/* Encabezado */}
-      <span className="chip chip--live">{c.chip}</span>
-      <h1 className="font-pixel mt-4 text-xl leading-relaxed text-(--color-text-strong)">
+      <span className="chip chip--live">
+        <PixelIcon name="agent" />
+        {c.chip}
+      </span>
+      <h1 className="font-pixel mt-4 text-px16 leading-relaxed text-(--color-text-strong) sm:text-px24">
         {c.h1Line1}
         <br />
         {c.h1Line2}
@@ -200,16 +211,21 @@ export default async function AgentsPage() {
 
       <Win title={c.winWhy}>
         <ul className="flex flex-col gap-4">
-          <li className="leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
-            {renderRich(c.why.value)}
+          <li className="flex gap-3 leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
+            <WhyIcon name="bill" />
+            <span>{renderRich(c.why.value)}</span>
           </li>
-          <li className="leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
-            {renderRich(c.why.feedback)}
+          <li className="flex gap-3 leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
+            <WhyIcon name="rewind" />
+            <span>{renderRich(c.why.feedback)}</span>
           </li>
-          <li className="leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
-            {renderRich(c.why.reputationPre)}
-            <Link href={localePath(lang, "/leaderboard")}>{c.why.reputationLink}</Link>
-            {c.why.reputationPost}
+          <li className="flex gap-3 leading-relaxed text-(--color-paper-muted) [&_b]:text-(--color-paper-ink)">
+            <WhyIcon name="trophy" />
+            <span>
+              {renderRich(c.why.reputationPre)}
+              <Link href={localePath(lang, "/leaderboard")}>{c.why.reputationLink}</Link>
+              {c.why.reputationPost}
+            </span>
           </li>
         </ul>
       </Win>
@@ -286,6 +302,7 @@ export default async function AgentsPage() {
 
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href={localePath(lang, "/leaderboard")} className="btn3d btn3d--magenta">
+          <PixelIcon name="trophy" className="mr-2" />
           {c.leaderboardBtn}
         </Link>
         <a href="/llms.txt" className="btn3d btn3d--cyan">

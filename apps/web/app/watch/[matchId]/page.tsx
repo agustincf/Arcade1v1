@@ -10,6 +10,7 @@ import { GameIcon } from "@/app/components/GameIcon";
 import { shortAddress, playerLabel, agentTag } from "@/app/lib/wallet";
 import { getPublicReplay, warmUpArbiter, type PublicReplay } from "@/app/lib/arbiter";
 import { ReplayPlayer } from "@/app/components/replay/ReplayPlayer";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 export default function WatchMatchPage({ params }: { params: Promise<{ matchId: string }> }) {
   const { matchId } = use(params);
@@ -51,14 +52,16 @@ export default function WatchMatchPage({ params }: { params: Promise<{ matchId: 
       <div className="win mt-3">
         <div className="win-title">
           <span className="flex items-center gap-2">
-            <GameIcon id={data.game} size={18} /> {t(`game.${data.game}.name`).toUpperCase()} ·{" "}
+            <GameIcon id={data.game} size={16} /> {t(`game.${data.game}.name`).toUpperCase()} ·{" "}
             {t("watch.title")}
           </span>
           {data.outcome === "draw" ? (
             <span className="chip">{t("match.draw")}</span>
           ) : (
-            <span className="chip chip--money">
-              🏆 {data.winner ? shortAddress(data.winner) : ""}
+            // normal-case: el chip va en mayúsculas y una dirección 0x… no.
+            <span className="chip chip--money normal-case">
+              <PixelIcon name="trophy" />
+              {data.winner ? shortAddress(data.winner) : ""}
             </span>
           )}
         </div>
@@ -69,9 +72,8 @@ export default function WatchMatchPage({ params }: { params: Promise<{ matchId: 
                 game={data.game}
                 replay={p.replay}
                 secret={data.secret}
-                label={`${playerLabel(p.address, p.name, p.avatar, agentTag(p, t))}${
-                  data.winner?.toLowerCase() === p.address.toLowerCase() ? " 🏆" : ""
-                }`}
+                label={playerLabel(p.address, p.name, p.avatar, agentTag(p, t))}
+                winner={data.winner?.toLowerCase() === p.address.toLowerCase()}
               />
             </div>
           ))}

@@ -13,6 +13,7 @@ import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { dtCap } from "@/app/games/_shared/strict";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 const STEP = 1000 / 60; // un tick cada 1/60 de segundo (paso fijo, determinístico)
 
@@ -297,9 +298,10 @@ export function TetrisGame({
         {/* Pantalla: pausa */}
         {started && paused && !over && (
           <GameOverlay>
-            <h3 className="font-pixel text-base text-(--color-gold)">{t("g.pause")}</h3>
+            <h3 className="font-pixel text-px16 uppercase text-(--color-gold)">{t("g.pause")}</h3>
             <button onClick={() => setPaused(false)} className="btn3d btn3d--magenta mt-4">
               {t("g.resume")}
+              <PixelIcon name="play" className="ml-2" />
             </button>
           </GameOverlay>
         )}
@@ -343,7 +345,7 @@ export function TetrisGame({
 function Stat({ label, value, big }: { label: string; value: number; big?: boolean }) {
   return (
     <div className="flex-1 rounded-lg border border-(--color-border) bg-(--color-surface) px-2 py-1 text-center">
-      <div className="text-px10 uppercase tracking-wide text-(--color-muted-3)">{label}</div>
+      <div className="text-2xs uppercase tracking-wide text-(--color-muted-3)">{label}</div>
       <div className={`font-extrabold ${big ? "text-lg" : "text-base"}`}>{value}</div>
     </div>
   );
@@ -388,7 +390,7 @@ function NextPreview({
 }) {
   return (
     <div className="rounded-lg border border-(--color-border) bg-(--color-surface) px-2 py-1 text-center">
-      <div className="text-px10 uppercase tracking-wide text-(--color-muted-3)">{label}</div>
+      <div className="text-2xs uppercase tracking-wide text-(--color-muted-3)">{label}</div>
       <div className="mt-1 flex flex-col items-center gap-px">
         {matrix.map((row, r) => (
           <div key={r} className="flex gap-px">

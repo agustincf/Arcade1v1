@@ -1,7 +1,7 @@
 # Repaso de seguridad — Arcade1v1 (Fase 6)
 
 Fecha: 2026-06-21 (1ª ronda) · 2026-06-26 (2ª ronda) · 2026-07-02 (3ª ronda —
-preparación mainnet, ver abajo) · Estado actualizado: **3.9.0 en testnet**
+preparación mainnet, ver abajo) · Estado actualizado: **3.10.0 en testnet**
 (2026-09-24; no opera con dinero real).
 
 > Nota de mantenimiento (2026-07-11): los hallazgos y la verificación de la

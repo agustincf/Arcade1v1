@@ -1,6 +1,7 @@
 "use client";
 
 import { useT } from "@/app/lib/i18n";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 export default function Error({
   reset,
@@ -14,16 +15,16 @@ export default function Error({
       <div className="win">
         <div className="win-title">
           <span>{t("err.title")}</span>
-          <span className="win-dots">
-            <span className="win-dot" />
-          </span>
         </div>
         <div className="p-6 text-center">
-          <div className="text-5xl">💾💥</div>
-          <h2 className="font-pixel mt-3 text-sm text-(--color-lose)">{t("err.head")}</h2>
+          <PixelIcon name="boom" px={4} className="text-(--color-accent)" />
+          <h2 className="font-pixel mt-4 text-px16 uppercase text-(--color-lose)">
+            {t("err.head")}
+          </h2>
           <p className="mt-2 text-base text-(--color-muted)">{t("err.body")}</p>
           <button onClick={reset} className="btn3d btn3d--magenta mt-5">
             {t("err.retry")}
+            <PixelIcon name="play" className="ml-2" />
           </button>
         </div>
       </div>

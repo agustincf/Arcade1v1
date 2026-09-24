@@ -15,6 +15,7 @@ import { createChallenge, listAgents, type AgentView } from "@/app/lib/arbiter";
 import { useEnsureChain } from "@/app/lib/wallet";
 import { CHAIN } from "@/app/lib/wagmi";
 import { classifySignError } from "@/app/lib/errors";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 export function ChallengeButton({
   targetAgentId,
@@ -106,7 +107,8 @@ export function ChallengeButton({
           disabled={busy}
           className="btn3d btn3d--magenta flex-1 disabled:opacity-50"
         >
-          ⚔ {t("challenge.me")}
+          <PixelIcon name="gamepad" className="mr-2" />
+          {t("challenge.me")}
         </button>
         {mine.length > 0 && (
           <button
@@ -114,7 +116,8 @@ export function ChallengeButton({
             disabled={busy}
             className="btn3d btn3d--cyan flex-1 disabled:opacity-50"
           >
-            🤖 {t("challenge.withAgent")}
+            <PixelIcon name="agent" className="mr-2" />
+            {t("challenge.withAgent")}
           </button>
         )}
       </div>

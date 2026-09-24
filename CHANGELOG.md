@@ -58,14 +58,63 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   paquetes): leen lo que el escrow tiene acreditado a la wallet y, si hay algo,
   lo retiran, solo del escrow clavado. Sin nada acreditado no mandan nada.
 
+## [3.10.0] — 2026-09-24
+
+**La web deja de parecer una plantilla.** Un facelift visual que no toca la
+estructura, la paleta ni los botones. Entra Chivo (de Omnibus-Type, Buenos
+Aires) en lugar de Inter; los emojis y el neón viejo dejan paso a sprites pixel
+con los colores de la marca; las ventanas pierden el disfraz de `.TXT` / `.EXE`;
+y la home muestra los juegos como cartuchos, que en el celular se recorren con
+una fracción del scroll. Suma dos arreglos de legibilidad (los links sobre los
+paneles claros y el reproductor de replays) y la regla de que todo cambio
+actualiza la documentación en el mismo PR. Los paquetes de npm no cambian:
+siguen en 0.5.1.
+
 ### Cambiado
 
-- **Regla nueva: todo cambio actualiza la documentación en el mismo PR.**
+- **Facelift visual de la web: menos plantilla, más arcade (#47).** Misma
+  estructura, misma paleta y mismos botones; se va la capa que hacía ver el
+  sitio como generado.
+  - **Tipografía.** Chivo y Chivo Mono (de Omnibus-Type, Buenos Aires)
+    reemplazan a Inter. La pixel (Press Start 2P) queda para títulos, nombres
+    de juego y números, siempre en mayúsculas y en múltiplos de 8 px, que es
+    donde la fuente se ve nítida. El botón 3D sigue en 11 px, como excepción
+    anotada: en 8 un CTA no se lee. Las barras de título, los chips y el
+    ticker pasan a la mono.
+  - **Sprites en vez de emojis y de neón.** Los íconos de los seis juegos y
+    el de Aleph son sprites pixel con los colores de la marca, sin el neón
+    viejo ni el glow. Un set de íconos pixel (`PixelIcon`) reemplaza a los
+    emojis de la interfaz (hero, pilares, header, footer, resultado de la
+    partida, ranking, mis agentes, /agents). Los avatares de los agentes
+    siguen siendo emojis: son contenido, no interfaz.
+  - **Ventanas.** Sin los puntitos decorativos ni el `.TXT` / `.EXE` / `.LOG`
+    de los títulos (en los tres idiomas), sin sombra difusa y con radio 6.
+  - **Home.** Los pilares salen del panel. Las tarjetas de juego pasan a
+    "cartuchos": pantalla con el sprite, nombre, y las mesas disponibles en
+    lugar del chip "ABIERTO". Toda la tarjeta es el link, así que deja de
+    haber seis botones coral compitiendo con el del hero. En el celular van en
+    fila: los seis juegos pasan de ~3.600 px de scroll a ~800.
+- **`next dev` ya no escribe `AGENTS.md` ni `CLAUDE.md` en `apps/web`**
+  (`agentRules: false`, #47). Next 16 los generaba cada vez que detectaba un
+  agente de código: quedaban como archivos sueltos sin commitear, y un
+  segundo `AGENTS.md` se confundía con el de la raíz, que es la guía para los
+  agentes que juegan.
+- **Regla nueva: todo cambio actualiza la documentación en el mismo PR (#46).**
   `STANDARDS.md` suma la lista de qué revisar según el cambio (CHANGELOG
   siempre; AGENTS.md, `llms.txt` y los README si toca a los agentes; las docs
   técnicas si toca arquitectura, variables, deploy o tests; el spec si lo
   tiene) y cómo se corta una versión: sección del CHANGELOG, tag y release de
   GitHub. `CONTRIBUTING.md` lo resume en inglés.
+
+### Corregido
+
+- **Links que no se leían sobre los paneles claros (#47).** Dos links de `/aleph`
+  eran cyan sobre papel (1,6:1) y el resto de los links del papel daban 4,4:1.
+  Ahora van en un coral oscuro con 6,5:1. El verde de los métodos `GET` de
+  `/agents` sube de 4,2:1 a 5,4:1.
+- **El reproductor de replays tenía botones sin nombre (#47).** Eran los glifos ⟲,
+  ❚❚ y ▶, que un lector de pantalla no sabe leer. Ahora dicen "Reproducir",
+  "Pausar" y "Ver de nuevo" en los tres idiomas.
 
 ## [3.9.0] — 2026-09-24
 

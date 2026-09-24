@@ -4,17 +4,25 @@ import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { GAMES } from "@/app/lib/games";
 import { BetQuickPlay } from "@/app/components/BetQuickPlay";
 import { GameIcon } from "@/app/components/GameIcon";
+import { PixelIcon, type PixelIconName } from "@/app/components/PixelIcon";
 import { useT } from "@/app/lib/i18n";
 import { FAQ } from "@/app/lib/seo";
+import { BET_AMOUNTS } from "@/app/lib/config";
 
 export default function HomePage() {
   const { t } = useT();
+  // Las mesas de la tarjeta salen de la misma lista que la mesa de cada juego:
+  // si mañana cambia el rango de stakes, la home no queda prometiendo otro.
+  const stakes = t("card.stakes", {
+    min: Math.min(...BET_AMOUNTS),
+    max: Math.max(...BET_AMOUNTS),
+  });
 
   return (
     <div>
-      {/* Hero */}
-      <section className="mb-10 pt-4 text-center">
-        <h1 className="font-pixel text-2xl leading-relaxed text-(--color-text-strong) sm:text-3xl">
+      {/* Hero. La pixel en 24/32 px: múltiplos de 8, la grilla de la fuente. */}
+      <section className="pt-4 text-center">
+        <h1 className="font-pixel text-px24 leading-relaxed text-(--color-text-strong) sm:text-px32">
           {t("hero.title")}
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-(--color-muted)">{t("hero.sub")}</p>
@@ -24,7 +32,7 @@ export default function HomePage() {
       {/* ALEPH primero: es lo mas nuevo y lo mas distinto que hay para ver, y
           no compite con los cartuchos porque no es uno — es una mesa de varios
           agentes donde el humano mira. Fuera de la grilla a proposito. */}
-      <section className="win mb-10">
+      <section className="win mt-12">
         <div className="win-title win-title--cyan">
           <span>{t("aleph.card.title")}</span>
           <span className="chip chip--live">{t("aleph.card.chip")}</span>
@@ -36,71 +44,60 @@ export default function HomePage() {
           </div>
           <Link href="/aleph" className="btn3d btn3d--cyan shrink-0">
             {t("aleph.card.cta")}
+            <PixelIcon name="play" className="ml-2" />
           </Link>
         </div>
       </section>
 
-      {/* Pilares del proyecto: agent-first · verificado on-chain · benchmark de IA */}
-      <section className="paper mb-10">
-        <div className="paper-title">
-          <span>{t("pillars.title")}</span>
-          <span className="win-dots">
-            <span className="win-dot" />
-            <span className="win-dot" />
-          </span>
-        </div>
-        <div className="grid grid-cols-1 gap-5 p-6 sm:grid-cols-3">
-          <Pillar icon="🤖" title={t("pillars.p1t")} body={t("pillars.p1b")} />
-          <Pillar icon="⛓️" title={t("pillars.p2t")} body={t("pillars.p2b")} />
-          <Pillar icon="📊" title={t("pillars.p3t")} body={t("pillars.p3b")} />
-        </div>
+      {/* Pilares del proyecto: agent-first · verificado on-chain · benchmark de
+          IA. Van sobre la página y no en una caja: tres columnas con ícono,
+          título y dos líneas adentro de un panel es la grilla de "features"
+          de cualquier plantilla. */}
+      <section className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-3 sm:gap-8">
+        <Pillar icon="agent" title={t("pillars.p1t")} body={t("pillars.p1b")} />
+        <Pillar icon="verified" title={t("pillars.p2t")} body={t("pillars.p2b")} />
+        <Pillar icon="chart" title={t("pillars.p3t")} body={t("pillars.p3b")} />
       </section>
 
-      {/* Tarjetas de juego */}
-      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {GAMES.map((game, i) => {
-          const titleClass = i % 2 === 0 ? "win-title" : "win-title win-title--cyan";
-          return (
-            <Link key={game.id} href={`/game/${game.id}`}>
-              <div className="win h-full transition hover:-translate-y-1">
-                <div className={titleClass}>
-                  <span>{t(`game.${game.id}.name`).toUpperCase()}.EXE</span>
-                  <span className="win-dots">
-                    <span className="win-dot" />
-                    <span className="win-dot" />
-                    <span className="win-dot" />
-                  </span>
-                </div>
-                <div className="p-5">
-                  <div className="mb-4 flex justify-center">
-                    <GameIcon id={game.id} size={64} />
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="chip">
-                      <span className="blink">●</span> {t("card.open")}
-                    </span>
-                  </div>
-                  <p className="mt-3 text-center text-base text-(--color-muted)">
-                    {t(`game.${game.id}.desc`)}
-                  </p>
-                  <div className="mt-5 text-center">
-                    <span className="btn3d btn3d--magenta inline-block">{t("card.cta")}</span>
-                  </div>
-                </div>
+      {/* Cartuchos: la pantalla con el sprite, el nombre y las mesas. Toda la
+          tarjeta es el link, así que no lleva un botón por juego: seis botones
+          coral iguales competían con el CTA del hero. En celular va en fila
+          (antes cada tarjeta ocupaba casi una pantalla: ~3.600 px de scroll
+          para los seis juegos). */}
+      <section className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+        {GAMES.map((game) => (
+          <Link
+            key={game.id}
+            href={`/game/${game.id}`}
+            className="flex overflow-hidden rounded-md border border-(--color-border) bg-(--color-surface) transition hover:-translate-y-0.5 hover:border-(--color-accent) sm:flex-col"
+          >
+            <div className="pantalla w-24 shrink-0 border-r border-(--color-border) sm:h-32 sm:w-auto sm:border-r-0 sm:border-b">
+              <GameIcon id={game.id} size={64} />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col p-3.5 sm:p-4">
+              <h2 className="font-pixel text-px8 leading-relaxed text-(--color-text-strong) sm:text-px16">
+                {t(`game.${game.id}.name`)}
+              </h2>
+              <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-(--color-muted) sm:mt-2 sm:line-clamp-none sm:text-base">
+                {t(`game.${game.id}.desc`)}
+              </p>
+              {/* 10 px en celular: a 12 "JUGAR 1V1" y las mesas no entran en
+                  un renglón al lado de la pantalla. */}
+              <div className="rotulo mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-3 text-2xs sm:pt-4 sm:text-xs">
+                <span className="inline-flex items-center gap-2 text-(--color-accent)">
+                  {t("card.cta")} <PixelIcon name="play" />
+                </span>
+                <span className="text-(--color-gold)">{stakes}</span>
               </div>
-            </Link>
-          );
-        })}
+            </div>
+          </Link>
+        ))}
       </section>
 
-      {/* Como funciona — panel claro de lectura */}
-      <section className="paper mt-10">
+      {/* Como funciona — panel claro de lectura (el "manual") */}
+      <section className="paper mt-12">
         <div className="paper-title">
           <span>{t("how.title")}</span>
-          <span className="win-dots">
-            <span className="win-dot" />
-            <span className="win-dot" />
-          </span>
         </div>
         <div className="grid grid-cols-1 gap-4 p-6 text-base sm:grid-cols-3">
           <Step n="1" text={t("how.s1")} />
@@ -111,19 +108,16 @@ export default function HomePage() {
       </section>
 
       {/* Agentes de IA — el diferenciador, visible sin ir al footer */}
-      <section className="paper mt-8">
+      <section className="paper mt-12">
         <div className="paper-title">
           <span>{t("agents.title")}</span>
-          <span className="win-dots">
-            <span className="win-dot" />
-            <span className="win-dot" />
-          </span>
         </div>
         <div className="p-6">
           <p className="leading-relaxed text-(--color-paper-muted)">{t("agents.body")}</p>
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <Link href="/build" className="btn3d btn3d--magenta inline-block">
-              🤖 {t("build.cta")}
+              <PixelIcon name="agent" className="mr-2" />
+              {t("build.cta")}
             </Link>
             {/* Para quien programa: la doc técnica (SDK, API, MCP) sigue viva */}
             <Link href="/agents" className="font-medium text-(--color-paper-ink) underline">
@@ -134,13 +128,9 @@ export default function HomePage() {
       </section>
 
       {/* Preguntas frecuentes (SEO + motores de IA) — panel claro de lectura */}
-      <section className="paper mt-8">
+      <section className="paper mt-12">
         <div className="paper-title">
           <span>{t("faq.title")}</span>
-          <span className="win-dots">
-            <span className="win-dot" />
-            <span className="win-dot" />
-          </span>
         </div>
         <div className="p-6 text-base">
           {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -182,12 +172,16 @@ export default function HomePage() {
   );
 }
 
-function Pillar({ icon, title, body }: { icon: string; title: string; body: string }) {
+function Pillar({ icon, title, body }: { icon: PixelIconName; title: string; body: string }) {
   return (
-    <div>
-      <div className="text-3xl">{icon}</div>
-      <h2 className="mt-2 text-base font-bold text-(--color-paper-ink)">{title}</h2>
-      <p className="mt-2 leading-relaxed text-(--color-paper-muted)">{body}</p>
+    <div className="grid grid-cols-[auto_1fr] gap-x-3.5 border-t border-(--color-border) pt-4 sm:block sm:pt-5">
+      {/* 24 px en celular (al lado del título), 36 en escritorio (arriba):
+          siempre múltiplo de la grilla de 12 del ícono. */}
+      <span className="row-span-2 text-(--color-accent)">
+        <PixelIcon name={icon} className="h-6 w-6 sm:h-9 sm:w-9" />
+      </span>
+      <h2 className="text-base font-bold text-(--color-text-strong) sm:mt-3.5">{title}</h2>
+      <p className="mt-1.5 leading-relaxed text-(--color-muted)">{body}</p>
     </div>
   );
 }
@@ -195,7 +189,7 @@ function Pillar({ icon, title, body }: { icon: string; title: string; body: stri
 function Step({ n, text }: { n: string; text: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="font-pixel flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-(--color-accent) text-xs text-(--color-ink-2)">
+      <span className="font-pixel flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-(--color-accent) text-px16 text-(--color-ink-2)">
         {n}
       </span>
       <span className="leading-relaxed text-(--color-paper-muted)">{text}</span>

@@ -17,6 +17,7 @@ import {
 } from "@/app/lib/config";
 import { onchainEnabled } from "@/app/lib/escrow";
 import { HelpTip } from "@/app/components/onboarding/HelpTip";
+import { PixelIcon } from "@/app/components/PixelIcon";
 
 export function TableClient({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = use(params);
@@ -70,7 +71,9 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
 
         <div className="p-5">
           <div className="mb-5 flex items-center gap-3">
-            <GameIcon id={game.id} size={52} />
+            <span className="pantalla h-14 w-14 shrink-0 rounded-sm">
+              <GameIcon id={game.id} size={48} />
+            </span>
             <p className="text-base font-medium text-(--color-muted-bright)">{t("table.q")}</p>
           </div>
 
@@ -120,6 +123,7 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
           {/* CTA */}
           <div className="mt-5">
             <button onClick={buscarRival} className="btn3d btn3d--magenta w-full">
+              <PixelIcon name="play" className="mr-2" />
               {t("table.cta", { bet: selected })}
             </button>
             <p className="mt-2 text-center text-sm text-(--color-muted-2)">
@@ -162,7 +166,9 @@ function Row({ label, value, highlight }: { label: string; value: string; highli
   return (
     <div className="flex items-center justify-between py-1">
       <span className="text-(--color-muted-2)">{label}</span>
-      <span className={highlight ? "font-pixel text-sm text-(--color-win)" : "text-(--color-text)"}>
+      <span
+        className={highlight ? "font-pixel text-px16 text-(--color-win)" : "text-(--color-text)"}
+      >
         {value}
       </span>
     </div>
