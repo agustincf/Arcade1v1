@@ -369,7 +369,7 @@ test("una sala en fondeo donde NADIE depositó se disuelve sin mandar transacci�
     "cancelar una sala que no existe on-chain revertiría: no se manda",
   );
   // Y queda CERRADA: un reembolso resuelto no se vuelve a leer en cada tick
-  // (si no, esta sala pediría una lectura cada 5 s durante los 7 días del TTL).
+  // (si no, esta sala pediría una lectura cada 5 s durante todo el TTL).
   const reads = chain.roomReads;
   await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS + 10_000);
   await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS + 15_000);
@@ -440,7 +440,7 @@ test("si el reembolso lo pidió otro, la sala se disuelve sin mandar nada y qued
   );
   // Es la ÚNICA vía que anota un motivo de reembolso sin pasar por
   // `refundOnchain`: la sala queda cerrada ahí mismo, sin transacción y sin
-  // una lectura más por tick durante los 7 días que vive el registro.
+  // una lectura más por tick durante todo lo que vive el registro.
   const reads = chain.roomReads;
   await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS + 5_000);
   await V.alephChainTick(T0 + V.ALEPH_FUNDING_MS + 10_000);

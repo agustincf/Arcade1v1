@@ -14,9 +14,14 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-(--color-border) bg-(--color-ink)/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
-        <Link href="/" className="flex shrink-0 items-center gap-2">
+        {/* En mobile el nombre va más chico y, por debajo de 350 px, se esconde
+            (queda el ícono, que también lleva a la home): si no, el botón de la
+            wallet se sale de la pantalla a 360 y a 320 px. */}
+        <Link href="/" aria-label="Arcade1v1" className="flex shrink-0 items-center gap-2">
           <Logo size={24} />
-          <span className="font-pixel text-sm text-(--color-accent)">Arcade1v1</span>
+          <span className="font-pixel text-xs text-(--color-accent) max-[349px]:hidden sm:text-sm">
+            Arcade1v1
+          </span>
         </Link>
 
         {/* min-w-0 permite que la dirección de la wallet se recorte con "…" en

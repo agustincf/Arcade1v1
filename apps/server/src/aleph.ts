@@ -80,7 +80,11 @@ export const ALEPH_LOBBY_MS = envNum("ALEPH_LOBBY_MS", 10 * 60_000);
 export const ALEPH_PHASE_MS = envNum("ALEPH_PHASE_MS", 2 * 60_000);
 export const ALEPH_TICK_MS = envNum("ALEPH_TICK_MS", 5_000);
 export const ALEPH_MAX_ROOMS = envNum("ALEPH_MAX_ROOMS", 50);
-export const ALEPH_FINISHED_TTL_MS = envNum("ALEPH_FINISHED_TTL_MS", 7 * 24 * 60 * 60_000);
+/** Cuánto vive una sala terminada. Eran 7 días y, con pocas salas por semana,
+ *  /aleph quedaba en "todavía no terminó ninguna sala" a la semana de la última:
+ *  el formato parecía muerto justo para el que llega a mirar. El espacio no lo
+ *  cuida el TTL sino `ALEPH_MAX_SETTLED_KEPT` (el blob de Upstash). */
+export const ALEPH_FINISHED_TTL_MS = envNum("ALEPH_FINISHED_TTL_MS", 90 * 24 * 60 * 60_000);
 export const ALEPH_MAX_SETTLED_KEPT = envNum("ALEPH_MAX_SETTLED_KEPT", 50);
 /** Plazo para que los N asientos depositen, una vez cerrado el lobby. */
 export const ALEPH_FUNDING_MS = envNum("ALEPH_FUNDING_MS", 10 * 60_000);
