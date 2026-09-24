@@ -42,8 +42,9 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   vuelta antes de revelar valores nuevos, entregar un token o contestar el
   final; si no se puede guardar, el compromiso contesta **503 sin revelar
   nada** y el cliente reintenta. Al arrancar, el registro manda sobre el blob, y
-  un intento que había terminado sin llegar al blob se completa. De paso, el
-  blob de partidas ya no se sube en cada compromiso.
+  un intento que había terminado sin llegar al blob se completa; un cierre que
+  no se pudo guardar y nadie reintentó lo completa el barrendero apenas el
+  store vuelve. De paso, el blob de partidas ya no se sube en cada compromiso.
 
 ### Agregado
 

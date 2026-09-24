@@ -985,10 +985,34 @@ export function publicReplay(id: string) {
 const SWEEP_EVERY_MS = 60_000;
 const EXPIRE_GRACE_MS = 15 * 60_000;
 
+/** UN CIERRE EN VIVO QUE SE CORTÓ. El intento se cierra en memoria y recién
+ *  después se guarda y se anota el puntaje (live.ts); si el store falló justo
+ *  ahí, el jugador recibió un 503 y lo normal es que reintente. Si no reintenta
+ *  (cerró la pestaña, o fue el cierre por plazo de un agente BYO, que no tiene a
+ *  quién reintentarle), el intento queda cerrado y la partida sin su puntaje:
+ *  vencería como empate. El barrendero lo completa apenas el store vuelve,
+ *  guardando primero, como cualquier cierre. */
+function healUnfinishedLiveAttempts(m: Match): void {
+  if (!m.live || isDecided(m)) return;
+  for (const [address, a] of Object.entries(m.live)) {
+    if (!a.over || m.scores[address] !== undefined) continue;
+    void withLiveLock(m.id, address, async () => {
+      if (m.scores[address] !== undefined || isDecided(m)) return;
+      await saveLiveAttempt(m.id, address, a);
+      await finishLiveAttempt(m, address, a.score ?? 0, {
+        ticks: a.tick,
+        flaps: [...a.flaps],
+        v: RULES_V[m.game] ?? 1,
+      });
+    }).catch(() => {}); // saveLiveAttempt ya lo logueó; el próximo barrido reintenta
+  }
+}
+
 export function sweepMatches(now = Date.now()) {
   let dirty = false;
   for (const m of [...matches.values()]) {
     const finished = m.status === "settled" || m.status === "draw";
+    if (!finished) healUnfinishedLiveAttempts(m);
     if (finished) {
       if (now - m.createdAt > FINISHED_TTL) {
         dropMatch(m);

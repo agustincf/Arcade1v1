@@ -14,7 +14,7 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { FlappyEngine, FLAPPY_CONST } from "@arcade1v1/game-sdk/flappy";
 import { SecretSource } from "@arcade1v1/game-sdk/live";
 import { playFlappyLive, type FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
-import { matchmake, submitScore, getMatch, matchRecord } from "../src/matchmaking.js";
+import { matchmake, submitScore, getMatch, matchRecord, sweepMatches } from "../src/matchmaking.js";
 import {
   liveStart,
   liveCommit,
@@ -331,4 +331,33 @@ test("la rendición de un juego en vivo sale guardada, y si no se pudo guardar s
   assert.equal(rec.over, true);
   assert.equal(rec.score, 0);
   assert.equal(matchRecord(id)!.scores[p1], 0);
+});
+
+test("un cierre que no se pudo guardar y nadie reintentó lo completa el barrendero", async () => {
+  const { id, p1 } = await livePair();
+  const s = opened(await liveStart(id, p1));
+  // El final del intento (final: true) justo cuando el store falla, y el
+  // cliente no vuelve (cerró la pestaña).
+  st.failTimes(1);
+  await assert.rejects(
+    () =>
+      liveCommit(id, p1, {
+        token: s.token,
+        from: 0,
+        to: 30,
+        flaps: [0],
+        have: s.revealed,
+        final: true,
+      }),
+    (e: Error) => e instanceof LiveUnavailableError,
+  );
+  const m = matchRecord(id)!;
+  assert.equal(m.live![p1].over, true, "cerrado en memoria");
+  assert.equal(m.scores[p1], undefined, "pero sin puntaje en la partida");
+  assert.equal(st.record(id, p1)!.over, undefined, "ni guardado");
+
+  sweepMatches(Date.now());
+  await settle();
+  assert.equal(st.record(id, p1)!.over, true, "el barrendero lo guardó");
+  assert.equal(m.scores[p1], m.live![p1].score, "y anotó el puntaje");
 });

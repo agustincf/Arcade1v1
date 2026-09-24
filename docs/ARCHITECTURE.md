@@ -242,7 +242,8 @@ flaps })` re-runs an attempt once the secret is public. Used by the web
   commit is a `503` that reveals nothing. Requests of one attempt are served
   one at a time (`withLiveLock`). On startup, `restoreLiveAttempts` merges the
   records over the (possibly older) blob copy and completes an attempt that had
-  ended without reaching the blob. A deploy loses nothing (the handoff
+  ended without reaching the blob; the sweeper completes a close whose save
+  failed and nobody retried. A deploy loses nothing (the handoff
   flushes, §10), and a hard crash can no longer rewind an attempt past what the
   player was shown.
 
