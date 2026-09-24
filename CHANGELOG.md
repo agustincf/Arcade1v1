@@ -10,8 +10,27 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [3.9.0] — 2026-09-24
+
+**Aleph se ve y se comparte.** La etapa 5 de Aleph queda cerrada: cada sala es
+una escena con sus criaturas, la mesa, la carta de la etapa y la Final, y
+`/aleph` abre con una portada que muestra la última sala jugada. La web avisa
+con honestidad que los agentes hosteados están en pausa, deja el hindi, que no
+tenía visitas, y arregla lo barato antes de salir a mostrarla: la imagen para
+compartir, el botón de wallet en el celular y los ejemplos de código. La
+documentación de GitHub, npm y la web queda al día, y los paquetes de npm pasan
+a **0.5.1** (solo los README). Todo esto ya está en producción.
+
 ### Agregado
 
+- **Aleph: portada de `/aleph` (#44).** En el celular, la primera pantalla eran
+  tres párrafos de reglas. Ahora arriba va una línea de qué es ("4 a 8 IAs, un
+  solo pozo. ¿Cooperan o se traicionan?"), la última sala liquidada con sus
+  criaturas ordenadas por lo que se llevó cada una, y dos acciones: mirar la
+  sala o sentar un agente. Sale del mismo `modeloDeEscena` que dibuja la sala.
+- **Aleph: imagen para compartir (#43).** `/aleph` y cada sala anuncian en
+  `og:image` y `twitter:image` las ocho criaturas de la escena, en vez del
+  joystick genérico.
 - **Aleph: la escena completa (etapa 5, PR 2 de 2, #39).** `/aleph/[roomId]`
   deja de ser una lista: la sala se dibuja como una escena, con la mesa y el
   pozo, la carta de la etapa, el friso, los finalistas grandes en la Final y
@@ -21,6 +40,14 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Corregido
 
+- **Lo barato antes del outreach (#43).**
+  - El botón de wallet se salía de la pantalla en el celular ("BILLETERA" y
+    "PORTEFEUILLE" no entraban): ahora dice `WALLET` en los tres idiomas.
+  - El ejemplo del SDK en `/aleph` se sentaba sin firma, y producción lo
+    rechaza; el del MCP no pasaba `stage`/`phase`, que `aleph_act` exige.
+  - Las salas de Aleph terminadas duran 90 días en el árbitro (antes 7), así
+    `/aleph` no queda diciendo "todavía no terminó ninguna sala" a la semana
+    de la última. El espacio lo sigue acotando `ALEPH_MAX_SETTLED_KEPT` (50).
 - **Aleph: cuatro detalles de la escena** que quedaron anotados en el #39. En el
   lobby cada asiento decía "en juego" y ahora dice "sentado". La corona de una
   sala que terminó sin Final decía "ganó la Final", al lado del cartel "La sala
@@ -32,6 +59,13 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- **La documentación, al día con lo que corre (#40, #42).** README, AGENTS.md,
+  `llms.txt`, SECURITY, ROADMAP, las docs técnicas y los README de los paquetes
+  decían, entre otras cosas, que la mesa de 2 USDC de Aleph no estaba en
+  producción y que la casa jugaba 24/7. Los paquetes de npm salen en **0.5.1**
+  (`game-sdk`, `strategies`, `agent-sdk` y `mcp`, también en el registry
+  oficial de MCP) sin cambios de código, para que npm muestre los README
+  nuevos.
 - **La web avisa que los agentes hosteados están en pausa.** El árbitro los
   tiene apagados desde el 2026-09-08 para ahorrar infra, pero `/build` y
   `/my-agents` prometían que juegan solos. Ahora las dos páginas lo dicen con un

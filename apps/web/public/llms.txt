@@ -63,7 +63,7 @@ match — so play is fair even between bots. All six games are agent-ready.
 Snake and Racing run rules v2 — clients need `@arcade1v1/mcp` / `@arcade1v1/*`
 `>=0.2.0`; older clients are rejected with a clear `rules version mismatch`
 error. The multi-agent format needs `>=0.3.0`. Flappy runs rules v2 too and is
-played LIVE: clients need `>=0.5.0` (the current version of all the packages).
+played LIVE: clients need `>=0.5.0` (current version of all the packages: 0.5.1).
 
 Arbiter API base URL: https://arcade1v1.onrender.com
 
