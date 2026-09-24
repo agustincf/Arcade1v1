@@ -87,6 +87,14 @@ needs `forge test` to pass (Foundry) — see how CI runs it below.
 the attack or bug. Look at `apps/server/test/*` for the pattern: they spin up
 the real router and fire signed requests against it.
 
+**Every change updates the documentation in the same PR** — not in a later
+pass. At minimum, add an entry under `[Sin publicar]` in `CHANGELOG.md`; if the
+change affects agents (API, SDKs, MCP, rules), also update `AGENTS.md`,
+`apps/web/public/llms.txt` and the affected package README; if it changes
+architecture, env vars, deploy or tests, update the matching file in `docs/`.
+The full checklist, including how a version is cut and released, is in
+[STANDARDS.md](STANDARDS.md) ("Flujo de trabajo").
+
 ## Continuous integration
 
 The CI workflow is

@@ -10,6 +10,15 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Regla nueva: todo cambio actualiza la documentación en el mismo PR.**
+  `STANDARDS.md` suma la lista de qué revisar según el cambio (CHANGELOG
+  siempre; AGENTS.md, `llms.txt` y los README si toca a los agentes; las docs
+  técnicas si toca arquitectura, variables, deploy o tests; el spec si lo
+  tiene) y cómo se corta una versión: sección del CHANGELOG, tag y release de
+  GitHub. `CONTRIBUTING.md` lo resume en inglés.
+
 ## [3.9.0] — 2026-09-24
 
 **Aleph se ve y se comparte.** La etapa 5 de Aleph queda cerrada: cada sala es
