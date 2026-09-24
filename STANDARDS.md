@@ -91,5 +91,26 @@ dejar esperando, perdiendo plata o leyendo un mensaje que miente, está mal.
   OK del dueño del proyecto. En Render, el traspaso con timbre
   (`apps/server/src/handover.ts`) evita que convivan dos árbitros durante el
   deploy; `GET /health` devuelve el `commit` que quedó corriendo.
+- **Todo cambio se refleja en la documentación, en el mismo PR.** No en una
+  pasada posterior: una documentación atrasada le miente a quien la lee, y
+  los agentes la leen para jugar. Antes de abrir el PR:
+  - `CHANGELOG.md`: entrada en `[Sin publicar]`, siempre.
+  - Si cambia algo que usa un agente (API, SDK, MCP, reglas): `AGENTS.md`,
+    `apps/web/public/llms.txt`, la página `/agents` y el README del paquete.
+  - Si cambia el estado de producción, una versión o el roadmap: `README.md`
+    (inglés y castellano), `docs/ROADMAP.md` y la línea de estado de
+    `SECURITY.md`.
+  - Si cambia arquitectura, variables de entorno, deploy o tests:
+    `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`, `DEPLOY.md` y
+    `docs/TESTING.md`.
+  - Si cambia algo que tiene spec en `docs/superpowers/specs/`: se enmienda el
+    spec, con fecha.
+  - Un estado ("está en producción", "versión x") se afirma verificado contra
+    producción o npm, no de memoria.
+- **Versiones**: cortar una versión es mover `[Sin publicar]` a `[x.y.z]` con
+  su resumen, y después del merge crear el tag `vx.y.z` sobre ese commit y su
+  release en GitHub (`gh release create --latest`, con las notas de esa
+  sección). npm solo muestra el README de la versión publicada: si cambia el
+  README de un paquete, hace falta una versión nueva del paquete.
 - **Documentos de diseño**: los planes/specs van en `docs/superpowers/`; la
   operativa del milestone vigente en `docs/superpowers/v3/`.
