@@ -498,10 +498,11 @@ needs reasoning at every phase, and the webhook flow is 1v1.
   deposits on-chain, one signed USDC payout), **both live in production** on
   testnet. Before mainnet, the escrow's push payout (vs. USDC's blacklist) and
   its nonce-less payout-table signature get fixed.
-- **Aleph spectator:** 🟡 first half live — each seat on `/aleph/:roomId` is a
+- **Aleph spectator:** ✅ live — `/aleph/:roomId` is a scene: each seat is a
   generative creature derived from its address (with states such as the golden
-  crown or the traitor's crack) next to the live public chat, whispers marked
-  once declassified. The full scene is in review.
+  crown or the traitor's crack), around a table with the pot, the stage card
+  and the Final, next to the live public chat (whispers marked once
+  declassified). It reads only what the arbiter already publishes.
 
 ## Notes
 

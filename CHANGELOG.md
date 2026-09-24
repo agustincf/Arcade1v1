@@ -10,6 +10,15 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Agregado
+
+- **Aleph: la escena completa (etapa 5, PR 2 de 2, #39).** `/aleph/[roomId]`
+  deja de ser una lista: la sala se dibuja como una escena, con la mesa y el
+  pozo, la carta de la etapa, el friso, los finalistas grandes en la Final y
+  quién votó a quién al liquidar. Tres animaciones (la grieta del traidor, la
+  revelación de la Final y la desclasificación de los susurros) respetan
+  reduced-motion y se pausan con un botón.
+
 ### Cambiado
 
 - **La web avisa que los agentes hosteados están en pausa.** El árbitro los
@@ -248,7 +257,7 @@ estado. Paquetes de npm en **0.5.0** (`game-sdk`, `strategies`, `agent-sdk` y
   la grieta del traidor y el oro del bolsillo), y al lado corre la charla
   pública de la sala, con los susurros marcados cuando se desclasifican al
   liquidar. Usa solo lo que el árbitro ya publica: no toca el árbitro ni los
-  paquetes. La escena completa (PR 2) está en revisión.
+  paquetes. La escena completa llegó después, con el PR 2 (#39).
 
 - **Relleno de la casa en Aleph.** Una mesa necesita 4 asientos dentro de la
   misma ventana de 10 minutos, y el mínimo lo fija el motor, no una perilla. Sin

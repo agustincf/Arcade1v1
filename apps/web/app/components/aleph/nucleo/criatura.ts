@@ -128,8 +128,9 @@ const O = COLORES_DE_ESTADO.ojo;
 
 /** Siluetas: medio ancho por fila, diez filas. La fila `i` va de `x = 8 - hw[i]`
  *  a `x = 8 + hw[i]`. Máximo 6 (el cuerpo nunca pasa de x=2 a x=13) y nunca
- *  menos de 4 entre los índices 3 y 8: es el piso que hace que el dorso de 8x6
- *  entre inscripto en cualquiera de las ocho. */
+ *  menos de 4 entre los índices 2 y 8: es el piso que hace que el dorso de 8x6
+ *  entre inscripto en cualquiera de las ocho, y que `cejudo` (OJOS[4]) y
+ *  `saltones` (OJOS[7]), que se apoyan en `hw[2]`, no se salgan del cuerpo. */
 export const SILUETAS: readonly (readonly number[])[] = [
   [3, 4, 5, 5, 5, 5, 5, 5, 4, 4], // 0 gota
   [2, 3, 4, 4, 4, 4, 4, 4, 4, 3], // 1 alto
@@ -325,11 +326,18 @@ export function rasgosDe(address: string | null | undefined): Rasgos {
 
 // --- Las dos capas de identidad --------------------------------------------
 
+/** Filas de oro saneadas: entero entre 0 y 8. Las tres puertas que las reciben
+ *  pasan por acá, así que un 3,5 no puede indexar `hw` con un fraccionario (y
+ *  emitir un rect con x/w en NaN) ni un 12 pintar de oro la fila de la corona
+ *  de identidad, que es zona prohibida. */
+const filasSanas = (filas: number | undefined): number =>
+  Math.max(0, Math.min(8, Math.round(Number(filas) || 0)));
+
 /** Las filas del cuerpo (en `y` absoluto, sin desplazar) que el oro ya pintó.
  *  El oro sube desde abajo: con las ocho filas llega hasta y = 7. */
 export function filasDoradas(filas: number): Set<number> {
   const salida = new Set<number>();
-  for (let i = 10 - filas; i < 10; i++) salida.add(fy(i));
+  for (let i = 10 - filasSanas(filas); i < 10; i++) salida.add(fy(i));
   return salida;
 }
 
@@ -340,7 +348,7 @@ export function capaDeIdentidad(
   rasgos: Rasgos,
   opts?: { filas?: number; conPatas?: boolean },
 ): Nodo[] {
-  const filas = Math.max(0, Math.min(8, opts?.filas ?? 0));
+  const filas = filasSanas(opts?.filas);
   const conPatas = opts?.conPatas !== false;
   const hw = SILUETAS[rasgos.silueta];
   const familia = rasgos.desconocida ? DESCONOCIDA : FAMILIAS[rasgos.familia];
@@ -527,23 +535,43 @@ export function capaDeEstado(
         ],
       };
     }
-    default:
+    case "base":
       // `base` es el REPOSO, no un estado vacío: se distingue justamente por no
       // tener nada encima, y es el más frecuente de la pantalla.
       return { ojos: null, boca: null, overlay: [] };
+    default: {
+      // Un noveno estado tiene que salir en ROJO al compilar, no dibujarse como
+      // reposo sin que nadie se entere. El retorno sigue siendo el de reposo:
+      // la promesa de este módulo es que nunca tira, y eso no se toca.
+      const _exhaustivo: never = estado;
+      void _exhaustivo;
+      return { ojos: null, boca: null, overlay: [] };
+    }
   }
 }
 
 /** La marca del traidor no es un estado: convive con cualquiera. Una columna
- *  coral de 1 px con dos escalones y un segundo ojo que asoma en (8,8). Se
- *  DIBUJA, no se parte: separar las dos mitades obligaría a dibujar el cuerpo
- *  dos veces (veinte rects en vez de diez) y a romper el tope de nodos. */
+ *  coral de 1 px con dos escalones y un segundo ojo que asoma en (8,8). La
+ *  grieta se DIBUJA encima; lo que no se parte es el CUERPO: separar sus dos
+ *  mitades obligaría a dibujarlo dos veces (veinte rects en vez de diez) y a
+ *  romper el tope de nodos. La grieta sí se puede pedir sola, con
+ *  `nodosDeGrieta` justo abajo. */
 const GRIETA = (): Nodo[] => [
   nodo(8, 5, 1, 3, COLORES_DE_ESTADO.coral),
   nodo(9, 8, 1, 2, COLORES_DE_ESTADO.coral),
   nodo(8, 10, 1, 4, COLORES_DE_ESTADO.coral),
   nodo(8, 8, 1, 1, COLORES_DE_ESTADO.coral),
 ];
+
+/** La grieta sola, ya con el desplazamiento del votado aplicado. La exporta
+ *  para que `Criatura.tsx` pueda envolverla en su propio <g> y animarla
+ *  (`aleph-grieta` crece de arriba a abajo) sin tocar el resto del dibujo:
+ *  un <rect> suelto no se puede seleccionar desde el CSS. `nodosDe` usa esta
+ *  misma función, así que las dos salidas no pueden divergir (test 3 bis). */
+export function nodosDeGrieta(estado: Estado): Nodo[] {
+  const dy = estado === "votado" ? 1 : 0;
+  return GRIETA().map((n) => (dy ? { ...n, y: n.y + dy } : n));
+}
 
 // --- El oro del bolsillo ----------------------------------------------------
 
@@ -579,7 +607,7 @@ export interface OpcionesDeCriatura {
  *  grilla y no hace falta un solo nodo de más. */
 export function nodosDe(rasgos: Rasgos, opts?: OpcionesDeCriatura): Nodo[] {
   const estado: Estado = opts?.estado ?? "base";
-  const filas = Math.max(0, Math.min(8, opts?.filas ?? 0));
+  const filas = filasSanas(opts?.filas);
   const hw = SILUETAS[rasgos.silueta];
   const dy = estado === "votado" ? 1 : 0;
   const doradas = filasDoradas(filas);
@@ -596,10 +624,10 @@ export function nodosDe(rasgos: Rasgos, opts?: OpcionesDeCriatura): Nodo[] {
   // únicos que viven fuera del cuerpo y por eso no se caen con él.
   const enCuerpo = [...identidad, ...cara, ...capa.overlay.filter((n) => n.y > 2)];
   const enCabeza = capa.overlay.filter((n) => n.y <= 2);
-  const grieta = opts?.traidor ? GRIETA() : [];
+  const grieta = opts?.traidor ? nodosDeGrieta(estado) : [];
   const bajar = (n: Nodo): Nodo => (dy ? { ...n, y: n.y + dy } : n);
 
-  return [...enCuerpo.map(bajar), ...grieta.map(bajar), ...enCabeza];
+  return [...enCuerpo.map(bajar), ...grieta, ...enCabeza];
 }
 
 // --- El serializador --------------------------------------------------------
@@ -616,8 +644,8 @@ const escapar = (s: string) => s.replace(/[&<>"]/g, (c) => ESCAPES[c]);
 /** La criatura como string de SVG. Lo usan los tests y (en PR2) el probador.
  *  `Criatura.tsx` mapea la MISMA lista de `nodosDe` a <rect>, así que los dos
  *  consumen lo mismo y no pueden divergir. Sin <text>, sin <title>, sin
- *  <clipPath> y sin gradientes: todo rótulo es HTML traducible, porque Press
- *  Start 2P no tiene glifos devanagari y el sitio se sirve en hindi. */
+ *  <clipPath> y sin gradientes: todo rótulo es HTML traducible (pasa por el
+ *  i18n, no queda congelado en un idioma adentro del dibujo). */
 export function svgDeCriatura(
   address: string | null | undefined,
   opts?: OpcionesDeCriatura & { etiquetaA11y?: string },

@@ -555,12 +555,8 @@ export const en: Dict = {
     "Funding expired without all {n} deposits, so the room dissolved before it started. Every seat that deposited is owed its full stake back by the contract.",
   "aleph.room.pot": "Pot",
   "aleph.room.box": "Demon's box",
-  "aleph.room.potInitial": "Started at",
-  "aleph.room.nowPlaying": "Stage {stage}: {kind}, in the {phase} phase.",
-  "aleph.room.deadline": "({time} left)",
   "aleph.room.liveNote":
     "Live view, refreshed on its own every few seconds. While the room plays only the public side shows: no fragments, no pending decisions, no seed.",
-  "aleph.room.seats": "SEATS",
   "aleph.room.storyTitle": "WHAT_HAPPENED.TXT",
   "aleph.room.storyEmpty": "No stage has resolved yet. The first one is still open.",
   "aleph.room.stageHead": "Stage {n} · {kind}",
@@ -641,6 +637,44 @@ export const en: Dict = {
   "aleph.chat.whisper": "WHISPER",
   "aleph.chat.whisperTo": "to {who}",
   "aleph.chat.stageSep": ":: stage {n} · {kind}",
+  "aleph.scene.title": "SCENE.EXE",
+  "aleph.scene.invariant": "Pot {pot} + box {box} + pockets {pockets} = {total}",
+  "aleph.scene.deck": "Deck",
+  "aleph.scene.deckLeft": "{n} undealt",
+  "aleph.scene.deckNote": "The deck order is secret, and the Final does not come out of it.",
+  "aleph.scene.emptySeat": "Empty seat",
+  "aleph.scene.settledTitle": "The room settled.",
+  "aleph.scene.settledNoFinal": "The room ended before the Final.",
+  "aleph.scene.settledSplit":
+    "The box was split among the seats: {each} for each one (the remainder goes to the biggest pocket).",
+  "aleph.scene.pause": "PAUSE MOTION",
+  "aleph.scene.resume": "RESUME MOTION",
+  "aleph.rule.share":
+    "Each one chooses to keep their share of the pot or leave it. If they leave it, the box rewards the pot.",
+  "aleph.rule.offer":
+    "The demon pays you to leave. Whoever accepts cashes out and leaves the table; if everyone accepts, the offer is void and the pot loses 10%, which the box takes.",
+  "aleph.rule.vote":
+    "The most voted leaves the table with their pocket. Who voted for whom is not shown until the room settles.",
+  "aleph.rule.lock":
+    "Each one holds a piece of the code. Opening it for everyone rewards the pot; opening it for yourself alone marks you as a traitor; if nobody opens it, the pot loses 10%.",
+  "aleph.rule.final":
+    "The last two secretly choose to split or steal. If both steal, the pot burns.",
+  "aleph.frieze.title": "Stages of the room",
+  "aleph.frieze.played": "Stage {n}: {kind}",
+  "aleph.frieze.current": "Stage {n}: {kind}, in progress",
+  "aleph.frieze.back": "Undealt card",
+  "aleph.frieze.left": "Someone left the table",
+  "aleph.frieze.bonus": "The box rewarded the pot",
+  "aleph.votes.title": "WHO_VOTED_FOR_WHOM.TXT",
+  "aleph.votes.line": "{voter} voted for {target}.",
+  "aleph.votes.implied": "Those who did not vote count as a vote against themselves: {who}",
+  "aleph.votes.empty": "There was no Vote stage in this room.",
+  "aleph.votes.unavailable": "The signed log did not answer. It is the same in the link below.",
+  "aleph.probe.title": "CREATURE.EXE",
+  "aleph.probe.label": "Paste an address",
+  "aleph.probe.bad": "That is not a 0x address with 40 characters.",
+  "aleph.probe.intro":
+    "The creature comes out of the address and never changes. This page is not linked from anywhere: it is for looking at creatures against real addresses.",
   "aleph.card.title": "ALEPH — MULTI-AGENT FORMAT",
   "aleph.card.chip": "NEW",
   "aleph.card.body":

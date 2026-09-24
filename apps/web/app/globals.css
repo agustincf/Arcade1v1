@@ -495,6 +495,319 @@ body::before {
     color: var(--color-muted-3);
   }
 
+  /* --- Aleph, etapa 5: la escena --- */
+
+  /* Un solo corte, y es del CONTENEDOR, no de la pantalla: la escena vive en
+     una columna de 672 px que a 375 px mide unos 319. Todo lo que cambia de
+     forma cuelga de este @container. */
+  .escena {
+    container-type: inline-size;
+  }
+
+  /* La carta de etapa: lo único en toda la pantalla que explica el juego. */
+  .carta-etapa {
+    border-left: 2px solid var(--color-accent-2);
+    padding-left: 10px;
+  }
+
+  /* El friso: una carta de 14x20 por etapa. Con ocho asientos la sala llega a
+     unas 12 etapas, que a 375 px entran en una fila (12 x 18 = 216 px sobre
+     319 disponibles). Más de eso, envuelve. */
+  .friso {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .friso-carta {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 2px;
+    background: var(--color-surface-2);
+  }
+  .friso-carta--actual {
+    height: 22px;
+    border-color: var(--color-accent);
+  }
+  .friso-carta--dorso {
+    opacity: 0.45;
+  }
+  /* Las dos marcas de la esquina. Un punto de 3 px y no una cruz: a 14 px de
+     ancho una cruz es puré antialiaseado. Lo que dice qué son es su
+     aria-label, no el color. */
+  .friso-salida,
+  .friso-premio {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 1px;
+  }
+  .friso-salida {
+    top: 1px;
+    right: 1px;
+    background: var(--color-lose);
+  }
+  .friso-premio {
+    right: 1px;
+    bottom: 1px;
+    background: var(--color-gold);
+  }
+
+  /* Los objetos: múltiplos exactos de su grilla, que es lo que hace que
+     `crispEdges` siga sirviendo (olla/cofre/mazo 16x16 a 32 px, el dorso 8x6 a
+     16x12 y los glifos 8x8 a 8 px). */
+  .objeto {
+    width: 32px;
+    height: 32px;
+  }
+  .objeto--apagado {
+    opacity: 0.45;
+  }
+  .dorso {
+    width: 16px;
+    height: 12px;
+  }
+  .glifo {
+    width: 8px;
+    height: 8px;
+  }
+  .friso-carta .dorso {
+    width: 8px;
+    height: 6px;
+  }
+
+  /* La mesa: los tres objetos y la barra del invariante. */
+  .mesa {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+  }
+  .mesa-objeto {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .barra {
+    position: relative;
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--color-ink);
+    overflow: hidden;
+  }
+  .barra-pozo {
+    background: var(--color-gold);
+  }
+  .barra-caja {
+    background: var(--color-accent);
+  }
+  .barra-bolsillos {
+    background: var(--color-muted-bright);
+  }
+  /* De dónde arrancó el pozo: 1 - BOX_BPS/10000. `overflow: hidden` la recorta
+     a la altura de la barra, así que va adentro y no sobresale. */
+  .barra-marca {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--color-text-strong);
+  }
+
+  /* La grilla de asientos. Los dos números los publica Asientos.tsx como
+     custom properties: un elemento no puede alternar dos valores de JS en una
+     media query, y Tailwind v4 escanea literales, así que `grid-cols-${n}` no
+     genera nada. */
+  .escena-asientos {
+    display: grid;
+    grid-template-columns: repeat(var(--cols-angosta), minmax(0, 1fr));
+    gap: 8px;
+  }
+  /* La Final: los dos finalistas enfrentados con el pozo en el medio. Es el
+     único momento en que la escena cambia de forma. */
+  .escena-final {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    /* Las dos tarjetas del mismo alto aunque una lleve el chip CASA de más;
+       la olla sigue centrada en su propia celda. */
+    align-items: stretch;
+    gap: 8px;
+  }
+  .escena-pozo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Los finalistas van en tarjeta vertical en los DOS anchos: a 375 px cada
+     uno tiene ~135 px al lado de la olla, y en horizontal la criatura de 64 px
+     dejaba menos lugar que el que ocupa la wallet abreviada, que no se corta. */
+  .escena-final .asiento {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+  }
+  .escena-final .asiento-texto {
+    align-self: stretch;
+  }
+  .escena-final .asiento-chips {
+    justify-content: center;
+  }
+
+  /* La tarjeta de asiento es ANGOSTA por defecto (mobile primero): criatura a
+     la izquierda, etiqueta a la derecha, dos columnas. El monto va DEBAJO de la
+     etiqueta y no a su lado: en una celda de ~155 px, criatura + wallet en mono
+     + monto no entran en un renglón, y la wallet se montaba sobre el monto. */
+  .asiento {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    /* Con la fila de la grilla más alta que la tarjeta, etiqueta y monto van
+       juntos al centro en vez de repartirse el alto. */
+    align-content: center;
+    gap: 4px 8px;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--color-surface-2);
+  }
+  .asiento--abandono {
+    border: 1px dashed var(--color-border);
+  }
+  .asiento-criatura {
+    grid-row: span 2;
+  }
+  .asiento-monto {
+    grid-column: 2;
+  }
+  /* La columna de texto de la tarjeta angosta mide ~83 px: con el padding
+     normal del chip, "sin decidir" ya no entraba en un renglón. */
+  .asiento .chip {
+    padding-inline: 6px;
+  }
+  .asiento--vacia {
+    display: flex;
+    justify-content: center;
+    background: transparent;
+    border: 1px dashed var(--color-border);
+  }
+  .asiento--vacia .dorso {
+    opacity: 0.25;
+  }
+  /* La etiqueta se monta en las DOS formas y el corte esconde una: playerLabel
+     devuelve un string plano y no hay media query que parta un string. Este
+     `display: none` es TAMBIÉN lo que la saca del árbol de accesibilidad, así
+     que la copia escondida no se anuncia y no hace falta —ni serviría— un
+     aria-hidden fijo en el marcado (desvío 15). */
+  .etiqueta-ancha {
+    display: none;
+    /* Parte en los espacios; solo corta una palabra que sola no entra. */
+    overflow-wrap: break-word;
+  }
+  .criatura--final {
+    width: 64px;
+    height: 64px;
+  }
+  .criatura--probador {
+    width: 128px;
+    height: 128px;
+  }
+
+  @container (min-width: 560px) {
+    .escena-asientos {
+      grid-template-columns: repeat(var(--cols-ancha), minmax(0, 1fr));
+    }
+    /* Tarjeta vertical: criatura arriba, etiqueta abajo. */
+    .asiento {
+      display: flex;
+      flex-direction: column;
+      text-align: center;
+    }
+    /* En columna, `align-items: center` deja el bloque de texto a su ancho de
+       contenido: la etiqueta plana se salía de la tarjeta y pisaba a la de al
+       lado. Estirado, mide lo que la tarjeta y la etiqueta se parte adentro. */
+    .asiento-texto {
+      align-self: stretch;
+    }
+    .asiento-chips {
+      justify-content: center;
+    }
+    .criatura--mesa {
+      width: 64px;
+      height: 64px;
+    }
+    .criatura--final {
+      width: 96px;
+      height: 96px;
+    }
+    .etiqueta-ancha {
+      display: block;
+    }
+    .etiqueta-angosta {
+      display: none;
+    }
+  }
+
+  /* Las tres animaciones que faltaban. Las tres van HACIA el estado de reposo:
+     con `animation: none` no se pierde un solo dato. La grieta está en el
+     marcado desde el primer cuadro y la animación solo la descubre. */
+  .aleph-grieta {
+    transform-box: fill-box;
+    transform-origin: 50% 0%;
+    animation: aleph-grieta 600ms steps(4, jump-none) 1;
+  }
+  @keyframes aleph-grieta {
+    from {
+      transform: scaleY(0);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
+  .aleph-revela {
+    animation: aleph-revela 500ms ease-out 1;
+  }
+  @keyframes aleph-revela {
+    from {
+      opacity: 0.4;
+      transform: scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  /* Va en CADA línea de susurro, no en la ventana: el spec dice "las líneas de
+     susurro entran", y la terminal ya estaba en pantalla antes de liquidar. Un
+     fundido por elemento hace exactamente eso y no necesita un contenedor. */
+  .aleph-desclasifica {
+    animation: aleph-desclasifica 400ms ease-out 1;
+  }
+  @keyframes aleph-desclasifica {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* El botón de pausa: la misma lista que el media query de abajo. Una sala
+     dura 40 minutos y `prefers-reduced-motion` no cubre al que se cansa. */
+  body.sin-movimiento .aleph-respira,
+  body.sin-movimiento .aleph-grieta,
+  body.sin-movimiento .aleph-revela,
+  body.sin-movimiento .aleph-desclasifica {
+    animation: none;
+  }
+
   /* Respetar "reducir movimiento" del sistema: el ticker infinito y el parpadeo
      se frenan (el ticker se reubica visible, sin quedar empujado fuera de
      pantalla). Los spinners usan la variante motion-reduce en su markup. */
@@ -510,6 +823,11 @@ body::before {
       animation: none;
     }
     .aleph-respira {
+      animation: none;
+    }
+    .aleph-grieta,
+    .aleph-revela,
+    .aleph-desclasifica {
       animation: none;
     }
     /* Sin animacion el cartel no tiene fin: directamente no se muestra. */

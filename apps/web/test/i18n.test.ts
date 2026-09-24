@@ -126,3 +126,80 @@ test("el cartel de topes de la charla dice FASE, no etapa, en los 3 idiomas", ()
     assert.ok(caps.includes(String(ALEPH_RULES.MAX_MSG_LEN)), `${lang}: el cartel perdió el largo`);
   }
 });
+
+test("las 31 claves de la etapa 5 (PR2) están en los 3 idiomas", () => {
+  const nuevas = [
+    // Escena (11; `acted` y `ready` ya entraron con PR1)
+    "aleph.scene.title",
+    "aleph.scene.invariant",
+    "aleph.scene.deck",
+    "aleph.scene.deckLeft",
+    "aleph.scene.deckNote",
+    "aleph.scene.emptySeat",
+    "aleph.scene.settledTitle",
+    "aleph.scene.settledNoFinal",
+    "aleph.scene.settledSplit",
+    "aleph.scene.pause",
+    "aleph.scene.resume",
+    // La regla de cada etapa (5)
+    "aleph.rule.share",
+    "aleph.rule.offer",
+    "aleph.rule.vote",
+    "aleph.rule.lock",
+    "aleph.rule.final",
+    // Friso (6)
+    "aleph.frieze.title",
+    "aleph.frieze.played",
+    "aleph.frieze.current",
+    "aleph.frieze.back",
+    "aleph.frieze.left",
+    "aleph.frieze.bonus",
+    // Liquidación (5)
+    "aleph.votes.title",
+    "aleph.votes.line",
+    "aleph.votes.implied",
+    "aleph.votes.empty",
+    "aleph.votes.unavailable",
+    // Probador (4)
+    "aleph.probe.title",
+    "aleph.probe.label",
+    "aleph.probe.bad",
+    "aleph.probe.intro",
+  ];
+  assert.equal(nuevas.length, 31);
+  for (const [lang, dict] of Object.entries(DICTS))
+    for (const k of nuevas) {
+      assert.ok(dict[k], `${lang} no tiene ${k}`);
+      assert.ok(dict[k].trim().length > 0, `${lang} tiene ${k} vacía`);
+    }
+
+  // Las que llevan variable tienen que llevarla en los 3 idiomas: si una
+  // traducción se come el {each}, el número desaparece sin que nadie se entere.
+  const conVariables: Record<string, string[]> = {
+    "aleph.scene.invariant": ["{pot}", "{box}", "{pockets}", "{total}"],
+    "aleph.scene.deckLeft": ["{n}"],
+    "aleph.scene.settledSplit": ["{each}"],
+    "aleph.frieze.played": ["{n}", "{kind}"],
+    "aleph.frieze.current": ["{n}", "{kind}"],
+    "aleph.votes.line": ["{voter}", "{target}"],
+    "aleph.votes.implied": ["{who}"],
+  };
+  for (const [lang, dict] of Object.entries(DICTS))
+    for (const [k, vars] of Object.entries(conVariables))
+      for (const v of vars) assert.ok(dict[k].includes(v), `${lang}: ${k} perdió ${v}`);
+});
+
+test("las cuatro claves huérfanas de la sala ya no están en ningún idioma", () => {
+  // Las cuatro tenían UN solo uso cada una y los cuatro se fueron con los
+  // bloques que la escena reemplaza (los tres Money del encabezado, la línea
+  // de etapa con su mm:ss y la barra de la ventana ASIENTOS). El test de
+  // paridad no avisa de esto: compara claves ENTRE idiomas, no uso.
+  for (const k of [
+    "aleph.room.potInitial",
+    "aleph.room.nowPlaying",
+    "aleph.room.deadline",
+    "aleph.room.seats",
+  ])
+    for (const [lang, dict] of Object.entries(DICTS))
+      assert.equal(dict[k], undefined, `${lang} todavía tiene ${k}`);
+});

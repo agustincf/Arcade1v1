@@ -191,10 +191,13 @@ filas (3 y 4) y no de tres: la fila 2 es del estado. El test 2 lo comprueba.
 Cada silueta es una lista de diez **medios anchos** (una por fila del cuerpo):
 la fila `i` es un rect que va de `x = 8 − hw[i]` a `x = 8 + hw[i]`. El medio
 ancho máximo es 6, así que el cuerpo nunca pasa de `x = 2` a `x = 13` y todo
-entra en la grilla. **El medio ancho nunca baja de 4 entre los índices 3 y 8 del
-cuerpo** (`y = 8` a `y = 13`): es el piso que hace que el dorso de 8×6 entre
-inscripto en cualquiera de las ocho siluetas y que la marca del cuerpo tenga
-dónde apoyarse. Arriba y abajo de esa franja las siluetas se afinan hasta
+entra en la grilla. **El medio ancho nunca baja de 4 entre los índices 2 y 8 del
+cuerpo** (`y = 7` a `y = 13`): el piso del dorso de 8×6 arranca en el índice 3,
+pero `cejudo` (`OJOS[4]`) y `saltones` (`OJOS[7]`) se apoyan en `hw[2]`, así que
+la franja tiene que arrancar una fila más arriba. Es el piso que hace que el
+dorso entre inscripto en cualquiera de las ocho siluetas y que la marca del
+cuerpo tenga dónde apoyarse. Arriba y abajo de esa franja las siluetas se
+afinan hasta
 `hw = 2`, que es de donde sale la variedad de perfiles. Las coronas y los
 accesorios **se cuelgan del borde real del cuerpo** (leen `hw[0]` o `hw[i]`), no
 de una posición fija: es lo que evita que una corona flote afuera de una silueta

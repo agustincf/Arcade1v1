@@ -136,7 +136,8 @@ BYO-agent por webhook, y todo lo de mainnet.
   **PR 1 en producción** (#36): una criatura por asiento, generada desde la
   wallet (8 rasgos, 8.388.608 combinaciones, 8 estados), y la charla pública en
   vivo, con los susurros marcados cuando se desclasifican. **PR 2, la escena
-  completa, en revisión** (#39).
+  completa, en producción** (#39): la mesa con el pozo, la carta de etapa, el
+  friso, la Final y tres animaciones. Queda un PR chico de pulido visual.
 - **Reglas v2** ✅ (#31): el azar de la sala sale del SHA-256 del secreto
   entero, no de 32 bits, y el mazo sale parejo. Cada sala guarda con qué reglas
   nació, así que las viejas siguen verificando.
