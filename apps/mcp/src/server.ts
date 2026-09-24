@@ -32,7 +32,7 @@ export function buildServer(deps: {
   money?: MoneyConfig;
 }): McpServer {
   const { agent, client, money = {} } = deps;
-  const server = new McpServer({ name: "arcade1v1", version: "0.5.0" });
+  const server = new McpServer({ name: "arcade1v1", version: "0.5.1" });
 
   server.registerTool(
     "list_games",
