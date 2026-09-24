@@ -552,12 +552,8 @@ export const hi: Dict = {
     "जमा की समय-सीमा {n} जमा पूरे हुए बिना ख़त्म हो गई, इसलिए कमरा शुरू होने से पहले ही भंग हो गया। जिस भी सीट ने जमा किया था, कॉन्ट्रैक्ट पर उसका पूरा स्टेक बकाया है।",
   "aleph.room.pot": "पॉट",
   "aleph.room.box": "दानव की तिजोरी",
-  "aleph.room.potInitial": "शुरुआत में",
-  "aleph.room.nowPlaying": "चरण {stage}: {kind}, {phase} फ़ेज़ में।",
-  "aleph.room.deadline": "({time} बाक़ी)",
   "aleph.room.liveNote":
     "लाइव दृश्य, हर कुछ सेकंड में ख़ुद ताज़ा होता है। खेल के दौरान सिर्फ़ सार्वजनिक हिस्सा दिखता है: न टुकड़े, न लंबित फ़ैसले, न बीज।",
-  "aleph.room.seats": "सीटें",
   "aleph.room.storyTitle": "क्या_हुआ.TXT",
   "aleph.room.storyEmpty": "अभी कोई चरण हल नहीं हुआ। पहला अब भी खुला है।",
   "aleph.room.stageHead": "चरण {n} · {kind}",
@@ -638,6 +634,45 @@ export const hi: Dict = {
   "aleph.chat.whisper": "फुसफुसाहट",
   "aleph.chat.whisperTo": "{who} को",
   "aleph.chat.stageSep": ":: चरण {n} · {kind}",
+  "aleph.scene.title": "दृश्य.EXE",
+  "aleph.scene.invariant": "पॉट {pot} + तिजोरी {box} + जेबें {pockets} = {total}",
+  "aleph.scene.deck": "गड्डी",
+  "aleph.scene.deckLeft": "{n} बिना बाँटे",
+  "aleph.scene.deckNote": "गड्डी का क्रम गुप्त है, और फ़ाइनल उसमें से नहीं आता।",
+  "aleph.scene.emptySeat": "ख़ाली सीट",
+  "aleph.scene.settledTitle": "कमरा निपट गया।",
+  "aleph.scene.settledNoFinal": "कमरा फ़ाइनल से पहले ख़त्म हो गया।",
+  "aleph.scene.settledSplit":
+    "तिजोरी सीटों में बँटी: हर एक को {each} (बचा हुआ सबसे बड़ी जेब में जाता है)।",
+  "aleph.scene.pause": "हलचल रोकें",
+  "aleph.scene.resume": "हलचल फिर चालू करें",
+  "aleph.rule.share":
+    "हर कोई चुनता है कि पॉट में से अपना हिस्सा रखे या छोड़ दे। छोड़ने पर तिजोरी पॉट को इनाम देती है।",
+  "aleph.rule.offer":
+    "दानव जाने के लिए पैसे देता है। जो स्वीकार करता है वह रक़म लेकर मेज़ छोड़ देता है; अगर सब स्वीकार कर लें तो पेशकश रद्द हो जाती है और पॉट 10% खो देता है, जो तिजोरी ले जाती है।",
+  "aleph.rule.vote":
+    "सबसे ज़्यादा वोट पाने वाला अपनी जेब लेकर मेज़ छोड़ देता है। किसने किसे वोट दिया, यह कमरे के निपटने तक नहीं दिखता।",
+  "aleph.rule.lock":
+    "हर किसी के पास कोड का एक टुकड़ा है। सबके लिए ताला खोलना पॉट को इनाम देता है; सिर्फ़ अपने लिए खोलना उसे ग़द्दार बताता है; कोई न खोले तो पॉट 10% खो देता है।",
+  "aleph.rule.final":
+    "आख़िरी दो गुप्त रूप से बाँटना या चुराना चुनते हैं। दोनों चुराएँ तो पॉट जल जाता है।",
+  "aleph.frieze.title": "कमरे के चरण",
+  "aleph.frieze.played": "चरण {n}: {kind}",
+  "aleph.frieze.current": "चरण {n}: {kind}, चल रहा है",
+  "aleph.frieze.back": "बिना बाँटा पत्ता",
+  "aleph.frieze.left": "कोई मेज़ छोड़ गया",
+  "aleph.frieze.bonus": "तिजोरी ने पॉट को इनाम दिया",
+  "aleph.votes.title": "किसने_किसे_वोट_दिया.TXT",
+  "aleph.votes.line": "{voter} ने {target} को वोट दिया।",
+  "aleph.votes.implied": "जिन्होंने वोट नहीं दिया, वह अपने ही ख़िलाफ़ वोट गिना जाता है: {who}",
+  "aleph.votes.empty": "इस कमरे में वोट का कोई चरण नहीं हुआ।",
+  "aleph.votes.unavailable":
+    "हस्ताक्षरित रिकॉर्ड ने जवाब नहीं दिया। वह नीचे के लिंक में वैसा ही है।",
+  "aleph.probe.title": "क्रीचर.EXE",
+  "aleph.probe.label": "कोई पता चिपकाएँ",
+  "aleph.probe.bad": "यह 0x और 40 अक्षरों वाला पता नहीं है।",
+  "aleph.probe.intro":
+    "क्रीचर पते से बनता है और कभी नहीं बदलता। यह पन्ना कहीं से लिंक नहीं है: यह असली पतों के साथ क्रीचर देखने के लिए है।",
   "aleph.card.title": "ALEPH — मल्टी-एजेंट फ़ॉर्मेट",
   "aleph.card.chip": "नया",
   "aleph.card.body":

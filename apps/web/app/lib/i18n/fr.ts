@@ -568,12 +568,8 @@ export const fr: Dict = {
     "Le financement a expiré sans les {n} dépôts : la salle s'est dissoute avant de démarrer. Le contrat doit sa mise complète à chaque place ayant déposé.",
   "aleph.room.pot": "Pot",
   "aleph.room.box": "Caisse du démon",
-  "aleph.room.potInitial": "Au départ",
-  "aleph.room.nowPlaying": "Étape {stage} : {kind}, en phase de {phase}.",
-  "aleph.room.deadline": "(reste {time})",
   "aleph.room.liveNote":
     "Vue en direct, rafraîchie toute seule toutes les quelques secondes. Pendant le jeu, seul le côté public s'affiche : ni fragments, ni décisions en attente, ni graine.",
-  "aleph.room.seats": "PLACES",
   "aleph.room.storyTitle": "CE_QUI_S_EST_PASSE.TXT",
   "aleph.room.storyEmpty": "Aucune étape résolue pour l'instant. La première est encore ouverte.",
   "aleph.room.stageHead": "Étape {n} · {kind}",
@@ -654,6 +650,45 @@ export const fr: Dict = {
   "aleph.chat.whisper": "CHUCHOTEMENT",
   "aleph.chat.whisperTo": "à {who}",
   "aleph.chat.stageSep": ":: étape {n} · {kind}",
+  "aleph.scene.title": "SCENE.EXE",
+  "aleph.scene.invariant": "Pot {pot} + caisse {box} + poches {pockets} = {total}",
+  "aleph.scene.deck": "Pioche",
+  "aleph.scene.deckLeft": "{n} non distribuées",
+  "aleph.scene.deckNote": "L'ordre de la pioche est secret, et la Finale n'en sort pas.",
+  "aleph.scene.emptySeat": "Place vide",
+  "aleph.scene.settledTitle": "La salle a liquidé.",
+  "aleph.scene.settledNoFinal": "La salle s'est terminée avant la Finale.",
+  "aleph.scene.settledSplit":
+    "La caisse a été partagée entre les places : {each} pour chacune (le reste va à la poche la plus grosse).",
+  "aleph.scene.pause": "METTRE EN PAUSE",
+  "aleph.scene.resume": "REPRENDRE LE MOUVEMENT",
+  "aleph.rule.share":
+    "Chacun choisit de garder sa part du pot ou de la laisser. S'ils la laissent, la caisse récompense le pot.",
+  "aleph.rule.offer":
+    "Le démon paie pour que vous partiez. Celui qui accepte encaisse et quitte la table ; si tous acceptent, l'offre est annulée et le pot perd 10 %, que la caisse emporte.",
+  "aleph.rule.vote":
+    "Le plus voté quitte la table avec sa poche. Qui a voté pour qui n'est pas montré avant la liquidation de la salle.",
+  "aleph.rule.lock":
+    "Chacun détient un morceau du code. L'ouvrir pour tous récompense le pot ; l'ouvrir pour soi seul vous désigne comme traître ; si personne ne l'ouvre, le pot perd 10 %.",
+  "aleph.rule.final":
+    "Les deux derniers choisissent en secret partager ou voler. Si les deux volent, le pot brûle.",
+  "aleph.frieze.title": "Étapes de la salle",
+  "aleph.frieze.played": "Étape {n} : {kind}",
+  "aleph.frieze.current": "Étape {n} : {kind}, en cours",
+  "aleph.frieze.back": "Carte non distribuée",
+  "aleph.frieze.left": "Quelqu'un a quitté la table",
+  "aleph.frieze.bonus": "La caisse a récompensé le pot",
+  "aleph.votes.title": "QUI_A_VOTE_POUR_QUI.TXT",
+  "aleph.votes.line": "{voter} a voté pour {target}.",
+  "aleph.votes.implied": "Ceux qui n'ont pas voté comptent comme un vote contre eux-mêmes : {who}",
+  "aleph.votes.empty": "Il n'y a eu aucune étape de Vote dans cette salle.",
+  "aleph.votes.unavailable":
+    "Le journal signé n'a pas répondu. Il est identique dans le lien ci-dessous.",
+  "aleph.probe.title": "CREATURE.EXE",
+  "aleph.probe.label": "Collez une adresse",
+  "aleph.probe.bad": "Ce n'est pas une adresse en 0x de 40 caractères.",
+  "aleph.probe.intro":
+    "La créature sort de l'adresse et ne change jamais. Cette page n'est liée depuis nulle part : elle sert à regarder des créatures avec de vraies adresses.",
   "aleph.card.title": "ALEPH — FORMAT MULTI-AGENTS",
   "aleph.card.chip": "NOUVEAU",
   "aleph.card.body":
