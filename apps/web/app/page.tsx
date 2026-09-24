@@ -6,11 +6,13 @@ import { BetQuickPlay } from "@/app/components/BetQuickPlay";
 import { GameIcon } from "@/app/components/GameIcon";
 import { PixelIcon, type PixelIconName } from "@/app/components/PixelIcon";
 import { useT } from "@/app/lib/i18n";
-import { FAQ } from "@/app/lib/seo";
 import { BET_AMOUNTS } from "@/app/lib/config";
 
+/** Preguntas del FAQ (claves faq.q1..faq.a8 en los tres diccionarios). */
+const FAQ_N = [1, 2, 3, 4, 5, 6, 7, 8];
+
 export default function HomePage() {
-  const { t } = useT();
+  const { t, lang } = useT();
   // Las mesas de la tarjeta salen de la misma lista que la mesa de cada juego:
   // si mañana cambia el rango de stakes, la home no queda prometiendo otro.
   const stakes = t("card.stakes", {
@@ -133,7 +135,7 @@ export default function HomePage() {
           <span>{t("faq.title")}</span>
         </div>
         <div className="p-6 text-base">
-          {[1, 2, 3, 4, 5, 6].map((n) => (
+          {FAQ_N.map((n) => (
             <div
               key={n}
               className="border-b border-(--color-paper-border) py-4 first:pt-1 last:border-0 last:pb-1"
@@ -153,17 +155,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Dato estructurado FAQPage (schema.org) */}
+      {/* Dato estructurado FAQPage (schema.org). Sale de las MISMAS claves que
+          el FAQ visible y en el idioma de la página: antes era una copia en
+          inglés aparte, que en /es y /fr no coincidía con lo que se lee (y
+          Google pide que el marcado sea el contenido visible). */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "FAQPage",
-            mainEntity: FAQ.map((f) => ({
+            inLanguage: lang,
+            mainEntity: FAQ_N.map((n) => ({
               "@type": "Question",
-              name: f.q,
-              acceptedAnswer: { "@type": "Answer", text: f.a },
+              name: t(`faq.q${n}`),
+              acceptedAnswer: { "@type": "Answer", text: t(`faq.a${n}`) },
             })),
           }),
         }}

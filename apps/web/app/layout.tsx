@@ -5,7 +5,11 @@ import { Providers } from "@/app/providers";
 import { Header } from "@/app/components/Header";
 import { Marquee } from "@/app/components/Marquee";
 import { SiteFooter } from "@/app/components/SiteFooter";
-import { SITE, META } from "@/app/lib/seo";
+import { SITE, META, LD_ID, SAME_AS, MARCA } from "@/app/lib/seo";
+import { GAME_SEO, PAGE_SEO } from "@/app/lib/seo-pages";
+import { LANGS, type Lang } from "@/app/lib/i18n-dict";
+import { localePath, stripLocale } from "@/app/lib/localePath";
+import { headers } from "next/headers";
 import { GAMES } from "@/app/lib/games";
 import { Analytics } from "@vercel/analytics/next";
 import { getLang } from "@/app/lib/serverLang";
@@ -19,9 +23,14 @@ import { SeoAlternates } from "@/app/components/SeoAlternates";
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getLang();
   const m = META[lang] ?? META.en;
+  // og:url por defecto = la URL de ESTA página en su idioma (la misma que el
+  // canonical de <SeoAlternates>). Antes era siempre la home: /status, /terms
+  // o /faucet compartidos en LinkedIn se presentaban como la home.
+  const bare = stripLocale((await headers()).get("x-bare-path") ?? "/");
+  const propia = localePath(lang, bare);
   return {
     metadataBase: new URL(SITE.url),
-    title: { default: m.title, template: "%s · Arcade1v1" },
+    title: { default: m.title, template: `%s${MARCA}` },
     description: m.description,
     applicationName: SITE.name,
     keywords: SITE.keywords,
@@ -34,8 +43,9 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: SITE.name,
       title: m.title,
       description: m.description,
-      url: SITE.url,
+      url: `${SITE.url}${propia === "/" ? "" : propia}`,
       locale: m.ogLocale,
+      alternateLocale: LANGS.filter((l) => l !== lang).map((l) => META[l].ogLocale),
     },
     twitter: {
       card: "summary_large_image",
@@ -58,52 +68,70 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 // Datos estructurados (schema.org) — ayudan a Google y a los motores de IA.
-function StructuredData() {
-  const data = [
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      name: SITE.name,
-      url: SITE.url,
-      description: SITE.description,
-      logo: `${SITE.url}/icon`,
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      name: SITE.name,
-      url: SITE.url,
-      description: SITE.description,
-      inLanguage: ["en", "es", "fr"],
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      name: SITE.name,
-      url: SITE.url,
-      applicationCategory: "GameApplication",
-      operatingSystem: "Web",
-      description: SITE.description,
-      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "ItemList",
-      name: "Games on Arcade1v1",
-      itemListElement: GAMES.filter((g) => g.status === "live").map((g, i) => ({
-        "@type": "ListItem",
-        position: i + 1,
-        item: {
-          "@type": "VideoGame",
-          name: g.name,
-          url: `${SITE.url}/game/${g.id}`,
-          gamePlatform: "Web",
-          applicationCategory: "Game",
-          playMode: "MultiPlayer",
-        },
-      })),
-    },
-  ];
+// Un solo @graph con @id: la organización, el sitio y la app se referencian en
+// vez de repetirse, y el JSON-LD de cada página (juego, Aleph, /agents) apunta
+// a los mismos @id.
+function StructuredData({ lang }: { lang: Lang }) {
+  const data = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": LD_ID.org,
+        name: SITE.name,
+        url: SITE.url,
+        description: SITE.description,
+        // Google pide un logo de 112 px o más: el /icon de 64 px no calificaba.
+        logo: { "@type": "ImageObject", url: `${SITE.url}/icon-512`, width: 512, height: 512 },
+        sameAs: SAME_AS,
+      },
+      {
+        "@type": "WebSite",
+        "@id": LD_ID.site,
+        name: SITE.name,
+        url: SITE.url,
+        description: SITE.description,
+        inLanguage: [...LANGS],
+        publisher: { "@id": LD_ID.org },
+      },
+      {
+        "@type": "WebApplication",
+        name: SITE.name,
+        url: SITE.url,
+        applicationCategory: "GameApplication",
+        operatingSystem: "Web",
+        description: SITE.description,
+        offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        publisher: { "@id": LD_ID.org },
+      },
+      {
+        "@type": "ItemList",
+        name: "Games on Arcade1v1",
+        itemListElement: [
+          ...GAMES.filter((g) => g.status === "live").map((g) => ({
+            "@type": "VideoGame",
+            name: g.name,
+            description: GAME_SEO[g.id]?.[lang].description,
+            url: `${SITE.url}${localePath(lang, `/game/${g.id}`)}`,
+            gamePlatform: "Web",
+            applicationCategory: "Game",
+            playMode: "MultiPlayer",
+          })),
+          // Aleph no es un juego de puntaje 1v1 sino el formato multi-agente,
+          // pero es lo más nuevo del sitio y un motor de IA tiene que verlo acá.
+          {
+            "@type": "VideoGame",
+            name: "Aleph",
+            description: PAGE_SEO.aleph[lang].description,
+            url: `${SITE.url}${localePath(lang, "/aleph")}`,
+            gamePlatform: "Web",
+            applicationCategory: "Game",
+            playMode: "MultiPlayer",
+          },
+        ].map((item, i) => ({ "@type": "ListItem", position: i + 1, item })),
+      },
+    ],
+  };
   return (
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
   );
@@ -143,7 +171,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={lang} className={`${chivo.variable} ${chivoMono.variable} ${pressStart.variable}`}>
       <head>
-        <StructuredData />
+        <StructuredData lang={lang} />
         <SeoAlternates />
       </head>
       <body>

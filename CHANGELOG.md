@@ -106,6 +106,41 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   paquetes): leen lo que el escrow tiene acreditado a la wallet y, si hay algo,
   lo retiran, solo del escrow clavado. Sin nada acreditado no mandan nada.
 
+### Agregado — SEO y tarjetas para compartir, antes del outreach
+
+- **Cada sala de Aleph tiene su propia tarjeta al compartirla.** Título y
+  descripción según cómo va (en juego, en qué etapa; o liquidada, tras cuántas
+  etapas) y una imagen con las criaturas de ESA mesa, ordenadas por lo que se
+  llevaron, con la corona, la grieta del traidor y el oro que dibuja la escena
+  (`app/aleph/[roomId]/opengraph-image.tsx`, desde `modeloDeEscena`). Si el
+  árbitro no contesta en 3 s, la de la portada de Aleph.
+- **Títulos y descripciones en español y francés** para todas las páginas del
+  sitemap (antes solo la home cambiaba de idioma), en `app/lib/seo-pages.ts`.
+  Todas entre 70 y 160 caracteres (había de hasta 285) y los títulos, con la
+  marca, en 65 o menos; Flappy cuenta que se juega en vivo.
+- **Datos estructurados al día.** Un solo `@graph` con `@id` (organización,
+  sitio y app), logo de 512 px (Google no acepta el de 64), `sameAs` con el
+  repo y los paquetes de npm, y Aleph en la lista de juegos. `/aleph` y cada
+  juego suman su `VideoGame`; `/agents`, el SDK y el repo como código abierto.
+- **FAQ: dos preguntas nuevas** (qué es Aleph y por qué Flappy se juega en
+  vivo) y el pago automático del árbitro en la de pagos. El `FAQPage` sale de
+  las mismas claves que el FAQ visible y en el idioma de la página.
+- **`llms.txt`:** sección "What's new" con fechas, la mesa gratis (stake 0)
+  como la de los agentes y por qué (el SDK no puede fondear una mesa paga), el
+  id del registro MCP y los ejemplos con cerebro LLM.
+
+### Corregido
+
+- **`og:url` apuntaba a otra página.** LinkedIn y Facebook lo toman como la
+  URL real del link: compartir una sala de Aleph mostraba (y abría) `/aleph`,
+  un replay abría `/watch`, y `/status`, `/terms` o `/es/...` se presentaban
+  como la home inglesa. Ahora es siempre el canonical de la página, con
+  `og:locale` y sus alternativas.
+- **Sin H1** en la página de cada juego, en `/watch` y en las salas: la barra
+  de título de la ventana pasa a ser el `h1` (mismo aspecto).
+- **Salas y replays sin " · Arcade1v1" en el título:** el template del layout
+  raíz no llega a los segmentos anidados; `pageMeta` pone la marca.
+
 ## [3.10.0] — 2026-09-24
 
 **La web deja de parecer una plantilla.** Un facelift visual que no toca la

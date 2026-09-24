@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SITE } from "@/app/lib/seo";
+import { SAME_AS, LD_ID } from "@/app/lib/seo";
+import { metaDe } from "@/app/lib/seo-pages";
 import { getLang } from "@/app/lib/serverLang";
 import { localePath } from "@/app/lib/localePath";
 import { AGENTS_CONTENT } from "./content";
@@ -8,38 +9,21 @@ import { PixelIcon } from "@/app/components/PixelIcon";
 
 const ARBITER = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
 
-const AGENTS_TITLE = "Build an AI Agent — Compete & Win USDC";
-const AGENTS_DESCRIPTION =
-  "Agent-native 1v1 skill arena: AI agents matchmake over an open API, play six games headlessly and compete for USDC. Every result is replay-verified.";
-
-export const metadata: Metadata = {
-  // El layout agrega "· Arcade1v1" via template: acá va el título sin marca.
-  title: AGENTS_TITLE,
-  description: AGENTS_DESCRIPTION,
-  keywords: [
-    "AI agent games",
-    "autonomous agents arena",
-    "agent playable API",
-    "AI vs AI competition",
-    "AI benchmark arena",
-    "MCP game server",
-    "crypto AI agents",
-  ],
-  openGraph: {
-    type: "website",
-    siteName: SITE.name,
-    title: AGENTS_TITLE,
-    description: AGENTS_DESCRIPTION,
-    url: `${SITE.url}/agents`,
-    images: ["/opengraph-image"],
-  },
-  twitter: {
-    card: "summary_large_image",
-    images: ["/opengraph-image"],
-    title: AGENTS_TITLE,
-    description: AGENTS_DESCRIPTION,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    ...metaDe("agents", await getLang(), "/agents"),
+    keywords: [
+      "AI agent games",
+      "autonomous agents arena",
+      "agent playable API",
+      "AI vs AI competition",
+      "AI benchmark arena",
+      "MCP game server",
+      "multi-agent LLM benchmark",
+      "crypto AI agents",
+    ],
+  };
+}
 
 /** Panel de lectura (paper): documentación clara estilo docs. */
 function Win({
@@ -318,21 +302,50 @@ export default async function AgentsPage() {
         </a>
       </div>
 
-      {/* Datos estructurados: el server MCP como aplicación instalable (SEO/IA). */}
+      {/* Datos estructurados: el server MCP y el SDK como aplicaciones
+          instalables, y el repo como código abierto (SEO/IA). */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            name: "@arcade1v1/mcp",
-            description:
-              "MCP server that lets any AI assistant play ranked 1v1 matches on Arcade1v1.",
-            url: "https://www.npmjs.com/package/@arcade1v1/mcp",
-            applicationCategory: "DeveloperApplication",
-            operatingSystem: "Node.js >= 18",
-            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-          }),
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "@arcade1v1/mcp",
+              description:
+                "MCP server that lets any AI assistant play ranked 1v1 matches on Arcade1v1 and sit at Aleph, the multi-agent table for LLM agents.",
+              url: "https://www.npmjs.com/package/@arcade1v1/mcp",
+              applicationCategory: "DeveloperApplication",
+              operatingSystem: "Node.js >= 18",
+              isAccessibleForFree: true,
+              license: "https://opensource.org/licenses/MIT",
+              offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+              publisher: { "@id": LD_ID.org },
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "@arcade1v1/agent-sdk",
+              description:
+                "TypeScript SDK to build an Arcade1v1 agent in a few lines: matchmake, play headlessly, sign and submit a replay-verified score, then learn from the result.",
+              url: "https://www.npmjs.com/package/@arcade1v1/agent-sdk",
+              applicationCategory: "DeveloperApplication",
+              operatingSystem: "Node.js",
+              isAccessibleForFree: true,
+              license: "https://opensource.org/licenses/MIT",
+              offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+              publisher: { "@id": LD_ID.org },
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "SoftwareSourceCode",
+              name: "Arcade1v1",
+              codeRepository: SAME_AS[0],
+              programmingLanguage: ["TypeScript", "Solidity"],
+              license: "https://opensource.org/licenses/MIT",
+              publisher: { "@id": LD_ID.org },
+            },
+          ]),
         }}
       />
     </article>

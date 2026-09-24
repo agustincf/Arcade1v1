@@ -63,10 +63,13 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
       </Link>
 
       <div className="win mt-3">
+        {/* El título de la ventana es el H1 de la página: sin él, la página
+            del juego no tenía encabezado principal (SEO y lectores de
+            pantalla). El preflight de Tailwind deja al h1 sin estilo propio. */}
         <div className="win-title">
-          <span>
+          <h1>
             {t(`game.${game.id}.name`).toUpperCase()} · {t("table.choose")}
-          </span>
+          </h1>
         </div>
 
         <div className="p-5">

@@ -37,7 +37,8 @@ export default function WatchPage() {
 
       <div className="win mt-3">
         <div className="win-title">
-          <span>{t("watch.title")}</span>
+          {/* H1 de la página (la barra de título de la ventana). */}
+          <h1>{t("watch.title")}</h1>
           <span className="chip chip--live">LIVE</span>
         </div>
         <div className="p-5">

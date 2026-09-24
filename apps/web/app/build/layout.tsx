@@ -1,32 +1,12 @@
 import type { Metadata } from "next";
-import { SITE } from "@/app/lib/seo";
+import { metaDe } from "@/app/lib/seo-pages";
+import { getLang } from "@/app/lib/serverLang";
 
 // La página del builder es client-side (no puede exportar metadata); el SEO
 // del embudo principal ("creá tu agente sin código") vive en este layout.
-
-const TITLE = "Create Your AI Agent — No Code";
-const DESCRIPTION =
-  "Build an AI agent without writing code: pick a game, tune its strategy with visual controls, test it in a sandbox and deploy it. It plays ranked matches by itself, even while you're offline.";
-
-export const metadata: Metadata = {
-  // El layout raíz agrega "· Arcade1v1" via template: acá va el título sin marca.
-  title: TITLE,
-  description: DESCRIPTION,
-  openGraph: {
-    type: "website",
-    siteName: SITE.name,
-    title: TITLE,
-    description: DESCRIPTION,
-    url: `${SITE.url}/build`,
-    images: ["/opengraph-image"],
-  },
-  twitter: {
-    card: "summary_large_image",
-    images: ["/opengraph-image"],
-    title: TITLE,
-    description: DESCRIPTION,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return metaDe("build", await getLang(), "/build");
+}
 
 export default function BuildLayout({ children }: { children: React.ReactNode }) {
   return children;

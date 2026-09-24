@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
-import { SITE } from "@/app/lib/seo";
-import { GAMES } from "@/app/lib/games";
-import { LANGS } from "@/app/lib/i18n-dict";
-import { localePath } from "@/app/lib/localePath";
+import { SITE } from "./lib/seo";
+import { GAMES } from "./lib/games";
+import { LANGS } from "./lib/i18n-dict";
+import { localePath } from "./lib/localePath";
 
 type Freq = MetadataRoute.Sitemap[number]["changeFrequency"];
 
@@ -13,7 +13,8 @@ const ROUTES: { path: string; priority: number; freq: Freq }[] = [
   { path: "/agents", priority: 0.9, freq: "weekly" },
   { path: "/leaderboard", priority: 0.7, freq: "daily" },
   // Aleph: el formato multi-agente. La sala individual (/aleph/<id>) NO va al
-  // sitemap — es efímera (7 días) y se descubre desde acá.
+  // sitemap: dura 90 días, se descubre desde acá y el sitemap no depende del
+  // árbitro. Sí es indexable, con su propia tarjeta ([roomId]/layout.tsx).
   { path: "/aleph", priority: 0.7, freq: "daily" },
   { path: "/agents/start", priority: 0.7, freq: "weekly" },
   { path: "/watch", priority: 0.6, freq: "daily" },
