@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # packages/contracts/check-aleph-e2e.sh
 # Prueba el PAGO de una mesa de plata de Aleph en cadena local (anvil) con el
-# árbitro real: despliega MockUSDC + EscrowAleph, 4 wallets fondean y juegan, el
+# árbitro real: despliega un USDC de prueba con blacklist (BlacklistUSDC, igual a
+# MockUSDC mientras no se toque) + EscrowAleph, 4 wallets fondean y juegan, el
 # árbitro firma la tabla y el contrato paga a todos; después, un fondeo
 # incompleto que el árbitro cancela; un settle del árbitro que se mina REVERTIDO
-# porque otro presentó la tabla antes (no puede quedar como pago); y al final, el
-# open de un asiento todavía pendiente en el pool, que no tira abajo el depósito
-# de otro.
+# porque otro presentó la tabla antes (no puede quedar como pago); un asiento que
+# cae en la blacklist antes de liquidar, sin trabar la mesa, y cobra con el SDK
+# al salir; y al final, el open de un asiento todavía pendiente en el pool, que
+# no tira abajo el depósito de otro.
 # Requiere Foundry y el monorepo instalado.
 # Uso:  bash packages/contracts/check-aleph-e2e.sh
 set -euo pipefail
@@ -47,16 +49,16 @@ cd "$ROOT/packages/contracts"
 # Y el "|| true" evita que set -e/pipefail corten la línea antes de llegar al
 # chequeo de abajo (con pipefail, un forge que falla o un grep sin match hacen
 # fallar el pipeline entero, y el "❌" quedaría inalcanzable).
-USDC=$(forge create test/MockUSDC.sol:MockUSDC --rpc-url "$RPC" \
+USDC=$(forge create test/BlacklistUSDC.sol:BlacklistUSDC --rpc-url "$RPC" \
   --private-key $KEY0 --broadcast | grep "Deployed to:" | awk '{print $3}') || true
-[ -n "$USDC" ] || { echo "❌ No se pudo desplegar el MockUSDC"; exit 1; }
+[ -n "$USDC" ] || { echo "❌ No se pudo desplegar el BlacklistUSDC"; exit 1; }
 
 ESCROW=$(forge create src/EscrowAleph.sol:EscrowAleph --rpc-url "$RPC" \
   --private-key $KEY0 --broadcast \
   --constructor-args "$USDC" "$ARB_ADDR" "$PLATFORM" 1500 "$OWNER" \
   | grep "Deployed to:" | awk '{print $3}') || true
 [ -n "$ESCROW" ] || { echo "❌ No se pudo desplegar el EscrowAleph"; exit 1; }
-echo "  MockUSDC=$USDC · EscrowAleph=$ESCROW · árbitro=$ARB_ADDR · plataforma=$PLATFORM"
+echo "  BlacklistUSDC=$USDC · EscrowAleph=$ESCROW · árbitro=$ARB_ADDR · plataforma=$PLATFORM"
 
 # ALEPH_FUNDING_MS corto: el escenario 2 vence el plazo del árbitro con reloj
 # inyectado, pero los pases llevan fundDeadline real y anvil sigue el reloj de

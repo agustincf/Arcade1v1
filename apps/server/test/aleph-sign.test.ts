@@ -62,20 +62,23 @@ test("cada campo del pase cambia la firma; la capitalización del jugador no", a
   );
 });
 
-test("la tabla se firma por su hash y recupera al árbitro", async () => {
+test("la tabla se firma por su hash y su vencimiento, y recupera al árbitro", async () => {
   const amounts = [2_890_000n, 1_870_000n, 1_190_000n, 850_000n];
   const tableHash = S.alephTableHash(SEATS, amounts);
   assert.match(tableHash, /^0x[0-9a-f]{64}$/);
   assert.notEqual(S.alephTableHash(SEATS, [...amounts].reverse()), tableHash);
-  const sig = await S.signAlephPayout(ROOM, tableHash);
+  const deadline = 1_800_001_800n;
+  const sig = await S.signAlephPayout(ROOM, tableHash, deadline);
   const who = await recoverTypedDataAddress({
     domain: S.alephDomain(),
     types: S.ALEPH_PAYOUT_TYPES,
     primaryType: "Payout",
-    message: { roomId: ROOM, tableHash },
+    message: { roomId: ROOM, tableHash, deadline },
     signature: sig,
   });
   assert.equal(who.toLowerCase(), S.arbiterAddress().toLowerCase());
+  // El vencimiento va DENTRO de la firma: otro plazo es otra firma.
+  assert.notEqual(await S.signAlephPayout(ROOM, tableHash, deadline + 1n), sig);
 });
 
 test("alephSeatsHash/alephTableHash no truenan con direcciones en formato checksum EIP-55, y dan el mismo hash", () => {
@@ -117,4 +120,19 @@ test("ALEPH_SEAT_TYPES/ALEPH_PAYOUT_TYPES coinciden con los typehashes del .sol,
     "no encontré PAYOUT_TYPEHASH en EscrowAleph.sol (¿cambió el nombre o la forma?)",
   );
   assert.equal(payoutMatch[1], typeString("Payout", S.ALEPH_PAYOUT_TYPES.Payout));
+});
+
+test("el dominio EIP-712 de Aleph coincide con el del .sol (nombre y versión), sin nodo", () => {
+  // La v2 del contrato subió la versión del dominio a "2": un árbitro que
+  // siguiera firmando con "1" sacaría pases y tablas que el contrato rechaza
+  // ("bad seat" en cada depósito). Mismo cruce contra el fuente que los
+  // typehashes de arriba.
+  const sol = readFileSync(
+    fileURLToPath(new URL("../../../packages/contracts/src/EscrowAleph.sol", import.meta.url)),
+    "utf8",
+  );
+  const m = sol.match(/EIP712\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/);
+  assert.ok(m, "no encontré el constructor EIP712(...) en EscrowAleph.sol");
+  assert.equal(S.alephDomain().name, m[1]);
+  assert.equal(S.alephDomain().version, m[2]);
 });

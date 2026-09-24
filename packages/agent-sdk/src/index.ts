@@ -23,7 +23,7 @@ export type {
   AlephActBody,
 } from "./client";
 export { createAgent, VIEW_PASS_MAX_AGE_MS } from "./agent";
-export type { AlephDepositResult, LiveReceipt } from "./agent";
+export type { AlephDepositResult, AlephWithdrawResult, LiveReceipt } from "./agent";
 // Para comprobar un `liveReceipt` cuando la partida se decida después de que
 // `playAndSubmit` volvió (jugaste primero): checkLiveReveals(secret, secretHash, reveals).
 export { checkLiveReveals } from "@arcade1v1/game-sdk/live";

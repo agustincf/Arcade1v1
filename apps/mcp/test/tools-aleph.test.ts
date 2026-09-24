@@ -24,6 +24,7 @@ import {
   alephViewTool,
   alephActTool,
   alephDepositTool,
+  alephWithdrawTool,
 } from "../src/tools";
 // El mismo RPC falso de los tests del SDK: llega hasta `eth_sendRawTransaction`
 // y anota lo que la wallet transmitiría.
@@ -506,4 +507,60 @@ test("aleph_deposit con pin y tope: sin haberse sentado en esta sesión, paga ex
   } finally {
     rpc.close();
   }
+});
+
+// ---- aleph_withdraw ----------------------------------------------------------
+
+test("aleph_withdraw: sin pin se niega y dice qué configurar, sin tocar la wallet", async () => {
+  let touched = false;
+  const fakeAgent = {
+    alephWithdraw: async () => {
+      touched = true;
+      return { amount: 0n };
+    },
+  } as unknown as Parameters<typeof alephWithdrawTool>[0];
+  await assert.rejects(
+    () => alephWithdrawTool(fakeAgent),
+    /not withdrawing: money tables are off.*ARCADE_ALEPH_ESCROW_ADDRESS/,
+  );
+  assert.equal(touched, false, "se cortó antes de la wallet");
+});
+
+test("aleph_withdraw: devuelve el monto en micro-USDC como string (JSON no lleva bigint)", async () => {
+  const hash = "0x" + "cd".repeat(32);
+  const fakeAgent = {
+    alephWithdraw: async () => ({ amount: 1_700_000n, txHash: hash }),
+  } as unknown as Parameters<typeof alephWithdrawTool>[0];
+  const out = await alephWithdrawTool(fakeAgent, { escrow: PIN });
+  assert.deepEqual(out, { amount: "1700000", txHash: hash });
+  assert.doesNotThrow(() => JSON.stringify(out));
+  const none = {
+    alephWithdraw: async () => ({ amount: 0n }),
+  } as unknown as Parameters<typeof alephWithdrawTool>[0];
+  assert.deepEqual(await alephWithdrawTool(none, { escrow: PIN }), {
+    amount: "0",
+    txHash: undefined,
+  });
+});
+
+test("aleph_withdraw: un error de RPC con la URL adentro no la deja pasar", async () => {
+  const fakeAgent = {
+    alephWithdraw: async () => {
+      throw new Error(
+        "HTTP request failed. URL: https://base-mainnet.g.alchemy.com/v2/super-secreta Details: fetch failed",
+      );
+    },
+  } as unknown as Parameters<typeof alephWithdrawTool>[0];
+  let caught: unknown;
+  try {
+    await alephWithdrawTool(fakeAgent, { escrow: PIN });
+  } catch (e) {
+    caught = e;
+  }
+  assert.ok(caught instanceof Error, "sigue siendo un error: no se traga el fallo");
+  const msg = (caught as Error).message;
+  assert.doesNotMatch(msg, /:\/\//, "ninguna URL sobrevive al resultado");
+  assert.doesNotMatch(msg, /super-secreta/, "tampoco la key embebida en la URL");
+  assert.match(msg, /HTTP request failed/, "el resto del motivo sigue llegando");
+  assert.equal((caught as Error).cause, undefined, "sin `cause`: la URL no queda colgada ahí");
 });

@@ -19,17 +19,31 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  *    puede sentarse ni alterar la lista, el stake o los plazos.
  *  - Con los N depósitos la sala queda Funded y el juego corre fuera de la
  *    cadena. Al terminar, el árbitro FIRMA una tabla de pagos (quién cobra
- *    cuánto) y cualquiera la presenta: el contrato la verifica y paga a todos
- *    en una sola transacción, más la comisión a la plataforma.
+ *    cuánto) con un VENCIMIENTO, y cualquiera la presenta antes de que venza:
+ *    el contrato la verifica y paga a todos en una sola transacción, más la
+ *    comisión a la plataforma.
  *  - Reembolsos: si no se completa el fondeo a tiempo, si pasa el plazo de
  *    juego (más una gracia) sin liquidación, o si el árbitro/dueño cancela, cada
  *    uno recupera exactamente su stake.
+ *  - Cada pago (premio, comisión o reembolso) se EMPUJA por separado. Si el
+ *    USDC rechaza uno (una dirección en la blacklist de Circle, el token en
+ *    pausa), ese monto queda ACREDITADO en `owed` y los demás cobran igual: un
+ *    solo asiento bloqueado no traba la sala entera. Lo acreditado se retira con
+ *    `withdraw` (o cualquiera se lo entrega a su dueño con `withdrawFor`).
  *
  *  Qué garantiza aunque la llave del árbitro se filtre: la tabla solo puede
  *  pagar a los asientos de ESA sala, en su orden, y la plataforma nunca recibe
  *  más que la comisión más el polvo del redondeo (menos de N micro-USDC). Una
  *  llave robada puede repartir mal entre los que jugaban; no puede sacar la
- *  plata a un extraño ni inventar fondos.
+ *  plata a un extraño ni inventar fondos. Lo acreditado solo sale hacia la
+ *  misma dirección a la que se le debe.
+ *
+ *  Versión 2 (antes de mainnet, decidido el 2026-09-18): el pago con crédito de
+ *  respaldo y el vencimiento de la tabla. En la v1 los pagos se empujaban todos
+ *  en la misma transacción (un depositante en la blacklist trababa los tres
+ *  reembolsos de la sala para siempre) y la firma cubría solo
+ *  `(roomId, tableHash)`: si el árbitro llegaba a firmar dos tablas para una
+ *  sala, las dos valían para siempre.
  *
  *  Es un contrato APARTE de Escrow1v1 a propósito (decisión 1 del spec): aquel
  *  tiene la forma p1/p2 metida en el storage y en el typehash, y custodia
@@ -91,6 +105,11 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
     /// @notice Mesas (montos) permitidas, en unidades de USDC (6 decimales).
     mapping(uint256 => bool) public allowedStake;
 
+    /// @notice Lo que cada dirección tiene ACREDITADO y todavía no cobró: los
+    ///         pagos y reembolsos cuyo envío rechazó el USDC. Es un saldo por
+    ///         dirección (suma lo de todas sus salas) y solo sale hacia ella.
+    mapping(address => uint256) public owed;
+
     /// @dev PASE: el árbitro autoriza a `player` a depositar en `roomId` con
     ///      EXACTAMENTE esa lista (`seatsHash`), ese `stake` y esos plazos. Como
     ///      la firma cubre todo, el que abre no puede inventar la mesa, y un pase
@@ -102,7 +121,11 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
     /// @dev TABLA: el árbitro firma el HASH de la tabla (no los arrays), así la
     ///      estructura EIP-712 no depende del largo. El contrato recompone el
     ///      hash desde el calldata: `keccak256(abi.encode(seats, amounts))`.
-    bytes32 private constant PAYOUT_TYPEHASH = keccak256("Payout(bytes32 roomId,bytes32 tableHash)");
+    ///      El `deadline` (segundos) la hace VENCER: una firma que se filtró o
+    ///      quedó vieja deja de liquidar sola, sin transacción de nadie. (El
+    ///      árbitro, además, no publica una firma antes de tenerla guardada, y
+    ///      si una vence sin presentarse firma de nuevo la MISMA tabla.)
+    bytes32 private constant PAYOUT_TYPEHASH = keccak256("Payout(bytes32 roomId,bytes32 tableHash,uint64 deadline)");
 
     event ArbiterUpdated(address indexed arbiter);
     event PlatformWalletUpdated(address indexed wallet);
@@ -113,10 +136,16 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
     event RoomFunded(bytes32 indexed id);
     event Settled(bytes32 indexed id, bytes32 tableHash, uint256 paidOut, uint256 house);
     event Refunded(bytes32 indexed id);
+    /// @notice Un pago de la sala `id` que el USDC rechazó y quedó en `owed`.
+    event Credited(bytes32 indexed id, address indexed account, uint256 amount);
+    /// @notice Lo acreditado salió hacia su dueño.
+    event Withdrawn(address indexed account, uint256 amount);
 
+    // Versión "2" del dominio: la v1 firmaba `Payout(roomId, tableHash)`. La
+    // dirección del contrato ya separa las firmas; la versión lo deja explícito.
     constructor(address _usdc, address _arbiter, address _platformWallet, uint16 _feeBps, address _owner)
         Ownable(_owner)
-        EIP712("Arcade1v1EscrowAleph", "1")
+        EIP712("Arcade1v1EscrowAleph", "2")
     {
         require(_usdc != address(0) && _arbiter != address(0) && _platformWallet != address(0), "zero address");
         require(_feeBps <= MAX_FEE_BPS, "fee too high");
@@ -221,27 +250,26 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
 
     /// @notice Paga la tabla firmada por el árbitro, a todos en una transacción.
     ///         Cualquiera puede presentarla (el árbitro lo hace por defecto; si
-    ///         no, un asiento con la firma publicada en el registro).
+    ///         no, un asiento con la firma publicada en el registro), hasta su
+    ///         `deadline`. Vencida, el árbitro firma de nuevo la MISMA tabla.
     ///
     ///  La tabla llega en el MISMO orden que `seats` de la sala: así cada
     ///  address se compara con el suyo (sin bucles anidados) y no puede repetirse.
     ///  La suma no puede pasar el neto (pozo menos comisión) ni dejar N o más
     ///  micro-USDC sin repartir: el resto (comisión + polvo) va a la plataforma.
-    function settle(bytes32 id, address[] calldata seats, uint256[] calldata amounts, bytes calldata signature)
-        external
-        nonReentrant
-    {
+    function settle(
+        bytes32 id,
+        address[] calldata seats,
+        uint256[] calldata amounts,
+        uint64 deadline,
+        bytes calldata signature
+    ) external nonReentrant {
         Room storage r = rooms[id];
         require(r.status == Status.Funded, "not funded");
+        require(block.timestamp <= deadline, "payout expired");
         uint256 n = r.seats.length;
         require(seats.length == n && amounts.length == n, "bad table");
-
-        bytes32 tableHash = keccak256(abi.encode(seats, amounts));
-        require(
-            ECDSA.recover(_hashTypedDataV4(keccak256(abi.encode(PAYOUT_TYPEHASH, id, tableHash))), signature)
-                == arbiter,
-            "bad signature"
-        );
+        bytes32 tableHash = _requirePayout(id, seats, amounts, deadline, signature);
 
         uint256 sum = 0;
         for (uint256 i = 0; i < n; i++) {
@@ -249,22 +277,20 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
             sum += amounts[i];
         }
         uint256 pot = r.stake * n;
-        // net = pot menos comisión, en una sola expresión: settle() queda a un
-        // solo slot del límite de stack del compilador. No es que la variable
-        // `fee` por sí sola rompa la build: se rompe si ADEMÁS se nombra aparte
-        // el resultado de ECDSA.recover del chequeo de firma de más arriba.
-        // Cualquiera de las dos extracciones entra sola; las dos juntas no.
+        // net = pot menos comisión, en una sola expresión, y la parte de la
+        // plataforma (`pot - sum`) sin variable propia: settle() vive cerca del
+        // límite de stack del compilador. La firma se verifica aparte
+        // (`_requirePayout`) por la misma razón.
         uint256 net = pot - (pot * feeBps) / 10000;
         require(sum <= net && net - sum < n, "bad sum");
 
         r.status = Status.Settled;
+        emit Settled(id, tableHash, sum, pot - sum);
 
-        uint256 house = pot - sum; // comisión + polvo del redondeo
-        if (house > 0) usdc.safeTransfer(platformWallet, house);
+        _pay(id, platformWallet, pot - sum); // comisión + polvo del redondeo
         for (uint256 i = 0; i < n; i++) {
-            if (amounts[i] > 0) usdc.safeTransfer(seats[i], amounts[i]);
+            _pay(id, seats[i], amounts[i]);
         }
-        emit Settled(id, tableHash, sum, house);
     }
 
     // --------------------------------------------------------------------- //
@@ -280,8 +306,8 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
         require(r.status == Status.Funding, "not funding");
         require(block.timestamp > r.fundDeadline, "not expired");
         r.status = Status.Refunded;
-        _refundPaid(id, r);
         emit Refunded(id);
+        _refundPaid(id, r);
     }
 
     /// @notice Se fondeó pero el árbitro no liquidó: pasada la gracia,
@@ -291,8 +317,8 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
         require(r.status == Status.Funded, "not funded");
         require(block.timestamp > uint256(r.playDeadline) + REFUND_GRACE, "not expired");
         r.status = Status.Refunded;
-        _refundPaid(id, r);
         emit Refunded(id);
+        _refundPaid(id, r);
     }
 
     /// @notice Disputa o sala rota: el árbitro (o el dueño) cancela y reembolsa.
@@ -303,15 +329,66 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
         Room storage r = rooms[id];
         require(r.status == Status.Funding || r.status == Status.Funded, "cant cancel");
         r.status = Status.Refunded;
-        _refundPaid(id, r);
         emit Refunded(id);
+        _refundPaid(id, r);
     }
 
     function _refundPaid(bytes32 id, Room storage r) internal {
         for (uint256 i = 0; i < r.seats.length; i++) {
             address s = r.seats[i];
-            if (paid[id][s]) usdc.safeTransfer(s, r.stake);
+            if (paid[id][s]) _pay(id, s, r.stake);
         }
+    }
+
+    // --------------------------------------------------------------------- //
+    //                          PAGOS Y RETIROS                              //
+    // --------------------------------------------------------------------- //
+    // El USDC de Circle revierte una transferencia a (o desde) una dirección de
+    // su blacklist, y también cualquier transferencia mientras el token está en
+    // pausa. Con los pagos empujados todos juntos, UN asiento en la blacklist
+    // hacía revertir la liquidación y los tres reembolsos de su sala: la plata
+    // de los otros 3 a 7 quedaba trabada para siempre. Ahora cada pago va por
+    // su cuenta, y el que el USDC rechaza queda acreditado a su dueño.
+
+    /// @dev Un pago de la sala `id`: se empuja, y si el USDC lo rechaza queda
+    ///      acreditado en `owed[to]`. Lo llaman solo funciones `nonReentrant`,
+    ///      con el estado de la sala ya cerrado (Settled/Refunded) ANTES del
+    ///      primer envío.
+    function _pay(bytes32 id, address to, uint256 amount) internal {
+        if (amount == 0) return;
+        uint256 gasBefore = gasleft();
+        if (usdc.trySafeTransfer(to, amount)) return;
+        // Un envío que se quedó SIN GAS deja a este contrato con menos de 1/64
+        // del gas que tenía antes de llamar (EIP-150). Eso no es un rechazo del
+        // USDC: es quien llamó (settle y los reembolsos son permissionless)
+        // mandando gas justo para convertir los pagos de otros en créditos. Se
+        // revierte todo. Es el mismo chequeo que `ERC2771Forwarder` de
+        // OpenZeppelin.
+        require(gasleft() >= gasBefore / 63, "insufficient gas");
+        owed[to] += amount;
+        emit Credited(id, to, amount);
+    }
+
+    /// @notice Cobra lo que `msg.sender` tiene acreditado.
+    function withdraw() external nonReentrant {
+        _withdraw(msg.sender);
+    }
+
+    /// @notice Le entrega a `account` lo que tiene acreditado. Cualquiera puede
+    ///         llamarla (el árbitro, por ejemplo, cuando el USDC sale de su
+    ///         pausa): la plata sale SOLO hacia `account`, nunca hacia quien
+    ///         llama. Una dirección que sigue en la blacklist no cobra, y su
+    ///         crédito queda intacto (el revert deshace el cero).
+    function withdrawFor(address account) external nonReentrant {
+        _withdraw(account);
+    }
+
+    function _withdraw(address account) internal {
+        uint256 amount = owed[account];
+        require(amount > 0, "nothing owed");
+        owed[account] = 0;
+        emit Withdrawn(account, amount);
+        usdc.safeTransfer(account, amount);
     }
 
     // --------------------------------------------------------------------- //
@@ -369,8 +446,8 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
     }
 
     /// @notice Digest EIP-712 de la tabla de pagos (útil para backend/tests).
-    function payoutDigest(bytes32 id, bytes32 tableHash) external view returns (bytes32) {
-        return _hashTypedDataV4(keccak256(abi.encode(PAYOUT_TYPEHASH, id, tableHash)));
+    function payoutDigest(bytes32 id, bytes32 tableHash, uint64 deadline) external view returns (bytes32) {
+        return _payoutDigest(id, tableHash, deadline);
     }
 
     // --------------------------------------------------------------------- //
@@ -392,6 +469,24 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
         return _hashTypedDataV4(
             keccak256(abi.encode(SEAT_TYPEHASH, id, seatsHash, stake, fundDeadline, playDeadline, player))
         );
+    }
+
+    /// @dev Digest EIP-712 de la tabla, compartido por la vista `payoutDigest`
+    ///      y por `settle` (misma razón que `_seatDigest`: una sola copia).
+    function _payoutDigest(bytes32 id, bytes32 tableHash, uint64 deadline) internal view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(PAYOUT_TYPEHASH, id, tableHash, deadline)));
+    }
+
+    /// @dev La tabla la firmó el árbitro, con ESE vencimiento. Devuelve su hash.
+    function _requirePayout(
+        bytes32 id,
+        address[] calldata seats,
+        uint256[] calldata amounts,
+        uint64 deadline,
+        bytes calldata signature
+    ) internal view returns (bytes32 tableHash) {
+        tableHash = keccak256(abi.encode(seats, amounts));
+        require(ECDSA.recover(_payoutDigest(id, tableHash, deadline), signature) == arbiter, "bad signature");
     }
 
     function _requireSeat(

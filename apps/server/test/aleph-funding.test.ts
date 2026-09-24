@@ -142,9 +142,9 @@ function fakeChain() {
       r.status = ALEPH_ESCROW_STATUS.Refunded;
       return ("0x" + "c".repeat(64)) as Hex;
     },
-    async settle(roomId: Hex, seats: Hex[], amounts: bigint[], signature: Hex) {
-      calls.push({ fn: "settle", args: [roomId, seats, amounts, signature] });
-      if (mined) return sendMined("settle", [roomId, seats, amounts, signature]);
+    async settle(roomId: Hex, seats: Hex[], amounts: bigint[], deadline: bigint, signature: Hex) {
+      calls.push({ fn: "settle", args: [roomId, seats, amounts, deadline, signature] });
+      if (mined) return sendMined("settle", [roomId, seats, amounts, deadline, signature]);
       if (failSettle > 0) {
         failSettle--;
         throw new Error(settleError);
@@ -584,6 +584,12 @@ test("al liquidar: tabla en USDC que cierra exacto, firma publicada, settle envi
   assert.equal(v.status, "settled");
   assert.ok(v.payoutsUsdc, "la tabla en USDC se publica aunque la transacción haya fallado");
   assert.ok(v.payoutSig, "y su firma también: cualquiera puede presentarla");
+  assert.equal(
+    v.payoutDeadline,
+    Math.floor((end + 1 + V.ALEPH_PAYOUT_TTL_MS) / 1000),
+    "con su vencimiento: hasta cuándo sirve presentarla",
+  );
+  const firstSig = v.payoutSig;
   assert.equal(v.settleTx, undefined);
   const expected = usdcPayoutTable(
     ws.map((w) => w.address),
@@ -607,40 +613,87 @@ test("al liquidar: tabla en USDC que cierra exacto, firma publicada, settle envi
   assert.equal(v.settleTx, "0x" + "5".repeat(64));
   assert.equal(chain.calls.filter((c) => c.fn === "settle").length, 2);
   // La firma que se mandó recupera al árbitro sobre la tabla exacta.
-  const sent = chain.calls.filter((c) => c.fn === "settle").at(-1)!.args as [
-    Hex,
-    Hex[],
-    bigint[],
-    Hex,
-  ];
+  const settles = chain.calls.filter((c) => c.fn === "settle");
+  const sent = settles.at(-1)!.args as [Hex, Hex[], bigint[], bigint, Hex];
   assert.deepEqual(
     sent[1],
     ws.map((w) => w.address),
   );
   assert.deepEqual(sent[2], expected.amounts);
-  // La tabla se arma y se firma UNA SOLA VEZ por sala, pase lo que pase: la
-  // firma no lleva nonce, así que dos tablas distintas de la misma sala serían
-  // dos órdenes de pago válidas. El reintento solo vuelve a MANDAR la misma.
-  assert.equal(chain.feeReads, 1, "la comisión se lee una vez: una tabla, una firma");
-  assert.equal(sent[3], v.payoutSig, "se manda exactamente la tabla que se publicó");
+  // La TABLA se arma UNA SOLA VEZ por sala: dos tablas distintas de la misma
+  // sala serían dos órdenes de pago. La FIRMA, en cambio, vence: el reintento
+  // llegó una hora después, con la primera ya vencida, así que se firmó de
+  // nuevo la MISMA tabla con otro plazo (y la comisión no se volvió a leer).
+  assert.equal(chain.feeReads, 1, "la comisión se lee una vez: una sola tabla");
+  assert.deepEqual(settles[0].args[2], sent[2], "el reintento manda la misma tabla");
+  assert.notEqual(sent[4], firstSig, "con una firma nueva: la primera ya había vencido");
+  assert.equal(sent[4], v.payoutSig, "se manda exactamente la firma que se publica");
+  assert.equal(sent[3], BigInt(v.payoutDeadline!), "con el vencimiento que se publica");
+  assert.equal(
+    v.payoutDeadline,
+    Math.floor((end + 60 * 60_000 + V.ALEPH_PAYOUT_TTL_MS) / 1000),
+    "el plazo nuevo corre desde la re-firma",
+  );
   const who = await recoverTypedDataAddress({
     domain: S.alephDomain(),
     types: S.ALEPH_PAYOUT_TYPES,
     primaryType: "Payout",
-    message: { roomId: roomId as Hex, tableHash: S.alephTableHash(sent[1], sent[2]) },
-    signature: sent[3],
+    message: {
+      roomId: roomId as Hex,
+      tableHash: S.alephTableHash(sent[1], sent[2]),
+      deadline: sent[3],
+    },
+    signature: sent[4],
   });
   assert.equal(who.toLowerCase(), S.arbiterAddress().toLowerCase());
 
-  // El registro público lleva la parte en USDC.
+  // El registro público lleva la parte en USDC, con la firma y su plazo.
   const log = V.alephLog(roomId, end + 60 * 60_000 + 1);
   assert.equal(log.usdc!.escrow, process.env.ALEPH_ESCROW_ADDRESS);
   assert.equal(log.usdc!.feeBps, 1500);
   assert.deepEqual(log.usdc!.table, v.payoutsUsdc);
   assert.equal(log.usdc!.signature, v.payoutSig);
+  assert.equal(log.usdc!.deadline, v.payoutDeadline);
   assert.equal(log.usdc!.settleTx, v.settleTx);
   // Y las salas recientes también.
   assert.equal(V.recentAlephRooms(5, end + 60 * 60_000 + 1)[0].settleTx, v.settleTx);
+  C.setAlephChainForTest(undefined);
+});
+
+test("una firma todavía vigente se reusa; una a punto de vencer se renueva sobre la MISMA tabla", async () => {
+  V.__resetAlephForTest();
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { ws, roomId } = await fundingRoom(T0);
+  for (const w of ws) chain.deposit(roomId, w.address, 4);
+  await V.alephChainTick(T0 + 1_000);
+  const end = await playToSettled(roomId, ws, T0 + 2_000);
+  const sent = () =>
+    chain.calls
+      .filter((c) => c.fn === "settle")
+      .map((c) => c.args as [Hex, Hex[], bigint[], bigint, Hex]);
+
+  chain.failSettleTimes(2);
+  await V.alephChainTick(end + 1); // firma + primer intento (falla)
+  const first = sent()[0];
+  // Segundo intento pasado el backoff (20 s) pero lejos del vencimiento: la
+  // misma firma, sin tocar la tabla.
+  await V.alephChainTick(end + 1 + 25_000);
+  assert.equal(sent().length, 2);
+  assert.equal(sent()[1][4], first[4], "vigente: se reusa la misma firma");
+  assert.equal(sent()[1][3], first[3]);
+  // Tercer intento a menos de 2 minutos del vencimiento: se renueva antes de
+  // mandarla, porque el viaje de la transacción podría pasarse del plazo.
+  const nearExpiry = Number(first[3]) * 1000 - 60_000;
+  await V.alephChainTick(nearExpiry);
+  assert.equal(sent().length, 3);
+  const third = sent()[2];
+  assert.notEqual(third[4], first[4], "cerca de vencer: firma nueva");
+  assert.equal(third[3], BigInt(Math.floor((nearExpiry + V.ALEPH_PAYOUT_TTL_MS) / 1000)));
+  assert.deepEqual(third[2], first[2], "sobre la MISMA tabla");
+  assert.equal(chain.feeReads, 1, "sin volver a armarla");
+  const v = (await V.getAlephRoom(roomId, undefined, nearExpiry + 1))!;
+  assert.equal(v.settleTx, "0x" + "5".repeat(64), "y esta vez pagó");
   C.setAlephChainForTest(undefined);
 });
 

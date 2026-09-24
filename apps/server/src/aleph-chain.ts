@@ -44,8 +44,14 @@ export interface AlephChain {
   usdcAddress(): Promise<Hex>;
   /** Cancela (reembolsa a los que depositaron). Devuelve el hash. */
   cancelRoom(roomId: Hex): Promise<Hex>;
-  /** Presenta la tabla firmada. Devuelve el hash. */
-  settle(roomId: Hex, seats: Hex[], amounts: bigint[], signature: Hex): Promise<Hex>;
+  /** Presenta la tabla firmada, con su vencimiento (segundos). Devuelve el hash. */
+  settle(
+    roomId: Hex,
+    seats: Hex[],
+    amounts: bigint[],
+    deadline: bigint,
+    signature: Hex,
+  ): Promise<Hex>;
 }
 
 let impl: AlephChain | undefined;
@@ -162,7 +168,7 @@ function realAlephChain(): AlephChain {
       return usdc;
     },
     cancelRoom: (roomId) => write("cancelRoom", [roomId]),
-    settle: (roomId, seats, amounts, signature) =>
-      write("settle", [roomId, seats, amounts, signature]),
+    settle: (roomId, seats, amounts, deadline, signature) =>
+      write("settle", [roomId, seats, amounts, deadline, signature]),
   };
 }

@@ -169,7 +169,11 @@ export type AlephRoomView = {
   escrow?: string;
   /** `settled`, stake > 0: la tabla en micro-USDC, su firma y la transacción */
   payoutsUsdc?: Record<string, string>;
+  /** La firma aparece recién cuando el árbitro la guardó; hasta `payoutDeadline`
+   *  (segundos) cualquiera puede presentarla en `settle`. Vencida, el árbitro
+   *  firma de nuevo la misma tabla. */
   payoutSig?: string;
+  payoutDeadline?: number;
   /** `settled`, stake > 0: el hash, cuando lo mandó el árbitro. Sin este pero
    *  con `settleOutcome`, la sala está saldada igual: la firma es pública y
    *  `settle` es permissionless, así que "external" no es un error, es un pago
@@ -216,6 +220,8 @@ export interface AlephLog {
     feeBps?: number;
     table?: Record<string, string>;
     signature?: string;
+    /** Hasta cuándo vale `signature` (segundos, como el contrato). */
+    deadline?: number;
     settleTx?: string;
     /** Sin `settleTx` pero con esto, igual saldada (ver `AlephSettleOutcome`). */
     settleOutcome?: AlephSettleOutcome;

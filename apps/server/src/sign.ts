@@ -86,17 +86,23 @@ export const ALEPH_SEAT_TYPES = {
   ],
 } as const;
 
+/** La tabla lleva VENCIMIENTO (segundos, como el contrato): pasado `deadline`,
+ *  la firma no liquida nada. Ver `settleOnchain` en aleph.ts. */
 export const ALEPH_PAYOUT_TYPES = {
   Payout: [
     { name: "roomId", type: "bytes32" },
     { name: "tableHash", type: "bytes32" },
+    { name: "deadline", type: "uint64" },
   ],
 } as const;
 
+/** Versión "2" del dominio: la de EscrowAleph v2 (tabla con vencimiento). La v1
+ *  firmaba `Payout(roomId, tableHash)`; un árbitro de este código solo habla
+ *  con un contrato v2. */
 export function alephDomain() {
   return {
     name: "Arcade1v1EscrowAleph",
-    version: "1",
+    version: "2",
     chainId: Number(process.env.CHAIN_ID ?? 84532),
     verifyingContract: (process.env.ALEPH_ESCROW_ADDRESS ?? ZERO) as Hex,
   };
@@ -142,12 +148,13 @@ export async function signAlephSeat(p: AlephSeatPass): Promise<Hex> {
   });
 }
 
-/** La TABLA: firma el hash; el contrato verifica y paga a todos de una vez. */
-export async function signAlephPayout(roomId: Hex, tableHash: Hex): Promise<Hex> {
+/** La TABLA: firma el hash y el vencimiento (segundos); el contrato verifica y
+ *  paga a todos de una vez, si todavía no venció. */
+export async function signAlephPayout(roomId: Hex, tableHash: Hex, deadline: bigint): Promise<Hex> {
   return arbiterAccount().signTypedData({
     domain: alephDomain(),
     types: ALEPH_PAYOUT_TYPES,
     primaryType: "Payout",
-    message: { roomId, tableHash },
+    message: { roomId, tableHash, deadline },
   });
 }
