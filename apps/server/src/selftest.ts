@@ -134,11 +134,22 @@ async function main() {
     domain: resultDomain(),
     types: RESULT_TYPES,
     primaryType: "Result",
-    message: { matchId: r.matchId as Hex, winner: r.winner as Hex },
+    message: {
+      matchId: r.matchId as Hex,
+      winner: r.winner as Hex,
+      deadline: BigInt(r.signatureDeadline ?? 0),
+    },
     signature: r.signature as Hex,
   });
   const ok = signer.toLowerCase() === arbiterAddress().toLowerCase();
   console.log("✓ firma valida (recupera al arbitro):", ok);
+  // v2: la firma vence justo cuando el contrato abre el reembolso (plazo de
+  // juego + 30 min de gracia); sin escrow, el plazo sale de la creación.
+  const dlOk =
+    typeof r.signatureDeadline === "number" &&
+    r.signatureDeadline * 1000 > Date.now() + SUBMIT_WINDOW_MS &&
+    r.signatureDeadline * 1000 <= Date.now() + SUBMIT_WINDOW_MS + 31 * 60_000;
+  console.log("✓ la firma vence al abrirse el reembolso:", dlOk, "·", r.signatureDeadline);
   // Feedback rico: el envio de B (cerro la partida) trae el replay de A + PnL.
   const richOk =
     r.rivalReplay !== undefined && r.rivalScore === sA.score && typeof r.netPnl === "number";
@@ -484,6 +495,7 @@ async function main() {
 
   const allOk =
     ok &&
+    dlOk &&
     cheat2048 &&
     rA.scores[A] === pA.score &&
     authOk.scores[C] === pC.score &&

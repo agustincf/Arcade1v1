@@ -1,23 +1,39 @@
 // Firma de resultados con la llave del arbitro (EIP-712).
-// El formato coincide EXACTAMENTE con el contrato Escrow1v1, asi la firma
+// El formato coincide EXACTAMENTE con el contrato Escrow1v1 v2, asi la firma
 // que produce el backend la puede verificar el contrato al pagar.
 
 import { privateKeyToAccount } from "viem/accounts";
 import { keccak256, encodeAbiParameters, type Hex } from "viem";
 
+/** El resultado lleva VENCIMIENTO (segundos, como el contrato): pasado
+ *  `deadline`, la firma no liquida nada. Ver `resultDeadlineOf` en matchmaking.ts. */
 export const RESULT_TYPES = {
   Result: [
     { name: "matchId", type: "bytes32" },
     { name: "winner", type: "address" },
+    { name: "deadline", type: "uint64" },
   ],
 } as const;
 
+/** El asiento ata las CONDICIONES de la partida, no solo quién entra: quien
+ *  abre no puede elegir otro stake ni otros plazos que los que le firmó el
+ *  árbitro, y el asiento del que se une verifica contra los mismos. */
 export const SEAT_TYPES = {
   Seat: [
     { name: "matchId", type: "bytes32" },
     { name: "player", type: "address" },
+    { name: "stake", type: "uint256" },
+    { name: "fundDeadline", type: "uint64" },
+    { name: "playDeadline", type: "uint64" },
   ],
 } as const;
+
+/** Las condiciones de una partida de plata, como las ata el asiento. */
+export interface SeatTerms {
+  stake: bigint; // micro-USDC
+  fundDeadline: bigint; // segundos (epoch)
+  playDeadline: bigint; // segundos (epoch)
+}
 
 export function arbiterAccount() {
   const pk = process.env.ARBITER_PRIVATE_KEY as Hex;
@@ -31,41 +47,46 @@ export function arbiterAddress(): Hex {
   return arbiterAccount().address;
 }
 
+/** Versión "2" del dominio: la de Escrow1v1 v2 (resultado con vencimiento y
+ *  asiento con condiciones). Un árbitro de este código solo habla con un
+ *  contrato v2. */
 export function resultDomain() {
   return {
     name: "Arcade1v1Escrow",
-    version: "1",
+    version: "2",
     chainId: Number(process.env.CHAIN_ID ?? 84532),
     verifyingContract: (process.env.ESCROW_ADDRESS ??
       "0x0000000000000000000000000000000000000000") as Hex,
   };
 }
 
-/** Firma (matchId, winner). El ganador presenta esta firma al contrato.
+/** Firma (matchId, winner, deadline). La presenta el árbitro (y si no, el
+ *  ganador) al contrato, hasta `deadline` (segundos).
  *  La direccion se normaliza a minusculas (mismo valor de 20 bytes, evita
  *  el chequeo de checksum de viem; el contrato la compara por valor). */
-export async function signResult(matchId: Hex, winner: Hex): Promise<Hex> {
+export async function signResult(matchId: Hex, winner: Hex, deadline: bigint): Promise<Hex> {
   const account = arbiterAccount();
   return account.signTypedData({
     domain: resultDomain(),
     types: RESULT_TYPES,
     primaryType: "Result",
-    message: { matchId, winner: winner.toLowerCase() as Hex },
+    message: { matchId, winner: winner.toLowerCase() as Hex, deadline },
   });
 }
 
-/** Firma el "asiento" (matchId, player): autoriza a `player` a depositar en esa
- *  partida (open/join). Ata al rival on-chain SIN que el árbitro pague gas —
- *  cada jugador presenta su asiento al depositar, así un tercero no puede
- *  secuestrar el slot. Mismo dominio EIP-712 que el resultado; el contrato la
+/** Firma el "asiento": autoriza a `player` a depositar en esa partida
+ *  (open/join) con ESAS condiciones. Ata al rival on-chain SIN que el árbitro
+ *  pague gas —cada jugador presenta su asiento al depositar, así un tercero no
+ *  puede secuestrar el slot— y ata el stake y los plazos, así quien abre no
+ *  puede inventarlos. Mismo dominio EIP-712 que el resultado; el contrato la
  *  verifica con _requireSeat. */
-export async function signSeat(matchId: Hex, player: Hex): Promise<Hex> {
+export async function signSeat(matchId: Hex, player: Hex, terms: SeatTerms): Promise<Hex> {
   const account = arbiterAccount();
   return account.signTypedData({
     domain: resultDomain(),
     types: SEAT_TYPES,
     primaryType: "Seat",
-    message: { matchId, player: player.toLowerCase() as Hex },
+    message: { matchId, player: player.toLowerCase() as Hex, ...terms },
   });
 }
 

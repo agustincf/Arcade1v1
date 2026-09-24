@@ -1,7 +1,9 @@
 // Acciones on-chain del arbitro. En el modelo asincronico (open/join), cada
 // jugador abre/se une depositando su propia apuesta, asi que el arbitro NO crea
-// la partida ni paga gas: SOLO cancela en empate (reembolso). Se activa si
-// ESCROW_ADDRESS esta configurado; si no, es no-op (dev).
+// la partida ni paga gas por los depositos: LIQUIDA las partidas decididas
+// (presenta su propia firma, v2) y cancela las empatadas o vencidas
+// (reembolso). Se activa si ESCROW_ADDRESS esta configurado; si no, es no-op
+// (dev).
 
 import { createWalletClient, createPublicClient, http, type Hex, type Chain } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -59,6 +61,13 @@ export const ONCHAIN_STATUS = {
   Settled: 3,
   Refunded: 4,
 } as const;
+
+/** `Escrow1v1.REFUND_GRACE`: el margen entre `playDeadline` y el reembolso
+ *  permissionless. El resultado firmado vence justo ahí (ver `resultDeadlineOf`
+ *  en matchmaking.ts), así en ningún segundo valen a la vez la firma y el
+ *  reembolso. Es una constante del contrato: el e2e contra anvil
+ *  (onchain-e2e.ts) comprueba que coinciden. */
+export const ESCROW_REFUND_GRACE_S = 30 * 60;
 
 /** Lee el estado REAL de una partida en el escrow.
  *
@@ -226,6 +235,85 @@ export async function cancelMatchWithRetries(
     }
   }
   throw ultimo;
+}
+
+/** Un settle del árbitro que se MINÓ revertido. Como en el cancel: la
+ *  transacción salió (y pagó gas), así que lo que pasó lo dice la cadena en ese
+ *  bloque, no el mensaje. Lo más probable es que otro se haya adelantado con la
+ *  misma firma (el ganador desde la web: `settle` es permissionless). */
+export class SettleRevertedError extends Error {
+  constructor(
+    message: string,
+    readonly blockNumber: bigint,
+  ) {
+    super(message);
+  }
+}
+
+/** LIQUIDA una partida decidida con la firma del árbitro (v2). Se SIMULA
+ *  primero —un revert seguro no quema gas—, se manda y se espera el recibo. Un
+ *  revert minado no lanza en viem: se revisa el recibo, como en el cancel.
+ *
+ *  Recibe los clientes por parámetro para poder probarla sin nodo; la cola la
+ *  pone `settleMatchOnchain`. El reintento con backoff lo lleva matchmaking.ts,
+ *  que le pregunta a la cadena qué pasó antes de volver a intentar. */
+export async function sendSettle(
+  clients: () => CancelClients,
+  matchId: Hex,
+  winner: Hex,
+  deadline: bigint,
+  signature: Hex,
+): Promise<Hex> {
+  const { wallet: w, pub: p } = clients();
+  const { request } = await p.simulateContract({
+    address: ESCROW,
+    abi: escrowAbi,
+    functionName: "settle",
+    args: [matchId, winner, deadline, signature],
+    account: w.account!,
+    chain: chain(),
+  });
+  const hash = await w.writeContract(request);
+  const receipt = await p.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") {
+    throw new SettleRevertedError(`settle reverted on-chain (tx ${hash})`, receipt.blockNumber);
+  }
+  return hash;
+}
+
+/** El settle del árbitro, por la cola de escrituras (nonce compartido). */
+export async function settleMatchOnchain(
+  matchId: Hex,
+  winner: Hex,
+  deadline: bigint,
+  signature: Hex,
+): Promise<Hex> {
+  return enCola(() => sendSettle(writeClients, matchId, winner, deadline, signature));
+}
+
+/** Lo que el árbitro del 1v1 le pide a la cadena: leer una partida, cancelarla
+ *  y liquidarla. Los tests inyectan una cadena falsa (`setEscrowChainForTest`)
+ *  y corren sin nodo; el e2e contra anvil (onchain-e2e.ts) prueba la real. */
+export interface EscrowChain {
+  read(matchId: Hex): Promise<OnchainMatch | null>;
+  cancel(matchId: Hex): Promise<void>;
+  settle(matchId: Hex, winner: Hex, deadline: bigint, signature: Hex): Promise<Hex>;
+}
+
+const realEscrowChain: EscrowChain = {
+  read: readMatchOnchain,
+  cancel: cancelMatchOnchain,
+  settle: settleMatchOnchain,
+};
+let escrowImpl: EscrowChain = realEscrowChain;
+
+export function escrowChain(): EscrowChain {
+  return escrowImpl;
+}
+
+/** Tests: inyectar una cadena falsa (o `undefined` para volver a la real). */
+export function setEscrowChainForTest(c: EscrowChain | undefined): void {
+  escrowImpl = c ?? realEscrowChain;
 }
 
 /** ¿Esta dirección puede enviar puntaje en esta partida, según la cadena?

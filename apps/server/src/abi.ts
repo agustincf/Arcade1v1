@@ -68,9 +68,35 @@ export const escrowAbi = [
   {
     type: "function",
     name: "settle",
-    inputs: [{ type: "bytes32" }, { type: "address" }, { type: "bytes" }],
+    inputs: [
+      { type: "bytes32" },
+      { type: "address" },
+      { type: "uint64" }, // deadline: hasta cuándo vale la firma (segundos)
+      { type: "bytes" },
+    ],
     outputs: [],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "owed",
+    inputs: [{ type: "address" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "withdrawFor",
+    inputs: [{ type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "REFUND_GRACE",
+    inputs: [],
+    outputs: [{ type: "uint64" }],
+    stateMutability: "view",
   },
   {
     type: "function",
