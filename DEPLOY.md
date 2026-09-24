@@ -74,12 +74,13 @@ Los agentes tampoco juegan esa mesa sin esa misma dirección: en el servidor MCP
 El árbitro necesita gas para `settle`/`cancelRoom` en esta mesa también — la
 misma cuenta y el mismo `ARBITER_PRIVATE_KEY` del Paso 2, no una wallet nueva.
 
-> **EscrowAleph v2 (pendiente de redesplegar en testnet).** El código de este
-> repo habla con la v2 del contrato: la tabla firmada vence y un pago que el
-> USDC rechaza queda acreditado en vez de trabar la sala. Contra un
-> `EscrowAleph` v1 los depósitos y las liquidaciones revierten, así que el merge
-> que la trae va junto con su redespliegue:
-> [`docs/REDEPLOY-escrow-aleph-v2.md`](docs/REDEPLOY-escrow-aleph-v2.md).
+> **Contratos v2 (pendientes de redesplegar en testnet).** El código de este
+> repo habla con la v2 de los dos contratos (`Escrow1v1` y `EscrowAleph`): el
+> resultado o la tabla firmada vence, un pago que el USDC rechaza queda
+> acreditado en vez de trabar la partida, y el asiento del 1v1 ata el stake y los
+> plazos. Contra un contrato v1 los depósitos y las liquidaciones revierten, así
+> que el merge que los trae va junto con su redespliegue:
+> [`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md).
 
 ## Paso 2 — Publicar el árbitro (backend)
 
@@ -91,7 +92,8 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     la cuenta que figura como **arbiter** en el contrato (Paso 1).
   - `CHAIN_ID=84532` y `ESCROW_ADDRESS=` (las del Paso 1).
   - `RPC_URL=https://sepolia.base.org` — **obligatoria en producción con escrow**:
-    el árbitro reembolsa on-chain los empates y las partidas vencidas
+    el árbitro liquida on-chain cada partida de plata decidida (`settle`, desde
+    la v2 de `Escrow1v1`) y reembolsa los empates y las partidas vencidas
     (`cancelMatch`). Esa cuenta necesita un poco de **ETH para gas**.
   - `ALLOWED_ORIGIN=https://tudominio.com` — restringe el CORS a tu web (admite
     varios dominios separados por coma, útil mientras convivís con el dominio
@@ -110,7 +112,9 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     Si al arrancar Redis no responde, el server **no arranca** (mejor eso que
     arrancar vacío y pisar los datos buenos).
   - Opcionales: `STAKES_ALLOWED=1,2,5,10` (mesas que acepta el árbitro; deben
-    coincidir con el contrato), `SUBMIT_WINDOW_MS` (ventana de envío, default 2h)
+    coincidir con el contrato; **vacía, `STAKES_ALLOWED=`, cierra todas las
+    mesas de plata del 1v1** y deja solo la ladder gratis: es el freno rápido,
+    sin transacción), `SUBMIT_WINDOW_MS` (ventana de envío, default 2h)
     y `RL_MAX` / `RL_MAX_EXPENSIVE` / `RL_MAX_LIVE` (rate limit global / de
     endpoints caros / de los compromisos de las partidas en vivo, default 60
     cada 10 s).
@@ -201,9 +205,11 @@ juego no se depende de ellos.
 
 ### Monitor de gas del árbitro
 
-El árbitro paga el gas de los **reembolsos automáticos** (empates y partidas
-vencidas). Si se queda sin ETH, esos pagos quedan pendientes — los fondos del
-escrow siguen seguros, pero nadie cobra hasta recargar.
+El árbitro paga el gas de las **liquidaciones** de las partidas de plata (desde
+la v2 de `Escrow1v1` el árbitro paga al ganador él mismo) y de los **reembolsos
+automáticos** (empates y partidas vencidas). Si se queda sin ETH, esos pagos
+quedan pendientes: los fondos del escrow siguen seguros, el ganador puede cobrar
+desde la web con la firma mientras no venza, y el árbitro reintenta al recargar.
 
 - **Qué hace**: chequea el saldo cada 5 min; si baja del umbral, loguea una
   alerta (y la manda a un webhook si configuraste uno). Estado visible en
@@ -280,14 +286,15 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
 - [ ] **Llave del árbitro resguardada** (KMS/HSM o secret del hosting), no en texto
       plano. Su dirección va en `ARBITER_ADDRESS` y debe coincidir con la del servidor.
 - [ ] **ETH real** para el gas en la wallet que despliega **y un poco en la del
-      árbitro** (paga el gas de los reembolsos por empate/vencimiento).
+      árbitro** (paga el gas de las liquidaciones y de los reembolsos por
+      empate/vencimiento).
 - [ ] `REQUIRE_AUTH` queda obligatorio por defecto en producción (no lo desactives).
 - [ ] `FEE_BPS` del deploy = el `FEE_BPS` del árbitro = el 15% que muestra la web
       (si cambiás la comisión, cambiala en los tres lados).
 - [~] **`EscrowAleph`: reembolsos que no se traben por la blacklist de USDC.**
   Hecho en el código (v2): cada pago va por su cuenta y el que el USDC
   rechaza queda acreditado a su dueño (`withdraw`). Falta el redespliegue en
-  testnet ([runbook](docs/REDEPLOY-escrow-aleph-v2.md)) y que entre en la
+  testnet ([runbook](docs/REDEPLOY-contratos-v2.md)) y que entre en la
   auditoría. Detalle en `packages/contracts/README.md`.
 - [~] **`EscrowAleph`: la tabla firmada con vencimiento.** Hecho en el código
   (v2): `Payout(roomId, tableHash, deadline)`, y el árbitro no publica una
@@ -296,7 +303,11 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
       intento tiene su registro chico en `arcade:live` (Redis), escrito ANTES de
       revelar valores nuevos o de contestar el final; si no se puede guardar, el
       compromiso contesta 503 sin revelar nada.
-- [ ] **El resto de la lista** (lo de `Escrow1v1`, la operación y lo legal):
+- [~] **`Escrow1v1` v2**: crédito de respaldo para la blacklist, resultado que
+  vence, asiento con stake y plazos, dueño en dos pasos, y el árbitro que
+  liquida solo. Hecho en el código; falta el redespliegue en testnet
+  ([runbook](docs/REDEPLOY-contratos-v2.md)) y que entre en la auditoría.
+- [ ] **El resto de la lista** (la operación, la auditoría y lo legal):
       [`docs/MAINNET.md`](docs/MAINNET.md).
 
 **Desplegar** (firma con hardware wallet, sin claves en disco):

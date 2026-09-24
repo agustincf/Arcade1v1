@@ -241,7 +241,7 @@ para auditar.
 
 _Enmienda (2026-09-24): los dos arreglos del contrato decididos el 2026-09-18
 para antes de mainnet quedaron en `EscrowAleph` v2 (su redespliegue en testnet
-va con el merge, [`docs/REDEPLOY-escrow-aleph-v2.md`](../../REDEPLOY-escrow-aleph-v2.md)).
+va con el merge, [`docs/REDEPLOY-contratos-v2.md`](../../REDEPLOY-contratos-v2.md)).
 Uno, en vez de pasar a "cada asiento retira lo suyo" a secas, cada pago se sigue
 empujando pero por separado, y el que el USDC rechaza (blacklist, token en
 pausa) queda acreditado para `withdraw`: un asiento bloqueado ya no traba la

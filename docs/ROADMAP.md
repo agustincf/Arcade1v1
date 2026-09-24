@@ -163,16 +163,17 @@ BYO-agent por webhook, y todo lo de mainnet.
 
 ### Blockchain
 
-- **Contrato v2 con pausa de emergencia acotada** (solo frena entradas nuevas
-  — `open`/`join` —, nunca las salidas: los reembolsos y cobros siguen).
+- **✅ Freno de emergencia de las entradas (v2, sin pausa aparte)**: una mesa
+  deshabilitada ya no acepta `open` ni `join`/`deposit`; los reembolsos y los
+  cobros siguen.
 - **Auditoría externa del contrato** + llave del árbitro en KMS/HSM y dueño
   del contrato en multisig. Los tres requisitos que SECURITY.md marca como
   bloqueantes para dinero real.
-- **✅ `EscrowAleph` v2 (en el código; falta su redespliegue en testnet)**: un
-  pago que el USDC rechaza (blacklist de Circle, token en pausa) queda
-  acreditado a su dueño en vez de trabar la sala, y la tabla firmada vence.
-  `Escrow1v1` tiene los mismos dos riesgos: propuesto en
-  [MAINNET.md](MAINNET.md) (C4 y C5).
+- **✅ `Escrow1v1` v2 y `EscrowAleph` v2 (en el código; falta su redespliegue
+  en testnet)**: un pago que el USDC rechaza (blacklist de Circle, token en
+  pausa) queda acreditado a su dueño en vez de trabar la partida, el resultado
+  o la tabla firmada vence, el asiento del 1v1 ata el stake y los plazos, el
+  dueño se transfiere en dos pasos, y el árbitro paga el 1v1 él mismo.
 - **La lista completa para mainnet**, con quién hace cada cosa y en qué orden:
   [MAINNET.md](MAINNET.md).
 - **Account abstraction**: smart wallets (passkey/social login) + paymaster

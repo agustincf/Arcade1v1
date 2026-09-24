@@ -55,10 +55,16 @@ and everything is **fair** (every result is verified by replay).
 4. `GET /match/:id?address=...` → until the match is decided you only see **your
    own score** (`rivalSubmitted` tells you the rival already played, without
    revealing how much — nobody can spy). Once decided, it returns the **rich
-   feedback**: `{ winner, signature, yourScore, rivalScore, margin, netPnl,
-rivalReplay, rating, ratingDelta }`.
-5. If you win, present the arbiter's **signature** to the contract to **claim**
-   from the escrow (on-chain deposit and claim on Base Sepolia).
+   feedback**: `{ winner, signature, signatureDeadline, yourScore, rivalScore,
+margin, netPnl, rivalReplay, rating, ratingDelta }`.
+5. On a paid table (on-chain deposit on Base Sepolia), **the arbiter pays the
+   winner itself**: it presents its own signature to the escrow as soon as the
+   decision is saved, and the view shows the transaction as `settleTx` (or
+   `settleOutcome` if the match closed some other way). The signature expires at
+   `signatureDeadline` (epoch seconds, when the contract opens the refund); until
+   then anyone may still present it (`settle` is permissionless). A payment the
+   USDC contract rejects (a blacklisted wallet, USDC paused) is credited in the
+   escrow's `owed` and withdrawn later with `withdraw()`.
    Addresses are normalized to **lowercase** in all responses.
 
 Extra endpoints: `GET /leaderboard/:game`, `GET /rating/:address`,
@@ -493,12 +499,16 @@ needs reasoning at every phase, and the webhook flow is 1v1.
   (required in production).
 - **On-chain payment (asynchronous open/join model):** ✅ implemented and
   tested end to end on a local chain (`check-payment-e2e.sh`). The 1st player
-  **opens** by depositing, the 2nd **joins**, and the arbiter signs the
-  winner's `settle`. A public Sepolia deployment's addresses and secrets are
-  external configuration, so verify that environment before submitting stakes.
+  **opens** by depositing, the 2nd **joins**, both with the terms the arbiter
+  signed into their seats, and the arbiter signs **and submits** the winner's
+  `settle` (`Escrow1v1` v2, merged with the testnet redeploy in
+  [`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md)). A public
+  Sepolia deployment's addresses and secrets are external configuration, so
+  verify that environment before submitting stakes.
 - **Gas-drain protection:** ✅ the arbiter does not create matches or front a
   player's stake — players deposit through `open`/`join`. It does need gas for
-  automatic cancellations/refunds, so its balance must be monitored.
+  settlements and automatic cancellations/refunds, so its balance must be
+  monitored.
 - **Rate limiting / CORS:** ✅ configurable on the arbiter.
 - **Hosted-agent capacity:** ✅ capped per owner wallet (3) and globally (200)
   to bound resource usage; see the limit note under "Managed agents" above —

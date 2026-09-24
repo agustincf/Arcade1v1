@@ -59,12 +59,16 @@ preparación mainnet, ver abajo) · Estado actualizado: **3.10.0 en testnet**
 >
 > Nota de mantenimiento (2026-09-24, sin publicar): **la lista completa de lo
 > que falta para mainnet vive ahora en [`docs/MAINNET.md`](docs/MAINNET.md)**,
-> con quién lo hace y en qué orden. En esta tanda se cerraron en el código dos
-> de sus puntos: `EscrowAleph` v2 (un pago que el USDC rechaza queda acreditado
-> en vez de trabar la sala, y la tabla firmada vence; falta su redespliegue en
-> testnet, [`docs/REDEPLOY-escrow-aleph-v2.md`](docs/REDEPLOY-escrow-aleph-v2.md))
-> y el registro durable de cada intento en vivo, escrito antes de revelar: una
-> caída dura ya no rebobina un intento de Flappy.
+> con quién lo hace y en qué orden. En esta tanda se cerraron en el código:
+> `EscrowAleph` v2 y `Escrow1v1` v2 (un pago que el USDC rechaza queda
+> acreditado en vez de trabar la partida, el resultado o la tabla firmada vence,
+> el asiento del 1v1 ata el stake y los plazos —el punto (3) de la quinta
+> ronda—, dueño en dos pasos, y una mesa deshabilitada frena también los
+> depósitos que completan una partida), el árbitro que guarda la decisión antes
+> de mostrar la firma y liquida él mismo el 1v1, y el registro durable de cada
+> intento en vivo, escrito antes de revelar: una caída dura ya no rebobina un
+> intento de Flappy. Falta el redespliegue de los dos contratos en testnet
+> ([`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md)).
 
 ---
 
@@ -197,7 +201,10 @@ humana ni tests locales de Foundry sería un riesgo mayor que el que resuelven:
 - **Pausa de emergencia acotada** en el contrato. Si se agrega, debe **pausar solo
   las ENTRADAS** (`open`/`join`) y **nunca las SALIDAS** (`settle`, `refund*`), para
   poder frenar nuevos depósitos sin atrapar fondos ya custodiados. Decidir e
-  implementar **dentro de la auditoría humana** (con sus tests).
+  implementar **dentro de la auditoría humana** (con sus tests). _Actualización
+  2026-09-24:_ resuelto en la v2 sin una pausa aparte: una mesa deshabilitada
+  (`setAllowedStake(x, false)`) ya no acepta `open` **ni** `join`, y las salidas
+  no la miran (ver el hallazgo 14).
 - **Timelock / multisig del owner** y **resguardo de la llave del árbitro**
   (KMS/HSM o firma múltiple). Son medidas **operacionales/de despliegue**, no código
   de este repo. Ver hallazgos 7 y 13.
@@ -225,7 +232,7 @@ todo. Esta etapa NO desbloquea mainnet: un contrato más para auditar.
 
 Los dos arreglos del contrato decididos para **antes de mainnet** están en
 `EscrowAleph` v2 (el código; el redespliegue en testnet va con el merge, ver
-[`docs/REDEPLOY-escrow-aleph-v2.md`](docs/REDEPLOY-escrow-aleph-v2.md)):
+[`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md)):
 
 - **Un depositante en la blacklist de USDC ya no traba la sala.** En la v1 los
   pagos se empujaban todos en la misma transacción, y el USDC de Circle revierte
@@ -423,6 +430,13 @@ entre agentes son datos, no instrucciones, y un agente que los trate como
     **nunca** las SALIDAS (`settle`/`refund*`), para no atrapar fondos custodiados.
     No se agregó en la 2ª ronda para no expandir la superficie del contrato sin
     auditoría humana ni tests de Foundry (no instalado en el entorno de desarrollo).
+    **✅ v2 (2026-09-24), sin una pausa nueva:** el freno es la tabla de mesas que
+    ya existía. `setAllowedStake(x, false)` ahora frena `open` y también
+    `join`/`deposit`, así que una mesa deshabilitada no recibe un centavo más;
+    liquidar, reembolsar y retirar no la miran. Y más rápido, sin transacción:
+    el árbitro deja de firmar asientos (`STAKES_ALLOWED=`, `ALEPH_STAKES=0`). Una
+    pausa aparte sumaba superficie que auditar sin frenar nada que esto no frene;
+    queda para revisar con quien audite.
 15. **CORS** — ✅ **configurable** con `ALLOWED_ORIGIN` (en producción se
     restringe a tu dominio; en dev queda abierto).
 16. **HTTPS obligatorio** en producción (en local es OK sin él).
@@ -458,12 +472,20 @@ entre agentes son datos, no instrucciones, y un agente que los trate como
 - [ ] Pruebas de extremo a extremo en testnet con varios usuarios reales — _medio_
 - [~] `EscrowAleph`: un pago rechazado por el USDC queda acreditado (blacklist) y
   la tabla firmada vence — _alto_ — hechos en el código (v2); falta el
-  redespliegue en testnet y entrar en la auditoría.
+  redespliegue en testnet. Mainnet arranca sin las mesas de plata de Aleph
+  (`docs/MAINNET.md`, decisión 6).
 - [x] Flappy en vivo: cada intento guardado en su propia clave antes de revelar
       valores nuevos — _medio_ — hecho (`apps/server/src/live-store.ts`).
-- [ ] `Escrow1v1`: los mismos dos riesgos (blacklist del ganador, `Result` sin
-      vencimiento) y el asiento sin stake ni plazos — _alto_ — propuestos en
-      [`docs/MAINNET.md`](docs/MAINNET.md) (C4 a C6), falta la decisión.
+- [~] `Escrow1v1`: un pago rechazado por el USDC queda acreditado (blacklist del
+  ganador o de un reembolso), el `Result` vence y el asiento ata el stake y
+  los plazos — _alto_ — hechos en el código (v2), con el árbitro que liquida
+  solo; falta el redespliegue en testnet y entrar en la auditoría.
+- [x] Dueño en dos pasos (`Ownable2Step`) y sin `renounceOwnership`, en los dos
+      contratos — _medio_ — hecho en el código (v2).
+- [x] Freno de emergencia de las entradas — _medio_ — sin pausa nueva: una mesa
+      deshabilitada con `setAllowedStake(x, false)` no acepta `open` ni
+      `join`/`deposit` (v2), y el árbitro deja de firmar asientos con
+      `STAKES_ALLOWED=` / `ALEPH_STAKES=0`. Las salidas nunca se frenan.
 - [ ] Semilla anticipada en los otros cinco juegos (2048, Tetris, Snake,
       Carrera, Space Invaders): se puede optimizar la corrida offline — _medio_
 

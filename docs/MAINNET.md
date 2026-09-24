@@ -49,7 +49,7 @@ lo legal ─────────────── en paralelo, desde hoy �
 | C6  | **`Escrow1v1`: el asiento firmado ata el stake y los plazos** (`Seat(matchId, player, stake, fundDeadline, playDeadline)`), como ya hacía `EscrowAleph`. Antes los elegía quien abría.                                                                                                         | medio           | ✅ v2 del contrato + árbitro                           |
 | C7  | **Freno de emergencia de las entradas**, sin pausa nueva: una mesa deshabilitada con `setAllowedStake(x, false)` ahora frena `open` **y** `join`/`deposit`; las salidas (liquidar, reembolsar, retirar) nunca se frenan. Más rápido: el árbitro deja de firmar asientos (`STAKES_ALLOWED=""`). | medio           | ✅ v2 de los dos contratos (decisión 5)                |
 | C8  | **Dueño en dos pasos** (`Ownable2Step`) en los dos contratos, y `renounceOwnership` deshabilitada: antes un `transferOwnership` a una dirección con un error, o una renuncia, perdían la administración para siempre.                                                                          | medio           | ✅ v2 de los dos contratos                             |
-| C9  | **El árbitro liquida el 1v1**: presenta su propia firma apenas queda guardada, con reintentos; si otro la presentó antes (el ganador), lo lee de la cadena. Antes cobraba el ganador, y si no lo hacía a tiempo el perdedor podía pedir el reembolso.                                          | alto (usuario)  | ✅ árbitro · la web todavía por adaptar (ver abajo)    |
+| C9  | **El árbitro liquida el 1v1**: presenta su propia firma apenas queda guardada, con reintentos; si otro la presentó antes (el ganador), lo lee de la cadena. Antes cobraba el ganador, y si no lo hacía a tiempo el perdedor podía pedir el reembolso.                                          | alto (usuario)  | ✅ árbitro y web                                       |
 | C10 | **Script de deploy a mainnet de `EscrowAleph`**: `DeployMainnet.s.sol` despliega solo `Escrow1v1`.                                                                                                                                                                                             | —               | no hace falta para el lanzamiento (decisión 6)         |
 | C11 | **Web: geobloqueo, edad y aceptación de términos** antes de depositar. El mecanismo lo puede construir el repo; la lista de países y las reglas salen del trabajo legal (L1).                                                                                                                  | crítico (legal) | pendiente de las definiciones legales                  |
 | C12 | **La llave del árbitro, firmando desde un KMS/HSM** en vez de `ARBITER_PRIVATE_KEY` en el entorno (viem admite cuentas propias). Depende del proveedor que se elija (O2).                                                                                                                      | alto            | pendiente                                              |
@@ -73,7 +73,7 @@ sin cortes, approve por el monto exacto. Detalle en [SECURITY.md](../SECURITY.md
 | O4  | **Monitoreo**: el monitor de gas con umbral y webhook (`GAS_ALERT_*`), y una alerta de caída del árbitro. Upstash en la misma región que Render: cada compromiso en vivo ahora espera un guardado. | parcial (gas: sí; caídas: no)                           |
 | O5  | **Redis (Upstash) verificado en producción** y el traspaso con timbre funcionando (`Traspaso: doorbell` en los logs de cada deploy).                                                               | hecho en testnet; re-verificar en el entorno de mainnet |
 | O6  | **Prueba de punta a punta en testnet con usuarios reales**, con los dos contratos v2 ya redesplegados.                                                                                             | pendiente                                               |
-| O7  | **Redespliegue de `Escrow1v1` v2 y `EscrowAleph` v2 en Base Sepolia** junto con el merge que los trae ([runbook](REDEPLOY-escrow-aleph-v2.md), a extender al 1v1: ver "Cómo seguir").              | pendiente (al mergear)                                  |
+| O7  | **Redespliegue de `Escrow1v1` v2 y `EscrowAleph` v2 en Base Sepolia** junto con el merge que los trae ([runbook](REDEPLOY-contratos-v2.md)).                                                       | pendiente (al mergear)                                  |
 
 ---
 
@@ -125,43 +125,28 @@ exactos están en `.github/workflows/ci.yml`.
 
 **Hecho y probado en la rama:** `EscrowAleph` v2 (C1, C2), Flappy en vivo
 durable (C3), `Escrow1v1` v2 (C4, C5, C6, C8) y el freno de mesa (C7) en los
-dos contratos, y el árbitro del 1v1 con plazos en el asiento, firma con
-vencimiento, decisión guardada antes de mostrarse y liquidación propia (C9),
-con su e2e contra anvil.
+dos contratos; el árbitro del 1v1 con plazos en el asiento, firma con
+vencimiento, decisión guardada antes de mostrarse y liquidación propia (C9);
+la web adaptada (abre con los plazos del árbitro, muestra el pago del árbitro,
+cobro de respaldo con la firma que vence, retiro de lo acreditado en
+`/recover`); el runbook del redespliegue de los dos contratos
+([`REDEPLOY-contratos-v2.md`](REDEPLOY-contratos-v2.md)); y la documentación.
+Verificado con `forge test` (113), `npm run check`, los cinco e2e de anvil y el
+build de la web.
 
-**Falta, en este orden:**
+**Falta:**
 
-1. **Web** (`apps/web/app`):
-   - `lib/escrow.ts`: ABI de `settle(id, winner, deadline, signature)` (el
-     `deadline` es `uint64`, antes de la firma); sumar `owed(address)` y
-     `withdraw()`.
-   - `lib/useEscrow.tsx`: `open` con los plazos que trae la vista del
-     emparejamiento (`fundDeadline`, `playDeadline`) en vez de `now + 1 h / 2 h`;
-     `join` sin la heurística de "plazos anormales" (el contrato ya verifica el
-     asiento); `claim(matchId, winner, deadline, sig)` que lee el estado antes y
-     después (si ya está `Settled`, está cobrado); `readOwed` y `withdraw`.
-   - `lib/openMatches.ts`: `rememberWin` guarda también el vencimiento.
-   - `game/[gameId]/match/page.tsx`: pasar los plazos a `open`; al ganar, mostrar
-     que el árbitro está pagando y sondear `getMatch` hasta ver `settleTx` o
-     `settleOutcome`; el botón de cobrar queda de respaldo.
-   - `recover/page.tsx`: una firma vencida ya no se cobra (queda el reembolso);
-     tarjeta de saldo acreditado (`owed > 0`) con botón de retiro.
-   - Textos en en/es/fr (`test/i18n.test.ts` exige las mismas claves).
-2. **Documentación**: SECURITY.md, DEPLOY.md, CHANGELOG (`[Sin publicar]`),
-   `packages/contracts/README.md`, `docs/CONFIGURATION.md`, `docs/TESTING.md`
-   (forge: 50 tests de `Escrow1v1` y 63 de `EscrowAleph`),
-   `docs/ARCHITECTURE.md`, AGENTS.md y `apps/web/public/llms.txt` (campos nuevos
-   de la vista: `signatureDeadline`, `fundDeadline`, `playDeadline`, `settleTx`,
-   `settleOutcome`; el árbitro liquida solo), y este documento.
-3. **Runbook del redespliegue de los dos contratos** (extender
-   `REDEPLOY-escrow-aleph-v2.md`): cerrar las mesas pagas del 1v1 unas 2,5 h
-   antes (`STAKES_ALLOWED=""`), desplegar `Escrow1v1` v2, habilitar las mesas,
-   cambiar `ESCROW_ADDRESS` y `NEXT_PUBLIC_ESCROW_ADDRESS`, y revisar el contrato
-   v1 por partidas `Open`/`Funded` que cancelar.
-4. **Verificación completa**: `npm run check`, `forge test`, los cinco e2e de
-   anvil (`bash packages/contracts/check-*.sh`; ojo: hacen `pkill -f anvil`) y
-   `npm run build --workspace apps/web`. Después, actualizar la descripción del
-   PR #48.
-5. **Del dueño, después del merge**: redespliegue en testnet (O7), prueba con
-   usuarios reales (O6), auditoría (L2), lo legal (L1), y el deploy a mainnet con
-   el dueño en una Safe o Ledger (O1) y la llave del árbitro resguardada (C12, O2).
+1. **Revisión y merge del PR #48** (el dueño), sacándolo de borrador cuando CI
+   esté en verde. Si retomás el trabajo antes: correr la verificación completa
+   (`npm run check`, `forge test`, los cinco e2e con
+   `bash packages/contracts/check-*.sh` —ojo: hacen `pkill -f anvil`— y
+   `npm run build --workspace apps/web`) después de cada cambio.
+2. **Del dueño, con el merge**: el redespliegue de los dos contratos en testnet
+   siguiendo el runbook (O7).
+3. **Del dueño, después**: prueba con usuarios reales (O6), auditoría de
+   `Escrow1v1` v2 (L2), lo legal (L1), y el deploy a mainnet con el dueño en una
+   Safe o Ledger (O1) y la llave del árbitro resguardada (C12, O2).
+4. **Código que sigue abierto** (sección 1): C11 (geobloqueo, edad y términos:
+   espera las definiciones legales), C12 (el árbitro firmando desde un KMS: espera
+   al proveedor) y C13 (la semilla anticipada en los otros cinco juegos: el
+   trabajo más grande de la lista).

@@ -8,26 +8,58 @@ seguridad de **OpenZeppelin**. Los dos estan desplegados en **Base Sepolia**
 
 ## Que hace
 
-- `open` — el primer jugador abre la partida (define mesa y plazos) y deposita
-  su apuesta en USDC. Nadie mas paga gas por el: cada jugador deposita lo suyo.
-- `join` — el segundo jugador se une y deposita la misma apuesta -> la partida
-  queda `Funded`.
-- `settle` — con la **firma del arbitro** (EIP-712, verificada on-chain por el
-  contrato), paga premio al ganador + comision a la wallet de la plataforma.
+- `open` — el primer jugador abre la partida y deposita su apuesta en USDC.
+  Presenta su **asiento** (EIP-712
+  `Seat(matchId, player, stake, fundDeadline, playDeadline)`, firmado por el
+  arbitro): la mesa y los plazos los fija el arbitro, no quien abre. Nadie mas
+  paga gas por el: cada jugador deposita lo suyo.
+- `join` — el segundo jugador se une y deposita la misma apuesta, con su
+  asiento, que se verifica contra las condiciones guardadas al abrir -> la
+  partida queda `Funded`.
+- `settle(id, winner, deadline, signature)` — con la **firma del arbitro**
+  sobre `Result(matchId, winner, deadline)` (EIP-712, verificada on-chain),
+  paga premio al ganador + comision a la wallet de la plataforma. La firma
+  vence: el arbitro la emite hasta `playDeadline + REFUND_GRACE`, justo cuando
+  se abre el reembolso. La presenta el propio arbitro; cualquiera puede.
 - `refundUnfunded` — si no se lleno a tiempo (paso el `fundDeadline`), cada uno
   recupera su deposito.
 - `refundExpired` — si se lleno pero paso el plazo de juego sin resultado
-  (`playDeadline`, ej: el rival no jugo en 1 hora), se devuelve todo a ambos.
+  (`playDeadline` mas 30 min de gracia), se devuelve todo a ambos.
 - `cancelMatch` — el arbitro o el dueño cancela (empate o disputa) y reembolsa
   a quien haya depositado.
-- `resultDigest` — vista auxiliar (para el backend/tests) que devuelve el hash
-  EIP-712 que el arbitro debe firmar para liquidar una partida.
+- **Pagos con credito de respaldo** (v2). El premio, la comision y cada
+  reembolso se empujan por separado. Si el USDC rechaza uno (la direccion en la
+  blacklist de Circle, o el token en pausa), ese monto queda en
+  `owed[address]` (evento `Credited`) y lo demas se paga igual. Se cobra con
+  `withdraw` / `withdrawFor(account)`, igual que en `EscrowAleph`, con la misma
+  guarda de gas.
+- `resultDigest` / `seatDigest` — vistas auxiliares (para el backend/tests) que
+  devuelven los hashes EIP-712 que firma el arbitro.
 
 Nadie puede sacar el dinero de los jugadores a mano: solo se mueve por estas
 reglas. La comision (`feeBps`) tiene un tope duro de 20% (`MAX_FEE_BPS`).
 
 Las mesas (montos de apuesta permitidos) se habilitan una por una con
-`setAllowedStake` — los scripts de despliegue habilitan 1, 2, 5 y 10 USDC.
+`setAllowedStake` — los scripts de despliegue habilitan 1, 2, 5 y 10 USDC. Una
+mesa deshabilitada no acepta `open` ni `join` (v2): es el freno de las
+entradas, y las salidas no la miran. El dueño se transfiere en dos pasos
+(`Ownable2Step`: `transferOwnership` + `acceptOwnership`) y
+`renounceOwnership` esta deshabilitada.
+
+Dominio EIP-712: `Arcade1v1Escrow` **version 2**. La v1 firmaba
+`Result(matchId, winner)` sin vencimiento y `Seat(matchId, player)` sin
+condiciones, y empujaba el premio y los reembolsos juntos: un jugador en la
+blacklist de USDC trababa la plata del otro para siempre. El redespliegue en
+Base Sepolia va con el merge:
+[`docs/REDEPLOY-contratos-v2.md`](../../docs/REDEPLOY-contratos-v2.md).
+
+Pruebas: `forge test --match-contract Escrow1v1Test -vv` (50 pruebas: el ciclo
+completo, los tres reembolsos, la gracia, el secuestro del slot, y desde la v2
+las condiciones del asiento, el freno de mesa, el vencimiento del resultado
+justo cuando abre el reembolso, la rotacion de la llave del arbitro, la
+blacklist en la liquidacion y en los reembolsos, USDC en pausa, retiro y
+`withdrawFor`, fuzz de conservacion por todos los caminos de salida, gas justo,
+reentrada y dueño en dos pasos).
 
 ## EscrowAleph — las mesas de plata de Aleph (N asientos)
 
@@ -80,18 +112,18 @@ así que un solo depositante en la blacklist de USDC hacía revertir la
 liquidación y los tres reembolsos (el pozo de una sala en `Funding` quedaba
 trabado para siempre); y la tabla firmada no vencía, así que dos tablas firmadas
 para la misma sala valían las dos. El redespliegue en Base Sepolia va con el
-merge: [`docs/REDEPLOY-escrow-aleph-v2.md`](../../docs/REDEPLOY-escrow-aleph-v2.md).
-`Escrow1v1` todavía tiene la primera propiedad (con 2 asientos) y una firma de
-resultado sin vencimiento: ver [`docs/MAINNET.md`](../../docs/MAINNET.md), C4 y C5.
+merge: [`docs/REDEPLOY-contratos-v2.md`](../../docs/REDEPLOY-contratos-v2.md).
+También desde la v2: `Ownable2Step` sin `renounceOwnership`, y una mesa
+deshabilitada no acepta `deposit`.
 
-Pruebas: `forge test --match-contract EscrowAlephTest -vv` (59 pruebas: fondeo,
+Pruebas: `forge test --match-contract EscrowAlephTest -vv` (63 pruebas: fondeo,
 liquidación, tabla que no suma, address que no es asiento, firma ajena, doble
 liquidación, los tres reembolsos exactos, 8 asientos, gracia, reentrancy, la
 superficie de admin/constructor y, desde la v2, blacklist en la liquidación y
 en los tres reembolsos, USDC en pausa, retiro y `withdrawFor`, crédito acumulado
 entre salas, vencimiento de la tabla, fuzz de conservación de fondos con
-cualquier subconjunto en blacklist y un barrido de límites de gas contra un
-token de pago caro). Los tokens de prueba viven en `test/`: `BlacklistUSDC`
+cualquier subconjunto en blacklist, un barrido de límites de gas contra un
+token de pago caro, dueño en dos pasos y el freno de mesa). Los tokens de prueba viven en `test/`: `BlacklistUSDC`
 (blacklist y pausa, como el USDC real), `GasHungryUSDC` y `ReentrantUSDC`.
 
 Desplegar en Base Sepolia (reusa la wallet y el TestUSDC de `.env`):
@@ -118,7 +150,7 @@ cd packages/contracts
 forge test -vv
 ```
 
-Estado actual: 73 pruebas pasando — 14 de `Escrow1v1.t.sol` + 59 de
+Estado actual: 113 pruebas pasando — 50 de `Escrow1v1.t.sol` + 63 de
 `EscrowAleph.t.sol`.
 
 ## Desplegar en Base Sepolia (testnet)
@@ -167,10 +199,11 @@ Requiere `.env.mainnet` (copiado de `.env.mainnet.example`) con
 `PLATFORM_WALLET`, `FEE_BPS` y `OWNER_ADDRESS` (la wallet de hardware que
 firma y queda como dueña del contrato).
 
-> Estado: `Escrow1v1` probado (14/14 pruebas) y flujo completo verificado en Anvil
-> (deposito, pago y reembolso); `EscrowAleph` v2 probado (59/59) y verificado en
-> Anvil con el árbitro y el SDK reales (la v1 tiene smoke en Base Sepolia; la v2
-> se redespliega con el merge). `DeployMainnet.s.sol` despliega solo
+> Estado: `Escrow1v1` v2 probado (50/50 pruebas) y flujo completo verificado en
+> Anvil con el árbitro real (depósito, liquidación por el árbitro, ganador que se
+> le adelanta, ganador en la blacklist, reembolsos); `EscrowAleph` v2 probado
+> (63/63) y verificado en Anvil con el árbitro y el SDK reales. Las v1 tienen
+> smoke en Base Sepolia; las v2 se redespliegan con el merge. `DeployMainnet.s.sol` despliega solo
 > `Escrow1v1`: el de `EscrowAleph` a mainnet todavía no existe. Las direcciones de un entorno publicado y sus
 > secretos no se guardan en Git (`.env`, `.env.mainnet` y `broadcast/` estan
 > en `.gitignore`), por lo que deben verificarse en la configuracion de ese

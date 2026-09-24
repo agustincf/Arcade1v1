@@ -12,9 +12,36 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Seguridad
 
+- **⚠️ `Escrow1v1` v2 — cambia el contrato de las mesas 1v1.** Los mismos
+  arreglos que `EscrowAleph` v2, más los propios del 1v1, en el mismo
+  redespliegue de los dos contratos
+  ([`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md); el merge
+  va junto con él):
+  - **Un jugador en la blacklist de USDC ya no traba la plata del otro.** El
+    premio y los reembolsos se empujaban juntos: un ganador en la blacklist de
+    Circle hacía revertir `settle`, y un jugador bloqueado hacía revertir
+    `refundExpired` y `cancelMatch`. Ahora cada pago va por su cuenta, y el que
+    el USDC rechaza queda acreditado (`owed`), con `withdraw`/`withdrawFor` y la
+    misma guarda de gas que Aleph.
+  - **El resultado firmado vence**: `Result(matchId, winner, deadline)`,
+    dominio versión `"2"`. El árbitro lo firma hasta `playDeadline` + 30 min,
+    justo cuando se abre el reembolso: en ningún segundo valen los dos caminos.
+    Y la firma no sale (ni en la vista ni en una transacción) antes de que la
+    decisión quede guardada: una caída ya no puede dejar dos firmas válidas con
+    ganadores distintos.
+  - **El asiento ata el stake y los plazos**:
+    `Seat(matchId, player, stake, fundDeadline, playDeadline)`. Antes los
+    elegía quien abría (quinta ronda de SECURITY.md, punto 3). Los fija el
+    árbitro al crear la partida y `join` verifica contra lo guardado.
+- **Dueño en dos pasos en los dos contratos** (`Ownable2Step`, sin
+  `renounceOwnership`): una transferencia a una dirección con un error, o una
+  renuncia, perdían para siempre la administración (rotar la llave del
+  árbitro). Y una mesa deshabilitada (`setAllowedStake(x, false)`) ahora
+  tampoco acepta `join`/`deposit`: es el freno de emergencia de las entradas,
+  sin una pausa aparte; las salidas nunca se frenan.
 - **⚠️ `EscrowAleph` v2 — cambia el contrato de las mesas de plata de Aleph.**
   Los dos arreglos que estaban decididos para antes de mainnet, en un mismo
-  redespliegue ([`docs/REDEPLOY-escrow-aleph-v2.md`](docs/REDEPLOY-escrow-aleph-v2.md);
+  redespliegue ([`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md);
   el merge va junto con él, porque el árbitro nuevo no habla con el contrato
   viejo):
   - **Un asiento en la blacklist de USDC ya no traba la sala.** Los pagos se
@@ -46,13 +73,34 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   no se pudo guardar y nadie reintentó lo completa el barrendero apenas el
   store vuelve. De paso, el blob de partidas ya no se sube en cada compromiso.
 
+### Cambiado
+
+- **El árbitro paga el 1v1 él mismo.** Antes el ganador tenía que tocar
+  "Cobrar"; si no lo hacía antes de `playDeadline` + 30 min, cualquiera (el
+  perdedor incluido) podía pedir el reembolso y el premio se perdía. Ahora el
+  árbitro presenta su firma apenas la decisión queda guardada, con reintentos y
+  backoff. Si otro la presentó antes o la partida se reembolsó, lo lee de la
+  cadena; si la firma vence sin presentarse, reembolsa. La vista suma
+  `signatureDeadline`, `fundDeadline`, `playDeadline`, `settleTx` y
+  `settleOutcome` (también en el tipo `MatchView` del agent-sdk). El gas de
+  esos pagos lo pone el árbitro.
+- **Web:** la partida se abre con los plazos que firmó el árbitro; al ganar, la
+  pantalla muestra que el árbitro está pagando y pasa sola a "¡Cobrado!" con el
+  enlace a la transacción (el botón de cobrar queda de respaldo). `/recover`
+  muestra el saldo acreditado con su botón de retiro, y ya no ofrece cobrar con
+  una firma vencida.
+- **Runbook:** `docs/REDEPLOY-escrow-aleph-v2.md` pasa a ser
+  [`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md) y cubre los
+  dos contratos, con cómo vaciar las mesas pagas antes y revisar el `Escrow1v1`
+  viejo.
+
 ### Agregado
 
 - **[`docs/MAINNET.md`](docs/MAINNET.md): lo que falta para mainnet, en un solo
   lugar.** Código, operación y terceros (lo legal y la auditoría externa), con
   quién hace cada cosa, el camino crítico (contratos finales → auditoría →
-  deploy) y las decisiones que necesita el dueño para cerrar los contratos. Lo
-  enlazan SECURITY, DEPLOY, ROADMAP y el README.
+  deploy), las decisiones tomadas y una sección "Cómo seguir" para retomar el
+  trabajo en otra sesión. Lo enlazan SECURITY, DEPLOY, ROADMAP y el README.
 - **Aleph: cobrar lo acreditado.** `agent.alephWithdraw()` en el agent-sdk y la
   herramienta `aleph_withdraw` en el MCP (salen en la próxima versión de los
   paquetes): leen lo que el escrow tiene acreditado a la wallet y, si hay algo,

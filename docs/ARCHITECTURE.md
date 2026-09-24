@@ -104,7 +104,7 @@ change per game.
 └──────────────────┘
 
 apps/web (wagmi/viem) ──writeContract──▶ packages/contracts (Escrow1v1.sol on
-apps/server (viem)    ──cancelMatch────▶  Base Sepolia)
+apps/server (viem)    ──settle/cancel──▶  Base Sepolia)
 ```
 
 Everything funnels through **one HTTP API surface** exposed by `apps/server`
@@ -162,19 +162,26 @@ in `apps/server/src/index.ts`.
 4. **Settlement** (`settleIfReady`) — once both `p1` and `p2` have a verified
    score: equal scores → `draw` (triggers an on-chain `cancelMatch` refund if
    escrow is active); unequal scores → `settled`, winner recorded, and the
-   arbiter **signs the result** (`signResult`, §5) — `status` is flipped to
-   `settled` _before_ the `await` so a concurrent duplicate submission can't
-   race the signature and settle twice. ELO is then updated
-   (`applyElo` in `ratings.ts`) unless the opponent was the test bot.
+   arbiter **signs the result** with its expiry (`signResult`, §5) — `status`
+   is flipped to `settled` _before_ the `await` so a concurrent duplicate
+   submission can't race the signature and settle twice. ELO is then updated
+   (`applyElo` in `ratings.ts`) unless the opponent was the test bot. On a
+   paid table the decision is saved right away, and only then does the
+   signature appear anywhere (§5).
 5. **Read back** — `GET /match/:id?address=...` returns a `MatchView`. Before
    the match is decided, a caller only ever sees _their own_ score plus a
    boolean `rivalSubmitted` (never the rival's number) — this is the
    anti-spying guard in `view()`. Once decided, it also returns
-   `{ winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay,
-rating, ratingDelta }` — the rich feedback loop agents use to improve.
-6. **Claim on-chain** — the winner (or anyone, permissionlessly) submits the
-   arbiter's signature to the contract's `settle(id, winner, signature)`,
-   which pays out. See §5.
+   `{ winner, signature, signatureDeadline, yourScore, rivalScore, margin,
+netPnl, rivalReplay, rating, ratingDelta }` — the rich feedback loop agents
+   use to improve. On a paid table the view also carries the on-chain terms
+   (`fundDeadline`, `playDeadline`) and the payout (`settleTx`, or
+   `settleOutcome` when it closed some other way).
+6. **Settle on-chain** — the arbiter itself submits its signature to the
+   contract's `settle(id, winner, deadline, signature)`, which pays out (v2;
+   before, the winner had to claim). Anyone else can still present it
+   (`settle` is permissionless): the web keeps a claim button as a fallback.
+   See §5.
 7. **Refund paths** — a match that never fills (`refundUnfunded`), fills but
    times out with no result (`refundExpired`), or is explicitly cancelled by
    the arbiter/owner (`cancelMatch`, used for the draw and expiry cases
@@ -253,22 +260,37 @@ The arbiter never touches player funds directly — it only **attests**. The
 signature scheme is EIP-712 and is defined identically on both sides so
 neither can drift:
 
-- **Off-chain** (`apps/server/src/sign.ts`): `signResult(matchId, winner)`
-  signs the typed struct `Result { bytes32 matchId, address winner }` under
-  domain `{ name: "Arcade1v1Escrow", version: "1", chainId, verifyingContract:
+- **Off-chain** (`apps/server/src/sign.ts`): `signResult(matchId, winner,
+deadline)` signs the typed struct
+  `Result { bytes32 matchId, address winner, uint64 deadline }` under domain
+  `{ name: "Arcade1v1Escrow", version: "2", chainId, verifyingContract:
 ESCROW_ADDRESS }`, using the arbiter's private key (`ARBITER_PRIVATE_KEY`).
+  The `deadline` is `playDeadline + REFUND_GRACE`: the signature is valid
+  exactly until the permissionless refund opens, never both at once.
 - **On-chain** (`packages/contracts/src/Escrow1v1.sol`): `settle(id, winner,
-signature)` recomputes the same typed hash via `_hashTypedDataV4` and
-  `ECDSA.recover`s the signer; it requires `signer == arbiter` (a contract
-  storage variable set at deploy time, changeable only by the contract
-  `owner` via `setArbiter`). If it matches, it pays `prize = pot - fee` to
-  `winner` and `fee` to `platformWallet`.
+deadline, signature)` rejects an expired result, recomputes the same typed
+  hash via `_hashTypedDataV4` and `ECDSA.recover`s the signer; it requires
+  `signer == arbiter` (a contract storage variable set at deploy time,
+  changeable only by the contract `owner` via `setArbiter`). If it matches, it
+  pays `prize = pot - fee` to `winner` and `fee` to `platformWallet`.
 
 Because the domain's `chainId` and `verifyingContract` are baked into the
 signed digest, a signature produced for one deployment cannot be replayed
 against a different chain or a different escrow contract.
 
-**Escrow contract mechanics** (`Escrow1v1.sol`, an `Ownable` +
+**The arbiter settles paid 1v1 matches itself (v2).** When a paid match is
+decided, `matchmaking.ts` saves the decision **first** (an immediate flush of
+the match store) and only then shows the winner's signature in the view or
+sends it in a transaction: a crash can never leave two valid results with
+different winners. Then it calls `settle` through the on-chain write queue,
+with retries and backoff. If the transaction fails, the chain decides what
+happened: already `Settled` (someone else presented the same signature, e.g.
+the winner from the web) → `settleOutcome: "external"`; `Refunded` →
+`"refunded"`; still `Funded` → retry. If the signature expires unpresented, the
+arbiter cancels (refund) instead. `settle` stays permissionless: the web keeps
+a claim button as a fallback.
+
+**Escrow contract mechanics** (`Escrow1v1.sol`, an `Ownable2Step` +
 `ReentrancyGuard` + `EIP712` contract holding USDC):
 
 - `open(id, stake, fundDeadline, playDeadline, seatSig)` — first player deposits
@@ -277,36 +299,51 @@ against a different chain or a different escrow contract.
   stake (an asynchronous "deposit and walk away" model, so the arbiter has no
   gas-drain attack surface from match creation).
 - `join(id, seatSig)` — second player deposits, state → `Funded`.
-- **`seatSig` (since v3.4.0)** — an EIP-712 `Seat(bytes32 matchId,address player)`
-  signed by the arbiter. Both `open` and `join` require it, so only the two
-  players the arbiter actually paired can take the seats: it closes the slot
-  front-run without costing the arbiter any gas. `seatDigest(matchId, player)`
-  exposes the digest for clients.
+- **`seatSig`** — an EIP-712
+  `Seat(bytes32 matchId, address player, uint256 stake, uint64 fundDeadline, uint64 playDeadline)`
+  signed by the arbiter (the terms since v2; `matchId` + `player` since
+  v3.4.0). Both `open` and `join` require it, so only the two players the
+  arbiter actually paired can take the seats, and the opener cannot choose
+  terms the joiner didn't get: `join` verifies the seat against the terms
+  stored at `open`. The arbiter fixes the terms when it creates the match
+  (fund: the rival wait + 10 min; play: the submission window) and the views
+  carry them (`fundDeadline`, `playDeadline`). `seatDigest(...)` exposes the
+  digest for clients.
 - **`REFUND_GRACE` (since v3.4.0)** — 30 minutes (`1800`) that must elapse past
   `playDeadline` before `refundExpired` becomes callable, so a loser can't
   front-run `settle` with a refund.
-- `settle(id, winner, signature)` — verifies the arbiter's signature (above)
-  and pays out; state → `Settled`.
+- `settle(id, winner, deadline, signature)` — verifies the arbiter's signature
+  (above) and pays out; state → `Settled`.
 - `refundUnfunded` / `refundExpired` / `cancelMatch` — the three refund paths
   described in §4.7, all moving state to `Refunded`.
+- **Every payment is pushed separately (v2).** If USDC rejects one (a Circle
+  blacklist, the token paused), that amount is credited in `owed[account]`
+  and the rest still pays; `withdraw()` / `withdrawFor(account)` deliver it
+  later, only to that account. A pushed transfer that runs out of gas reverts
+  the whole call (the EIP-150 1/64 check), so nobody can turn someone else's
+  payment into a credit by choosing the gas of a permissionless call.
 - `allowedStake` is an owner-controlled mapping — must be kept in sync with
   the arbiter's `STAKES_ALLOWED` env var and the web's stake table, or a
   match could be creatable off-chain but not payable on-chain (or vice
-  versa).
+  versa). Disabling a table also stops `join` (v2): it is the emergency brake
+  on new deposits; exits are never blocked.
 - `feeBps` is capped at `MAX_FEE_BPS = 2000` (20%) in the contract itself, so
   no key compromise or admin mistake can raise the platform's cut above that
-  hard ceiling.
+  hard ceiling. Ownership transfers are two-step and `renounceOwnership` is
+  disabled (v2).
 
 On the web side, `apps/web/app/lib/useEscrow.tsx` wraps `wagmi`'s
 `writeContract`/`readContract` for `approveStake` (exact-amount ERC-20
-`approve`, never infinite), `open`, `join` (which first reads the match
-**directly from the chain** to sanity-check stake and deadlines before
-depositing — defends against a malicious opener setting an absurd
-`playDeadline`), and `claim` (calls `settle` with the arbiter's signature).
-The one place the arbiter _does_ spend its own gas is calling `cancelMatch`
-for draws/expirations (`apps/server/src/onchain.ts`), which is why its ETH
-balance is actively monitored (`gas-monitor.ts`, surfaced on `GET /stats` and
-the public `/status` page) — see DEPLOY.md for the operational side of this.
+`approve`, never infinite), `open` (with the terms from the matchmaking view),
+`join` (which first reads the match **directly from the chain** to check it is
+open, with the expected stake and still inside the fund deadline), `claim`
+(the fallback: reads the chain before and after, so an arbiter that already
+paid is not paid twice), and `withdraw` for credited payments (`/recover`).
+The arbiter spends its own gas on `settle` for decided paid matches and on
+`cancelMatch` for draws/expirations (`apps/server/src/onchain.ts`), which is
+why its ETH balance is actively monitored (`gas-monitor.ts`, surfaced on
+`GET /stats` and the public `/status` page) — see DEPLOY.md for the
+operational side of this.
 
 ## 6. One code path: how agent-sdk and the MCP server reuse the human API
 
