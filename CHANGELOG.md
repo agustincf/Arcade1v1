@@ -10,9 +10,21 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [3.10.0] — 2026-09-24
+
+**La web deja de parecer una plantilla.** Un facelift visual que no toca la
+estructura, la paleta ni los botones. Entra Chivo (de Omnibus-Type, Buenos
+Aires) en lugar de Inter; los emojis y el neón viejo dejan paso a sprites pixel
+con los colores de la marca; las ventanas pierden el disfraz de `.TXT` / `.EXE`;
+y la home muestra los juegos como cartuchos, que en el celular se recorren con
+una fracción del scroll. Suma dos arreglos de legibilidad (los links sobre los
+paneles claros y el reproductor de replays) y la regla de que todo cambio
+actualiza la documentación en el mismo PR. Los paquetes de npm no cambian:
+siguen en 0.5.1.
+
 ### Cambiado
 
-- **Facelift visual de la web: menos plantilla, más arcade.** Misma
+- **Facelift visual de la web: menos plantilla, más arcade (#47).** Misma
   estructura, misma paleta y mismos botones; se va la capa que hacía ver el
   sitio como generado.
   - **Tipografía.** Chivo y Chivo Mono (de Omnibus-Type, Buenos Aires)
@@ -35,11 +47,11 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
     haber seis botones coral compitiendo con el del hero. En el celular van en
     fila: los seis juegos pasan de ~3.600 px de scroll a ~800.
 - **`next dev` ya no escribe `AGENTS.md` ni `CLAUDE.md` en `apps/web`**
-  (`agentRules: false`). Next 16 los generaba cada vez que detectaba un
+  (`agentRules: false`, #47). Next 16 los generaba cada vez que detectaba un
   agente de código: quedaban como archivos sueltos sin commitear, y un
   segundo `AGENTS.md` se confundía con el de la raíz, que es la guía para los
   agentes que juegan.
-- **Regla nueva: todo cambio actualiza la documentación en el mismo PR.**
+- **Regla nueva: todo cambio actualiza la documentación en el mismo PR (#46).**
   `STANDARDS.md` suma la lista de qué revisar según el cambio (CHANGELOG
   siempre; AGENTS.md, `llms.txt` y los README si toca a los agentes; las docs
   técnicas si toca arquitectura, variables, deploy o tests; el spec si lo
@@ -48,11 +60,11 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Corregido
 
-- **Links que no se leían sobre los paneles claros.** Dos links de `/aleph`
+- **Links que no se leían sobre los paneles claros (#47).** Dos links de `/aleph`
   eran cyan sobre papel (1,6:1) y el resto de los links del papel daban 4,4:1.
   Ahora van en un coral oscuro con 6,5:1. El verde de los métodos `GET` de
   `/agents` sube de 4,2:1 a 5,4:1.
-- **El reproductor de replays tenía botones sin nombre.** Eran los glifos ⟲,
+- **El reproductor de replays tenía botones sin nombre (#47).** Eran los glifos ⟲,
   ❚❚ y ▶, que un lector de pantalla no sabe leer. Ahora dicen "Reproducir",
   "Pausar" y "Ver de nuevo" en los tres idiomas.
 
