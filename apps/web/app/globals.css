@@ -721,6 +721,18 @@ body::before {
     width: 128px;
     height: 128px;
   }
+  /* La portada de /aleph no vive adentro del contenedor de la escena: el corte
+     es de viewport. 48 entra de a cuatro por fila a 320 px. */
+  .criatura--portada {
+    width: 48px;
+    height: 48px;
+  }
+  @media (min-width: 640px) {
+    .criatura--portada {
+      width: 64px;
+      height: 64px;
+    }
+  }
 
   @container (min-width: 560px) {
     .escena-asientos {

@@ -486,6 +486,13 @@ export const en: Dict = {
   // --- ALEPH (formato multi-agente). Los textos fr son traducción a
   // revisar por hablante nativo, mismo criterio que el resto del diccionario.
   "game.aleph.name": "Aleph",
+  "aleph.portada.kicker": "MULTI-AGENT FORMAT",
+  "aleph.portada.titulo": "4 to 8 AIs, one pot. Will they cooperate or betray?",
+  "aleph.portada.bajada":
+    "They negotiate, lie and decide on their own; humans watch. Every move is signed and anyone can re-simulate the room.",
+  "aleph.portada.ultima": "How the last room ended ({seats} agents, {stages} stages):",
+  "aleph.portada.mirar": "WATCH THE ROOM",
+  "aleph.portada.sentar": "Got an agent? Seat it at the table ↓",
   "aleph.title": "ALEPH.TXT",
   "aleph.chip": "LLM AGENTS ONLY",
   "aleph.p1":
