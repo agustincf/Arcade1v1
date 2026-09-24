@@ -63,6 +63,14 @@ export const VIEW_PASS_MAX_AGE_MS = 8 * 60_000;
 const ROOM_OPEN_POLL_MS = 500;
 const ROOM_OPEN_POLLS = 60;
 
+export interface AlephWithdrawResult {
+  /** Lo que esta wallet tenía acreditado en el escrow (micro-USDC). 0n = nada:
+   *  no se mandó ninguna transacción. */
+  amount: bigint;
+  /** El `withdraw`, cuando hubo algo que cobrar. */
+  txHash?: Hex;
+}
+
 export interface AlephDepositResult {
   /** `open` (fui el primero: abrí la sala), `deposit`, o `already` (ya figuraba). */
   step: "open" | "deposit" | "already";
@@ -160,6 +168,15 @@ export function createAgent(opts: {
    *  OTRO proceso (un reinicio, un script aparte) pasa su tope:
    *  `alephDeposit(roomId, { maxStake: 2 })`. */
   alephDeposit(roomId: string, limits?: { maxStake?: number }): Promise<AlephDepositResult>;
+  /** Aleph, mesa de plata: cobra lo que el escrow tiene ACREDITADO a esta
+   *  wallet. Pasa cuando el USDC rechazó un pago al liquidar o reembolsar (la
+   *  address estaba en la blacklist de Circle, o el token en pausa): el resto de
+   *  la sala cobró igual y esa parte quedó guardada a nombre de esta wallet.
+   *  Lee `owed` primero y, sin nada acreditado, no manda ninguna transacción.
+   *  Exige `rpcUrl`, `privateKey` y `escrow` en `createAgent`: cobra del escrow
+   *  CLAVADO, nunca de uno que nombre el árbitro. Es un saldo por dirección:
+   *  una llamada cobra lo de todas las salas. */
+  alephWithdraw(): Promise<AlephWithdrawResult>;
 } {
   // UN PIN QUE NO SE PUEDE USAR NO CUENTA COMO PIN, y se corta acá, al crear el
   // agente: antes de sentarse y de tocar la red. `missingOptions` (más abajo)
@@ -806,6 +823,53 @@ export function createAgent(opts: {
     return { step, txHash, view };
   }
 
+  async function alephWithdraw(): Promise<AlephWithdrawResult> {
+    // Sin las tres cosas no hay nada que cobrar con criterio: sin RPC no se lee
+    // la cadena, sin `privateKey` la wallet es efímera (no pudo tener nada
+    // acreditado) y sin el pin el único escrow a mano sería uno que nombra la
+    // red. Se corta antes de hablar con nadie.
+    const missing = missingOptions(["rpcUrl", "privateKey", "escrow"]);
+    if (missing.length > 0) {
+      throw new Error(
+        `alephWithdraw needs rpcUrl, privateKey and escrow (the EscrowAleph address you trust) in ` +
+          `createAgent — missing: ${missing.join(", ")}; not withdrawing`,
+      );
+    }
+    const escrow = opts.escrow as Hex;
+    const account = privateKeyToAccount(wallet.privateKey);
+    // No hay vista del árbitro que nombre la red: la dice el RPC del operador,
+    // y una que el SDK no conoce se rechaza igual que en `alephDeposit`.
+    const chain = chainFor(await createPublicClient({ transport: http(opts.rpcUrl) }).getChainId());
+    const pub = createPublicClient({ chain, transport: http(opts.rpcUrl) });
+    const amount = await pub.readContract({
+      address: escrow,
+      abi: escrowAlephAbi,
+      functionName: "owed",
+      args: [account.address],
+    });
+    if (amount === 0n) return { amount };
+    const w = createWalletClient({ account, chain, transport: http(opts.rpcUrl) });
+    // Simular primero: si la address sigue en la blacklist (o el USDC en
+    // pausa), el motivo del token llega entero y no se quema gas.
+    const { request } = await pub.simulateContract({
+      address: escrow,
+      abi: escrowAlephAbi,
+      functionName: "withdraw",
+      args: [],
+      account,
+      chain,
+    });
+    const hash = await w.writeContract(request);
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+    // Mismo cuidado que el depósito: un recibo preconfirmado todavía no está en
+    // `latest`, y un revert minado no lanza.
+    await waitUntilSealed(pub, receipt.blockNumber);
+    if (receipt.status !== "success") {
+      throw new Error(`aleph withdraw reverted on-chain (tx ${hash})`);
+    }
+    return { amount, txHash: hash };
+  }
+
   return {
     address: wallet.address,
     client,
@@ -815,5 +879,6 @@ export function createAgent(opts: {
     alephView,
     alephAct,
     alephDeposit,
+    alephWithdraw,
   };
 }

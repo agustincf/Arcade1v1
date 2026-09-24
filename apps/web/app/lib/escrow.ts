@@ -53,16 +53,48 @@ export const escrowAbi = [
     outputs: [],
     stateMutability: "nonpayable",
   },
+  // Cobro con la firma del árbitro. Desde la v2 la firma VENCE: `deadline`
+  // (segundos) viaja con ella y el árbitro lo publica en la vista de la
+  // partida (`signatureDeadline`). Normalmente liquida el propio árbitro; la
+  // web lo usa como respaldo.
   {
     type: "function",
     name: "settle",
     inputs: [
       { name: "id", type: "bytes32" },
       { name: "winner", type: "address" },
+      { name: "deadline", type: "uint64" },
       { name: "signature", type: "bytes" },
     ],
     outputs: [],
     stateMutability: "nonpayable",
+  },
+  // Lo ACREDITADO a una wallet: un pago o reembolso que el USDC rechazó al
+  // enviarlo (la wallet en la blacklist de Circle, el token en pausa). Queda en
+  // el contrato a su nombre y se retira con `withdraw` (v2).
+  {
+    type: "function",
+    name: "owed",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "withdraw",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  // Un pago de la partida `id` que el USDC rechazó y quedó acreditado.
+  {
+    type: "event",
+    name: "Credited",
+    inputs: [
+      { name: "id", type: "bytes32", indexed: true },
+      { name: "account", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
   },
   // Reembolso si la partida quedó ABIERTA (Open) y venció el plazo de depósito:
   // nadie se unió. Cada quien recupera lo suyo.

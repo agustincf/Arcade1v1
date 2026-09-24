@@ -239,6 +239,17 @@ final, para que nadie se siente creyendo que aportar siempre conviene.
 pendiente todo lo de [`SECURITY.md`](../../../SECURITY.md), con un contrato más
 para auditar.
 
+_Enmienda (2026-09-24): los dos arreglos del contrato decididos el 2026-09-18
+para antes de mainnet quedaron en `EscrowAleph` v2 (su redespliegue en testnet
+va con el merge, [`docs/REDEPLOY-contratos-v2.md`](../../REDEPLOY-contratos-v2.md)).
+Uno, en vez de pasar a "cada asiento retira lo suyo" a secas, cada pago se sigue
+empujando pero por separado, y el que el USDC rechaza (blacklist, token en
+pausa) queda acreditado para `withdraw`: un asiento bloqueado ya no traba la
+sala y los demás siguen cobrando en una transacción, sin pasos extra. Dos, la
+tabla firmada vence (`Payout(roomId, tableHash, deadline)`); el árbitro la arma
+una vez, la re-firma igual si vence, y no publica una firma antes de guardarla.
+Lo que falta para mainnet está en [`docs/MAINNET.md`](../../MAINNET.md)._
+
 ---
 
 ## Tests

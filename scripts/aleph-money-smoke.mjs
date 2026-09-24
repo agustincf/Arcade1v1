@@ -698,8 +698,9 @@ async function awaitSettle(pub, arbiter, view) {
       fail(
         v.payoutSig
           ? `el árbitro no mandó settle en ${SETTLE_CAP_MS / 60_000} min. La tabla firmada está ` +
-              `publicada (payoutSig en la vista; usdc.table y usdc.signature en GET /aleph/<id>/log) ` +
-              `y cualquiera puede presentarla: settle(id, seats, amounts, signature) en el EscrowAleph.`
+              `publicada (payoutSig y payoutDeadline en la vista; usdc.table, usdc.signature y ` +
+              `usdc.deadline en GET /aleph/<id>/log) y cualquiera puede presentarla antes de que ` +
+              `venza: settle(id, seats, amounts, deadline, signature) en el EscrowAleph.`
           : `el árbitro no mandó settle en ${SETTLE_CAP_MS / 60_000} min y todavía no publicó la ` +
               `tabla firmada (no hay payoutSig): mirá los logs del árbitro.`,
       );

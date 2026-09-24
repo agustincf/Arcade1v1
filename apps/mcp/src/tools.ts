@@ -1,7 +1,8 @@
 // Lógica de cada herramienta MCP como funciones puras (reciben un ArbiterClient
 // inyectable). server.ts solo las envuelve en herramientas MCP. Lo único
-// on-chain (el depósito de una mesa de plata de Aleph) lo manda el agent-sdk, y
-// solo con la config de plata del operador (MoneyConfig, más abajo).
+// on-chain (el depósito de una mesa de plata de Aleph, y el retiro de lo que el
+// escrow haya acreditado) lo manda el agent-sdk, y solo con la config de plata
+// del operador (MoneyConfig, más abajo).
 import {
   ArbiterClient,
   createAgent,
@@ -14,6 +15,7 @@ import {
   type AlephLobby,
   type AlephRoomView,
   type AlephDepositResult,
+  type AlephWithdrawResult,
 } from "@arcade1v1/agent-sdk";
 
 type Agent = ReturnType<typeof createAgent>;
@@ -239,6 +241,16 @@ function withoutUrls(message: string): string {
   return message.replace(/[a-z][a-z0-9+.-]*:\/\/\S+/gi, "[rpc url redacted]");
 }
 
+/** El motivo de un fallo de la wallet, en un Error NUEVO y sin ninguna URL.
+ *  Deliberadamente SIN `cause`: adjuntar el original reabriría el mismo hueco
+ *  que esto sanea, porque `.message` (y cualquier otra propiedad de un error
+ *  de viem, como `.shortMessage` o `.details`) seguiría alcanzable desde
+ *  `err.cause` con la URL sin enmascarar. El motivo igual llega al modelo:
+ *  solo se pierde la URL, nunca el resto del mensaje. */
+function errorWithoutUrls(e: unknown): Error {
+  return new Error(withoutUrls(e instanceof Error ? e.message : String(e)));
+}
+
 export async function alephDepositTool(
   agent: Agent,
   roomId: string,
@@ -254,18 +266,7 @@ export async function alephDepositTool(
     // de un reinicio del servidor la sala queda sin ancla y no se deposita.
     r = await agent.alephDeposit(roomId, { maxStake: money.maxStake });
   } catch (e) {
-    // Se re-lanza un Error NUEVO, deliberadamente SIN `cause`: adjuntar el
-    // objeto original reabriría el mismo hueco que esto sanea, porque
-    // `.message` (y cualquier otra propiedad de un error de viem, como
-    // `.shortMessage` o `.details`) seguiría alcanzable desde `err.cause` con
-    // la URL sin enmascarar. El motivo del fallo igual llega al modelo: solo
-    // se pierde la URL, nunca el resto del mensaje. Único uso de
-    // `preserve-caught-error` en el repo — `no-control-regex` en
-    // apps/server/src/agents.ts:134 es un disable del mismo ESTILO (una
-    // regla general, una excepción puntual con motivo en el propio
-    // comentario) pero para OTRA regla, no esta.
-    // eslint-disable-next-line preserve-caught-error -- a propósito, no un olvido: `cause: e` reintroduciría la URL sin enmascarar (ver comentario arriba)
-    throw new Error(withoutUrls(e instanceof Error ? e.message : String(e)));
+    throw errorWithoutUrls(e);
   }
   // La vista que se devuelve es la de ANTES de depositar (el árbitro ve el
   // depósito en su próximo tick, unos segundos): el modelo sigue sondeando
@@ -275,4 +276,23 @@ export async function alephDepositTool(
   // modelo a repetir la llamada, que en el mejor caso contesta `already` y en
   // el peor choca con un RPC atrasado y un saldo que ya se gastó.
   return { ...withLegal(agent, r.view), mustDeposit: false, step: r.step, txHash: r.txHash };
+}
+
+/** Cobra lo que el escrow tiene ACREDITADO a la wallet de este servidor: un
+ *  pago que el USDC rechazó al liquidar o reembolsar (la address en la
+ *  blacklist de Circle, el token en pausa). El resto de la sala cobró igual;
+ *  eso quedó a nombre de esta wallet. Mismo pin y misma máscara de URLs que el
+ *  depósito. `amount` en micro-USDC, como string (JSON no lleva bigint). */
+export async function alephWithdrawTool(
+  agent: Agent,
+  money: MoneyConfig = {},
+): Promise<{ amount: string; txHash?: string }> {
+  assertMoneyTables(money, "not withdrawing");
+  let r: AlephWithdrawResult;
+  try {
+    r = await agent.alephWithdraw();
+  } catch (e) {
+    throw errorWithoutUrls(e);
+  }
+  return { amount: r.amount.toString(), txHash: r.txHash };
 }

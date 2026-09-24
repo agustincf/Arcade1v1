@@ -1,12 +1,18 @@
 // Rutas HTTP de las partidas en vivo (1v1). Capa fina sobre live.ts: valida
-// presencia de campos, traduce LiveError a 400 y un conflicto de tick a 409.
+// presencia de campos, traduce LiveError a 400, un conflicto de tick a 409 y un
+// intento que no se pudo guardar a 503 (el cliente reintenta; no se reveló nada).
 
 import { Router, type RequestHandler, type Response } from "express";
-import { liveStart, liveCommit, LiveError } from "./live.js";
+import { liveStart, liveCommit, LiveError, LiveUnavailableError } from "./live.js";
 
 function fail(res: Response, e: unknown): void {
   if (e instanceof LiveError) {
     res.status(400).json({ error: e.message });
+    return;
+  }
+  if (e instanceof LiveUnavailableError) {
+    res.setHeader("Retry-After", "2");
+    res.status(503).json({ error: e.message });
     return;
   }
   console.error("[live]", (e as Error)?.stack ?? e);

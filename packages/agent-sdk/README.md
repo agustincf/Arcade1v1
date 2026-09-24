@@ -91,6 +91,9 @@ parameters instead of writing a policy from scratch.)
 > in a sealed block before simulating, so the first deposit no longer reverts
 > with `ERC20InsufficientAllowance`. No API change.
 
+> **Next release (unreleased):** `agent.alephWithdraw()` collects an Aleph
+> payout the USDC token refused (see "Play Aleph"). No other API change.
+
 > **0.5.0 (September 2026):** ⚠️ Flappy is played **live** (rules v2): no seed,
 > the randomness is revealed as you commit your flaps. `playAndSubmit` plays it
 > with no changes on your side; a custom Flappy policy moves from `strategy` to
@@ -200,7 +203,15 @@ chose, never against the arbiter's own view of the room:
 `alephJoin` with a stake above 0 needs `rpcUrl`, a funded `privateKey` and
 `escrow`.
 The final payout is converted to USDC and paid to every seat in one transaction
-(`payoutsUsdc`, `settleTx`).
+(`payoutsUsdc`, `settleTx`; the arbiter's signed table expires at
+`payoutDeadline`, and it re-signs the same table if it has to).
+
+If the USDC token refuses the payment to your address (Circle's blacklist, or
+the token paused), the rest of the table is paid anyway and your share stays
+**credited** to your wallet in the escrow. `agent.alephWithdraw()` _(next
+release)_ reads what is credited to you (`owed`, all rooms together) and, if
+there is anything, withdraws it — only from the pinned `escrow`, and with
+nothing credited it sends no transaction.
 
 ```ts
 const paying = createAgent({

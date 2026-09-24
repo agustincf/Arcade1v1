@@ -6,9 +6,12 @@
 // y cada uno cobra exactamente lo que dice la tabla. Después: un fondeo
 // incompleto que vence y el árbitro cancela on-chain. Después: un asiento le
 // gana de mano el settle al árbitro, cuya transacción se mina REVERTIDA, y el
-// árbitro no la guarda como pago. Al final: el `open` de un asiento todavía
-// pendiente en el pool no tira abajo el depósito de otro. Antes de todo: los
-// digests EIP-712 del árbitro (viem) coinciden bit a bit con los del contrato.
+// árbitro no la guarda como pago. Después: un asiento cae en la blacklist del
+// USDC antes de liquidar, los otros cobran igual, su parte queda acreditada y la
+// cobra con `alephWithdraw` del SDK cuando sale de la blacklist (EscrowAleph v2).
+// Al final: el `open` de un asiento todavía pendiente en el pool no tira abajo
+// el depósito de otro. Antes de todo: los digests EIP-712 del árbitro (viem)
+// coinciden bit a bit con los del contrato.
 //
 // Los asientos entran por HTTP (el camino de un agente de verdad) y el reloj
 // del árbitro se sigue empujando in-process para el vencimiento del escenario 2:
@@ -89,7 +92,7 @@ const seatsHashOfAbi = [
 ] as const;
 
 const pub = createPublicClient({ chain: foundry, transport: http(RPC) });
-// Control de anvil (minado automático y mempool): lo usan los escenarios 3 y 4.
+// Control de anvil (minado automático y mempool): lo usan los escenarios 3 y 5.
 const anvil = createTestClient({ mode: "anvil", chain: foundry, transport: http(RPC) });
 const wallet = (k: string) =>
   createWalletClient({
@@ -143,6 +146,29 @@ const bal = (a: Hex) =>
     args: [a],
   }) as Promise<bigint>;
 const usd = (x: bigint) => (Number(x) / 1e6).toFixed(6);
+/** Lo que el escrow tiene acreditado a `a` (EscrowAleph v2). */
+const owed = (a: Hex) =>
+  pub.readContract({
+    address: ESCROW,
+    abi: escrowAlephAbi,
+    functionName: "owed",
+    args: [a],
+  }) as Promise<bigint>;
+// La palanca de la blacklist del USDC de prueba de este e2e (BlacklistUSDC.sol,
+// el mismo token que usan los tests de Foundry): el USDC real de Circle la
+// tiene, y es lo que la v2 del escrow tiene que aguantar.
+const blacklistAbi = [
+  {
+    type: "function",
+    name: "blacklist",
+    inputs: [
+      { name: "account", type: "address" },
+      { name: "on", type: "bool" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+] as const;
 
 function fail(msg: string): never {
   console.log(`\n❌ ${msg}`);
@@ -238,17 +264,18 @@ async function digestCheck() {
   })) as Hex;
   if (tableHash.toLowerCase() !== onchainHash.toLowerCase())
     fail("tableHash difiere entre viem y el contrato");
+  const deadline = 1_900_001_800n;
   const oursP = hashTypedData({
     domain: alephDomain(),
     types: ALEPH_PAYOUT_TYPES,
     primaryType: "Payout",
-    message: { roomId, tableHash },
+    message: { roomId, tableHash, deadline },
   });
   const theirsP = (await pub.readContract({
     address: ESCROW,
     abi: escrowAlephAbi,
     functionName: "payoutDigest",
-    args: [roomId, tableHash],
+    args: [roomId, tableHash, deadline],
   })) as Hex;
   if (oursP.toLowerCase() !== theirsP.toLowerCase())
     fail("payoutDigest difiere entre viem y el contrato");
@@ -320,6 +347,9 @@ async function happyPath() {
   if (p !== t.fee + t.dust)
     fail(`plataforma: ${usd(p)}, esperaba ${usd(t.fee + t.dust)} (comisión + polvo)`);
   if ((await bal(ESCROW)) !== 0n) fail("el escrow no quedó en cero");
+  for (const a of [...seats.map((s) => s.address), PLATFORM]) {
+    if ((await owed(a)) !== 0n) fail(`${a} quedó con saldo acreditado sin motivo`);
+  }
   console.log("✓ cada asiento cobró su fila; plataforma =", usd(p), "(comisión + polvo); escrow 0");
 
   const log = alephLog(roomId);
@@ -445,6 +475,7 @@ async function frontRunScenario() {
         roomId as Hex,
         list,
         list.map((a) => BigInt(signed.payoutsUsdc![a])),
+        BigInt(signed.payoutDeadline!),
         signed.payoutSig!,
       ],
       chain: foundry,
@@ -484,6 +515,73 @@ async function frontRunScenario() {
   console.log("\nREVERT MINADO DEL SETTLE VERIFICADO ✅");
 }
 
+/** EscrowAleph v2: un asiento cae en la blacklist del USDC DESPUÉS de depositar
+ *  (así la pone Circle: no se puede depositar desde una dirección bloqueada). En
+ *  la v1 su pago hacía revertir la liquidación entera y los reembolsos. Ahora
+ *  los otros cobran en la misma transacción, su parte queda acreditada en el
+ *  escrow, `alephWithdraw` del SDK se la niega mientras siga bloqueado (sin
+ *  perderla) y se la cobra cuando sale. */
+async function blacklistedSeatScenario() {
+  console.log("\n--- 4) Un asiento en la blacklist del USDC no traba la mesa y cobra al salir ---");
+  for (const s of seats) await send(owner, USDC, erc20MinimalAbi, "mint", [s.address, STAKE]);
+  let seated;
+  for (const a of agents) seated = await a.alephJoin(2);
+  if (seated!.status !== "funding") fail(`esperaba funding, hay ${seated!.status}`);
+  const roomId = seated!.roomId;
+  for (const a of agents) await a.alephDeposit(roomId);
+  await alephChainTick();
+  if ((await getAlephRoom(roomId))!.status !== "playing") fail("el árbitro no arrancó la sala");
+  await playToSettled(roomId);
+  const before = await Promise.all(seats.map((s) => bal(s.address)));
+  const escrowBefore = await bal(ESCROW);
+
+  const banned = low(seats[1].address);
+  await send(owner, USDC, blacklistAbi, "blacklist", [banned, true]);
+  await alephChainTick();
+  const v = (await getAlephRoom(roomId))!;
+  if (!v.settleTx) fail("la liquidación no salió con un asiento en la blacklist");
+  console.log("✓ settle enviado con un asiento en la blacklist:", v.settleTx);
+
+  const rows = seats.map((s) => BigInt(v.payoutsUsdc![low(s.address)]));
+  for (let i = 0; i < seats.length; i++) {
+    const got = (await bal(seats[i].address)) - before[i];
+    const expected = i === 1 ? 0n : rows[i];
+    if (got !== expected) fail(`asiento ${i}: cobró ${usd(got)}, esperaba ${usd(expected)}`);
+  }
+  if ((await owed(banned)) !== rows[1])
+    fail(
+      `al asiento bloqueado le quedaron ${usd(await owed(banned))} acreditados, esperaba ${usd(rows[1])}`,
+    );
+  // De los 4 stakes de esta sala, el escrow se queda SOLO con lo acreditado.
+  if ((await bal(ESCROW)) !== escrowBefore - STAKE * 4n + rows[1])
+    fail(`el escrow custodia ${usd(await bal(ESCROW))}: tenía que quedarse solo con lo acreditado`);
+  console.log(`✓ los otros tres cobraron; ${usd(rows[1])} USDC quedaron acreditados al bloqueado`);
+
+  // Bloqueado, no cobra, pero tampoco pierde nada: el revert deshace el cero.
+  let refused = false;
+  try {
+    await agents[1].alephWithdraw();
+  } catch {
+    refused = true;
+  }
+  if (!refused) fail("alephWithdraw cobró con la dirección todavía en la blacklist");
+  if ((await owed(banned)) !== rows[1]) fail("un retiro fallido tocó el crédito");
+  console.log("✓ en la blacklist, alephWithdraw falla y el crédito queda intacto");
+
+  await send(owner, USDC, blacklistAbi, "blacklist", [banned, false]);
+  const w = await agents[1].alephWithdraw();
+  if (w.amount !== rows[1] || !w.txHash)
+    fail(`alephWithdraw devolvió ${JSON.stringify(String(w.amount))}`);
+  if ((await bal(seats[1].address)) - before[1] !== rows[1]) fail("el retiro no llegó a la wallet");
+  if ((await owed(banned)) !== 0n) fail("el crédito no quedó en cero después de cobrarlo");
+  // Un asiento sin nada acreditado no manda nada.
+  const none = await agents[0].alephWithdraw();
+  if (none.amount !== 0n || none.txHash)
+    fail("alephWithdraw mandó una transacción sin nada que cobrar");
+  console.log(`✓ fuera de la blacklist, alephWithdraw cobró ${usd(w.amount)} USDC:`, w.txHash);
+  console.log("\nASIENTO EN BLACKLIST SIN TRABAR LA MESA VERIFICADO ✅");
+}
+
 /** El `open` de otro asiento todavía PENDIENTE no puede tirar abajo un depósito.
  *
  *  viem no le pasa bloque a `eth_estimateGas`, y anvil estima sobre el bloque
@@ -495,7 +593,7 @@ async function frontRunScenario() {
  *  los cuatro depositan a la vez; acá se arma a mano, sin minado automático.
  *  Va último: deja la sala fondeada y sin jugar. */
 async function pendingOpenScenario() {
-  console.log("\n--- 4) El open de otro asiento todavía pendiente no tira abajo un depósito ---");
+  console.log("\n--- 5) El open de otro asiento todavía pendiente no tira abajo un depósito ---");
   for (const s of seats) await send(owner, USDC, erc20MinimalAbi, "mint", [s.address, STAKE]);
   let seated;
   for (const a of agents) seated = await a.alephJoin(2);
@@ -556,6 +654,7 @@ async function main() {
   await happyPath();
   await unfundedScenario();
   await frontRunScenario();
+  await blacklistedSeatScenario();
   await pendingOpenScenario();
   // Las conexiones del SDK quedan vivas (keep-alive): sin cerrarlas el proceso
   // se quedaría esperando el timeout del socket.

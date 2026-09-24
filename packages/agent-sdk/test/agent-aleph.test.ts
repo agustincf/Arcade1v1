@@ -906,3 +906,85 @@ test("alephAct sin `at` falla claro si la sala no está en juego", async () => {
   await assert.rejects(() => agent.alephAct(ROOM, { type: "ready" }), /not playing/);
   assert.equal(fake.acts.length, 0);
 });
+
+// ---- alephWithdraw: cobrar lo acreditado ------------------------------------
+// EscrowAleph v2 empuja cada pago por separado y, si el USDC rechaza uno (la
+// address en la blacklist de Circle, el token en pausa), lo deja ACREDITADO a
+// su dueño. `alephWithdraw` lo cobra, siempre del escrow clavado.
+
+test("alephWithdraw: sin rpcUrl, privateKey o escrow se niega sin tocar la red", async () => {
+  const rpc = await fakeRpc("0x7a69", { owed: 5n });
+  try {
+    for (const opts of [
+      { rpcUrl: rpc.url, escrow: ESCROW },
+      { privateKey: generatePrivateKey(), escrow: ESCROW },
+      { privateKey: generatePrivateKey(), rpcUrl: rpc.url },
+    ]) {
+      await assert.rejects(
+        () => createAgent({ client: new FakeAleph(), ...opts }).alephWithdraw(),
+        /alephWithdraw needs rpcUrl, privateKey and escrow/,
+      );
+    }
+    assert.deepEqual(rpc.calls, [], "ni una lectura: se cortó antes");
+  } finally {
+    rpc.close();
+  }
+});
+
+test("alephWithdraw: sin nada acreditado no firma ni transmite nada", async () => {
+  const rpc = await fakeRpc("0x7a69"); // owed = 0
+  try {
+    const agent = createAgent({
+      client: new FakeAleph(),
+      privateKey: generatePrivateKey(),
+      rpcUrl: rpc.url,
+      escrow: ESCROW,
+    });
+    const r = await agent.alephWithdraw();
+    assert.equal(r.amount, 0n);
+    assert.equal(r.txHash, undefined);
+    assert.ok(rpc.calls.includes("eth_call:owed"), "leyó lo acreditado");
+    assert.deepEqual(rpc.broadcasts, [], "nada que cobrar: nada transmitido");
+  } finally {
+    rpc.close();
+  }
+});
+
+test("alephWithdraw: con algo acreditado, manda UN withdraw al escrow clavado", async () => {
+  const rpc = await fakeRpc("0x7a69", { owed: 1_700_000n, preconfirm: { sealMs: 0 } });
+  try {
+    const agent = createAgent({
+      client: new FakeAleph(),
+      privateKey: generatePrivateKey(),
+      rpcUrl: rpc.url,
+      escrow: ESCROW,
+    });
+    const r = await agent.alephWithdraw();
+    assert.equal(r.amount, 1_700_000n);
+    assert.match(String(r.txHash), /^0x[0-9a-f]{64}$/);
+    const sent: Broadcast[] = rpc.broadcasts;
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].functionName, "withdraw");
+    assert.deepEqual(sent[0].args, []);
+    assert.equal(sent[0].to?.toLowerCase(), ESCROW, "al escrow clavado, no a otro");
+  } finally {
+    rpc.close();
+  }
+});
+
+test("alephWithdraw: un RPC en una red que el SDK no conoce se rechaza antes de leer", async () => {
+  const rpc = await fakeRpc("0x3039", { owed: 5n }); // 12345
+  try {
+    const agent = createAgent({
+      client: new FakeAleph(),
+      privateKey: generatePrivateKey(),
+      rpcUrl: rpc.url,
+      escrow: ESCROW,
+    });
+    await assert.rejects(() => agent.alephWithdraw(), /unknown chainId 12345/);
+    assert.ok(!rpc.calls.some((c) => c.startsWith("eth_call")), "no leyó nada del escrow");
+    assert.deepEqual(rpc.broadcasts, []);
+  } finally {
+    rpc.close();
+  }
+});

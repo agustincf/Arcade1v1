@@ -20,12 +20,14 @@ import {
 } from "@arcade1v1/game-sdk/auth";
 import {
   onchainEnabled,
-  cancelMatchOnchain,
-  readMatchOnchain,
+  escrowChain,
   razonRechazoDeposito,
+  ONCHAIN_STATUS,
+  ESCROW_REFUND_GRACE_S,
 } from "./onchain.js";
 import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
 import { jsonStore } from "./persist.js";
+import { forgetLiveAttempts, saveLiveAttempt, withLiveLock } from "./live-store.js";
 import { recordMatchCreated, recordMatchSettled, recordVerificationRejected } from "./stats.js";
 
 type Status = "waiting" | "ready" | "settled" | "draw";
@@ -163,6 +165,24 @@ export interface Match {
    *  "score mismatch" sin dejar rastro ni consumir el intento. */
   failedAttempts?: Record<string, number>;
   refundPromise?: Promise<void>; // cancelacion/reembolso on-chain en empate
+  /** Mesa de plata: las condiciones que su asiento ata on-chain (segundos,
+   *  epoch). Las fija el árbitro al crear la partida: el que abre deposita con
+   *  ESTAS, y el asiento del que se une verifica contra las mismas. Una partida
+   *  guardada antes de la v2 no las trae: salen de `createdAt` (`termsOf`). */
+  fundDeadline?: number;
+  playDeadline?: number;
+  /** Hasta cuándo vale `signature` (segundos): `playDeadline + REFUND_GRACE`,
+   *  justo cuando se abre el reembolso permissionless. */
+  signatureDeadline?: number;
+  /** Mesa de plata: el hash del `settle` que mandó el árbitro. */
+  settleTx?: Hex;
+  /** Mesa de plata cerrada sin un `settle` propio: la liquidó otro con la misma
+   *  firma ("external"), se reembolsó ("refunded"), o la firma venció sin
+   *  haberse podido presentar y el árbitro la canceló ("expired"). */
+  settleOutcome?: "external" | "refunded" | "expired";
+  /** Intentos fallidos del `settle` y cuándo toca el próximo (backoff). */
+  settleAttempts?: number;
+  nextSettleAt?: number;
   eloUpdate?: { p1: RatingUpdate; p2: RatingUpdate }; // cambio de rating al liquidar
   /** Intentos EN VIVO por jugador (juegos en vivo; ver live.ts). */
   live?: Record<string, LiveAttempt>;
@@ -225,6 +245,39 @@ const WAIT_TTL = 60 * 60 * 1000; // 1 hora: un "waiter" abandonado se descarta d
 // ilimitada con la semilla ya conocida y evita liquidar partidas ya reembolsadas.
 export const SUBMIT_WINDOW_MS = Number(process.env.SUBMIT_WINDOW_MS ?? 2 * 60 * 60 * 1000);
 
+// LAS CONDICIONES DE UNA MESA DE PLATA (v2). Antes las elegía la web al
+// depositar (+1 h de fondeo, +2 h de juego, desde la hora de SU depósito), y el
+// que se unía solo podía revisar que no fueran raras. Ahora las fija el árbitro
+// al crear la partida y van firmadas en el asiento de los dos.
+//  - Fondeo: la espera de rival (WAIT_TTL) más 10 minutos para que el último en
+//    llegar apruebe y se una.
+//  - Juego: la ventana de envío; nunca antes que el fondeo (el contrato exige
+//    playDeadline > fundDeadline), por si alguien achica SUBMIT_WINDOW_MS.
+// Pasado playDeadline + REFUND_GRACE (30 min), cualquiera reembolsa: el árbitro
+// decide a más tardar al cerrar la ventana y tiene esa media hora para liquidar.
+const FUND_WINDOW_MS = WAIT_TTL + 10 * 60_000;
+const PLAY_WINDOW_MS = Math.max(SUBMIT_WINDOW_MS, FUND_WINDOW_MS + 60_000);
+
+/** Las condiciones on-chain de la partida, en segundos. */
+function termsOf(m: Match): { fundDeadline: number; playDeadline: number } {
+  const t0 = Math.floor(m.createdAt / 1000);
+  return {
+    fundDeadline: m.fundDeadline ?? t0 + Math.floor(FUND_WINDOW_MS / 1000),
+    playDeadline: m.playDeadline ?? t0 + Math.floor(PLAY_WINDOW_MS / 1000),
+  };
+}
+
+/** Hasta cuándo vale la firma del ganador (segundos): hasta que se abre el
+ *  reembolso permissionless, ni un segundo más. Así en ningún momento valen a
+ *  la vez el cobro y el reembolso, y la firma guardada en /recover sirve
+ *  mientras cobrar sea posible. */
+function resultDeadlineOf(m: Match): number {
+  return termsOf(m).playDeadline + ESCROW_REFUND_GRACE_S;
+}
+
+/** El stake en micro-USDC, igual que la web (`toUsdcUnits`). */
+const stakeUnits = (stake: number) => BigInt(Math.round(stake * 1_000_000));
+
 // PERSISTENCIA vía persist.ts (Redis o archivo; opt-in, ver ese módulo).
 // Sobrevive a un reinicio del servidor: las partidas en curso vuelven y un
 // ganador puede recuperar su firma para cobrar. El debounce y el guardado
@@ -232,6 +285,13 @@ export const SUBMIT_WINDOW_MS = Number(process.env.SUBMIT_WINDOW_MS ?? 2 * 60 * 
 // maneja el adaptador.
 const store$ = jsonStore("matches");
 const FINISHED_TTL = 2 * 24 * 60 * 60 * 1000; // 2 días: purga partidas terminadas viejas
+
+/** Saca una partida de memoria, y con ella los registros de sus intentos en
+ *  vivo (live-store.ts), si tenía: sin esto quedarían en el store para siempre. */
+function dropMatch(m: Match): void {
+  matches.delete(m.id);
+  if (m.live) forgetLiveAttempts(m.id, Object.keys(m.live));
+}
 
 function serializeMatches(): string {
   const now = Date.now();
@@ -255,6 +315,8 @@ export async function restoreMatches(): Promise<void> {
     const arr = JSON.parse(raw) as Match[];
     for (const m of arr) {
       matches.set(m.id, m);
+      // Lo que vuelve del store ya estaba guardado: su firma puede mostrarse.
+      if (m.signature) decisionSaved.add(m.id);
       // Reconstruimos la cola: una partida en espera (sin rival) vuelve a la fila.
       // Un DESAFÍO (target) NUNCA va a la cola general: solo su target lo acepta
       // (lo descubre el runner con pendingChallengesFor). Sin este guard, tras un
@@ -282,6 +344,7 @@ function createWaiting(k: string, game: string, stake: number, address: string) 
     createdAt: Date.now(),
     status: "waiting",
   };
+  if (stake > 0) Object.assign(m, termsOf(m)); // congeladas desde el nacimiento
   matches.set(m.id, m);
   queue.set(k, m.id);
   recordMatchCreated(); // métrica: una partida nueva (unirse a una existente no crea otra)
@@ -364,12 +427,23 @@ export interface MatchmakeAuth {
 
 /** Adjunta el asiento firmado a la vista si es una mesa de plata con escrow
  *  activo y `address` es uno de los jugadores. Firma con la llave del árbitro
- *  (mismo dominio EIP-712 que el resultado); el contrato la exige en open/join.
- *  En dev/tests sin escrow (onchainEnabled=false) es un no-op: la vista no
- *  cambia y no se toca la llave. */
+ *  (mismo dominio EIP-712 que el resultado) las condiciones que la vista ya
+ *  trae (`fundDeadline`, `playDeadline`, el stake); el contrato lo exige en
+ *  open/join. En dev/tests sin escrow (onchainEnabled=false) es un no-op: la
+ *  vista no cambia y no se toca la llave. */
 async function attachSeat(v: MatchView, address: string): Promise<MatchView> {
-  if (v.stake > 0 && onchainEnabled() && (v.role === "p1" || v.role === "p2")) {
-    v.seatSig = await signSeat(v.matchId, address as Hex);
+  if (
+    v.stake > 0 &&
+    onchainEnabled() &&
+    (v.role === "p1" || v.role === "p2") &&
+    v.fundDeadline !== undefined &&
+    v.playDeadline !== undefined
+  ) {
+    v.seatSig = await signSeat(v.matchId, address as Hex, {
+      stake: stakeUnits(v.stake),
+      fundDeadline: BigInt(v.fundDeadline),
+      playDeadline: BigInt(v.playDeadline),
+    });
   }
   return v;
 }
@@ -415,7 +489,7 @@ export async function matchmake(
   // Limpieza: un waiter ya emparejado o abandonado (viejo) no debe trabar la cola.
   if (waiter && (waiter.p2 || Date.now() - waiter.createdAt > WAIT_TTL)) {
     queue.delete(k);
-    if (!waiter.p2) matches.delete(waiter.id);
+    if (!waiter.p2) dropMatch(waiter);
     waiter = undefined;
   }
   // Un waiter nacido con OTRAS reglas (el deploy que subió la versión del juego
@@ -540,19 +614,37 @@ export async function submitScore(
         `replay not allowed: ${m.game} is live — play through /match/:id/live/start and /live/commit`,
       );
     }
-    m.live ??= {};
-    const prev = m.live[address];
-    m.live[address] = {
-      tokenHash: prev?.tokenHash ?? "",
-      startedAt: prev?.startedAt ?? Date.now(),
-      tick: prev?.tick ?? 0,
-      flaps: prev?.flaps ?? [],
-      revealed: prev?.revealed ?? 0,
-      over: true,
-      score: 0,
-    };
-    await finishLiveAttempt(m, address, 0, { ticks: 0, flaps: [], v: currentV });
-    return view(m, address, { revealOwnScore: true });
+    // Mismo cerrojo y mismo guardado que un cierre desde live.ts: la rendición
+    // cierra el intento, y un intento cerrado sale guardado (live-store.ts).
+    return withLiveLock(m.id, address, async () => {
+      if (m.scores[address] !== undefined) throw new Error("score already submitted");
+      m.live ??= {};
+      const prev = m.live[address];
+      if (prev?.over) {
+        // Ya lo había cerrado el juego y se cortó antes de anotar el puntaje
+        // (no se pudo guardar): vale ese cierre, no la rendición.
+        await saveLiveAttempt(m.id, address, prev);
+        await finishLiveAttempt(m, address, prev.score ?? 0, {
+          ticks: prev.tick,
+          flaps: [...prev.flaps],
+          v: currentV,
+        });
+        return view(m, address, { revealOwnScore: true });
+      }
+      const closed: LiveAttempt = {
+        tokenHash: prev?.tokenHash ?? "",
+        startedAt: prev?.startedAt ?? Date.now(),
+        tick: prev?.tick ?? 0,
+        flaps: prev?.flaps ?? [],
+        revealed: prev?.revealed ?? 0,
+        over: true,
+        score: 0,
+      };
+      await saveLiveAttempt(m.id, address, closed);
+      m.live[address] = closed;
+      await finishLiveAttempt(m, address, 0, { ticks: 0, flaps: [], v: currentV });
+      return view(m, address, { revealOwnScore: true });
+    });
   }
 
   let finalScore = Math.max(0, Math.floor(score));
@@ -620,7 +712,7 @@ export async function assertDepositOnchain(
   if (m.stake <= 0 || !onchainEnabled()) return;
   let enCadena;
   try {
-    enCadena = await readMatchOnchain(m.id as Hex);
+    enCadena = await escrowChain().read(m.id as Hex);
   } catch (e) {
     // El nodo no respondió. No aceptamos a ciegas con plata en juego: se pide
     // reintentar, que es recuperable, en vez de seguir sin poder verificar.
@@ -679,9 +771,9 @@ async function settleIfReady(m: Match) {
     m.status = "draw";
     m.outcome = "draw"; // empate -> reembolso (el arbitro cancela en el contrato)
     if (onchainEnabled()) {
-      m.refundPromise = cancelMatchOnchain(m.id).catch((e) =>
-        console.error("cancelMatch onchain:", (e as Error).message),
-      );
+      m.refundPromise = escrowChain()
+        .cancel(m.id)
+        .catch((e) => console.error("cancelMatch onchain:", (e as Error).message));
     }
   } else {
     const winner = s1 > s2 ? m.p1 : m.p2;
@@ -690,7 +782,8 @@ async function settleIfReady(m: Match) {
     // El status se marca ANTES del await: durante la firma (async) una
     // invocación concurrente pasaría el guard de arriba y liquidaría dos veces.
     m.status = "settled";
-    m.signature = await signResult(m.id, winner as Hex);
+    m.signatureDeadline = resultDeadlineOf(m);
+    m.signature = await signResult(m.id, winner as Hex, BigInt(m.signatureDeadline));
   }
 
   // Rating ELO + métrica de partidas decididas (las de bot de prueba no cuentan,
@@ -704,6 +797,13 @@ async function settleIfReady(m: Match) {
     const houseSide = (houseAddressCheck(m.p1) ? 1 : 0) + (houseAddressCheck(m.p2) ? 1 : 0);
     recordMatchSettled(houseSide as 0 | 1 | 2);
   }
+
+  // Mesa de plata: la firma recién hecha se guarda antes de salir por ningún
+  // lado (vista o transacción), y el árbitro la presenta él mismo.
+  if (needsSettle(m)) {
+    await saveDecision(m);
+    void kickSettle(m);
+  }
 }
 
 // Checker de "¿esta address es un agente de la casa?" — inyectado desde
@@ -711,6 +811,139 @@ async function settleIfReady(m: Match) {
 let houseAddressCheck: (address: string) => boolean = () => false;
 export function setHouseAddressCheck(fn: (address: string) => boolean) {
   houseAddressCheck = fn;
+}
+
+// ------------------------------------------------------------------------- //
+// LA PLATA DE UNA PARTIDA DECIDIDA (mesas de plata, v2).
+//
+// 1) NINGUNA FIRMA SALE ANTES DE QUEDAR GUARDADA. Las partidas se guardan con
+//    debounce (persist.ts: hasta 20 s). Si el árbitro mostraba la firma del
+//    ganador y se caía antes de guardar, volvía sin la decisión: el último
+//    envío se podía repetir con otra corrida y salía OTRA firma, con otro
+//    ganador, igual de válida (C5 en docs/MAINNET.md). Ahora la decisión de una
+//    mesa de plata se guarda en el acto, y recién entonces la firma aparece en
+//    la vista o viaja en una transacción (el mempool es público). Si no se
+//    puede guardar, la firma espera: el barrendero lo reintenta.
+// 2) LIQUIDA EL ÁRBITRO. Antes cobraba el ganador desde la web; si no lo hacía
+//    antes de playDeadline + 30 min, cualquiera —el perdedor incluido— pedía
+//    refundExpired y el premio se volvía reembolso (C9). Ahora el árbitro
+//    presenta la firma apenas queda guardada, con reintentos y backoff. La web
+//    todavía puede presentarla (settle es permissionless): si se adelanta, el
+//    árbitro lo ve en la cadena y no insiste.
+// ------------------------------------------------------------------------- //
+
+/** Decisiones de mesas de plata que ya quedaron guardadas: su firma puede salir. */
+const decisionSaved = new Set<string>();
+/** Liquidaciones en vuelo, una por partida (`onchainSettled` las espera). */
+const settling = new Map<string, Promise<void>>();
+
+/** ¿Hay escrow de por medio? Solo ahí la firma del resultado vale plata. */
+const paidOnchain = (m: Match) => m.stake > 0 && onchainEnabled();
+
+function signatureVisible(m: Match): boolean {
+  return !!m.signature && (!paidOnchain(m) || decisionSaved.has(m.id));
+}
+
+/** Guarda YA la decisión (el store de partidas es uno solo: van todas). Nunca
+ *  tira: si no se pudo guardar, la firma todavía no sale y listo. */
+async function saveDecision(m: Match): Promise<boolean> {
+  if (decisionSaved.has(m.id)) return true;
+  try {
+    persist();
+    await store$.flush();
+    decisionSaved.add(m.id);
+    return true;
+  } catch (e) {
+    console.error(
+      `[settle] ${m.id}: la decisión no se pudo guardar, la firma espera:`,
+      (e as Error).message,
+    );
+    return false;
+  }
+}
+
+/** ¿Es una mesa de plata decidida que el árbitro todavía tiene que liquidar?
+ *  Solo las firmadas por este código (llevan `signatureDeadline`): una partida
+ *  que decidió el árbitro anterior tiene una firma de la v1 del contrato, que el
+ *  v2 no acepta, y la cobró el ganador desde la web. Sin este filtro, el primer
+ *  arranque contra el contrato nuevo intentaba liquidar en él las partidas de
+ *  los últimos dos días, que no existen ahí. */
+function needsSettle(m: Match): boolean {
+  return (
+    paidOnchain(m) &&
+    m.status === "settled" &&
+    !!m.winner &&
+    !!m.signature &&
+    m.signatureDeadline !== undefined &&
+    !m.settleTx &&
+    !m.settleOutcome
+  );
+}
+
+/** Espera entre intentos: 15 s, 30 s, 1 min, 2 min, 4 min y de ahí 5 min. */
+export function settleBackoffMs(attempts: number): number {
+  return Math.min(15_000 * 2 ** Math.max(0, attempts - 1), 5 * 60_000);
+}
+
+/** Liquida (o reintenta liquidar) una mesa de plata decidida: una sola vez a la
+ *  vez por partida, y respetando el backoff. */
+function kickSettle(m: Match, now = Date.now()): Promise<void> {
+  if (!needsSettle(m)) return Promise.resolve();
+  const running = settling.get(m.id);
+  if (running) return running;
+  if ((m.nextSettleAt ?? 0) > now) return Promise.resolve();
+  const p = settleOnchain(m, now).finally(() => settling.delete(m.id));
+  settling.set(m.id, p);
+  return p;
+}
+
+async function settleOnchain(m: Match, now: number): Promise<void> {
+  const chain = escrowChain();
+  const deadline = m.signatureDeadline!; // needsSettle lo exige
+  try {
+    if (!(await saveDecision(m))) throw new Error("the decision is not saved yet");
+    if (Math.floor(now / 1000) > deadline) {
+      await closeExpired(m);
+    } else {
+      m.settleTx = await chain.settle(m.id, m.winner as Hex, BigInt(deadline), m.signature as Hex);
+      m.settleAttempts = undefined;
+      m.nextSettleAt = undefined;
+      console.log(`[settle] ${m.id}: liquidada por el árbitro (tx ${m.settleTx})`);
+    }
+  } catch (e) {
+    // Qué pasó lo dice la cadena, no el error: si otro presentó la firma (el
+    // ganador desde la web) o la partida ya se reembolsó, no queda nada por
+    // hacer. Si sigue Funded (RPC caído, árbitro sin gas), se reintenta.
+    const c = await chain.read(m.id).catch(() => null);
+    if (c?.status === ONCHAIN_STATUS.Settled) m.settleOutcome = "external";
+    else if (c?.status === ONCHAIN_STATUS.Refunded) m.settleOutcome = "refunded";
+    else {
+      m.settleAttempts = (m.settleAttempts ?? 0) + 1;
+      m.nextSettleAt = now + settleBackoffMs(m.settleAttempts);
+      console.error(
+        `[settle] ${m.id}: intento ${m.settleAttempts} falló, se reintenta:`,
+        (e as Error).message,
+      );
+    }
+  }
+  persist();
+}
+
+/** La firma venció sin haberse podido presentar. Desde ahí el contrato solo
+ *  reembolsa (refundExpired, para cualquiera): si nadie lo hizo todavía, lo
+ *  hace el árbitro, como con una partida vencida. Si la lectura falla, tira y
+ *  vuelve al backoff. */
+async function closeExpired(m: Match): Promise<void> {
+  const c = await escrowChain().read(m.id);
+  if (c?.status === ONCHAIN_STATUS.Settled) m.settleOutcome = "external";
+  else if (c?.status === ONCHAIN_STATUS.Refunded) m.settleOutcome = "refunded";
+  else {
+    m.settleOutcome = "expired";
+    console.error(`[settle] ${m.id}: la firma venció sin presentarse; se reembolsa`);
+    m.refundPromise = escrowChain()
+      .cancel(m.id)
+      .catch((e) => console.error("cancelMatch (firma vencida) onchain:", (e as Error).message));
+  }
 }
 
 /** Pruebas en solitario: completa la partida con un "bot" y la liquida. */
@@ -735,9 +968,10 @@ export async function addBot(id: string) {
   return view(m, m.p1);
 }
 
-/** Espera a que se resuelva el reembolso on-chain del empate (si aplica). */
-export function onchainSettled(id: string): Promise<void> {
-  return matches.get(id)?.refundPromise ?? Promise.resolve();
+/** Espera a que se resuelva lo on-chain que dejó la decisión: el reembolso del
+ *  empate o la liquidación que manda el árbitro (si aplica). */
+export async function onchainSettled(id: string): Promise<void> {
+  await Promise.all([matches.get(id)?.refundPromise, settling.get(id)]);
 }
 
 export function getMatch(id: string, address?: string) {
@@ -764,7 +998,7 @@ export function dropWaitingMatch(id: string) {
   if (!m || m.p2 || m.status !== "waiting") return;
   const k = qkey(m.game, m.stake);
   if (queue.get(k) === m.id) queue.delete(k);
-  matches.delete(m.id);
+  dropMatch(m);
   persist();
 }
 
@@ -805,11 +1039,24 @@ export interface MatchView {
   challengeTarget?: boolean;
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
-  signature?: Hex; // el ganador la presenta al contrato
+  /** Firma del resultado. En una mesa de plata la presenta el árbitro (y si
+   *  no, el ganador); sale recién cuando la decisión quedó guardada. */
+  signature?: Hex;
+  /** Hasta cuándo vale `signature` (segundos): va como `deadline` en `settle`. */
+  signatureDeadline?: number;
   /** Asiento firmado por el árbitro: autoriza a ESTE jugador a depositar
-   *  (open/join) en esta partida. Solo presente en mesas de plata con escrow
-   *  activo. Ata al rival on-chain: sin él, un tercero secuestra el slot. */
+   *  (open/join) en esta partida, con ESTAS condiciones. Solo presente en mesas
+   *  de plata con escrow activo. Ata al rival on-chain: sin él, un tercero
+   *  secuestra el slot. */
   seatSig?: Hex;
+  /** Mesa de plata: los plazos on-chain que ata el asiento (segundos). `open`
+   *  va con estos; `join` los verifica contra los que quedaron guardados. */
+  fundDeadline?: number;
+  playDeadline?: number;
+  /** Mesa de plata: el `settle` que mandó el árbitro. */
+  settleTx?: Hex;
+  /** Mesa de plata cerrada sin `settle` propio (ver `Match.settleOutcome`). */
+  settleOutcome?: "external" | "refunded" | "expired";
   isBot?: boolean;
   // Feedback rico (presente solo cuando la partida ya termino):
   yourScore?: number;
@@ -860,9 +1107,15 @@ function view(m: Match, address?: string, opts?: { revealOwnScore?: boolean }): 
     challengeTarget: m.target !== undefined && address === m.target ? true : undefined,
     outcome: m.outcome,
     winner: m.winner,
-    signature: m.signature,
+    signature: signatureVisible(m) ? m.signature : undefined,
+    signatureDeadline: signatureVisible(m) ? m.signatureDeadline : undefined,
     isBot: m.isBot,
   };
+  if (paidOnchain(m)) {
+    Object.assign(v, termsOf(m));
+    v.settleTx = m.settleTx;
+    v.settleOutcome = m.settleOutcome;
+  }
 
   // FEEDBACK RICO para jugadores/agentes: solo cuando la partida YA termino,
   // asi nadie ve el puntaje ni el replay del rival antes de jugar (ventaja).
@@ -959,13 +1212,41 @@ export function publicReplay(id: string) {
 const SWEEP_EVERY_MS = 60_000;
 const EXPIRE_GRACE_MS = 15 * 60_000;
 
+/** UN CIERRE EN VIVO QUE SE CORTÓ. El intento se cierra en memoria y recién
+ *  después se guarda y se anota el puntaje (live.ts); si el store falló justo
+ *  ahí, el jugador recibió un 503 y lo normal es que reintente. Si no reintenta
+ *  (cerró la pestaña, o fue el cierre por plazo de un agente BYO, que no tiene a
+ *  quién reintentarle), el intento queda cerrado y la partida sin su puntaje:
+ *  vencería como empate. El barrendero lo completa apenas el store vuelve,
+ *  guardando primero, como cualquier cierre. */
+function healUnfinishedLiveAttempts(m: Match): void {
+  if (!m.live || isDecided(m)) return;
+  for (const [address, a] of Object.entries(m.live)) {
+    if (!a.over || m.scores[address] !== undefined) continue;
+    void withLiveLock(m.id, address, async () => {
+      if (m.scores[address] !== undefined || isDecided(m)) return;
+      await saveLiveAttempt(m.id, address, a);
+      await finishLiveAttempt(m, address, a.score ?? 0, {
+        ticks: a.tick,
+        flaps: [...a.flaps],
+        v: RULES_V[m.game] ?? 1,
+      });
+    }).catch(() => {}); // saveLiveAttempt ya lo logueó; el próximo barrido reintenta
+  }
+}
+
 export function sweepMatches(now = Date.now()) {
   let dirty = false;
   for (const m of [...matches.values()]) {
     const finished = m.status === "settled" || m.status === "draw";
+    if (!finished) healUnfinishedLiveAttempts(m);
     if (finished) {
       if (now - m.createdAt > FINISHED_TTL) {
-        matches.delete(m.id);
+        dropMatch(m);
+      } else {
+        // Mesa de plata decidida que el árbitro todavía no pudo liquidar: el
+        // reintento, con su backoff (ver `kickSettle`).
+        void kickSettle(m, now);
       }
       continue;
     }
@@ -988,11 +1269,11 @@ export function sweepMatches(now = Date.now()) {
         // árbitro ya paga ese gas en el caso del empate: no hay motivo para no
         // hacerlo también acá.
         if (m.stake > 0 && onchainEnabled()) {
-          m.refundPromise = cancelMatchOnchain(m.id).catch((e) =>
-            console.error("cancelMatch (sin rival) onchain:", (e as Error).message),
-          );
+          m.refundPromise = escrowChain()
+            .cancel(m.id)
+            .catch((e) => console.error("cancelMatch (sin rival) onchain:", (e as Error).message));
         }
-        matches.delete(m.id);
+        dropMatch(m);
         dirty = true;
       }
       continue;
@@ -1002,9 +1283,9 @@ export function sweepMatches(now = Date.now()) {
       m.status = "draw";
       m.outcome = "draw";
       if (onchainEnabled()) {
-        m.refundPromise = cancelMatchOnchain(m.id).catch((e) =>
-          console.error("cancelMatch (expirada) onchain:", (e as Error).message),
-        );
+        m.refundPromise = escrowChain()
+          .cancel(m.id)
+          .catch((e) => console.error("cancelMatch (expirada) onchain:", (e as Error).message));
       }
       dirty = true;
     }

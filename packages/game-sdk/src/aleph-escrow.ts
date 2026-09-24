@@ -52,8 +52,8 @@ export function usdcPayoutTable(
   return { pot, fee, net, amounts, dust: net - paid };
 }
 
-/** ABI de EscrowAleph (solo lo que usan árbitro, SDK y e2e). `as const` alcanza
- *  para que viem infiera tipos; no hace falta `satisfies Abi`. */
+/** ABI de EscrowAleph v2 (solo lo que usan árbitro, SDK y e2e). `as const`
+ *  alcanza para que viem infiera tipos; no hace falta `satisfies Abi`. */
 export const escrowAlephAbi = [
   {
     type: "function",
@@ -86,8 +86,34 @@ export const escrowAlephAbi = [
       { name: "id", type: "bytes32" },
       { name: "seats", type: "address[]" },
       { name: "amounts", type: "uint256[]" },
+      // v2: la tabla firmada vence (segundos); pasado el plazo, revierte.
+      { name: "deadline", type: "uint64" },
       { name: "signature", type: "bytes" },
     ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  // v2: lo que el USDC no dejó pagar (blacklist, token en pausa) queda
+  // acreditado por dirección. `withdraw` lo cobra quien lo tiene;
+  // `withdrawFor` se lo entrega a su dueño (la plata nunca va a quien llama).
+  {
+    type: "function",
+    name: "owed",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "withdraw",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "withdrawFor",
+    inputs: [{ name: "account", type: "address" }],
     outputs: [],
     stateMutability: "nonpayable",
   },
@@ -204,6 +230,7 @@ export const escrowAlephAbi = [
     inputs: [
       { name: "id", type: "bytes32" },
       { name: "tableHash", type: "bytes32" },
+      { name: "deadline", type: "uint64" },
     ],
     outputs: [{ type: "bytes32" }],
     stateMutability: "view",

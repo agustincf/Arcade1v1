@@ -97,6 +97,14 @@ export const ALEPH_FUNDING_GRACE_MS = envNum("ALEPH_FUNDING_GRACE_MS", 2 * 60_00
  *  lo sumo N+2 etapas, ~22 fases de 2 min: 3 h sobra, y pasada esa ventana más
  *  la gracia del contrato cualquiera puede pedir el reembolso. */
 export const ALEPH_PLAY_WINDOW_MS = envNum("ALEPH_PLAY_WINDOW_MS", 3 * 60 * 60_000);
+/** Vida de la firma de una tabla de pagos (EscrowAleph v2: la firma VENCE). Si
+ *  el `settle` no sale antes, se vuelve a firmar la MISMA tabla con otro plazo.
+ *  Mientras está vigente, cualquiera puede presentarla con la firma publicada;
+ *  vencida, ya no liquida nada, aunque se haya filtrado. */
+export const ALEPH_PAYOUT_TTL_MS = envNum("ALEPH_PAYOUT_TTL_MS", 30 * 60_000);
+/** Una firma que vence en menos que esto no se manda: se renueva antes. Cubre
+ *  el viaje de la transacción hasta minarse. */
+const PAYOUT_RESIGN_MARGIN_MS = 2 * 60_000;
 /** Mesas permitidas, en USDC enteros. `ALEPH_STAKES` (default "0"); la gratis
  *  está SIEMPRE. Una mesa de plata solo se acepta con ALEPH_ESCROW_ADDRESS
  *  (se chequea por llamada en joinAleph, y config-guard lo exige en producción). */
@@ -178,6 +186,7 @@ export interface AlephChainRecord {
   feeBps?: number;
   payoutsUsdc?: Record<string, string>; // micro-USDC por asiento
   payoutSig?: Hex;
+  payoutDeadline?: number; // segundos (epoch): hasta cuándo vale `payoutSig`
   settleTx?: Hex; // hash de `settle`, solo si lo mandó el árbitro
   settleOutcome?: AlephSettleOutcome; // cerrada sin hash propio
   refundTx?: Hex; // hash de `cancelRoom`, solo si lo mandó el árbitro
@@ -219,6 +228,7 @@ export type AlephRoomView = {
   escrow?: Hex; // stake > 0: el contrato
   payoutsUsdc?: Record<string, string>; // `settled`, stake > 0
   payoutSig?: Hex; // `settled`, stake > 0: cualquiera puede presentar la tabla
+  payoutDeadline?: number; // `settled`, stake > 0: hasta cuándo vale (segundos)
   settleTx?: Hex; // `settled`, stake > 0: el hash, cuando lo mandó el árbitro
   settleOutcome?: AlephSettleOutcome; // `settled`, stake > 0: cerrada sin hash propio
   refundTx?: Hex; // `dissolved`, stake > 0: el hash del `cancelRoom` del árbitro
@@ -246,8 +256,10 @@ const rooms = new Map<string, AlephRoom>();
 const openLobby = new Map<number, string>(); // stake -> roomId del lobby abierto
 const states = new Map<string, AlephState>(); // cache del estado derivado
 const store$ = jsonStore("aleph");
-/** Salas cuya tabla firmada ya quedó GUARDADA en este proceso (ver settleOnchain). */
-const payoutSaved = new Set<string>();
+/** La firma de tabla que ya está GUARDADA en el store, por sala: la que se
+ *  restauró de él o la que este proceso escribió. Solo esa se publica y se manda
+ *  a la cadena (ver settleOnchain). */
+const savedSig = new Map<string, Hex>();
 const normAddr = (a: string) => String(a).toLowerCase();
 const ADDRESS_RE = /^0x[0-9a-f]{40}$/;
 const randomHex32 = () => ("0x" + randomBytes(32).toString("hex")) as Hex;
@@ -264,6 +276,8 @@ export function restoreAlephFrom(raw: string): void {
     rooms.set(room.id, room);
     states.delete(room.id);
     if (room.status === "lobby") openLobby.set(room.stake, room.id);
+    // Vino del store: esa firma ya está guardada.
+    if (room.chain?.payoutSig) savedSig.set(room.id, room.chain.payoutSig);
   }
 }
 
@@ -766,6 +780,7 @@ export function alephLog(roomId: string, now = Date.now()) {
   const room = rooms.get(roomId);
   if (!room) throw new AlephError("room not found");
   if (room.status !== "settled") throw new AlephError("room not settled yet");
+  const signed = durableSig(room);
   return {
     roomId: room.id,
     stake: room.stake,
@@ -778,7 +793,8 @@ export function alephLog(roomId: string, now = Date.now()) {
     events: room.events,
     payouts: room.payouts,
     // Mesa de plata: la tabla en USDC y su firma van en el registro PÚBLICO, así
-    // cualquiera puede presentar el `settle` si la transacción del árbitro falló.
+    // cualquiera puede presentar el `settle` si la transacción del árbitro falló
+    // (mientras la firma no venza: `deadline`, en segundos).
     usdc:
       room.stake > 0
         ? {
@@ -786,7 +802,8 @@ export function alephLog(roomId: string, now = Date.now()) {
             chainId: alephChainId(),
             feeBps: room.chain?.feeBps,
             table: room.chain?.payoutsUsdc,
-            signature: room.chain?.payoutSig,
+            signature: signed.payoutSig,
+            deadline: signed.payoutDeadline,
             settleTx: room.chain?.settleTx,
             settleOutcome: room.chain?.settleOutcome,
           }
@@ -905,7 +922,8 @@ async function syncFunding(room: AlephRoom, now: number): Promise<boolean> {
   return changed;
 }
 
-/** Tabla en USDC + firma (una vez) y `settle` (con reintento). */
+/** La tabla en USDC (una vez), su firma con vencimiento y `settle` (con
+ *  reintento). */
 async function settleOnchain(room: AlephRoom, now: number): Promise<boolean> {
   const rec = room.chain!;
   if (rec.nextAttemptAt !== undefined && now < rec.nextAttemptAt) return false;
@@ -913,35 +931,51 @@ async function settleOnchain(room: AlephRoom, now: number): Promise<boolean> {
   const seats = room.seats as Hex[];
   try {
     const chain = alephChain();
-    if (!rec.payoutSig) {
-      // La comisión se lee del CONTRATO: si difiriera del env, la suma no
-      // cerraría y el settle revertiría.
+    // LA TABLA SE ARMA UNA SOLA VEZ POR SALA. La comisión se lee del CONTRATO:
+    // si difiriera del env, la suma no cerraría y el settle revertiría.
+    if (!rec.payoutsUsdc) {
       const feeBps = await chain.feeBps();
       const { amounts } = usdcPayoutTable(seats, room.payouts!, stakeToUnits(room.stake), feeBps);
       rec.feeBps = feeBps;
       rec.payoutsUsdc = Object.fromEntries(seats.map((a, i) => [a, amounts[i].toString()]));
-      rec.payoutSig = await signAlephPayout(room.id, alephTableHash(seats, amounts));
-    }
-    // LA TABLA FIRMADA SE GUARDA ANTES DE PUBLICARSE. Una sala firma UNA sola
-    // tabla en su vida: la firma no lleva nonce y `settle` es permissionless,
-    // así que dos tablas firmadas de la misma sala son dos órdenes de pago
-    // válidas y cobra la que alguien presente primero. Lo único que puede
-    // romper esa garantía es perder ESTA en una caída dura (OOM/crash; un
-    // redeploy la guarda al entregar la posta): si la ventana perdida se lleva
-    // también las últimas acciones, la sala restaurada re-simula a OTRA tabla y
-    // la firma. Con el debounce de 20 s esa ventana dura 20 s; con este flush
-    // queda en UN viaje al store, no en cero: el event loop sigue atendiendo
-    // requests mientras se espera, y `roomView` ya devuelve la firma desde
-    // memoria. Va en CADA intento hasta que quede guardada: si el guardado de
-    // un intento falla (persist.ts rechaza), este intento no publica, y el
-    // reintento guarda antes de publicar. Cuesta una escritura por mesa de
-    // plata liquidada.
-    if (!payoutSaved.has(room.id)) {
-      await persistNow();
-      payoutSaved.add(room.id);
     }
     const amounts = seats.map((a) => BigInt(rec.payoutsUsdc![a]));
-    rec.settleTx = await chain.settle(room.id, seats, amounts, rec.payoutSig);
+    // LA FIRMA, EN CAMBIO, VENCE (EscrowAleph v2). Si esta vuelta no llega a
+    // mandarla antes del plazo (RPC caído, backoff largo), se firma de nuevo la
+    // MISMA tabla con otro plazo: dos firmas de la misma tabla pagan lo mismo, y
+    // `settle` paga una sola vez.
+    if (
+      !rec.payoutSig ||
+      rec.payoutDeadline === undefined ||
+      rec.payoutDeadline * 1000 - now < PAYOUT_RESIGN_MARGIN_MS
+    ) {
+      const deadline = Math.floor((now + ALEPH_PAYOUT_TTL_MS) / 1000);
+      rec.payoutSig = await signAlephPayout(
+        room.id,
+        alephTableHash(seats, amounts),
+        BigInt(deadline),
+      );
+      rec.payoutDeadline = deadline;
+    }
+    // LA FIRMA SE GUARDA ANTES DE PUBLICARSE, y hasta entonces ni la vista ni
+    // el registro la muestran (ver `durableSig`). `settle` es permissionless:
+    // dos tablas distintas firmadas para la misma sala son dos órdenes de pago,
+    // y cobra la que alguien presente primero. Eso solo puede pasar si se pierde
+    // una firma que alguien ya vio: en una caída dura (OOM/crash; un redeploy la
+    // guarda al entregar la posta) con las últimas acciones perdidas, la sala
+    // restaurada re-simula a OTRA tabla y la firma. Una firma que nunca salió
+    // del proceso antes de quedar guardada no la vio nadie: perderla no deja
+    // ninguna orden de pago dando vueltas. El vencimiento acota además cualquier
+    // otra fuga (un backup viejo restaurado a mano, por ejemplo). Va en CADA
+    // intento hasta que quede guardada: si el guardado falla (persist.ts
+    // rechaza), este intento no publica, y el reintento guarda antes. Cuesta
+    // una escritura por firma.
+    const sig = rec.payoutSig;
+    if (savedSig.get(room.id) !== sig) {
+      await persistNow();
+      savedSig.set(room.id, sig);
+    }
+    rec.settleTx = await chain.settle(room.id, seats, amounts, BigInt(rec.payoutDeadline), sig);
     rec.lastError = undefined;
   } catch (e) {
     const msg = (e as Error).message ?? String(e);
@@ -1040,6 +1074,15 @@ export async function stopAlephTicker(): Promise<void> {
 
 // ---- Vistas -------------------------------------------------------------------
 
+/** La firma de tabla que se puede MOSTRAR: la vigente, solo si ya está guardada
+ *  (ver settleOnchain). Una firma recién hecha y todavía sin guardar no sale de
+ *  este proceso. */
+function durableSig(room: AlephRoom): { payoutSig?: Hex; payoutDeadline?: number } {
+  const c = room.chain;
+  if (!c?.payoutSig || savedSig.get(room.id) !== c.payoutSig) return {};
+  return { payoutSig: c.payoutSig, payoutDeadline: c.payoutDeadline };
+}
+
 export function roomView(room: AlephRoom, address?: string): AlephRoomView {
   const base = {
     roomId: room.id,
@@ -1083,7 +1126,7 @@ export function roomView(room: AlephRoom, address?: string): AlephRoomView {
     if (a && room.eloUpdates?.[a]) out.rating = room.eloUpdates[a];
     if (room.chain) {
       out.payoutsUsdc = room.chain.payoutsUsdc;
-      out.payoutSig = room.chain.payoutSig;
+      Object.assign(out, durableSig(room));
       out.settleTx = room.chain.settleTx;
       out.settleOutcome = room.chain.settleOutcome;
     }
@@ -1174,6 +1217,6 @@ export function __resetAlephForTest(): void {
   rooms.clear();
   openLobby.clear();
   states.clear();
-  payoutSaved.clear();
+  savedSig.clear();
   chainStopping = false;
 }

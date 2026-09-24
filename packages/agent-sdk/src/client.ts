@@ -35,11 +35,27 @@ export interface MatchView {
   rivalSubmitted?: boolean;
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
+  /** Firma del resultado (EIP-712). En una mesa de plata la presenta el propio
+   *  árbitro al contrato; sale recién cuando la decisión quedó guardada. */
   signature?: string;
+  /** Hasta cuándo vale `signature` (segundos, epoch): va como `deadline` en
+   *  `settle`. Vence justo cuando el contrato abre el reembolso. */
+  signatureDeadline?: number;
   /** Asiento firmado por el árbitro: autoriza a ESTE jugador a depositar
-   *  (open/join) en esta partida. Solo en mesas de plata con escrow activo.
-   *  El contrato lo exige para atar al rival on-chain (anti-secuestro de slot). */
+   *  (open/join) en esta partida, con ESTAS condiciones. Solo en mesas de plata
+   *  con escrow activo. El contrato lo exige para atar al rival on-chain
+   *  (anti-secuestro de slot) y para que quien abre no invente los plazos. */
   seatSig?: string;
+  /** Mesa de plata: los plazos on-chain que ata el asiento (segundos, epoch).
+   *  `open` va con estos. */
+  fundDeadline?: number;
+  playDeadline?: number;
+  /** Mesa de plata: el hash del `settle` con el que el árbitro pagó. */
+  settleTx?: string;
+  /** Mesa de plata cerrada sin `settle` del árbitro: la pagó otro con la misma
+   *  firma ("external"), se reembolsó ("refunded"), o la firma venció sin
+   *  presentarse y el árbitro la reembolsó ("expired"). */
+  settleOutcome?: "external" | "refunded" | "expired";
   yourScore?: number;
   rivalScore?: number;
   margin?: number;
@@ -169,7 +185,11 @@ export type AlephRoomView = {
   escrow?: string;
   /** `settled`, stake > 0: la tabla en micro-USDC, su firma y la transacción */
   payoutsUsdc?: Record<string, string>;
+  /** La firma aparece recién cuando el árbitro la guardó; hasta `payoutDeadline`
+   *  (segundos) cualquiera puede presentarla en `settle`. Vencida, el árbitro
+   *  firma de nuevo la misma tabla. */
   payoutSig?: string;
+  payoutDeadline?: number;
   /** `settled`, stake > 0: el hash, cuando lo mandó el árbitro. Sin este pero
    *  con `settleOutcome`, la sala está saldada igual: la firma es pública y
    *  `settle` es permissionless, así que "external" no es un error, es un pago
@@ -216,6 +236,8 @@ export interface AlephLog {
     feeBps?: number;
     table?: Record<string, string>;
     signature?: string;
+    /** Hasta cuándo vale `signature` (segundos, como el contrato). */
+    deadline?: number;
     settleTx?: string;
     /** Sin `settleTx` pero con esto, igual saldada (ver `AlephSettleOutcome`). */
     settleOutcome?: AlephSettleOutcome;

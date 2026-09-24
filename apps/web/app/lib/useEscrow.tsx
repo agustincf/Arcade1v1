@@ -1,13 +1,15 @@
 "use client";
 
-// Hook para el pago on-chain desde la web: aprobar + depositar USDC, y cobrar
-// (settle) con la firma del arbitro. Se usa cuando onchainEnabled === true.
+// Hook para el pago on-chain desde la web: aprobar + depositar USDC, cobrar
+// (settle) con la firma del arbitro si el árbitro no lo hizo todavía, y retirar
+// lo acreditado. Se usa cuando onchainEnabled === true.
 //
 // NOTA: queda listo para enchufar a la UI cuando el contrato este desplegado en
 // la red (Base Sepolia). Las mismas llamadas estan probadas en cadena local
 // (ver packages/contracts/check-payment-e2e.sh).
 
 import { useWriteContract, usePublicClient } from "wagmi";
+import { parseEventLogs } from "viem";
 import {
   ESCROW_ADDRESS,
   USDC_ADDRESS,
@@ -81,27 +83,40 @@ export function useEscrow() {
   /** P1 ABRE la partida depositando su apuesta (modelo asincronico: el 1ro abre,
    *  el 2do se une; nadie espera colgado). El approve ya se hizo antes.
    *  `seatSig` es la firma del árbitro que autoriza a esta wallet en esta
-   *  partida (viene en la respuesta de matchmake): el contrato la exige para
-   *  atar al rival on-chain y evitar el secuestro del slot. */
-  async function open(matchId: `0x${string}`, betUsdc: number, seatSig: `0x${string}`) {
+   *  partida, y `terms` los plazos que esa firma ata (los dos vienen en la
+   *  respuesta de matchmake). Desde la v2 los plazos los fija el árbitro: con
+   *  otros, el contrato rechaza el asiento ("bad seat"). */
+  async function open(
+    matchId: `0x${string}`,
+    betUsdc: number,
+    seatSig: `0x${string}`,
+    terms: { fundDeadline: number; playDeadline: number },
+  ) {
     if (!ESCROW_ADDRESS || !publicClient) {
       throw new Error("on-chain no configurado");
     }
-    const now = BigInt(Math.floor(Date.now() / 1000));
     const hash = await writeContractAsync({
       address: ESCROW_ADDRESS,
       abi: escrowAbi,
       functionName: "open",
-      args: [matchId, toUsdcUnits(betUsdc), now + 3600n, now + 7200n, seatSig],
+      args: [
+        matchId,
+        toUsdcUnits(betUsdc),
+        BigInt(terms.fundDeadline),
+        BigInt(terms.playDeadline),
+        seatSig,
+      ],
     });
     await confirmTx(publicClient, hash);
   }
 
   /** P2 se UNE depositando su apuesta (la partida ya fue abierta por P1).
    *  ANTES de depositar verifica la partida REAL on-chain: que esté abierta,
-   *  que el monto sea el esperado y que los plazos sean los normales. Sin este
-   *  chequeo, un rival malicioso podía abrirla por su cuenta con un plazo de
-   *  juego lejano (años) y dejar el depósito de P2 atrapado hasta entonces. */
+   *  con el monto esperado y todavía dentro del plazo para unirse. Los plazos
+   *  ya no se revisan a mano: antes un rival podía abrir con un plazo de juego
+   *  lejano (años) y dejar el depósito de P2 atrapado, y la web lo frenaba con
+   *  una heurística. Desde la v2 el contrato verifica el asiento de P2 contra
+   *  los plazos que quedaron guardados, que son los que firmó el árbitro. */
   async function join(matchId: `0x${string}`, betUsdc: number, seatSig: `0x${string}`) {
     if (!ESCROW_ADDRESS || !publicClient) {
       throw new Error("on-chain no configurado");
@@ -110,11 +125,7 @@ export function useEscrow() {
     const nowSec = Math.floor(Date.now() / 1000);
     if (m.status !== MatchStatus.Open) throw new Error("la partida no está abierta");
     if (m.stake !== toUsdcUnits(betUsdc)) throw new Error("el monto no coincide con la mesa");
-    // La web abre con fundDeadline = +1h y playDeadline = +2h; toleramos un
-    // margen chico. Cualquier plazo mayor es sospechoso: no depositamos.
-    if (m.fundDeadline > nowSec + 3900 || m.playDeadline > nowSec + 7500) {
-      throw new Error("plazos anormales: no es seguro unirse");
-    }
+    if (nowSec > m.fundDeadline) throw new Error("venció el plazo para unirse");
     const hash = await writeContractAsync({
       address: ESCROW_ADDRESS,
       abi: escrowAbi,
@@ -124,16 +135,83 @@ export function useEscrow() {
     await confirmTx(publicClient, hash);
   }
 
-  /** El ganador cobra: envía la firma del árbitro al contrato. */
-  async function claim(matchId: `0x${string}`, winner: `0x${string}`, signature: `0x${string}`) {
+  /** El ganador cobra con la firma del árbitro. Es el RESPALDO: desde la v2 el
+   *  árbitro liquida solo apenas decide. Por eso mira la cadena antes y
+   *  después: si la partida ya está pagada (el árbitro se adelantó, o la
+   *  transacción se minó y falló solo la espera del recibo), el premio ya
+   *  salió y no hay nada que mandar. `deadline` es hasta cuándo vale la firma
+   *  (segundos), tal como la publica el árbitro. */
+  async function claim(
+    matchId: `0x${string}`,
+    winner: `0x${string}`,
+    deadline: number,
+    signature: `0x${string}`,
+  ): Promise<"paid" | "already"> {
+    if (!ESCROW_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    if ((await readMatch(matchId)).status === MatchStatus.Settled) return "already";
+    try {
+      const hash = await writeContractAsync({
+        address: ESCROW_ADDRESS,
+        abi: escrowAbi,
+        functionName: "settle",
+        args: [matchId, winner, BigInt(deadline), signature],
+      });
+      await confirmTx(publicClient, hash);
+      return "paid";
+    } catch (e) {
+      const after = await readMatch(matchId).catch(() => null);
+      if (after?.status === MatchStatus.Settled) return "already";
+      throw e;
+    }
+  }
+
+  /** Lo ACREDITADO a `owner` en el contrato (unidades del token): pagos o
+   *  reembolsos que el USDC rechazó al enviarlos. */
+  async function readOwed(owner: `0x${string}`): Promise<bigint> {
+    if (!ESCROW_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    return (await publicClient.readContract({
+      address: ESCROW_ADDRESS,
+      abi: escrowAbi,
+      functionName: "owed",
+      args: [owner],
+    })) as bigint;
+  }
+
+  /** ¿La liquidación `txHash` le ACREDITÓ el pago a `account` en vez de
+   *  mandárselo (el USDC lo rechazó)? Se lee del recibo de ESA transacción, así
+   *  un crédito viejo de otra partida no confunde. Sin hash (la pagó otro con
+   *  la misma firma), mira si hay algo acreditado. */
+  async function creditedIn(
+    txHash: `0x${string}` | null,
+    account: `0x${string}`,
+  ): Promise<boolean> {
+    if (!ESCROW_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    if (!txHash) return (await readOwed(account)) > 0n;
+    const escrowAddr = ESCROW_ADDRESS.toLowerCase();
+    const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+    return parseEventLogs({ abi: escrowAbi, eventName: "Credited", logs: receipt.logs }).some(
+      (l) =>
+        l.address.toLowerCase() === escrowAddr &&
+        l.args.account.toLowerCase() === account.toLowerCase(),
+    );
+  }
+
+  /** Retira todo lo acreditado a la wallet conectada. */
+  async function withdraw() {
     if (!ESCROW_ADDRESS || !publicClient) {
       throw new Error("on-chain no configurado");
     }
     const hash = await writeContractAsync({
       address: ESCROW_ADDRESS,
       abi: escrowAbi,
-      functionName: "settle",
-      args: [matchId, winner, signature],
+      functionName: "withdraw",
+      args: [],
     });
     await confirmTx(publicClient, hash);
   }
@@ -205,6 +283,9 @@ export function useEscrow() {
     open,
     join,
     claim,
+    readOwed,
+    creditedIn,
+    withdraw,
     refundUnfunded,
     refundExpired,
     readMatch,

@@ -1,12 +1,14 @@
 // LO QUE EL ÁRBITRO NO PUEDE OLVIDAR de una mesa de plata. Dos garantías, las
 // dos sobre el mismo registro en memoria que se guarda en el store:
 //
-//  1. La TABLA DE PAGOS FIRMADA se guarda ANTES de mandarse. Una sala firma una
-//     sola tabla en su vida: la firma no lleva nonce y `settle` es
-//     permissionless, así que dos tablas firmadas de la misma sala son dos
-//     órdenes de pago válidas y cobra la que alguien presente primero. Con el
+//  1. La TABLA DE PAGOS FIRMADA se guarda ANTES de mandarse, y ANTES de
+//     mostrarse. `settle` es permissionless, así que dos tablas distintas
+//     firmadas para la misma sala son dos órdenes de pago y cobra la que alguien
+//     presente primero (la firma vence, pero mientras vive, vale). Con el
 //     debounce de 20 s de persist.ts, una caída dura (OOM/crash) entre firmar y
-//     escribir dejaba una sala restaurada que re-simula a OTRA tabla y la firma.
+//     escribir dejaba una sala restaurada que re-simula a OTRA tabla y la firma;
+//     si la primera ya se había visto, quedaban dos. Una firma que nunca salió
+//     del proceso antes de guardarse no la vio nadie: perderla no deja nada.
 //
 //  2. Una sala TERMINADA con plata pendiente en la cadena no se borra: ni por el
 //     tope de salas conservadas (que corre en CADA request) ni por el TTL.
@@ -110,8 +112,11 @@ function fakeChain() {
       rooms.get(roomId)!.status = ALEPH_ESCROW_STATUS.Refunded;
       return ("0x" + "c".repeat(64)) as Hex;
     },
-    async settle(roomId: Hex, _s: Hex[], _a: bigint[], _sig: Hex) {
+    /** Lo que mandó cada `settle`: la firma y su vencimiento. */
+    sentSigs: [] as { deadline: bigint; sig: Hex }[],
+    async settle(roomId: Hex, _s: Hex[], _a: bigint[], deadline: bigint, sig: Hex) {
       f.calls.push("settle");
+      f.sentSigs.push({ deadline, sig });
       f.blobAtSettle = savedBlob();
       rooms.get(roomId)!.status = ALEPH_ESCROW_STATUS.Settled;
       return ("0x" + "5".repeat(64)) as Hex;
@@ -230,18 +235,71 @@ test("si guardar la tabla firmada falla, el settle NO sale; el reintento la guar
   failSetsLeft = 1; // Upstash rechaza la próxima escritura
   await V.alephChainTick(end + 1);
   assert.deepEqual(chain.calls, [], "sin la tabla guardada, el settle no sale");
-  const firmada = (await V.getAlephRoom(roomId, undefined, end + 2))!.payoutSig;
-  assert.ok(firmada, "la tabla quedó firmada en memoria");
+  // Firmada en memoria, pero SIN guardar: no sale del proceso. Ni la vista ni el
+  // registro público la muestran, así que si el proceso muriera ahora nadie
+  // tendría esta orden de pago en la mano.
+  const enMemoria = (
+    JSON.parse(V.serializeAleph()) as { id: string; chain?: { payoutSig?: Hex } }[]
+  ).find((r) => r.id === roomId)?.chain?.payoutSig;
+  assert.ok(enMemoria, "la tabla quedó firmada en memoria");
+  const vista = (await V.getAlephRoom(roomId, undefined, end + 2))!;
+  assert.equal(vista.payoutSig, undefined, "la vista no muestra una firma sin guardar");
+  assert.equal(vista.payoutDeadline, undefined);
+  assert.ok(vista.payoutsUsdc, "la tabla (sin firma) sí: no es una orden de pago");
+  assert.equal(V.alephLog(roomId, end + 2).usdc!.signature, undefined, "el registro tampoco");
 
-  // Pasado el backoff, el reintento guarda PRIMERO y recién ahí publica, con la
-  // MISMA tabla (una sala firma una sola en su vida).
+  // Pasado el backoff, el reintento guarda PRIMERO y recién ahí publica y
+  // manda, con la MISMA firma (sigue vigente).
   await V.alephChainTick(end + 10 * 60_000);
   assert.deepEqual(chain.calls, ["settle"]);
+  assert.equal(chain.sentSigs[0].sig, enMemoria, "la misma firma, ya guardada");
   assert.ok(chain.blobAtSettle, "en el instante del settle, la tabla ya estaba guardada");
   const guardada = (
     JSON.parse(chain.blobAtSettle!) as { id: string; chain?: { payoutSig?: string } }[]
   ).find((r) => r.id === roomId);
-  assert.equal(guardada?.chain?.payoutSig, firmada);
+  assert.equal(guardada?.chain?.payoutSig, enMemoria);
+  assert.equal(
+    (await V.getAlephRoom(roomId, undefined, end + 10 * 60_000))!.payoutSig,
+    enMemoria,
+    "guardada: ahora sí se publica",
+  );
+  C.setAlephChainForTest(undefined);
+});
+
+test("tras un reinicio, la firma que estaba guardada se publica y se reusa: no se firma otra", async () => {
+  V.__resetAlephForTest();
+  writes.length = 0;
+  const chain = fakeChain();
+  C.setAlephChainForTest(chain);
+  const { ws, roomId } = await fundingRoom(T0);
+  for (const w of ws) chain.deposit(roomId, w.address, 4);
+  await V.alephChainTick(T0 + 1_000);
+  const end = await playToSettled(roomId, ws, T0 + 2_000);
+
+  // La firma se guarda, pero el settle no llega a salir (la cadena no contesta).
+  chain.rooms.get(roomId)!.status = ALEPH_ESCROW_STATUS.Funded;
+  const realSettle = chain.settle;
+  chain.settle = async () => {
+    throw new Error("rpc down");
+  };
+  await V.alephChainTick(end + 1);
+  const blob = savedBlob();
+  assert.ok(blob, "la firma llegó al store antes del intento");
+  const antes = (JSON.parse(blob!) as { id: string; chain?: { payoutSig?: Hex } }[]).find(
+    (r) => r.id === roomId,
+  )?.chain?.payoutSig;
+  assert.ok(antes);
+
+  // "Reinicio": se vacía la memoria y se restaura exactamente lo guardado.
+  V.__resetAlephForTest();
+  V.restoreAlephFrom(blob!);
+  const v = (await V.getAlephRoom(roomId, undefined, end + 2))!;
+  assert.equal(v.payoutSig, antes, "vino del store: está guardada, se publica");
+
+  chain.settle = realSettle;
+  await V.alephChainTick(end + 10 * 60_000);
+  assert.deepEqual(chain.calls, ["settle"]);
+  assert.equal(chain.sentSigs[0].sig, antes, "se manda la guardada: no se firmó otra");
   C.setAlephChainForTest(undefined);
 });
 

@@ -17,6 +17,7 @@ import {
   alephViewTool,
   alephActTool,
   alephDepositTool,
+  alephWithdrawTool,
   type MoneyConfig,
 } from "./tools";
 
@@ -231,6 +232,17 @@ export function buildServer(deps: {
       inputSchema: { roomId: z.string() },
     },
     async ({ roomId }) => ok(await alephDepositTool(agent, roomId, money)),
+  );
+
+  server.registerTool(
+    "aleph_withdraw",
+    {
+      title: "Aleph: collect what the escrow credited me",
+      description:
+        "Money tables only, rarely needed. When a room settles or refunds, the escrow pays every seat in one transaction; a payment the USDC token refuses (this wallet on Circle's blacklist, or the token paused) is not lost: it stays credited to this wallet in the escrow and the rest of the table is paid anyway. This checks how much is credited to this server's wallet (all rooms together) and, if anything, withdraws it to that same wallet; with nothing credited it sends no transaction. Refused unless the operator set ARCADE_PRIVATE_KEY, RPC_URL and ARCADE_ALEPH_ESCROW_ADDRESS, and it only collects from that escrow. Returns `amount` (micro-USDC, as a string) and `txHash` when it sent a withdrawal.",
+      inputSchema: {},
+    },
+    async () => ok(await alephWithdrawTool(agent, money)),
   );
 
   return server;

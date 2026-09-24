@@ -90,8 +90,9 @@ const BLOCK = {
 };
 
 /** `chainIdHex` es lo que contesta `eth_chainId` (el control de red de
- *  `alephDeposit`). `chain` fija el saldo y el permiso de USDC de la wallet; la
- *  sala on-chain siempre figura sin abrir (status None) y sin pagos.
+ *  `alephDeposit` y `alephWithdraw`). `chain` fija el saldo y el permiso de USDC
+ *  de la wallet y lo que el escrow le tiene acreditado; la sala on-chain siempre
+ *  figura sin abrir (status None) y sin pagos.
  *
  *  `preconfirm` hace que las transacciones SE MINEN como en el RPC público de
  *  Base: el recibo exitoso sale al instante, con el número del bloque que
@@ -110,6 +111,10 @@ export async function fakeRpc(
   chain: {
     balance?: bigint;
     allowance?: bigint;
+    /** Lo que el escrow tiene acreditado a la wallet (`owed`): lo que cobra
+     *  `alephWithdraw`. Con 0 (el default), la simulación de `withdraw`
+     *  revierte "nothing owed", como el contrato. */
+    owed?: bigint;
     preconfirm?: { sealMs: number; rivalOpensFirst?: boolean };
   } = {},
 ): Promise<FakeRpc> {
@@ -175,6 +180,16 @@ export async function fakeRpc(
                 }),
               );
             }
+            if (functionName === "owed")
+              return ok(
+                encodeFunctionResult({
+                  abi: escrowAlephAbi,
+                  functionName: "owed",
+                  result: chain.owed ?? 0n,
+                }),
+              );
+            if (functionName === "withdraw")
+              return (chain.owed ?? 0n) > 0n ? ok("0x") : requireFailed("nothing owed");
             if (functionName === "paid")
               return ok(
                 encodeFunctionResult({ abi: escrowAlephAbi, functionName: "paid", result: false }),

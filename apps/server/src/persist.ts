@@ -72,8 +72,9 @@ const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 //
 // Lo que NO puede esperar al debounce se guarda con `flush()` en el acto: la
 // tabla de pagos firmada de una mesa de plata de Aleph (ver `settleOnchain` en
-// aleph.ts), porque su firma no lleva nonce y perderla haría firmar una
-// segunda, igual de válida.
+// aleph.ts), que no se publica hasta quedar guardada: perderla después de
+// mostrarla haría firmar una segunda, igual de válida mientras no venza. Los
+// intentos en vivo tampoco esperan: tienen su propio registro (live-store.ts).
 const DEBOUNCE_MS = Number(process.env.PERSIST_DEBOUNCE_MS ?? 20_000);
 
 export interface JsonStore {

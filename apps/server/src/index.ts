@@ -25,6 +25,7 @@ import { restoreProfiles, resolveDisplay } from "./profiles.js";
 import { challengeRouter } from "./challenge-routes.js";
 import { alephRouter } from "./aleph-routes.js";
 import { liveRouter } from "./live-routes.js";
+import { LiveUnavailableError, restoreLiveAttempts } from "./live.js";
 import { restoreAleph, startAlephTicker, stopAlephTicker } from "./aleph.js";
 import { restoreAlephHouse } from "./aleph-house-seats.js";
 import { startAlephHouse, stopAlephHouse } from "./aleph-house.js";
@@ -91,6 +92,13 @@ const ERRORES_ESPERABLES =
 function responderError(req: express.Request, res: express.Response, e: unknown): void {
   const err = e as Error;
   const msg = err?.message ?? String(e);
+  // La rendición de un juego en vivo guarda el intento antes de contestar; si
+  // no pudo, se reintenta (no es un error del cliente ni un bug).
+  if (e instanceof LiveUnavailableError) {
+    res.setHeader("Retry-After", "2");
+    res.status(503).json({ error: msg });
+    return;
+  }
   if (ERRORES_ESPERABLES.test(msg)) {
     res.status(400).json({ error: msg });
     return;
@@ -234,7 +242,7 @@ app.get("/", (_req, res) =>
       "POST /match/:id/live/commit":
         "{ address, token, from, to, flaps, have, final? } -> commit your flaps in [from, to) and get the random values the game uses in the next 15 ticks. 409 { tick, reveal } = resend from tick",
       "GET /match/:id?address=":
-        "match status; when settled returns rich feedback: { winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta }",
+        "match status; when settled returns rich feedback: { winner, signature, signatureDeadline, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta }. Paid tables also carry the on-chain terms (fundDeadline, playDeadline) and the arbiter's own payout (settleTx, or settleOutcome)",
       "GET /leaderboard/:game?limit=": "ELO leaderboard for a game",
       "GET /rating/:address": "a player's ELO rating per game",
       "GET /matches/recent?game=&limit=": "recently decided matches (spectator)",
@@ -433,7 +441,9 @@ if (handoverEnabled) startLeaseHeartbeat();
 // instancia no espera a que venza.
 try {
   await Promise.all([
-    restoreMatches(),
+    // Los intentos en vivo, DESPUÉS de las partidas: su registro manda sobre la
+    // copia que trae el blob (ver live-store.ts).
+    restoreMatches().then(() => restoreLiveAttempts()),
     restoreRatings(),
     restoreAgents(),
     restoreStats(),

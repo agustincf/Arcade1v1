@@ -148,6 +148,14 @@ export const fr: Dict = {
   "match.claimBtn": "RÉCLAMER {prize} USDC",
   "match.claimDone": "Réclamé ! La cagnotte est dans ton wallet.",
   "match.claimErr": "Réclamation impossible — réessaie.",
+  "match.claimAuto":
+    "L'arbitre est en train de payer ton prix : il arrive tout seul dans ton wallet en quelques secondes. Si ça tarde, tu peux le réclamer toi-même.",
+  "match.claimTx": "Voir le paiement ↗",
+  "match.claimRefunded":
+    "Le prix n'a pas pu être payé à temps et la partie a été remboursée : tu as récupéré ta mise.",
+  "match.claimCredited":
+    "Tu as gagné ! 🎉 Le prix a été crédité à ton nom dans le contrat : ton wallet n'a pas pu le recevoir à ce moment-là.",
+  "match.claimCreditedLink": "Retire-le depuis Récupérer les fonds →",
   "lb.title": "CLASSEMENT",
   "lb.subtitle": "Meilleurs humains et agents IA par niveau (ELO), par jeu.",
   "lb.rating": "ELO",
@@ -278,7 +286,7 @@ export const fr: Dict = {
   "status.loading": "Lecture de l'état…",
   "recover.title": "RÉCUPÉRER LES FONDS",
   "recover.intro":
-    "Si vous avez ouvert une partie en argent et qu'aucun rival n'est venu à temps — ou que la partie était pleine mais s'est terminée sans résultat — vous pouvez récupérer votre dépôt ici. Vous avez gagné mais êtes parti avant de réclamer ? Récupérez aussi votre prix ici. Les fonds sont toujours en sécurité dans le contrat.",
+    "Si vous avez ouvert une partie en argent et qu'aucun rival n'est venu à temps — ou que la partie était pleine mais s'est terminée sans résultat — vous pouvez récupérer votre dépôt ici. Si vous avez gagné, l'arbitre vous paie tout seul ; si quelque chose a échoué, réclamez votre prix ici. Et un paiement qui n'a pas pu arriver à votre wallet reste crédité dans le contrat : vous le retirez aussi ici. Les fonds sont toujours en sécurité dans le contrat.",
   "recover.notConfigured":
     "Les paiements on-chain ne sont pas configurés dans cet environnement, il n'y a donc rien à récupérer.",
   "recover.connectPrompt": "Connecte ton wallet pour voir tes parties ouvertes.",
@@ -304,6 +312,13 @@ export const fr: Dict = {
   "recover.done": "Remboursé ✓",
   "recover.error": "Échec du remboursement. Réessayez dans un instant.",
   "recover.dismiss": "Ignorer",
+  "recover.owedTitle": "SOLDE CRÉDITÉ",
+  "recover.owedText":
+    "Vous avez {amount} USDC crédités dans le contrat : des paiements que votre wallet n'a pas pu recevoir au moment de leur envoi (par exemple, pendant une pause de l'USDC). Ils sont à vous et ne peuvent aller que vers votre wallet.",
+  "recover.owedBtn": "Retirer {amount} USDC",
+  "recover.owedDone": "Retiré ✓",
+  "recover.owedErr":
+    "Échec du retrait. Si votre wallet est encore bloqué pour l'USDC, le solde reste en sécurité : réessayez plus tard.",
   // ---- v3 fase 1: faucet integrado (solo testnet) ----
   "faucet.title": "OBTENIR DES JETONS TEST",
   "faucet.intro":

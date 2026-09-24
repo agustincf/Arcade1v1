@@ -163,14 +163,19 @@ BYO-agent por webhook, y todo lo de mainnet.
 
 ### Blockchain
 
-- **Contrato v2 con pausa de emergencia acotada** (solo frena entradas nuevas
-  — `open`/`join` —, nunca las salidas: los reembolsos y cobros siguen).
+- **✅ Freno de emergencia de las entradas (v2, sin pausa aparte)**: una mesa
+  deshabilitada ya no acepta `open` ni `join`/`deposit`; los reembolsos y los
+  cobros siguen.
 - **Auditoría externa del contrato** + llave del árbitro en KMS/HSM y dueño
   del contrato en multisig. Los tres requisitos que SECURITY.md marca como
   bloqueantes para dinero real.
-- **`EscrowAleph` antes de mainnet**: que cada asiento retire lo suyo (hoy un
-  depositante en la blacklist de USDC traba el reembolso de toda la mesa) y la
-  tabla firmada con vencimiento o nonce. Van juntos en un mismo redespliegue.
+- **✅ `Escrow1v1` v2 y `EscrowAleph` v2 (en el código; falta su redespliegue
+  en testnet)**: un pago que el USDC rechaza (blacklist de Circle, token en
+  pausa) queda acreditado a su dueño en vez de trabar la partida, el resultado
+  o la tabla firmada vence, el asiento del 1v1 ata el stake y los plazos, el
+  dueño se transfiere en dos pasos, y el árbitro paga el 1v1 él mismo.
+- **La lista completa para mainnet**, con quién hace cada cosa y en qué orden:
+  [MAINNET.md](MAINNET.md).
 - **Account abstraction**: smart wallets (passkey/social login) + paymaster
   para patrocinar el gas. Jugar por USDC sin extensión de navegador, sin frase
   semilla y sin tener ETH: la fricción número uno de todo el embudo.
@@ -184,9 +189,9 @@ BYO-agent por webhook, y todo lo de mainnet.
   ([spec](superpowers/specs/2026-09-16-benchmark-en-vivo-design.md)).
 - **Los otros cinco juegos** (2048, Tetris, Snake, Carrera, Space Invaders)
   siguen con semilla anticipada: pasarlos al mismo modelo.
-- **Antes de mainnet**: guardar cada intento en vivo en su propia clave,
-  escrita antes de revelar valores nuevos (hoy va con el resto de las partidas
-  cada 20 s).
+- **✅ Cada intento en vivo, guardado antes de revelar**: su propio registro
+  (`arcade:live`), escrito antes de mandar valores nuevos o el final; una caída
+  dura ya no rebobina un intento.
 
 ### Conexión del usuario
 

@@ -1,9 +1,12 @@
 // Prueba de PAGO de punta a punta en cadena local (anvil) del modelo ASINCRONICO
 // (open/join) usando el BACKEND real: emparejar -> P1 ABRE (deposita) -> P2 se
-// UNE (deposita) -> juegan + el arbitro firma -> el ganador cobra. Verifica
-// premio + comision, y el reembolso en empate. Al final, dos cancels del
-// árbitro que se minan REVERTIDOS porque otra transacción se adelanta: uno que
-// hay que reintentar y otro en el que hay que cortar.
+// UNE (deposita), los dos con las condiciones que firmó el árbitro -> juegan ->
+// el árbitro decide, firma y LIQUIDA él mismo (v2). Verifica premio + comisión,
+// el reembolso en empate, el ganador que se adelanta al árbitro con la misma
+// firma, y el ganador en la blacklist de USDC (cobra después, con withdraw). Al
+// final, dos cancels del árbitro que se minan REVERTIDOS porque otra
+// transacción se adelanta: uno que hay que reintentar y otro en el que hay que
+// cortar.
 //
 // A propósito SIN "dotenv/config": todo lo que hace falta lo pasa
 // check-payment-e2e.sh por entorno, y así ningún .env del repo (que localmente
@@ -23,8 +26,13 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
-import { matchmake, submitScore, onchainSettled } from "./matchmaking.js";
-import { cancelMatchOnchain, readMatchOnchain, ONCHAIN_STATUS } from "./onchain.js";
+import { matchmake, submitScore, onchainSettled, getMatch, type MatchView } from "./matchmaking.js";
+import {
+  cancelMatchOnchain,
+  readMatchOnchain,
+  ONCHAIN_STATUS,
+  ESCROW_REFUND_GRACE_S,
+} from "./onchain.js";
 import { signSeat } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { escrowAbi, erc20Abi } from "./abi.js";
@@ -72,10 +80,49 @@ const bal = (a: Hex) =>
     args: [a],
   }) as Promise<bigint>;
 const usd = (x: bigint) => (Number(x) / 1e6).toFixed(2);
-const deadlines = () => {
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  return [now + 3600n, now + 7200n] as const;
-};
+const owed = (a: Hex) =>
+  pub.readContract({
+    address: ESCROW,
+    abi: escrowAbi,
+    functionName: "owed",
+    args: [a],
+  }) as Promise<bigint>;
+
+// El USDC de este e2e es BlacklistUSDC (packages/contracts/test): un MockUSDC
+// con la blacklist de Circle, para el escenario del ganador bloqueado.
+const blacklistAbi = [
+  {
+    type: "function",
+    name: "blacklist",
+    inputs: [{ type: "address" }, { type: "bool" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+] as const;
+
+/** P1 ABRE con las condiciones de SU vista (las que firmó el árbitro) y P2 se
+ *  UNE con su asiento. Sin asiento, o con otras condiciones, revierten. */
+async function openAndJoin(v1: MatchView, v2: MatchView, stake: bigint) {
+  if (!v1.seatSig || !v2.seatSig || v1.fundDeadline === undefined || !v1.playDeadline) {
+    throw new Error("matchmake no emitió el asiento y sus plazos (¿escrow activo?)");
+  }
+  await send(p1, ESCROW, escrowAbi, "open", [
+    v1.matchId,
+    stake,
+    BigInt(v1.fundDeadline),
+    BigInt(v1.playDeadline),
+    v1.seatSig,
+  ]);
+  await send(p2, ESCROW, escrowAbi, "join", [v2.matchId, v2.seatSig]);
+}
+
+/** USDC y approve exacto para los dos jugadores. */
+async function fundBoth(stake: bigint) {
+  await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
+  await send(owner, USDC, erc20Abi, "mint", [P2, stake]);
+  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
+}
 
 function play2048(seed: number | undefined, maxMoves: number) {
   // 2048 no es un juego en vivo: la vista siempre trae la semilla.
@@ -93,41 +140,46 @@ function play2048(seed: number | undefined, maxMoves: number) {
 
 async function main() {
   const stake = 5_000_000n;
-  // Preparacion: mesa habilitada, gas para el arbitro (cancela en empate), USDC.
+  // La gracia del contrato y la del árbitro son la MISMA constante: el
+  // resultado firmado vence justo cuando se abre el reembolso.
+  const grace = await pub.readContract({
+    address: ESCROW,
+    abi: escrowAbi,
+    functionName: "REFUND_GRACE",
+  });
+  if (Number(grace) !== ESCROW_REFUND_GRACE_S) {
+    fail(
+      `REFUND_GRACE del contrato (${grace}) != ESCROW_REFUND_GRACE_S (${ESCROW_REFUND_GRACE_S})`,
+    );
+  }
+  console.log("✓ REFUND_GRACE del contrato coincide con el del árbitro:", Number(grace), "s");
+
+  // Preparacion: mesa habilitada, gas para el arbitro (liquida y cancela), USDC.
   await send(owner, ESCROW, escrowAbi, "setAllowedStake", [stake, true]);
   await owner.sendTransaction({
     to: privateKeyToAccount(process.env.ARBITER_PRIVATE_KEY as Hex).address,
     value: parseEther("1"),
     chain: foundry,
   });
-  await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
-  await send(owner, USDC, erc20Abi, "mint", [P2, stake]);
-  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
-  await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  await fundBoth(stake);
 
   // 1) Emparejamiento (backend): A es p1, B es p2 (mismo matchId).
   const m1 = await matchmake("2048", 5, P1);
   const m2 = await matchmake("2048", 5, P2);
   console.log("✓ emparejados:", m1.matchId === m2.matchId);
+  console.log(
+    "✓ las dos vistas traen las MISMAS condiciones:",
+    m1.fundDeadline === m2.fundDeadline && m1.playDeadline === m2.playDeadline,
+  );
 
   // 2) P1 ABRE (deposita), P2 se UNE (deposita). El arbitro no toca nada.
   //    Cada uno presenta su ASIENTO (firma del árbitro que lo autoriza a ESA
-  //    partida): sin él, open/join revierten "bad seat". El backend lo emite en
-  //    la respuesta de matchmake para mesas de plata.
-  const [fund, play] = deadlines();
-  if (!m1.seatSig || !m2.seatSig)
-    throw new Error("matchmake no emitió el asiento (¿escrow activo?)");
-  await send(p1, ESCROW, escrowAbi, "open", [
-    m1.matchId as Hex,
-    stake,
-    fund,
-    play,
-    m1.seatSig as Hex,
-  ]);
-  await send(p2, ESCROW, escrowAbi, "join", [m2.matchId as Hex, m2.seatSig as Hex]);
+  //    partida con ESAS condiciones): sin él, open/join revierten "bad seat".
+  //    El backend lo emite en la respuesta de matchmake para mesas de plata.
+  await openAndJoin(m1, m2, stake);
   console.log("✓ P1 abrió + P2 se unió · escrow:", usd(await bal(ESCROW)), "USDC");
 
-  // 3) Juegan y el arbitro decide + firma (P1 gana).
+  // 3) Juegan y el arbitro decide + firma (P1 gana)...
   const sA = play2048(m1.seed, 500);
   await submitScore(m1.matchId, P1, sA.score, sA.replay);
   const sB = play2048(m2.seed, 12);
@@ -138,14 +190,15 @@ async function main() {
     res.winner?.toLowerCase() === P1.toLowerCase() ? "P1" : "P2",
     "· firma:",
     !!res.signature,
+    "· vence:",
+    res.signatureDeadline === m1.playDeadline! + ESCROW_REFUND_GRACE_S,
   );
 
-  // 4) El ganador cobra (cualquiera puede llamar settle con la firma).
-  await send(owner, ESCROW, escrowAbi, "settle", [
-    res.matchId as Hex,
-    res.winner as Hex,
-    res.signature as Hex,
-  ]);
+  // 4) ...y LIQUIDA ÉL MISMO: nadie más manda una transacción.
+  await onchainSettled(res.matchId);
+  const after = getMatch(res.matchId, P1);
+  if (!after?.settleTx) fail("el árbitro no dejó el hash de su settle en la vista");
+  console.log("✓ el árbitro liquidó solo · tx:", after.settleTx);
 
   console.log("✓ ganador cobró:", usd(await bal(P1)), "USDC (esperado 8.50)");
   console.log("✓ plataforma (15%):", usd(await bal(PLATFORM)), "USDC (esperado 1.50)");
@@ -158,10 +211,12 @@ async function main() {
     console.log("\n❌ Balances no cuadran");
     process.exit(1);
   }
-  console.log("\nCICLO ASINCRONICO (open/join, con el backend) VERIFICADO ✅");
+  console.log("\nCICLO ASINCRONICO (open/join, con el backend, liquida el árbitro) VERIFICADO ✅");
 
   await drawScenario();
   await ghostScenario();
+  await winnerBeatsTheArbiter();
+  await blacklistedWinner();
   await rivalJoinsWhileCancelTravels();
   await refundedWhileCancelTravels();
 }
@@ -171,10 +226,7 @@ async function drawScenario() {
   console.log("\n--- Empate (reembolso on-chain) ---");
   const stake = 10_000_000n;
   await send(owner, ESCROW, escrowAbi, "setAllowedStake", [stake, true]);
-  await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
-  await send(owner, USDC, erc20Abi, "mint", [P2, stake]);
-  await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
-  await send(p2, USDC, erc20Abi, "approve", [ESCROW, stake]);
+  await fundBoth(stake);
   const b1 = await bal(P1);
   const b2 = await bal(P2);
   const bE = await bal(ESCROW);
@@ -182,17 +234,7 @@ async function drawScenario() {
 
   const m1 = await matchmake("2048", 10, P1);
   const m2 = await matchmake("2048", 10, P2);
-  const [fund, play] = deadlines();
-  if (!m1.seatSig || !m2.seatSig)
-    throw new Error("matchmake no emitió el asiento (¿escrow activo?)");
-  await send(p1, ESCROW, escrowAbi, "open", [
-    m1.matchId as Hex,
-    stake,
-    fund,
-    play,
-    m1.seatSig as Hex,
-  ]);
-  await send(p2, ESCROW, escrowAbi, "join", [m2.matchId as Hex, m2.seatSig as Hex]);
+  await openAndJoin(m1, m2, stake);
 
   const a = play2048(m1.seed, 80);
   await submitScore(m1.matchId, P1, a.score, a.replay);
@@ -248,13 +290,14 @@ async function ghostScenario() {
   await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
   await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
   const m2 = await matchmake("2048", 1, P2); // se empareja con la de P1
-  const [fund, play] = deadlines();
-  if (!m.seatSig) throw new Error("matchmake no emitió el asiento");
+  if (!m.seatSig || m.fundDeadline === undefined || m.playDeadline === undefined) {
+    throw new Error("matchmake no emitió el asiento");
+  }
   await send(p1, ESCROW, escrowAbi, "open", [
     m.matchId as Hex,
     stake,
-    fund,
-    play,
+    BigInt(m.fundDeadline),
+    BigInt(m.playDeadline),
     m.seatSig as Hex,
   ]);
   const run2 = play2048(m.seed, 120);
@@ -266,6 +309,106 @@ async function ghostScenario() {
   );
 
   console.log("\nGUARDA DE DEPÓSITO ON-CHAIN VERIFICADA ✅");
+}
+
+/** EL GANADOR SE ADELANTA AL ÁRBITRO. `settle` es permissionless y la web
+ *  todavía muestra el botón de cobrar: el ganador puede presentar la MISMA
+ *  firma mientras viaja la del árbitro. La suya entra primero, la del árbitro
+ *  revierte ya minada, y el árbitro tiene que leer la cadena y darla por
+ *  liquidada por otro ("external"), sin reintentar ni tomarla como propia. */
+async function winnerBeatsTheArbiter() {
+  console.log("\n--- El ganador presenta la firma mientras viaja la del árbitro ---");
+  const stake = 5_000_000n;
+  await fundBoth(stake);
+  const m1 = await matchmake("2048", 5, P1);
+  const m2 = await matchmake("2048", 5, P2);
+  await openAndJoin(m1, m2, stake);
+  const sA = play2048(m1.seed, 500);
+  await submitScore(m1.matchId, P1, sA.score, sA.replay);
+  const b1 = await bal(P1);
+
+  const sB = play2048(m2.seed, 12);
+  let arbiterTx: Hex | undefined;
+  let winnerTx: Hex;
+  await anvil.setAutomine(false);
+  try {
+    // La decisión dispara el settle del árbitro, que se queda en el mempool.
+    const res = await submitScore(m2.matchId, P2, sB.score, sB.replay);
+    if (!res.signature || res.signatureDeadline === undefined) {
+      fail("la vista del que cerró la partida no trae la firma y su vencimiento");
+    }
+    arbiterTx = await pendingFrom(ARBITER);
+    if (!arbiterTx) fail("el settle del árbitro nunca llegó al mempool");
+    // El ganador, con la firma de SU vista, y más propina.
+    const own = getMatch(m1.matchId, P1)!;
+    winnerTx = await p1.writeContract({
+      address: ESCROW,
+      abi: escrowAbi,
+      functionName: "settle",
+      args: [m1.matchId, own.winner as Hex, BigInt(own.signatureDeadline!), own.signature!],
+      chain: foundry,
+      ...AHEAD,
+    });
+    await anvil.mine({ blocks: 1 });
+  } finally {
+    await anvil.setAutomine(true);
+  }
+  const mine = await pub.getTransactionReceipt({ hash: winnerTx });
+  const theirs = await pub.getTransactionReceipt({ hash: arbiterTx });
+  if (mine.status !== "success" || theirs.status !== "reverted") {
+    fail(`la carrera no se reprodujo: ganador ${mine.status}, árbitro ${theirs.status}`);
+  }
+  console.log("✓ el settle del árbitro se minó REVERTIDO:", arbiterTx);
+
+  await onchainSettled(m1.matchId);
+  const v = getMatch(m1.matchId, P1)!;
+  if (v.settleOutcome !== "external" || v.settleTx) {
+    fail(`esperaba settleOutcome "external" sin hash propio: ${v.settleOutcome} / ${v.settleTx}`);
+  }
+  if ((await bal(P1)) - b1 !== 8_500_000n) fail("el ganador no cobró exactamente una vez");
+  console.log("✓ el árbitro la dio por liquidada por otro (external); el ganador cobró una vez");
+  console.log("\nGANADOR ADELANTADO AL ÁRBITRO VERIFICADO ✅");
+}
+
+/** EL GANADOR EN LA BLACKLIST DE USDC (v2). Circle bloquea al ganador después
+ *  de depositar: en la v1 el `settle` revertía y la plata quedaba trabada. Ahora
+ *  el árbitro liquida igual, la comisión sale, el premio queda ACREDITADO, y el
+ *  ganador lo retira cuando sale de la blacklist. */
+async function blacklistedWinner() {
+  console.log("\n--- Ganador en la blacklist de USDC (crédito y retiro) ---");
+  const stake = 10_000_000n;
+  await fundBoth(stake);
+  const m1 = await matchmake("2048", 10, P1);
+  const m2 = await matchmake("2048", 10, P2);
+  await openAndJoin(m1, m2, stake);
+  const [b1, bP] = await Promise.all([bal(P1), bal(PLATFORM)]);
+  await send(owner, USDC, blacklistAbi as unknown as Abi, "blacklist", [P1, true]);
+
+  const sA = play2048(m1.seed, 500);
+  await submitScore(m1.matchId, P1, sA.score, sA.replay);
+  const sB = play2048(m2.seed, 12);
+  await submitScore(m2.matchId, P2, sB.score, sB.replay);
+  await onchainSettled(m1.matchId);
+
+  const v = getMatch(m1.matchId, P1)!;
+  if (!v.settleTx) fail("el árbitro no liquidó con el ganador en la blacklist");
+  const status = (await readMatchOnchain(m1.matchId as Hex))?.status;
+  if (status !== ONCHAIN_STATUS.Settled) fail(`esperaba Settled, está en ${status}`);
+  const prize = 17_000_000n; // 20 USDC de pozo, 15 % de comisión
+  if ((await owed(P1)) !== prize || (await bal(P1)) !== b1) {
+    fail("el premio tenía que quedar acreditado, sin llegar a la wallet bloqueada");
+  }
+  if ((await bal(PLATFORM)) - bP !== 3_000_000n) fail("la comisión tenía que salir igual");
+  console.log("✓ liquidada igual: comisión pagada, premio acreditado (owed):", usd(prize), "USDC");
+
+  await send(owner, USDC, blacklistAbi as unknown as Abi, "blacklist", [P1, false]);
+  // Cualquiera se lo entrega a su dueño; la plata va SOLO al acreedor.
+  await send(owner, ESCROW, escrowAbi, "withdrawFor", [P1]);
+  if ((await bal(P1)) - b1 !== prize || (await owed(P1)) !== 0n) {
+    fail("al salir de la blacklist, el retiro no le entregó el premio");
+  }
+  console.log("✓ fuera de la blacklist, withdrawFor le entregó el premio");
+  console.log("\nCRÉDITO DE RESPALDO (1v1) VERIFICADO ✅");
 }
 
 // UN REVERT MINADO NO ES UN REEMBOLSO. Los tests del árbitro prueban la
@@ -311,6 +454,20 @@ const AHEAD = {
   maxPriorityFeePerGas: parseGwei("100"),
 };
 
+/** La primera transacción de `from` que espera en el mempool (sin minado
+ *  automático), o undefined si no llega en ~30 s. */
+async function pendingFrom(from: string): Promise<Hex | undefined> {
+  for (let i = 0; i < 300; i++) {
+    const { pending } = await anvil.getTxpoolContent();
+    const [tx] = Object.entries(pending)
+      .filter(([addr]) => addr.toLowerCase() === from)
+      .flatMap(([, byNonce]) => Object.values(byNonce));
+    if (tx?.hash) return tx.hash;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return undefined;
+}
+
 /** Sin minado automático, el cancel del árbitro (ya simulado) se queda
  *  esperando en el mempool. Ahí `ahead` manda la suya con más propina: anvil
  *  ordena por propina, así que las dos entran en el mismo bloque con la de
@@ -326,14 +483,7 @@ async function raceTheCancel(matchId: Hex, ahead: () => Promise<Hex>, blockTimes
       () => null,
       (e: Error) => e,
     );
-    for (let i = 0; i < 300 && !arbiterTx; i++) {
-      const { pending } = await anvil.getTxpoolContent();
-      const [tx] = Object.entries(pending)
-        .filter(([from]) => from.toLowerCase() === ARBITER)
-        .flatMap(([, byNonce]) => Object.values(byNonce));
-      arbiterTx = tx?.hash;
-      if (!arbiterTx) await new Promise((r) => setTimeout(r, 100));
-    }
+    arbiterTx = await pendingFrom(ARBITER);
     if (!arbiterTx) throw new Error("el cancel del árbitro nunca llegó al mempool");
     aheadTx = await ahead();
     if (blockTimestamp !== undefined) {
@@ -381,10 +531,17 @@ async function rivalJoinsWhileCancelTravels() {
 
   const id = freshMatchId();
   const now = await chainNow();
-  const seat1 = await signSeat(id, P1);
-  await send(p1, ESCROW, escrowAbi, "open", [id, stake, now + 3600n, now + 7200n, seat1]);
+  const terms = { stake, fundDeadline: now + 3600n, playDeadline: now + 7200n };
+  const seat1 = await signSeat(id, P1, terms);
+  await send(p1, ESCROW, escrowAbi, "open", [
+    id,
+    stake,
+    terms.fundDeadline,
+    terms.playDeadline,
+    seat1,
+  ]);
 
-  const seat2 = await signSeat(id, P2);
+  const seat2 = await signSeat(id, P2, terms);
   const { error } = await raceTheCancel(id, () =>
     p2.writeContract({
       address: ESCROW,
@@ -424,7 +581,7 @@ async function refundedWhileCancelTravels() {
   // Plazo de fondeo corto, medido con el reloj de la cadena: el bloque de la
   // carrera se mina ya vencido, que es cuando `refundUnfunded` vale.
   const fund = (await chainNow()) + 60n;
-  const seat = await signSeat(id, P1);
+  const seat = await signSeat(id, P1, { stake, fundDeadline: fund, playDeadline: fund + 60n });
   await send(p1, ESCROW, escrowAbi, "open", [id, stake, fund, fund + 60n, seat]);
 
   const { arbiterTx, error } = await raceTheCancel(

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Prueba el PAGO completo en cadena local (anvil): despliega USDC + escrow,
-# dos jugadores depositan, el arbitro firma y el contrato paga al ganador + comision.
-# Al final, dos cancels del arbitro que se minan REVERTIDOS porque otra
-# transaccion se adelanta: uno que hay que reintentar y otro en el que hay que cortar.
+# dos jugadores depositan con las condiciones que firmo el arbitro, el arbitro
+# decide, firma y liquida el mismo, y el contrato paga al ganador + comision.
+# Tambien: el ganador que se adelanta al arbitro con la misma firma, y el ganador
+# en la blacklist de USDC (credito y retiro). Al final, dos cancels del arbitro
+# que se minan REVERTIDOS porque otra transaccion se adelanta: uno que hay que
+# reintentar y otro en el que hay que cortar.
 # Requiere Foundry y el monorepo instalado (npm install).
 # Uso:  bash packages/contracts/check-payment-e2e.sh
 set -e
@@ -27,7 +30,8 @@ ARB_KEY=0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
 ARB_ADDR=$(cast wallet address --private-key "$ARB_KEY")
 
 cd "$ROOT/packages/contracts"
-USDC=$(forge create test/MockUSDC.sol:MockUSDC --rpc-url http://localhost:8545 \
+# BlacklistUSDC es MockUSDC con la blacklist de Circle (para el ganador bloqueado).
+USDC=$(forge create test/BlacklistUSDC.sol:BlacklistUSDC --rpc-url http://localhost:8545 \
   --private-key $KEY0 --broadcast 2>/dev/null | grep "Deployed to:" | awk '{print $3}')
 ESCROW=$(forge create src/Escrow1v1.sol:Escrow1v1 --rpc-url http://localhost:8545 \
   --private-key $KEY0 --broadcast \

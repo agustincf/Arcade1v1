@@ -5,12 +5,16 @@ import {Test} from "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {EscrowAleph} from "../src/EscrowAleph.sol";
-import {MockUSDC} from "./MockUSDC.sol";
+import {BlacklistUSDC} from "./BlacklistUSDC.sol";
 import {ReentrantUSDC} from "./ReentrantUSDC.sol";
+import {GasHungryUSDC} from "./GasHungryUSDC.sol";
+import {MockUSDC} from "./MockUSDC.sol";
 
 contract EscrowAlephTest is Test {
     EscrowAleph escrow;
-    MockUSDC usdc;
+    // Se comporta como MockUSDC hasta que un test prende la blacklist o la
+    // pausa: así todas las pruebas corren contra el mismo token.
+    BlacklistUSDC usdc;
 
     address owner = address(0xABCD);
     address platform = address(0xFEE5);
@@ -26,7 +30,7 @@ contract EscrowAlephTest is Test {
 
     function setUp() public {
         arbiter = vm.addr(arbiterPk);
-        usdc = new MockUSDC();
+        usdc = new BlacklistUSDC();
         escrow = new EscrowAleph(address(usdc), arbiter, platform, feeBps, owner);
         vm.prank(owner);
         escrow.setAllowedStake(stake, true);
@@ -46,6 +50,13 @@ contract EscrowAlephTest is Test {
     function _deadlines() internal view returns (uint64 fund, uint64 play) {
         fund = uint64(block.timestamp + 10 minutes);
         play = uint64(fund + 3 hours);
+    }
+
+    // Vencimiento de la tabla firmada: el árbitro firma con 15 min de vida.
+    // `vm.getBlockTimestamp()` y no `block.timestamp`: varios tests lo llaman
+    // después de un `vm.warp`, y así se lee el reloj movido, siempre.
+    function _dl() internal view returns (uint64) {
+        return uint64(vm.getBlockTimestamp() + 15 minutes);
     }
 
     // Pase del árbitro para `player` en la sala (id, seats, stake, plazos).
@@ -278,6 +289,63 @@ contract EscrowAlephTest is Test {
         new EscrowAleph(address(usdc), arbiter, platform, 2001, owner);
     }
 
+    // DUEÑO EN DOS PASOS (v2): transferir no cambia nada hasta que el nuevo
+    // acepta, así una dirección con un error nunca se queda con el contrato.
+    function test_OwnershipTransferIsTwoStep() public {
+        address typo = address(0xDEAD);
+        address safe = address(0x5AFE);
+        vm.prank(owner);
+        escrow.transferOwnership(typo);
+        assertEq(escrow.owner(), owner, "nada cambia hasta aceptar");
+        assertEq(escrow.pendingOwner(), typo);
+
+        vm.prank(owner);
+        escrow.transferOwnership(safe); // el error se corrige pisando el pendiente
+        vm.prank(typo);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, typo));
+        escrow.acceptOwnership();
+
+        vm.prank(safe);
+        escrow.acceptOwnership();
+        assertEq(escrow.owner(), safe, "el nuevo acepto");
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, owner));
+        escrow.setFeeBps(0);
+    }
+
+    function test_RenounceOwnershipIsDisabled() public {
+        vm.prank(owner);
+        vm.expectRevert(bytes("renounce disabled"));
+        escrow.renounceOwnership();
+        assertEq(escrow.owner(), owner, "sigue teniendo duenio");
+    }
+
+    // FRENO DE ENTRADAS (v2): con la mesa deshabilitada no entra ni un depósito
+    // más, tampoco para completar una sala ya abierta; lo de adentro vuelve.
+    function test_DepositRejectsDisabledTable() public {
+        _open(roomId, seats4);
+        vm.prank(owner);
+        escrow.setAllowedStake(stake, false);
+        bytes memory sig = _signSeat(roomId, seats4, seats4[1]);
+        vm.prank(seats4[1]);
+        vm.expectRevert(bytes("stake not allowed"));
+        escrow.deposit(roomId, sig);
+
+        vm.warp(block.timestamp + 10 minutes + 1);
+        escrow.refundUnfunded(roomId);
+        assertEq(usdc.balanceOf(seats4[0]), stake, "la salida no se frena");
+    }
+
+    // ...y deshabilitarla no frena la liquidación de una sala ya fondeada.
+    function test_DisabledTableStillSettles() public {
+        _fundRoom(roomId, seats4);
+        vm.prank(owner);
+        escrow.setAllowedStake(stake, false);
+        uint256[] memory amounts = _table4();
+        escrow.settle(roomId, seats4, amounts, _dl(), _signPayout(roomId, seats4, amounts));
+        assertEq(usdc.balanceOf(seats4[0]), amounts[0], "liquida igual");
+    }
+
     // --- Liquidación --------------------------------------------------------
 
     function _signPayout(bytes32 id, address[] memory seats, uint256[] memory amounts)
@@ -289,7 +357,7 @@ contract EscrowAlephTest is Test {
         // mano): así cada test de settle también ejercita `tableHashOf`, que es
         // justo lo que el árbitro off-chain va a llamar para validar su encoder.
         bytes32 tableHash = escrow.tableHashOf(seats, amounts);
-        bytes32 digest = escrow.payoutDigest(id, tableHash);
+        bytes32 digest = escrow.payoutDigest(id, tableHash, _dl());
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(arbiterPk, digest);
         return abi.encodePacked(r, s, v);
     }
@@ -317,7 +385,7 @@ contract EscrowAlephTest is Test {
         bytes32 tableHash = escrow.tableHashOf(seats4, amounts);
         vm.expectEmit(true, true, true, true);
         emit EscrowAleph.Settled(roomId, tableHash, 6_800_000, 1_200_000);
-        escrow.settle(roomId, seats4, amounts, sig); // cualquiera puede presentarla
+        escrow.settle(roomId, seats4, amounts, _dl(), sig); // cualquiera puede presentarla
 
         for (uint256 i = 0; i < 4; i++) assertEq(usdc.balanceOf(seats4[i]), amounts[i], "pago del asiento");
         assertEq(usdc.balanceOf(platform), 1_200_000, "comision 15 % (sin polvo en esta tabla)");
@@ -339,7 +407,7 @@ contract EscrowAlephTest is Test {
         amounts[3] -= 2; // 2 micro-USDC de polvo (< N = 4)
         sum -= 2;
         bytes memory sig = _signPayout(roomId, seats4, amounts);
-        escrow.settle(roomId, seats4, amounts, sig);
+        escrow.settle(roomId, seats4, amounts, _dl(), sig);
         assertEq(usdc.balanceOf(platform), 8_000_000 - sum, "comision + polvo");
         assertEq(usdc.balanceOf(address(escrow)), 0);
     }
@@ -349,7 +417,7 @@ contract EscrowAlephTest is Test {
         uint256[] memory amounts = new uint256[](4);
         amounts[0] = 6_800_000; // se lleva todo el neto (Final: robó)
         bytes memory sig = _signPayout(roomId, seats4, amounts);
-        escrow.settle(roomId, seats4, amounts, sig);
+        escrow.settle(roomId, seats4, amounts, _dl(), sig);
         assertEq(usdc.balanceOf(seats4[0]), 6_800_000);
         assertEq(usdc.balanceOf(seats4[1]), 0);
         assertEq(usdc.balanceOf(address(escrow)), 0);
@@ -361,7 +429,7 @@ contract EscrowAlephTest is Test {
         amounts[0] += 1; // un micro-USDC de más: pasa el neto
         bytes memory sig = _signPayout(roomId, seats4, amounts);
         vm.expectRevert(bytes("bad sum"));
-        escrow.settle(roomId, seats4, amounts, sig);
+        escrow.settle(roomId, seats4, amounts, _dl(), sig);
 
         // Y por defecto: dejar N micro-USDC o más sin repartir tampoco vale
         // (la plataforma no puede quedarse con más que el polvo).
@@ -369,7 +437,7 @@ contract EscrowAlephTest is Test {
         low[0] -= 4;
         bytes memory sig2 = _signPayout(roomId, seats4, low);
         vm.expectRevert(bytes("bad sum"));
-        escrow.settle(roomId, seats4, low, sig2);
+        escrow.settle(roomId, seats4, low, _dl(), sig2);
     }
 
     function test_SettleRejectsNonSeatAddress() public {
@@ -380,7 +448,7 @@ contract EscrowAlephTest is Test {
         uint256[] memory amounts = _table4();
         bytes memory sig = _signPayout(roomId, tampered, amounts);
         vm.expectRevert(bytes("bad seat"));
-        escrow.settle(roomId, tampered, amounts, sig);
+        escrow.settle(roomId, tampered, amounts, _dl(), sig);
     }
 
     function test_SettleRejectsReorderedSeats() public {
@@ -393,7 +461,7 @@ contract EscrowAlephTest is Test {
         uint256[] memory amounts = _table4();
         bytes memory sig = _signPayout(roomId, swapped, amounts);
         vm.expectRevert(bytes("bad seat"));
-        escrow.settle(roomId, swapped, amounts, sig);
+        escrow.settle(roomId, swapped, amounts, _dl(), sig);
     }
 
     function test_SettleRejectsBadLength() public {
@@ -401,16 +469,16 @@ contract EscrowAlephTest is Test {
         uint256[] memory three = new uint256[](3);
         bytes memory sig = _signPayout(roomId, seats4, three);
         vm.expectRevert(bytes("bad table"));
-        escrow.settle(roomId, seats4, three, sig);
+        escrow.settle(roomId, seats4, three, _dl(), sig);
     }
 
     function test_SettleRejectsBadSignature() public {
         _fundRoom(roomId, seats4);
         uint256[] memory amounts = _table4();
-        bytes32 digest = escrow.payoutDigest(roomId, keccak256(abi.encode(seats4, amounts)));
+        bytes32 digest = escrow.payoutDigest(roomId, keccak256(abi.encode(seats4, amounts)), _dl());
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xBADBAD, digest);
         vm.expectRevert(bytes("bad signature"));
-        escrow.settle(roomId, seats4, amounts, abi.encodePacked(r, s, v));
+        escrow.settle(roomId, seats4, amounts, _dl(), abi.encodePacked(r, s, v));
     }
 
     // Una tabla firmada para OTRA sala no liquida esta (la firma ata roomId).
@@ -419,16 +487,16 @@ contract EscrowAlephTest is Test {
         uint256[] memory amounts = _table4();
         bytes memory sigOther = _signPayout(keccak256("room-2"), seats4, amounts);
         vm.expectRevert(bytes("bad signature"));
-        escrow.settle(roomId, seats4, amounts, sigOther);
+        escrow.settle(roomId, seats4, amounts, _dl(), sigOther);
     }
 
     function test_CannotSettleTwice() public {
         _fundRoom(roomId, seats4);
         uint256[] memory amounts = _table4();
         bytes memory sig = _signPayout(roomId, seats4, amounts);
-        escrow.settle(roomId, seats4, amounts, sig);
+        escrow.settle(roomId, seats4, amounts, _dl(), sig);
         vm.expectRevert(bytes("not funded"));
-        escrow.settle(roomId, seats4, amounts, sig);
+        escrow.settle(roomId, seats4, amounts, _dl(), sig);
     }
 
     function test_SettleRejectsWhileStillFunding() public {
@@ -436,7 +504,7 @@ contract EscrowAlephTest is Test {
         uint256[] memory amounts = _table4();
         bytes memory sig = _signPayout(roomId, seats4, amounts);
         vm.expectRevert(bytes("not funded"));
-        escrow.settle(roomId, seats4, amounts, sig);
+        escrow.settle(roomId, seats4, amounts, _dl(), sig);
     }
 
     // El bucle aguanta la mesa máxima: 8 asientos, pozo 16 USDC.
@@ -451,7 +519,7 @@ contract EscrowAlephTest is Test {
         uint256[] memory amounts = new uint256[](8);
         for (uint256 i = 0; i < 8; i++) amounts[i] = (1000 * net) / 8000; // 1_700_000 cada uno
         bytes memory sig = _signPayout(id, eight, amounts);
-        escrow.settle(id, eight, amounts, sig);
+        escrow.settle(id, eight, amounts, _dl(), sig);
         for (uint256 i = 0; i < 8; i++) assertEq(usdc.balanceOf(eight[i]), 1_700_000);
         assertEq(usdc.balanceOf(platform), 2_400_000);
         assertEq(usdc.balanceOf(address(escrow)), 0);
@@ -508,14 +576,14 @@ contract EscrowAlephTest is Test {
         escrow.refundExpired(roomId);
         uint256[] memory amounts = _table4();
         bytes memory sig = _signPayout(roomId, seats4, amounts);
-        escrow.settle(roomId, seats4, amounts, sig);
+        escrow.settle(roomId, seats4, amounts, _dl(), sig);
         assertEq(usdc.balanceOf(seats4[0]), amounts[0], "cobra pese al settle tardio");
     }
 
     function test_RefundExpiredRejectsAfterSettle() public {
         _fundRoom(roomId, seats4);
         uint256[] memory amounts = _table4();
-        escrow.settle(roomId, seats4, amounts, _signPayout(roomId, seats4, amounts));
+        escrow.settle(roomId, seats4, amounts, _dl(), _signPayout(roomId, seats4, amounts));
         (, uint64 play) = _deadlines();
         vm.warp(uint256(play) + escrow.REFUND_GRACE() + 1);
         vm.expectRevert(bytes("not funded"));
@@ -549,7 +617,7 @@ contract EscrowAlephTest is Test {
         escrow.cancelRoom(roomId);
 
         uint256[] memory amounts = _table4();
-        escrow.settle(roomId, seats4, amounts, _signPayout(roomId, seats4, amounts));
+        escrow.settle(roomId, seats4, amounts, _dl(), _signPayout(roomId, seats4, amounts));
         vm.prank(arbiter);
         vm.expectRevert(bytes("cant cancel"));
         escrow.cancelRoom(roomId);
@@ -585,14 +653,352 @@ contract EscrowAlephTest is Test {
             else esc.deposit(roomId, sig);
         }
         uint256[] memory amounts = _table4();
-        bytes32 pd = esc.payoutDigest(roomId, keccak256(abi.encode(seats4, amounts)));
+        bytes32 pd = esc.payoutDigest(roomId, keccak256(abi.encode(seats4, amounts)), _dl());
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(arbiterPk, pd);
         bytes memory paySig = abi.encodePacked(r2, s2, v2);
 
-        // Durante el primer transfer (a la plataforma), el token intenta
-        // cancelar la sala: el guard tiene que cortarlo ANTES de mirar quién llama.
+        // En cada envío, el token intenta cancelar la sala: el guard corta la
+        // reentrada ANTES de mirar quién llama. El revert también deshace el
+        // `armed = false` del token, así que lo intenta en TODOS los envíos, y
+        // cada uno falla y queda ACREDITADO. Lo que importa: la sala quedó
+        // liquidada (la cancelación nunca entró) y no se perdió un centavo.
         evil.arm(address(esc), abi.encodeWithSelector(EscrowAleph.cancelRoom.selector, roomId));
+        vm.expectEmit(true, true, true, true, address(esc));
+        emit EscrowAleph.Credited(roomId, platform, 1_200_000);
+        esc.settle(roomId, seats4, amounts, _dl(), paySig);
+        (,,,,, EscrowAleph.Status status) = esc.roomOf(roomId);
+        assertEq(uint8(status), uint8(EscrowAleph.Status.Settled), "la reentrada no la cancelo");
+        assertEq(esc.owed(platform), 1_200_000, "comision acreditada");
+        for (uint256 i = 0; i < 4; i++) assertEq(esc.owed(seats4[i]), amounts[i], "pagos acreditados");
+        assertEq(evil.balanceOf(address(esc)), 8_000_000, "custodia lo acreditado entero");
+
+        // Y el retiro tampoco se deja reentrar: el token intenta liquidar de
+        // nuevo mientras paga lo acreditado, y el retiro entero revierte (el
+        // crédito queda intacto).
+        evil.arm(address(esc), abi.encodeWithSelector(EscrowAleph.withdraw.selector));
         vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
-        esc.settle(roomId, seats4, amounts, paySig);
+        esc.withdrawFor(platform);
+        assertEq(esc.owed(platform), 1_200_000, "credito intacto tras el revert");
+    }
+
+    // --- Pagos que el USDC rechaza (v2) ---------------------------------------
+    // Circle puede poner una dirección en su blacklist DESPUÉS de que depositó, o
+    // pausar el token entero. En la v1 cualquiera de las dos trababa la sala: los
+    // pagos se empujaban juntos y uno que revertía revertía todos, también en los
+    // tres reembolsos. Ahora cada pago va por su cuenta y el rechazado queda
+    // acreditado en `owed`.
+
+    /// Liquidez del contrato: lo que tiene que custodiar es exactamente lo
+    /// acreditado más lo de las salas abiertas que se le pasan.
+    function _assertHolds(uint256 openStakes, address[] memory creditors) internal view {
+        uint256 credited = 0;
+        for (uint256 i = 0; i < creditors.length; i++) credited += escrow.owed(creditors[i]);
+        assertEq(usdc.balanceOf(address(escrow)), credited + openStakes, "custodia = acreditado + salas abiertas");
+    }
+
+    function _withPlatform(address[] memory seats) internal view returns (address[] memory all) {
+        all = new address[](seats.length + 1);
+        for (uint256 i = 0; i < seats.length; i++) all[i] = seats[i];
+        all[seats.length] = platform;
+    }
+
+    function test_SettlePaysAroundBlacklistedSeat() public {
+        _fundRoom(roomId, seats4);
+        usdc.blacklist(seats4[2], true); // después de depositar
+        uint256[] memory amounts = _table4();
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        vm.expectEmit(true, true, true, true, address(escrow));
+        emit EscrowAleph.Credited(roomId, seats4[2], amounts[2]);
+        escrow.settle(roomId, seats4, amounts, _dl(), sig);
+
+        assertEq(usdc.balanceOf(seats4[0]), amounts[0], "cobra");
+        assertEq(usdc.balanceOf(seats4[1]), amounts[1], "cobra");
+        assertEq(usdc.balanceOf(seats4[2]), 0, "en blacklist: no recibe");
+        assertEq(usdc.balanceOf(seats4[3]), amounts[3], "cobra");
+        assertEq(usdc.balanceOf(platform), 1_200_000, "comision");
+        assertEq(escrow.owed(seats4[2]), amounts[2], "su parte queda acreditada");
+        _assertHolds(0, _withPlatform(seats4));
+    }
+
+    function test_SettleCreditsBlacklistedPlatform() public {
+        _fundRoom(roomId, seats4);
+        usdc.blacklist(platform, true);
+        uint256[] memory amounts = _table4();
+        escrow.settle(roomId, seats4, amounts, _dl(), _signPayout(roomId, seats4, amounts));
+        for (uint256 i = 0; i < 4; i++) assertEq(usdc.balanceOf(seats4[i]), amounts[i], "los asientos cobran igual");
+        assertEq(escrow.owed(platform), 1_200_000, "la comision queda acreditada");
+        _assertHolds(0, _withPlatform(seats4));
+    }
+
+    function test_RefundUnfundedCreditsBlacklistedDepositor() public {
+        _open(roomId, seats4);
+        _deposit(roomId, seats4, 1);
+        usdc.blacklist(seats4[0], true);
+        vm.warp(block.timestamp + 10 minutes + 1);
+        escrow.refundUnfunded(roomId);
+        assertEq(usdc.balanceOf(seats4[1]), stake, "el otro depositante recupera lo suyo");
+        assertEq(escrow.owed(seats4[0]), stake, "el de la blacklist queda acreditado");
+        (,,,,, EscrowAleph.Status status) = escrow.roomOf(roomId);
+        assertEq(uint8(status), uint8(EscrowAleph.Status.Refunded));
+        _assertHolds(0, seats4);
+    }
+
+    function test_RefundExpiredCreditsBlacklistedSeat() public {
+        _fundRoom(roomId, seats4);
+        usdc.blacklist(seats4[3], true);
+        (, uint64 play) = _deadlines();
+        vm.warp(uint256(play) + escrow.REFUND_GRACE() + 1);
+        escrow.refundExpired(roomId);
+        for (uint256 i = 0; i < 3; i++) assertEq(usdc.balanceOf(seats4[i]), stake, "recuperan su stake");
+        assertEq(escrow.owed(seats4[3]), stake, "acreditado");
+        _assertHolds(0, seats4);
+    }
+
+    function test_CancelCreditsBlacklistedSeat() public {
+        _fundRoom(roomId, seats4);
+        usdc.blacklist(seats4[1], true);
+        vm.prank(arbiter);
+        escrow.cancelRoom(roomId);
+        assertEq(usdc.balanceOf(seats4[0]), stake);
+        assertEq(usdc.balanceOf(seats4[2]), stake);
+        assertEq(usdc.balanceOf(seats4[3]), stake);
+        assertEq(escrow.owed(seats4[1]), stake, "acreditado");
+        _assertHolds(0, seats4);
+    }
+
+    // Con el USDC en pausa no sale nada: todo queda acreditado, la sala se
+    // cierra igual y, al levantarse la pausa, cualquiera entrega cada crédito a
+    // su dueño.
+    function test_TokenPausedCreditsEveryoneAndWithdrawForDelivers() public {
+        _fundRoom(roomId, seats4);
+        usdc.setPaused(true);
+        uint256[] memory amounts = _table4();
+        escrow.settle(roomId, seats4, amounts, _dl(), _signPayout(roomId, seats4, amounts));
+        (,,,,, EscrowAleph.Status status) = escrow.roomOf(roomId);
+        assertEq(uint8(status), uint8(EscrowAleph.Status.Settled), "liquidada aunque no salio un centavo");
+        for (uint256 i = 0; i < 4; i++) assertEq(escrow.owed(seats4[i]), amounts[i]);
+        assertEq(escrow.owed(platform), 1_200_000);
+        _assertHolds(0, _withPlatform(seats4));
+
+        usdc.setPaused(false);
+        address courier = address(0xC0FFEE); // no es asiento ni plataforma
+        for (uint256 i = 0; i < 4; i++) {
+            vm.expectEmit(true, true, true, true, address(escrow));
+            emit EscrowAleph.Withdrawn(seats4[i], amounts[i]);
+            vm.prank(courier);
+            escrow.withdrawFor(seats4[i]);
+            assertEq(usdc.balanceOf(seats4[i]), amounts[i], "llega a su duenio");
+            assertEq(escrow.owed(seats4[i]), 0);
+        }
+        vm.prank(platform);
+        escrow.withdraw();
+        assertEq(usdc.balanceOf(platform), 1_200_000);
+        assertEq(usdc.balanceOf(courier), 0, "quien entrega no se queda con nada");
+        assertEq(usdc.balanceOf(address(escrow)), 0, "contrato vacio");
+    }
+
+    function test_WithdrawAfterLeavingBlacklist() public {
+        _fundRoom(roomId, seats4);
+        usdc.blacklist(seats4[0], true);
+        uint256[] memory amounts = _table4();
+        escrow.settle(roomId, seats4, amounts, _dl(), _signPayout(roomId, seats4, amounts));
+
+        // Mientras siga en la blacklist, retirar revierte y el crédito no se toca.
+        vm.prank(seats4[0]);
+        vm.expectRevert(bytes("Blacklistable: account is blacklisted"));
+        escrow.withdraw();
+        assertEq(escrow.owed(seats4[0]), amounts[0], "credito intacto");
+
+        usdc.blacklist(seats4[0], false);
+        vm.prank(seats4[0]);
+        escrow.withdraw();
+        assertEq(usdc.balanceOf(seats4[0]), amounts[0], "cobra al salir de la blacklist");
+        assertEq(escrow.owed(seats4[0]), 0);
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    function test_WithdrawRevertsWhenNothingOwed() public {
+        vm.prank(seats4[0]);
+        vm.expectRevert(bytes("nothing owed"));
+        escrow.withdraw();
+        vm.expectRevert(bytes("nothing owed"));
+        escrow.withdrawFor(seats4[1]);
+    }
+
+    // Lo acreditado es un saldo por dirección: suma lo de todas sus salas y un
+    // solo retiro lo cobra entero.
+    function test_OwedAccumulatesAcrossRooms() public {
+        address[] memory other = new address[](4);
+        for (uint160 i = 1; i <= 4; i++) other[i - 1] = address(0x3000 + i);
+        _fund(other);
+        bytes32 room2 = keccak256("room-2");
+        _fundRoom(roomId, seats4);
+        _fundRoom(room2, other);
+        usdc.blacklist(platform, true);
+        uint256[] memory amounts = _table4();
+        escrow.settle(roomId, seats4, amounts, _dl(), _signPayout(roomId, seats4, amounts));
+        escrow.settle(room2, other, amounts, _dl(), _signPayout(room2, other, amounts));
+        assertEq(escrow.owed(platform), 2_400_000, "dos comisiones acreditadas");
+
+        usdc.blacklist(platform, false);
+        vm.prank(platform);
+        escrow.withdraw();
+        assertEq(usdc.balanceOf(platform), 2_400_000, "un retiro cobra las dos");
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    // Propiedad: con cualquier tabla válida y cualquier subconjunto de asientos
+    // en blacklist, nada se pierde ni se inventa. Lo que no salió está
+    // acreditado a quien le tocaba, y el contrato custodia exactamente eso.
+    function testFuzz_SettleConservesFundsWithAnyBlacklist(uint16[4] memory units, uint8 mask) public {
+        _fundRoom(roomId, seats4);
+        uint256 total = 0;
+        for (uint256 i = 0; i < 4; i++) {
+            units[i] = uint16(bound(units[i], 0, 4000));
+            total += units[i];
+        }
+        vm.assume(total > 0);
+        uint256 net = 6_800_000;
+        uint256[] memory amounts = new uint256[](4);
+        uint256 sum = 0;
+        for (uint256 i = 0; i < 4; i++) {
+            amounts[i] = (uint256(units[i]) * net) / total; // floor, como el árbitro
+            sum += amounts[i];
+        }
+        for (uint256 i = 0; i < 4; i++) {
+            if (mask & (1 << i) != 0) usdc.blacklist(seats4[i], true);
+        }
+        if (mask & 16 != 0) usdc.blacklist(platform, true);
+
+        escrow.settle(roomId, seats4, amounts, _dl(), _signPayout(roomId, seats4, amounts));
+
+        for (uint256 i = 0; i < 4; i++) {
+            assertEq(usdc.balanceOf(seats4[i]) + escrow.owed(seats4[i]), amounts[i], "cada asiento: cobrado o acreditado");
+        }
+        assertEq(usdc.balanceOf(platform) + escrow.owed(platform), 8_000_000 - sum, "comision + polvo");
+        _assertHolds(0, _withPlatform(seats4));
+    }
+
+    /// Una sala fondeada sobre otro escrow y otro token (para los tests que
+    /// necesitan un USDC con mañas propias).
+    function _fundRoomOn(EscrowAleph esc, MockUSDC tok, bytes32 id, address[] memory seats) internal {
+        vm.prank(owner);
+        esc.setAllowedStake(stake, true);
+        (uint64 fund, uint64 play) = _deadlines();
+        bytes32 seatsHash = keccak256(abi.encode(seats));
+        for (uint256 i = 0; i < seats.length; i++) {
+            tok.mint(seats[i], stake);
+            vm.prank(seats[i]);
+            tok.approve(address(esc), stake);
+            bytes32 digest = esc.seatDigest(id, seatsHash, stake, fund, play, seats[i]);
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(arbiterPk, digest);
+            bytes memory sig = abi.encodePacked(r, s, v);
+            vm.prank(seats[i]);
+            if (i == 0) esc.open(id, seats, stake, fund, play, sig);
+            else esc.deposit(id, sig);
+        }
+    }
+
+    // GAS JUSTO: settle es permissionless, así que cualquiera elige con cuánto
+    // gas llamarlo. Si el envío a un asiento se queda sin gas mientras settle
+    // todavía tiene para seguir, sin la guarda de `_pay` ese pago sano se volvía
+    // un crédito (y su dueño tenía que retirarlo a mano). Con el USDC real la
+    // ventana no se abre; con un token de pago caro sí, así que el test la abre a
+    // propósito y barre límites de gas: con cualquiera, o la liquidación revierte
+    // entera o paga a todos, y nunca acredita a quien el token no rechazó.
+    function test_SettleWithTightGasNeverCreditsHealthySeats() public {
+        GasHungryUSDC tok = new GasHungryUSDC();
+        EscrowAleph esc = new EscrowAleph(address(tok), arbiter, platform, feeBps, owner);
+        _fundRoomOn(esc, tok, roomId, seats4);
+        tok.setHungry(seats4[3], 2_000_000); // el último pago de la tabla es caro
+        uint256[] memory amounts = _table4();
+        uint64 dl = _dl();
+        bytes32 pd = esc.payoutDigest(roomId, esc.tableHashOf(seats4, amounts), dl);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(arbiterPk, pd);
+        bytes memory callData =
+            abi.encodeCall(EscrowAleph.settle, (roomId, seats4, amounts, dl, abi.encodePacked(r, s, v)));
+
+        uint256 snap = vm.snapshotState();
+        uint256 okRuns = 0;
+        uint256 revertedRuns = 0;
+        for (uint256 g = 1_500_000; g <= 2_600_000; g += 10_000) {
+            vm.revertToState(snap);
+            (bool ok,) = address(esc).call{gas: g}(callData);
+            if (!ok) {
+                revertedRuns++;
+                continue;
+            }
+            okRuns++;
+            for (uint256 i = 0; i < 4; i++) {
+                assertEq(esc.owed(seats4[i]), 0, "ningun credito forzado");
+                assertEq(tok.balanceOf(seats4[i]), amounts[i], "cobro entero");
+            }
+            assertEq(esc.owed(platform), 0, "ni a la plataforma");
+        }
+        assertGt(revertedRuns, 0, "el barrido paso por la ventana de gas justo");
+        assertGt(okRuns, 0, "el barrido llego a liquidar");
+    }
+
+    function test_WithdrawForNeverPaysTheCaller() public {
+        _fundRoom(roomId, seats4);
+        usdc.setPaused(true);
+        uint256[] memory amounts = _table4();
+        escrow.settle(roomId, seats4, amounts, _dl(), _signPayout(roomId, seats4, amounts));
+        usdc.setPaused(false);
+        // Un asiento intenta cobrar lo de otro: le llega al otro.
+        vm.prank(seats4[1]);
+        escrow.withdrawFor(seats4[0]);
+        assertEq(usdc.balanceOf(seats4[0]), amounts[0]);
+        assertEq(usdc.balanceOf(seats4[1]), 0, "no se lleva lo ajeno");
+        assertEq(escrow.owed(seats4[1]), amounts[1], "lo suyo sigue acreditado");
+    }
+
+    // --- Vencimiento de la tabla firmada (v2) -----------------------------------
+
+    function test_SettleRejectsExpiredPayout() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        uint64 dl = _dl();
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        vm.warp(uint256(dl) + 1);
+        vm.expectRevert(bytes("payout expired"));
+        escrow.settle(roomId, seats4, amounts, dl, sig);
+    }
+
+    function test_SettleAcceptsAtExactDeadline() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        uint64 dl = _dl();
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        vm.warp(dl);
+        escrow.settle(roomId, seats4, amounts, dl, sig);
+        assertEq(usdc.balanceOf(seats4[0]), amounts[0]);
+    }
+
+    // El vencimiento va DENTRO de la firma: presentarla con otro plazo (para
+    // estirarle la vida) no verifica.
+    function test_SettleRejectsDeadlineThatWasNotSigned() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        uint64 dl = _dl();
+        bytes memory sig = _signPayout(roomId, seats4, amounts);
+        vm.expectRevert(bytes("bad signature"));
+        escrow.settle(roomId, seats4, amounts, dl + 1 days, sig);
+    }
+
+    // Vencida una tabla, el árbitro firma de nuevo la MISMA con otro plazo: la
+    // nueva paga, y la vieja ya no sirve para nada.
+    function test_ResignedTablePaysAndOldSignatureIsDead() public {
+        _fundRoom(roomId, seats4);
+        uint256[] memory amounts = _table4();
+        uint64 dl1 = _dl();
+        bytes memory sig1 = _signPayout(roomId, seats4, amounts);
+        vm.warp(uint256(dl1) + 1);
+        uint64 dl2 = _dl();
+        bytes memory sig2 = _signPayout(roomId, seats4, amounts);
+        vm.expectRevert(bytes("payout expired"));
+        escrow.settle(roomId, seats4, amounts, dl1, sig1);
+        escrow.settle(roomId, seats4, amounts, dl2, sig2);
+        assertEq(usdc.balanceOf(seats4[0]), amounts[0]);
     }
 }
