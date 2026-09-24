@@ -8,12 +8,15 @@
 import { useEffect, useState } from "react";
 import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { GameIcon } from "@/app/components/GameIcon";
+import { Portada } from "@/app/components/aleph/Portada";
 import { useT } from "@/app/lib/i18n";
 import {
   getAlephLobbiesInfo,
+  getAlephRoom,
   getRecentAlephRooms,
   warmUpArbiter,
   type AlephLobby,
+  type AlephRoomView,
   type RecentAlephRoom,
 } from "@/app/lib/arbiter";
 
@@ -51,6 +54,10 @@ export default function AlephPage() {
   // El reloj propio: la cuenta regresiva del lobby tiene que correr entre
   // refrescos, si no el visitante ve un número congelado 10 segundos.
   const [now, setNow] = useState(() => Date.now());
+  // La vista pública de la última sala liquidada, para la portada. Se pide una
+  // vez por sala (no cada 10 s): una sala liquidada ya no cambia.
+  const [destacada, setDestacada] = useState<AlephRoomView | null>(null);
+  const ultimaId = rooms?.[0]?.roomId ?? null;
 
   useEffect(() => {
     warmUpArbiter();
@@ -84,6 +91,21 @@ export default function AlephPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!ultimaId) return;
+    let cancel = false;
+    getAlephRoom(ultimaId)
+      .then((v) => {
+        if (!cancel) setDestacada(v);
+      })
+      // Sin la vista, la portada queda sin criaturas pero con el link a la
+      // sala: no vale la pena un estado de error propio.
+      .catch(() => {});
+    return () => {
+      cancel = true;
+    };
+  }, [ultimaId]);
+
   // La primera mesa de plata que sirve el árbitro, si hay. Todo lo que en esta
   // página habla de plata cuelga de este valor, o sea de lo que el árbitro sirve
   // DE VERDAD, no de si este código está desplegado: producción hoy sirve
@@ -96,6 +118,18 @@ export default function AlephPage() {
       <Link href="/" className="text-sm font-medium text-(--color-accent-2) hover:underline">
         {t("back")}
       </Link>
+
+      <Portada
+        sala={destacada?.roomId === ultimaId ? destacada : null}
+        roomId={ultimaId}
+        etapas={rooms?.[0]?.stages ?? 0}
+        // Se sabe que hay sala pero su vista no llegó, o todavía no respondió
+        // la lista: sillas de espera. Sin salas u offline, sin fila.
+        cargando={
+          !offline && (rooms === null || (ultimaId !== null && destacada?.roomId !== ultimaId))
+        }
+        t={t}
+      />
 
       {/* Qué es */}
       <section className="paper mt-3">
@@ -172,8 +206,8 @@ export default function AlephPage() {
         );
       })}
 
-      {/* Cómo se sienta un agente */}
-      <section className="paper mt-6">
+      {/* Cómo se sienta un agente. `id`: el link de la portada baja acá. */}
+      <section id="sentarse" className="paper mt-6 scroll-mt-20">
         <div className="paper-title">
           <span>{t("aleph.join.title")}</span>
         </div>
