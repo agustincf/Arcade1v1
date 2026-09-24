@@ -457,16 +457,16 @@ una marca que convive con cualquiera. Los identificadores en código son
 `"base" | "hablando" | "esperando" | "sellado" | "se_fue" | "votado" |
 "abandono" | "ganador"`, más el booleano `traidor` aparte.
 
-| estado      | ojos / boca                     | overlay                                                                                                           | chip                                                                                                                                                                                                             |
-| ----------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `base`      | identidad / identidad           | ninguno                                                                                                           | el de `chipDeAsiento`: `playing` → `aleph.seat.alive` "en juego"; `settled` → `aleph.seat.finished` "terminó"; `funding` → `aleph.seat.deposited` / `aleph.seat.pending`; `lobby` → `aleph.seat.alive`, como hoy |
-| `hablando`  | identidad / abierta             | globo de 3×2 en marfil sobre la cabeza (y = 0–1), con su cola de 1 px en y = 2                                    | `aleph.state.hablando` "habla"                                                                                                                                                                                   |
-| `esperando` | identidad / identidad           | tres puntitos cyan en y=1, **fijos** (no se animan)                                                               | `aleph.state.esperando` "sin decidir"                                                                                                                                                                            |
-| `sellado`   | cerrados (una fila c/u) / línea | sello cyan de 6×2 en y = 0–1, **idéntico para todos**                                                             | `decide`: "ya decidió" · `talk`: "listo"                                                                                                                                                                         |
-| `se_fue`    | felices (^ ^) / sonrisa         | moneda dorada de 3×3 en x = 13–15, y = 0–2, criatura al 80 % de opacidad                                          | `aleph.seat.left` + insignia `+{n}` gold                                                                                                                                                                         |
-| `votado`    | tapados                         | **dorso** inscripto en el cuerpo, y el cuerpo entero baja una fila (5–14 pasa a 6–15) y pierde las patas: se cayó | `aleph.seat.voted_out` "votado"                                                                                                                                                                                  |
-| `abandono`  | tapados                         | el mismo dorso, criatura al 34 % de opacidad, marco de asiento punteado, sin bajar                                | `aleph.seat.abandoned` "abandonó", o `aleph.seat.dissolved` si la sala está `dissolved`                                                                                                                          |
-| `ganador`   | felices / sonrisa               | corona dorada de tres filas en y = 0–2, de ancho `Math.max(4, hw[0])`, con su sombra `#a97f1e` en la fila 2       | `aleph.state.ganador` "ganó la Final"                                                                                                                                                                            |
+| estado      | ojos / boca                     | overlay                                                                                                           | chip                                                                                                                                                                                                                                   |
+| ----------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `base`      | identidad / identidad           | ninguno                                                                                                           | el de `chipDeAsiento`: `playing` → `aleph.seat.alive` "en juego"; `settled` → `aleph.seat.finished` "terminó"; `funding` → `aleph.seat.deposited` / `aleph.seat.pending`; `lobby` → `aleph.seat.lobby` "sentado" (enmienda 2026-09-24) |
+| `hablando`  | identidad / abierta             | globo de 3×2 en marfil sobre la cabeza (y = 0–1), con su cola de 1 px en y = 2                                    | `aleph.state.hablando` "habla"                                                                                                                                                                                                         |
+| `esperando` | identidad / identidad           | tres puntitos cyan en y=1, **fijos** (no se animan)                                                               | `aleph.state.esperando` "sin decidir"                                                                                                                                                                                                  |
+| `sellado`   | cerrados (una fila c/u) / línea | sello cyan de 6×2 en y = 0–1, **idéntico para todos**                                                             | `decide`: "ya decidió" · `talk`: "listo"                                                                                                                                                                                               |
+| `se_fue`    | felices (^ ^) / sonrisa         | moneda dorada de 3×3 en x = 13–15, y = 0–2, criatura al 80 % de opacidad                                          | `aleph.seat.left` + insignia `+{n}` gold                                                                                                                                                                                               |
+| `votado`    | tapados                         | **dorso** inscripto en el cuerpo, y el cuerpo entero baja una fila (5–14 pasa a 6–15) y pierde las patas: se cayó | `aleph.seat.voted_out` "votado"                                                                                                                                                                                                        |
+| `abandono`  | tapados                         | el mismo dorso, criatura al 34 % de opacidad, marco de asiento punteado, sin bajar                                | `aleph.seat.abandoned` "abandonó", o `aleph.seat.dissolved` si la sala está `dissolved`                                                                                                                                                |
+| `ganador`   | felices / sonrisa               | corona dorada de tres filas en y = 0–2, de ancho `Math.max(4, hw[0])`, con su sombra `#a97f1e` en la fila 2       | `aleph.state.ganador` "ganó la Final"; sin Final, `aleph.state.enPie` "quedó en pie" (enmienda 2026-09-24)                                                                                                                             |
 
 La columna "chip" de esta tabla no se implementa dos veces: es la salida de
 `chipDeAsiento(seat, room)`, que está definida entera y en un solo orden en "De
@@ -579,11 +579,20 @@ orden, primera que aplica gana:
 | --- | ----------------------------- | ----------------------------------------------------------------------------------- |
 | 0   | `room.status === "dissolved"` | `aleph.seat.dissolved`                                                              |
 | 1   | `room.status === "funding"`   | `aleph.seat.deposited` / `aleph.seat.pending` según `room.deposited`                |
-| 2   | el estado es `ganador`        | `aleph.state.ganador`                                                               |
+| 1b  | `room.status === "lobby"`     | `aleph.seat.lobby` (enmienda 2026-09-24)                                            |
+| 2   | el estado es `ganador`        | `aleph.state.ganador` con Final; `aleph.state.enPie` sin Final (enmienda)           |
 | 3   | el estado es `hablando`       | `aleph.state.hablando`                                                              |
 | 4   | el estado es `esperando`      | `aleph.state.esperando`                                                             |
 | 5   | el estado es `sellado`        | `aleph.state.decidio` en `decide`, `aleph.state.listo` en `talk`                    |
 | 6   | el resto                      | `aleph.seat.${seat.status}` — `alive`, `left`, `voted_out`, `abandoned`, `finished` |
+
+> **Enmienda 2026-09-24 (pulido posterior al PR 2).** Dos chips cambiaron
+> después de verlos en una sala real. En el lobby nadie está "en juego": la
+> fila 1b da `aleph.seat.lobby` ("sentado"). Y la corona SIN Final (la sala
+> liquidó antes de abrirla) ya no dice "ganó la Final", que contradecía la
+> carta `aleph.scene.settledNoFinal` de al lado: da `aleph.state.enPie`
+> ("quedó en pie"). También `columnasDe` pasó a contar las celdas de la grilla
+> (sin los finalistas, con las sillas vacías del lobby).
 
 La fila 6 es exactamente el ternario que hoy está adentro de `SeatRow`
 (`page.tsx:459-463`), y por eso el `base` da `aleph.seat.alive` con la sala
@@ -1481,6 +1490,8 @@ aleph.state.listo      "listo"
 aleph.state.hablando   "habla"
 aleph.state.traidor    "abrió para sí"
 aleph.state.ganador    "ganó la Final"
+aleph.state.enPie      "quedó en pie"      (enmienda 2026-09-24)
+aleph.seat.lobby       "sentado"           (enmienda 2026-09-24)
 aleph.seat.dissolved   "la sala se disolvió"
 ```
 

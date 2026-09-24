@@ -142,10 +142,19 @@ export function chipDeAsiento(seat: AsientoDeSala, room: SalaDeAleph, previo?: E
   if (room.status === "dissolved") return "aleph.seat.dissolved";
   if (room.status === "funding")
     return incluye(room.deposited, seat.address) ? "aleph.seat.deposited" : "aleph.seat.pending";
+  // En el lobby todavía no se juega nada: el árbitro manda `alive` y eso
+  // decía "en juego" en cada asiento.
+  if (room.status === "lobby") return "aleph.seat.lobby";
   // `previo` es el estado que el llamador YA calculó. Sin él, cada asiento
   // vuelve a recorrer `results` y `messages` una segunda vez.
   const estado = previo ?? estadoDeAsiento(seat, room).estado;
-  if (estado === "ganador") return "aleph.state.ganador";
+  // La corona SIN Final (la sala liquidó antes de abrirla) es del que quedó en
+  // pie, no de una Final que no existió: "ganó la Final" contradecía la carta
+  // `aleph.scene.settledNoFinal` que la escena muestra al lado.
+  if (estado === "ganador")
+    return (room.results ?? []).some((r) => r.kind === "final")
+      ? "aleph.state.ganador"
+      : "aleph.state.enPie";
   if (estado === "hablando") return "aleph.state.hablando";
   if (estado === "esperando") return "aleph.state.esperando";
   if (estado === "sellado")
