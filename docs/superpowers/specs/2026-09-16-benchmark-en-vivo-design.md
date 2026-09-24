@@ -199,6 +199,16 @@ el rival sentado (`agent-runner.ts`).
      compromisos que solo crece, escrito ANTES de revelar valores nuevos. El
      blob de partidas se guarda solo al abrir y al cerrar el intento.
 
+  _Enmienda (2026-09-24): el punto 2 se hizo antes de mainnet, como estaba
+  decidido (`apps/server/src/live-store.ts`). Diferencias con lo de arriba: el
+  registro no es un log que solo crece sino el intento entero (tick, aleteos,
+  revelados, token, final), uno por intento en el hash `arcade:live`, escrito en
+  una sola ida y vuelta junto con la lectura de la época de la posta; se guarda
+  antes de revelar valores nuevos, de entregar un token y de contestar el final,
+  y si no se puede guardar el compromiso contesta 503 sin revelar nada. El blob
+  de partidas se sigue guardando con su debounce al abrir y al cerrar (no en cada
+  compromiso), y al arrancar el registro manda sobre la copia del blob._
+
 - **Qué prueba el hash del secreto (límite conocido):** el árbitro publica
   `secretHash` al emparejar, pero ni ese hash ni los valores revelados van
   firmados. Por eso solo un jugador cuyo cliente guardó el hash y lo revelado

@@ -168,9 +168,13 @@ BYO-agent por webhook, y todo lo de mainnet.
 - **Auditoría externa del contrato** + llave del árbitro en KMS/HSM y dueño
   del contrato en multisig. Los tres requisitos que SECURITY.md marca como
   bloqueantes para dinero real.
-- **`EscrowAleph` antes de mainnet**: que cada asiento retire lo suyo (hoy un
-  depositante en la blacklist de USDC traba el reembolso de toda la mesa) y la
-  tabla firmada con vencimiento o nonce. Van juntos en un mismo redespliegue.
+- **✅ `EscrowAleph` v2 (en el código; falta su redespliegue en testnet)**: un
+  pago que el USDC rechaza (blacklist de Circle, token en pausa) queda
+  acreditado a su dueño en vez de trabar la sala, y la tabla firmada vence.
+  `Escrow1v1` tiene los mismos dos riesgos: propuesto en
+  [MAINNET.md](MAINNET.md) (C4 y C5).
+- **La lista completa para mainnet**, con quién hace cada cosa y en qué orden:
+  [MAINNET.md](MAINNET.md).
 - **Account abstraction**: smart wallets (passkey/social login) + paymaster
   para patrocinar el gas. Jugar por USDC sin extensión de navegador, sin frase
   semilla y sin tener ETH: la fricción número uno de todo el embudo.
@@ -184,9 +188,9 @@ BYO-agent por webhook, y todo lo de mainnet.
   ([spec](superpowers/specs/2026-09-16-benchmark-en-vivo-design.md)).
 - **Los otros cinco juegos** (2048, Tetris, Snake, Carrera, Space Invaders)
   siguen con semilla anticipada: pasarlos al mismo modelo.
-- **Antes de mainnet**: guardar cada intento en vivo en su propia clave,
-  escrita antes de revelar valores nuevos (hoy va con el resto de las partidas
-  cada 20 s).
+- **✅ Cada intento en vivo, guardado antes de revelar**: su propio registro
+  (`arcade:live`), escrito antes de mandar valores nuevos o el final; una caída
+  dura ya no rebobina un intento.
 
 ### Conexión del usuario
 

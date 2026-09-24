@@ -43,37 +43,56 @@ playDeadline, player)`, firmado por el árbitro): sin pase no hay asiento, y el
   inventar la mesa.
 - `deposit` — cada uno de los demás asientos deposita con su pase. Con el
   último, la sala queda `Funded` y el juego corre fuera de la cadena.
-- `settle` — con la firma del árbitro sobre `Payout(roomId, tableHash)`,
+- `settle` — con la firma del árbitro sobre
+  `Payout(roomId, tableHash, deadline)`,
   `tableHash = keccak256(abi.encode(seats, amounts))`, paga `amounts[i]` a cada
   asiento (en el MISMO orden que la sala) y la comisión más el polvo del
   redondeo a la plataforma. Exige `Σ amounts ≤ pozo − comisión` y que sobren
-  menos de N micro-USDC. Cualquiera puede presentarla.
+  menos de N micro-USDC. Cualquiera puede presentarla, hasta su `deadline`
+  (segundos): vencida, revierte con `payout expired` y el árbitro firma de nuevo
+  la misma tabla.
 - `refundUnfunded` / `refundExpired` / `cancelRoom` — los tres reembolsos:
   fondeo vencido (cualquiera), plazo de juego vencido más la gracia de 30 min
   (cualquiera), o cancelación del árbitro/dueño. Cada uno recupera exactamente
   su stake; el que no depositó no recibe nada.
-- `roomOf`, `depositors`, `paid` — vistas para el árbitro y los agentes;
+- **Pagos con crédito de respaldo.** Cada pago de `settle` y de los reembolsos
+  se empuja por separado. Si el USDC lo rechaza (la dirección está en la
+  blacklist de Circle, o el token en pausa), ese monto queda en `owed[address]`
+  (evento `Credited`) y los demás cobran igual: un asiento bloqueado no traba la
+  sala. Si un envío falla por falta de gas, en cambio, revierte todo (el chequeo
+  de EIP-150 de `ERC2771Forwarder`): así nadie convierte el pago de otro en un
+  crédito eligiendo el gas de un `settle` permissionless.
+- `withdraw` — cobra lo que `msg.sender` tiene acreditado (un saldo por
+  dirección: suma todas sus salas). `withdrawFor(account)` se lo entrega a
+  `account`; lo puede llamar cualquiera, y la plata sale solo hacia `account`.
+  Mientras siga en la blacklist, revierte y el crédito queda intacto.
+- `roomOf`, `depositors`, `paid`, `owed` — vistas para el árbitro y los agentes;
   `seatDigest`, `payoutDigest`, `seatsHashOf`, `tableHashOf` — los hashes tal
   cual los calcula el contrato, para que el backend y los tests firmen lo mismo.
 
-Dominio EIP-712 propio: `Arcade1v1EscrowAleph` v1. Mesa habilitada por el
-script de despliegue: **2 USDC**.
+Dominio EIP-712 propio: `Arcade1v1EscrowAleph` **versión 2** (la v1 firmaba
+`Payout(roomId, tableHash)`, sin vencimiento). Mesa habilitada por el script de
+despliegue: **2 USDC**.
 
-Propiedad conocida (a decidir antes de mainnet): el contrato paga empujando
-USDC a cada asiento. El USDC real de Circle revierte una transferencia a una
-dirección en su blacklist, así que un solo asiento en blacklist entre los 4 a 8
-haría revertir toda la liquidación. `settle` tiene una salida — la tabla
-firmada puede asignarle 0 a ese asiento — pero los tres reembolsos no: una sala
-en `Funding` con un depositante en blacklist dejaría su pozo trabado para
-siempre. El disparador exige que Circle ponga en blacklist a una dirección
-DESPUÉS de que depositó, así que la probabilidad es baja y el stake es de 2
-USDC. Es la misma propiedad que ya tiene `Escrow1v1`, hoy desplegado en
-testnet, con un radio de impacto menor (2 asientos en vez de hasta 8).
+Las dos propiedades que la v1 tenía y la v2 arregla (decididas el 2026-09-18
+para antes de mainnet): los pagos se empujaban todos en la misma transacción,
+así que un solo depositante en la blacklist de USDC hacía revertir la
+liquidación y los tres reembolsos (el pozo de una sala en `Funding` quedaba
+trabado para siempre); y la tabla firmada no vencía, así que dos tablas firmadas
+para la misma sala valían las dos. El redespliegue en Base Sepolia va con el
+merge: [`docs/REDEPLOY-escrow-aleph-v2.md`](../../docs/REDEPLOY-escrow-aleph-v2.md).
+`Escrow1v1` todavía tiene la primera propiedad (con 2 asientos) y una firma de
+resultado sin vencimiento: ver [`docs/MAINNET.md`](../../docs/MAINNET.md), C4 y C5.
 
-Pruebas: `forge test --match-contract EscrowAlephTest -vv` (43 pruebas: fondeo,
+Pruebas: `forge test --match-contract EscrowAlephTest -vv` (59 pruebas: fondeo,
 liquidación, tabla que no suma, address que no es asiento, firma ajena, doble
-liquidación, los tres reembolsos exactos, 8 asientos, gracia, reentrancy y la
-superficie de admin/constructor).
+liquidación, los tres reembolsos exactos, 8 asientos, gracia, reentrancy, la
+superficie de admin/constructor y, desde la v2, blacklist en la liquidación y
+en los tres reembolsos, USDC en pausa, retiro y `withdrawFor`, crédito acumulado
+entre salas, vencimiento de la tabla, fuzz de conservación de fondos con
+cualquier subconjunto en blacklist y un barrido de límites de gas contra un
+token de pago caro). Los tokens de prueba viven en `test/`: `BlacklistUSDC`
+(blacklist y pausa, como el USDC real), `GasHungryUSDC` y `ReentrantUSDC`.
 
 Desplegar en Base Sepolia (reusa la wallet y el TestUSDC de `.env`):
 
@@ -89,8 +108,8 @@ Está desplegado en Base Sepolia y el árbitro publicado ofrece la mesa de 2 USD
 de testnet y tarda 15-30 min): `bash smoke-aleph-base-sepolia.sh <ALEPH_ESCROW_ADDRESS>`
 (`--preflight` corre solo el chequeo previo, de solo lectura).
 
-Pendiente antes de mainnet (decisión del dueño): el pago push frente a la
-blacklist de USDC (arriba) y la firma de la tabla de pagos sin nonce.
+Lo que falta para mainnet, de los dos contratos y del resto del proyecto:
+[`docs/MAINNET.md`](../../docs/MAINNET.md).
 
 ## Correr las pruebas (local, sin gastar nada)
 
@@ -99,7 +118,7 @@ cd packages/contracts
 forge test -vv
 ```
 
-Estado actual: 57 pruebas pasando — 14 de `Escrow1v1.t.sol` + 43 de
+Estado actual: 73 pruebas pasando — 14 de `Escrow1v1.t.sol` + 59 de
 `EscrowAleph.t.sol`.
 
 ## Desplegar en Base Sepolia (testnet)
@@ -149,8 +168,10 @@ Requiere `.env.mainnet` (copiado de `.env.mainnet.example`) con
 firma y queda como dueña del contrato).
 
 > Estado: `Escrow1v1` probado (14/14 pruebas) y flujo completo verificado en Anvil
-> (deposito, pago y reembolso); `EscrowAleph` probado (43/43) y con smoke en
-> Base Sepolia. Las direcciones de un entorno publicado y sus
+> (deposito, pago y reembolso); `EscrowAleph` v2 probado (59/59) y verificado en
+> Anvil con el árbitro y el SDK reales (la v1 tiene smoke en Base Sepolia; la v2
+> se redespliega con el merge). `DeployMainnet.s.sol` despliega solo
+> `Escrow1v1`: el de `EscrowAleph` a mainnet todavía no existe. Las direcciones de un entorno publicado y sus
 > secretos no se guardan en Git (`.env`, `.env.mainnet` y `broadcast/` estan
 > en `.gitignore`), por lo que deben verificarse en la configuracion de ese
 > entorno.

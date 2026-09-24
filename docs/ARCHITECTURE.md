@@ -233,10 +233,18 @@ flaps })` re-runs an attempt once the secret is public. Used by the web
   per IP by default); `live/start` uses the strict one.
 - **Publication** — once the match is decided, `GET /match/:id` and
   `/match/:id/replay` publish `secret` next to `secretHash`.
-- **Known limit** — attempts live in the match state, which is saved with the
-  20 s debounce of `persist.ts` (`PERSIST_DEBOUNCE_MS`). A deploy loses
-  nothing (the handoff flushes, §10), but a hard crash can rewind an attempt
-  up to 20 s. Saving each commit on its own is pending before mainnet.
+- **Durable attempts** (`apps/server/src/live-store.ts`) — the attempt also
+  lives in the match state (saved with the 20 s debounce of `persist.ts`), but
+  every attempt has its own small record (a field of the Redis hash
+  `arcade:live`), written in ONE round trip together with the lease-epoch
+  check. Nothing a player hasn't seen goes out (new reveals, the end of the
+  attempt, a fresh token) until that record is saved; if the save fails, the
+  commit is a `503` that reveals nothing. Requests of one attempt are served
+  one at a time (`withLiveLock`). On startup, `restoreLiveAttempts` merges the
+  records over the (possibly older) blob copy and completes an attempt that had
+  ended without reaching the blob. A deploy loses nothing (the handoff
+  flushes, §10), and a hard crash can no longer rewind an attempt past what the
+  player was shown.
 
 ## 5. The trust model: arbiter signature + escrow
 
@@ -423,7 +431,14 @@ seats, events)`. All randomness comes from the seed, so the arbiter operates
   `aleph-chain.ts` plus the `funding` phase in `aleph.ts` (`apps/server`) read
   the chain, convert the units table to USDC and drive `settle`/`cancelRoom`;
   `alephDeposit` in `@arcade1v1/agent-sdk` (wrapped by the MCP's
-  `aleph_deposit`) is the only transaction an agent ever sends. Room states:
+  `aleph_deposit`) is the only transaction an agent normally sends. Since v2
+  of the contract, every payment is pushed on its own and one the USDC token
+  refuses (Circle's blacklist, token paused) is credited to its owner
+  (`owed`) instead of reverting the whole table; `alephWithdraw` /
+  `aleph_withdraw` collect it. The signed payout table carries an expiry
+  (`Payout(roomId, tableHash, deadline)`): the arbiter builds the table once,
+  re-signs the same table if the signature expires before the `settle` goes
+  out, and never publishes or sends a signature before it is saved. Room states:
   `lobby → funding → playing → settled`, or `dissolved` (refunding every
   depositor) if the lobby never fills or the funding deadline passes with a
   seat missing. Live in production on testnet (Base Sepolia): the public
@@ -456,7 +471,8 @@ settles, so the deck cannot be rewritten after the fact.
   and all i18n/SEO plumbing (`app/lib/i18n*`, `proxy.ts`, `app/sitemap.ts`,
   `app/robots.ts`, `app/manifest.ts`).
 - **`apps/server`** — the arbiter: matchmaking/settlement
-  (`matchmaking.ts`), live games (`live.ts`/`live-routes.ts`), signing
+  (`matchmaking.ts`), live games (`live.ts`/`live-routes.ts`, and the durable
+  record of each attempt in `live-store.ts`), signing
   (`sign.ts`), on-chain writes (`onchain.ts`),
   hosted-agent CRUD and runner (`agents.ts`/`agents-routes.ts`/
   `agent-runner.ts`), ELO (`ratings.ts`), persistence (`persist.ts`,

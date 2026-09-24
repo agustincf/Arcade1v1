@@ -56,6 +56,15 @@ preparación mainnet, ver abajo) · Estado actualizado: **3.9.0 en testnet**
 > SHA-256 del secreto entero en vez de 32 bits (auditoría en
 > `docs/auditorias/2026-09-18-aleph-azar-32-bits.md`), y la mesa de 2 USDC de
 > testnet está prendida en producción (ver la sección de Aleph abajo).
+>
+> Nota de mantenimiento (2026-09-24, sin publicar): **la lista completa de lo
+> que falta para mainnet vive ahora en [`docs/MAINNET.md`](docs/MAINNET.md)**,
+> con quién lo hace y en qué orden. En esta tanda se cerraron en el código dos
+> de sus puntos: `EscrowAleph` v2 (un pago que el USDC rechaza queda acreditado
+> en vez de trabar la sala, y la tabla firmada vence; falta su redespliegue en
+> testnet, [`docs/REDEPLOY-escrow-aleph-v2.md`](docs/REDEPLOY-escrow-aleph-v2.md))
+> y el registro durable de cada intento en vivo, escrito antes de revelar: una
+> caída dura ya no rebobina un intento de Flappy.
 
 ---
 
@@ -214,14 +223,29 @@ colusión está medida y aceptada (spec de la etapa 4, decisión 4): contra un
 asiento que se defiende no paga; contra uno ingenuo, la comisión se come casi
 todo. Esta etapa NO desbloquea mainnet: un contrato más para auditar.
 
-Dos arreglos del contrato quedan decididos para **antes de mainnet**, en un
-mismo redespliegue (detalle en `DEPLOY.md` y `packages/contracts/README.md`):
-pasar de pagos empujados a que cada asiento retire lo suyo, porque hoy un
-depositante en la blacklist de USDC de Circle traba el reembolso de toda la
-mesa; y atar la tabla firmada a un vencimiento o nonce, porque hoy la firma
-cubre solo `(roomId, tableHash)` y, si el árbitro firmara dos tablas para una
-sala, se podría presentar la vieja. Mientras tanto rige la regla del árbitro de
-firmar una sola tabla por sala.
+Los dos arreglos del contrato decididos para **antes de mainnet** están en
+`EscrowAleph` v2 (el código; el redespliegue en testnet va con el merge, ver
+[`docs/REDEPLOY-escrow-aleph-v2.md`](docs/REDEPLOY-escrow-aleph-v2.md)):
+
+- **Un depositante en la blacklist de USDC ya no traba la sala.** En la v1 los
+  pagos se empujaban todos en la misma transacción, y el USDC de Circle revierte
+  una transferencia a una dirección de su blacklist: un solo asiento bloqueado
+  hacía revertir la liquidación y los tres reembolsos, y la plata de los demás
+  quedaba trabada para siempre. Ahora cada pago (premio, comisión o reembolso)
+  va por su cuenta, y el que el USDC rechaza (blacklist o token en pausa) queda
+  **acreditado** en `owed` a su dueño, que lo cobra con `withdraw`; cualquiera
+  se lo puede entregar con `withdrawFor`, pero la plata sale solo hacia esa
+  dirección. Si un envío falla por falta de gas (quien llama elige el gas y
+  podría forzar créditos), la transacción entera revierte: es el chequeo de
+  EIP-150 que usa `ERC2771Forwarder` de OpenZeppelin.
+- **La tabla firmada vence** (`Payout(roomId, tableHash, deadline)`, dominio
+  v2). En la v1 la firma cubría solo `(roomId, tableHash)`: si el árbitro
+  llegaba a firmar dos tablas para una sala (una caída dura que se lleva las
+  últimas acciones), las dos valían para siempre y cobraba la primera que se
+  presentara. Ahora el árbitro arma la tabla una sola vez, la firma con 30 min
+  de vida (`ALEPH_PAYOUT_TTL_MS`) y, si vence sin presentarse, firma de nuevo la
+  MISMA tabla. Además, una firma no se publica ni se manda a la cadena antes de
+  estar guardada en el store: una que se pierde en una caída no la vio nadie.
 
 La misma promesa vale del lado del agente, en el SDK y en el MCP. La wallet que
 deposita solo aprueba USDC al escrow que clavó quien la configura (`escrow` en
@@ -432,13 +456,18 @@ entre agentes son datos, no instrucciones, y un agente que los trate como
 - [x] Rate limiting — _medio_ — configurado en el árbitro.
 - [ ] HTTPS y monitoreo operativo (RPC propio + saldo de gas) — _medio_
 - [ ] Pruebas de extremo a extremo en testnet con varios usuarios reales — _medio_
-- [ ] `EscrowAleph`: retiro por asiento (blacklist de USDC) y tabla firmada con
-      vencimiento o nonce — _alto_ — decididos para antes de mainnet.
-- [ ] Flappy en vivo: cada intento guardado en su propia clave antes de revelar
-      valores nuevos — _medio_ — decidido para antes de mainnet.
+- [~] `EscrowAleph`: un pago rechazado por el USDC queda acreditado (blacklist) y
+  la tabla firmada vence — _alto_ — hechos en el código (v2); falta el
+  redespliegue en testnet y entrar en la auditoría.
+- [x] Flappy en vivo: cada intento guardado en su propia clave antes de revelar
+      valores nuevos — _medio_ — hecho (`apps/server/src/live-store.ts`).
+- [ ] `Escrow1v1`: los mismos dos riesgos (blacklist del ganador, `Result` sin
+      vencimiento) y el asiento sin stake ni plazos — _alto_ — propuestos en
+      [`docs/MAINNET.md`](docs/MAINNET.md) (C4 a C6), falta la decisión.
 - [ ] Semilla anticipada en los otros cinco juegos (2048, Tetris, Snake,
       Carrera, Space Invaders): se puede optimizar la corrida offline — _medio_
 
 > **Conclusión:** la base está sólida y el contrato es seguro en lo que cubre,
 > pero **NO se debe activar dinero real** hasta cerrar al menos los 4 puntos
-> críticos (con la parte legal a la cabeza).
+> críticos (con la parte legal a la cabeza). El orden y los dueños de cada
+> punto están en [`docs/MAINNET.md`](docs/MAINNET.md).
