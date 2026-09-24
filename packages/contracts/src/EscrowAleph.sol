@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -43,13 +44,17 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  *  en la misma transacción (un depositante en la blacklist trababa los tres
  *  reembolsos de la sala para siempre) y la firma cubría solo
  *  `(roomId, tableHash)`: si el árbitro llegaba a firmar dos tablas para una
- *  sala, las dos valían para siempre.
+ *  sala, las dos valían para siempre. También desde la v2: dueño en dos pasos
+ *  (`Ownable2Step`) y sin `renounceOwnership` (una transferencia con un error,
+ *  o una renuncia, perdían para siempre la administración, que es la que rota
+ *  la llave del árbitro), y una mesa deshabilitada no acepta más depósitos
+ *  (freno de emergencia de las entradas; las salidas nunca se frenan).
  *
  *  Es un contrato APARTE de Escrow1v1 a propósito (decisión 1 del spec): aquel
  *  tiene la forma p1/p2 metida en el storage y en el typehash, y custodia
  *  plata viva.
  */
-contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
+contract EscrowAleph is Ownable2Step, ReentrancyGuard, EIP712 {
     using SafeERC20 for IERC20;
 
     /// @notice Token de apuesta (USDC).
@@ -177,9 +182,19 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
         emit FeeUpdated(f);
     }
 
+    /// @notice Habilita o deshabilita una mesa. Deshabilitada, no acepta
+    ///         depósitos nuevos: ni `open` ni `deposit`. Lo que ya está adentro
+    ///         sale igual (liquidación, reembolsos y retiros no la miran).
     function setAllowedStake(uint256 amount, bool ok) external onlyOwner {
         allowedStake[amount] = ok;
         emit AllowedStakeUpdated(amount, ok);
+    }
+
+    /// @notice Deshabilitada: sin dueño no hay quien rote la llave del árbitro
+    ///         ni la wallet de la plataforma. La transferencia es en dos pasos
+    ///         (`transferOwnership` + `acceptOwnership`, de Ownable2Step).
+    function renounceOwnership() public pure override {
+        revert("renounce disabled");
     }
 
     // --------------------------------------------------------------------- //
@@ -231,6 +246,10 @@ contract EscrowAleph is Ownable, ReentrancyGuard, EIP712 {
         require(r.status == Status.Funding, "not funding");
         require(block.timestamp <= r.fundDeadline, "fund expired");
         require(!paid[id][msg.sender], "already paid");
+        // Mesa deshabilitada: tampoco entra plata para completar una sala ya
+        // abierta. La de los que depositaron vuelve con refundUnfunded o con
+        // la cancelación.
+        require(allowedStake[r.stake], "stake not allowed");
         _requireSeat(id, r.seatsHash, r.stake, r.fundDeadline, r.playDeadline, msg.sender, seatSig);
         require(_isSeat(r.seats, msg.sender), "not a seat");
 

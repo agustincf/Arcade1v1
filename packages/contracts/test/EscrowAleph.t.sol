@@ -289,6 +289,63 @@ contract EscrowAlephTest is Test {
         new EscrowAleph(address(usdc), arbiter, platform, 2001, owner);
     }
 
+    // DUEÑO EN DOS PASOS (v2): transferir no cambia nada hasta que el nuevo
+    // acepta, así una dirección con un error nunca se queda con el contrato.
+    function test_OwnershipTransferIsTwoStep() public {
+        address typo = address(0xDEAD);
+        address safe = address(0x5AFE);
+        vm.prank(owner);
+        escrow.transferOwnership(typo);
+        assertEq(escrow.owner(), owner, "nada cambia hasta aceptar");
+        assertEq(escrow.pendingOwner(), typo);
+
+        vm.prank(owner);
+        escrow.transferOwnership(safe); // el error se corrige pisando el pendiente
+        vm.prank(typo);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, typo));
+        escrow.acceptOwnership();
+
+        vm.prank(safe);
+        escrow.acceptOwnership();
+        assertEq(escrow.owner(), safe, "el nuevo acepto");
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, owner));
+        escrow.setFeeBps(0);
+    }
+
+    function test_RenounceOwnershipIsDisabled() public {
+        vm.prank(owner);
+        vm.expectRevert(bytes("renounce disabled"));
+        escrow.renounceOwnership();
+        assertEq(escrow.owner(), owner, "sigue teniendo duenio");
+    }
+
+    // FRENO DE ENTRADAS (v2): con la mesa deshabilitada no entra ni un depósito
+    // más, tampoco para completar una sala ya abierta; lo de adentro vuelve.
+    function test_DepositRejectsDisabledTable() public {
+        _open(roomId, seats4);
+        vm.prank(owner);
+        escrow.setAllowedStake(stake, false);
+        bytes memory sig = _signSeat(roomId, seats4, seats4[1]);
+        vm.prank(seats4[1]);
+        vm.expectRevert(bytes("stake not allowed"));
+        escrow.deposit(roomId, sig);
+
+        vm.warp(block.timestamp + 10 minutes + 1);
+        escrow.refundUnfunded(roomId);
+        assertEq(usdc.balanceOf(seats4[0]), stake, "la salida no se frena");
+    }
+
+    // ...y deshabilitarla no frena la liquidación de una sala ya fondeada.
+    function test_DisabledTableStillSettles() public {
+        _fundRoom(roomId, seats4);
+        vm.prank(owner);
+        escrow.setAllowedStake(stake, false);
+        uint256[] memory amounts = _table4();
+        escrow.settle(roomId, seats4, amounts, _dl(), _signPayout(roomId, seats4, amounts));
+        assertEq(usdc.balanceOf(seats4[0]), amounts[0], "liquida igual");
+    }
+
     // --- Liquidación --------------------------------------------------------
 
     function _signPayout(bytes32 id, address[] memory seats, uint256[] memory amounts)
