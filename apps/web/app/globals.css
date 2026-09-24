@@ -693,6 +693,10 @@ body::before {
   .asiento--vacia {
     display: flex;
     justify-content: center;
+    align-items: center;
+    /* El alto de una tarjeta con criatura (48 px + el padding): sola en su fila,
+       la silla medía lo que su dorso de 12 px y se veía como una franja. */
+    min-height: 64px;
     background: transparent;
     border: 1px dashed var(--color-border);
   }
@@ -740,6 +744,9 @@ body::before {
     .criatura--mesa {
       width: 64px;
       height: 64px;
+    }
+    .asiento--vacia {
+      min-height: 80px;
     }
     .criatura--final {
       width: 96px;

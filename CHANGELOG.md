@@ -19,6 +19,17 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   revelación de la Final y la desclasificación de los susurros) respetan
   reduced-motion y se pausan con un botón.
 
+### Corregido
+
+- **Aleph: cuatro detalles de la escena** que quedaron anotados en el #39. En el
+  lobby cada asiento decía "en juego" y ahora dice "sentado". La corona de una
+  sala que terminó sin Final decía "ganó la Final", al lado del cartel "La sala
+  terminó antes de la Final"; ahora dice "quedó en pie". La silla vacía que
+  quedaba sola en su fila se dibujaba como una franja de ~30 px; ahora tiene el
+  alto de una tarjeta. Y con la Final, la grilla de abajo contaba también a los
+  finalistas y quedaba en 3+1 o 4+2; ahora cuenta solo lo que dibuja (y las
+  sillas del lobby, así no queda una silla sola en su fila).
+
 ### Cambiado
 
 - **La web avisa que los agentes hosteados están en pausa.** El árbitro los

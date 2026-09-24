@@ -137,10 +137,14 @@ export interface ModeloDeEscena {
   friso: FrisoDeEscena | null;
 }
 
-/** Columnas del contenedor ancho por cantidad de asientos: 4 -> 4, 5 o 6 -> 3,
- *  7 u 8 -> 4. El angosto son dos, siempre. */
+/** Columnas del contenedor ancho por cantidad de celdas de la grilla: hasta 4,
+ *  una por celda; 5 o 6 -> 3; 7 u 8 -> 4. El angosto son dos, siempre. `n`
+ *  cuenta lo que se dibuja ADENTRO de la grilla: sin los finalistas (van en su
+ *  propia fila) y con las sillas vacías del lobby. Contar la sala entera partía
+ *  la grilla en 3+1 o 4+2 durante la Final, y dejaba una silla sola en su fila. */
 function columnasDe(n: number): { ancha: number; angosta: number } {
-  return { ancha: n === 5 || n === 6 ? 3 : 4, angosta: 2 };
+  const ancha = n <= 4 ? Math.max(n, 1) : n === 5 || n === 6 ? 3 : 4;
+  return { ancha, angosta: 2 };
 }
 
 /** El `+{n}` del que aceptó la Oferta. El `!r.voided` no es defensa de más: el
@@ -284,11 +288,12 @@ export function modeloDeEscena(room: SalaDeAleph): ModeloDeEscena {
           ),
         )
       : 0;
+  const asientos = parte ? todos.filter((a) => !incluye(finalistas, a.address)) : todos;
   return {
     estado: room.status,
     reloj: room.status === "lobby" ? (room.closesAt ?? null) : null,
-    columnas: columnasDe(room.seats.length),
-    asientos: parte ? todos.filter((a) => !incluye(finalistas, a.address)) : todos,
+    columnas: columnasDe(asientos.length + sillas),
+    asientos,
     finalistas: parte ? todos.filter((a) => incluye(finalistas, a.address)) : [],
     sillas,
     maximo: todos.reduce((m, a) => Math.max(m, a.bolsillo), 0),

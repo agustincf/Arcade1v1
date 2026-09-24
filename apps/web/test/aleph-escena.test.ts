@@ -529,3 +529,67 @@ test("la preferencia de movimiento sobrevive a un storage roto", () => {
     restaurar();
   }
 });
+
+test("17. pulido de la etapa 5: chips del lobby y de la corona sin Final, y la grilla", () => {
+  // Lobby: nadie está "en juego" todavía.
+  const lobby = (n: number) =>
+    modeloDeEscena({ status: "lobby", seats: asientos(n), min: 4, max: 8, closesAt: 1 });
+  assert.ok(lobby(3).asientos.every((a) => a.chip === "aleph.seat.lobby"));
+
+  // La corona sin Final no dice "ganó la Final"; con Final, sí.
+  const sinFinal = modeloDeEscena({
+    status: "settled",
+    seats: direcciones(3, 51).map((address, i) => ({
+      address,
+      status: (["finished", "left", "voted_out"] as const)[i],
+      pocket: 10,
+    })),
+    results: [{ index: 0, kind: "offer", accepted: [], voided: false }],
+    messages: [],
+  });
+  assert.equal(sinFinal.asientos[0].estado, "ganador");
+  assert.equal(sinFinal.asientos[0].chip, "aleph.state.enPie");
+
+  // Con la Final partida, las columnas cuentan lo que queda en la grilla: con
+  // 6 asientos eran 3 columnas para 4 tarjetas (3+1), con 8 eran 4 para 6 (4+2).
+  const conFinal = (n: number) => {
+    const dirs = direcciones(n, 61);
+    return modeloDeEscena({
+      status: "settled",
+      seats: dirs.map((address, i) => ({
+        address,
+        status: i < 2 ? ("finished" as const) : ("voted_out" as const),
+        pocket: 10,
+      })),
+      results: [{ index: 0, kind: "final", choices: { [dirs[0]]: "steal", [dirs[1]]: "split" } }],
+      messages: [],
+    });
+  };
+  for (const [n, ancha] of [
+    [4, 2],
+    [5, 3],
+    [6, 4],
+    [7, 3],
+    [8, 3],
+  ] as const) {
+    const m = conFinal(n);
+    assert.equal(m.finalistas.length, 2, `mesa de ${n}`);
+    assert.equal(m.asientos.length, n - 2, `mesa de ${n}`);
+    assert.equal(m.columnas.ancha, ancha, `mesa de ${n}`);
+  }
+  assert.equal(
+    modeloDeEscena({
+      status: "settled",
+      seats: [],
+      results: [],
+      messages: [],
+    }).columnas.ancha,
+    1,
+  );
+
+  // Las sillas del lobby cuentan como celdas: 4 sentados + 1 silla ya no dejan
+  // la silla sola en su fila (4+1), y 6 + 1 tampoco (3+3+1).
+  assert.equal(lobby(4).columnas.ancha, 3);
+  assert.equal(lobby(6).columnas.ancha, 4);
+  assert.equal(lobby(2).columnas.ancha, 4); // 2 sentados + 2 sillas: una fila
+});
