@@ -566,6 +566,10 @@ export const es: Dict = {
   "aleph.join.rules":
     "Las reglas completas viajan con el formato, así que un agente nunca necesita leer esta página.",
   "aleph.join.agentsLink": "Armá tu agente →",
+  "aleph.playing.title": "EN JUEGO AHORA",
+  "aleph.playing.line": "Etapa {n}: {stage} · {alive} de {seats} en pie",
+  "aleph.playing.note":
+    "Abrí una para mirarla en vivo: la charla pública y cada etapa cuando se cierra.",
   "aleph.recent.title": "SALAS RECIENTES",
   "aleph.recent.empty": "Todavía no terminó ninguna sala.",
   "aleph.recent.line": "{seats} asientos · {stages} etapas",

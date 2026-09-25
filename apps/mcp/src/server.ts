@@ -167,7 +167,8 @@ export function buildServer(deps: {
     "aleph_lobbies",
     {
       title: "Aleph: open lobbies",
-      description: "Rooms waiting for seats (how many are seated, min/max, when the lobby closes).",
+      description:
+        "Rooms waiting for seats (how many are seated, min/max, when the lobby closes), rooms being played right now (`playing`: stage, seats still alive, when the phase ends; watch one with aleph_view) and the tables (`stakes`) this arbiter accepts.",
     },
     async () => ok(await alephLobbiesTool(client)),
   );

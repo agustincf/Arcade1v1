@@ -65,6 +65,17 @@ test("alephLobbiesInfo: GET /aleph/lobbies con las mesas que acepta el árbitro"
           closesAt: 9,
         },
       ],
+      playing: [
+        {
+          roomId: ROOM,
+          stake: 0,
+          seats: 5,
+          alive: 4,
+          stage: { index: 2, kind: "vote", phase: "talk" },
+          startedAt: 1,
+          deadline: 2,
+        },
+      ],
       stakes: [0, 2],
     }),
   });
@@ -73,11 +84,13 @@ test("alephLobbiesInfo: GET /aleph/lobbies con las mesas que acepta el árbitro"
   assert.deepEqual(info.stakes, [0, 2]);
   assert.equal(info.lobbies[0].status, "funding");
   assert.equal(info.lobbies[0].deposited, 1);
-  // Sin `stakes` (árbitro viejo): la mesa gratis y nada más.
+  assert.equal(info.playing[0].alive, 4);
+  assert.equal(info.playing[0].stage.kind, "vote");
+  // Sin `stakes` ni `playing` (árbitro viejo): la mesa gratis y nada en juego.
   const old = new ArbiterClient("http://arbiter.test", {
     fetchImpl: fakeFetch({}, { lobbies: [] }),
   });
-  assert.deepEqual(await old.alephLobbiesInfo(), { lobbies: [], stakes: [0] });
+  assert.deepEqual(await old.alephLobbiesInfo(), { lobbies: [], playing: [], stakes: [0] });
 });
 
 test("alephJoin: POST /aleph/join con stake, address y la firma", async () => {

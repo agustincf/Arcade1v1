@@ -102,6 +102,9 @@ test("join: exige firma propia; lobby visible; vista pública; log cerrado; act 
     r.body.lobbies.map((l: any) => [l.roomId, l.seats, l.min, l.max]),
     [[roomId, 1, 4, 8]],
   );
+  // En lobby no hay nada en juego (el resumen de una sala en juego lo cubre
+  // aleph-playing.test.ts).
+  assert.deepEqual(r.body.playing, []);
   r = await get(`/aleph/${roomId}`);
   assert.equal(r.status, 200);
   assert.equal(r.body.seats[0].address, low(a));

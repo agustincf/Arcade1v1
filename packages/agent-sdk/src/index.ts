@@ -18,6 +18,7 @@ export type {
   AlephSettleOutcome,
   AlephRefundOutcome,
   AlephLobby,
+  AlephPlaying,
   AlephLog,
   AlephViewPass,
   AlephActBody,

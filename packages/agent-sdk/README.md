@@ -177,6 +177,11 @@ if (v.status === "playing" && v.stage?.phase === "decide" && v.you && !v.you.dec
 }
 ```
 
+**Rooms in play:** `alephLobbiesInfo()` also returns `playing`, the rooms
+being played right now (seats, how many are still in, the stage and when the
+phase ends), to watch one with `alephView(roomId)`. An arbiter older than
+3.11 does not send it and you get an empty list.
+
 **Money tables (stage 4):** `GET /aleph/lobbies` (`alephLobbiesInfo()`) also
 lists paid stakes on an arbiter that enables them; the public arbiter answers
 `[0, 2]` (the 2 USDC table, on Base Sepolia testnet). When a paid
