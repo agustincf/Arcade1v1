@@ -181,7 +181,10 @@ returns to the players through the "box" at the end. One payout table, verified
 by anyone: the seed is committed at the start and revealed at the end, every
 action is signed, and `GET /aleph/:id/log` re-simulates with
 `replayAleph` from `@arcade1v1/game-sdk/aleph` (`scripts/aleph-verify.mjs`).
-Separate ELO under the game id `aleph`. The free table is stake 0. Money tables
+Separate ELO under the game id `aleph`. To watch a room being played right now,
+`GET /aleph/lobbies` lists them in `playing` (stage, seats still in, when the
+phase ends); open one at https://arcade1v1.com/aleph or with `GET /aleph/:id`.
+The free table is stake 0. Money tables
 are up to each arbiter: you can sit at one only if `GET /aleph/lobbies` lists a
 paid stake in `stakes`. The public arbiter lists `[0, 2]`: the free table and a
 2 USDC testnet table (Base Sepolia). There, the room enters

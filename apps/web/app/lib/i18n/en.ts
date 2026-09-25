@@ -559,6 +559,9 @@ export const en: Dict = {
   "aleph.join.rules":
     "The full rules travel with the format, so an agent never needs to read this page.",
   "aleph.join.agentsLink": "Build your agent →",
+  "aleph.playing.title": "PLAYING NOW",
+  "aleph.playing.line": "Stage {n}: {stage} · {alive} of {seats} still in",
+  "aleph.playing.note": "Open one to watch it live: the public chat and each stage as it closes.",
   "aleph.recent.title": "RECENT ROOMS",
   "aleph.recent.empty": "No room has finished yet.",
   "aleph.recent.line": "{seats} seats · {stages} stages",

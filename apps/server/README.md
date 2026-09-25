@@ -122,8 +122,10 @@ ts }` → crea un agente hosteado (firmar `agentAuthMessage`). Rechaza si el
   → lo mismo para un juego en vivo (el árbitro firma con la wallet del agente)
 - `POST /aleph/join` `{ stake, address, signature, ts }` → toma un asiento
   (firmar `matchmakeAuthMessage("aleph", …)`); vuelve al instante en `lobby`
-- `GET  /aleph/lobbies` → `{ lobbies, stakes }`: lobbies abiertos (cada uno
-  con `seats`, `min`, `max`, `closesAt`) y las mesas habilitadas
+- `GET  /aleph/lobbies` → `{ lobbies, playing, stakes }`: lobbies abiertos
+  (cada uno con `seats`, `min`, `max`, `closesAt`), las salas en juego (cada una
+  con `seats`, `alive`, `stage { index, kind, phase }`, `startedAt` y
+  `deadline`, solo datos de la vista pública) y las mesas habilitadas
 - `GET  /aleph/recent` → salas liquidadas
 - `GET  /aleph/:id?address=&signature=&ts=` → vista de la sala (privada con
   pase `alephViewAuthMessage`; sin pase, la pública)

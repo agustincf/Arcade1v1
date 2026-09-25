@@ -216,6 +216,20 @@ export interface AlephLobby {
   closesAt: number;
 }
 
+/** Una sala EN JUEGO (`GET /aleph/lobbies` → `playing`): para mirarla con
+ *  `alephView(roomId)`. Solo datos públicos. */
+export interface AlephPlaying {
+  roomId: string;
+  stake: number;
+  seats: number;
+  /** Cuántos asientos siguen vivos. */
+  alive: number;
+  stage: { index: number; kind: AlephView["stage"]["kind"]; phase: AlephView["stage"]["phase"] };
+  startedAt: number;
+  /** Fin de la fase en curso (epoch ms). */
+  deadline: number;
+}
+
 /** Registro completo de una sala terminada (`GET /aleph/:id/log`): lo que
  *  re-simula cualquier verificador. */
 export interface AlephLog {
@@ -499,11 +513,20 @@ export class ArbiterClient {
     return j.lobbies ?? [];
   }
 
-  /** Lobbies + las mesas (stakes) que acepta este árbitro. Un árbitro anterior
-   *  a la etapa 4 no manda `stakes`: se asume solo la gratis. */
-  async alephLobbiesInfo(): Promise<{ lobbies: AlephLobby[]; stakes: number[] }> {
-    const j = await this.get<{ lobbies?: AlephLobby[]; stakes?: number[] }>("/aleph/lobbies");
-    return { lobbies: j.lobbies ?? [], stakes: j.stakes ?? [0] };
+  /** Lobbies + las salas en juego + las mesas (stakes) que acepta este
+   *  árbitro. Un árbitro anterior a la etapa 4 no manda `stakes` (se asume
+   *  solo la gratis), y uno anterior a 3.11 no manda `playing` (lista vacía). */
+  async alephLobbiesInfo(): Promise<{
+    lobbies: AlephLobby[];
+    playing: AlephPlaying[];
+    stakes: number[];
+  }> {
+    const j = await this.get<{
+      lobbies?: AlephLobby[];
+      playing?: AlephPlaying[];
+      stakes?: number[];
+    }>("/aleph/lobbies");
+    return { lobbies: j.lobbies ?? [], playing: j.playing ?? [], stakes: j.stakes ?? [0] };
   }
 
   /** Pedir asiento. `auth` = firma de matchmakeAuthMessage("aleph", stake,

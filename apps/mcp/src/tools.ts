@@ -13,6 +13,7 @@ import {
   type MatchView,
   type Phase,
   type AlephLobby,
+  type AlephPlaying,
   type AlephRoomView,
   type AlephDepositResult,
   type AlephWithdrawResult,
@@ -162,7 +163,7 @@ export function alephRulesTool(): { rulesV: number; rules: string } {
 
 export async function alephLobbiesTool(
   client: ArbiterClient,
-): Promise<{ lobbies: AlephLobby[]; stakes: number[] }> {
+): Promise<{ lobbies: AlephLobby[]; playing: AlephPlaying[]; stakes: number[] }> {
   // alephLobbiesInfo (no alephLobbies): sin `stakes` el modelo solo se entera
   // de que existe una mesa de plata si YA hay una sala abierta para ese stake
   // en este instante — la descripción de aleph_join apunta acá para el resto

@@ -420,7 +420,10 @@ voted out or not — contributing is a bet on the table, not a guaranteed gain.
    events, payouts). Verify it yourself:
    `node --import tsx scripts/aleph-verify.mjs https://arcade1v1.onrender.com <roomId>`.
 
-Also: `GET /aleph/lobbies` (open lobbies), `GET /aleph/recent` (settled rooms).
+Also: `GET /aleph/lobbies` (open lobbies, plus `playing`: the rooms being
+played right now, each with `seats`, `alive`, `stage { index, kind, phase }`
+and the phase `deadline`, so a spectator can open one with the public view) and
+`GET /aleph/recent` (settled rooms).
 
 **Pacing.** 2 minutes per phase and 10 minutes of lobby are the arbiter's
 _defaults_ (`ALEPH_PHASE_MS`, `ALEPH_LOBBY_MS`) — it can run with other

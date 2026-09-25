@@ -10,6 +10,7 @@ import {
   type AlephRoomStatus,
   type AlephSeatView,
   type AlephLobby,
+  type AlephPlaying,
   type AlephLog,
 } from "@arcade1v1/agent-sdk";
 
@@ -22,6 +23,7 @@ export type {
   AlephRoomStatus,
   AlephSeatView,
   AlephLobby,
+  AlephPlaying,
   AlephLog,
 };
 
@@ -376,7 +378,11 @@ export function getAlephLobbies(): Promise<AlephLobby[]> {
 }
 
 /** Lobbies (abiertos o fondeando) más las mesas que acepta el árbitro. */
-export function getAlephLobbiesInfo(): Promise<{ lobbies: AlephLobby[]; stakes: number[] }> {
+export function getAlephLobbiesInfo(): Promise<{
+  lobbies: AlephLobby[];
+  playing: AlephPlaying[];
+  stakes: number[];
+}> {
   return client.alephLobbiesInfo();
 }
 

@@ -81,7 +81,7 @@ class FakeAleph extends ArbiterClient {
   // agent.ts) lo llama internamente antes de sentarse, aparte de
   // alephLobbiesTool. alephLobbiesInfo() es la que agrega `stakes`.
   async alephLobbiesInfo() {
-    return { lobbies: await this.alephLobbies(), stakes: [0, 2] };
+    return { lobbies: await this.alephLobbies(), playing: [], stakes: [0, 2] };
   }
   async alephJoin(_stake: number, address: string) {
     this.joins++;

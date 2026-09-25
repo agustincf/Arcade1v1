@@ -1212,6 +1212,47 @@ export function listAlephLobbies(now = Date.now()): LobbySummary[] {
   return out.sort((a, b) => a.stake - b.stake || a.closesAt - b.closesAt);
 }
 
+/** Una sala EN JUEGO, para que el espectador la encuentre desde /aleph (antes
+ *  el árbitro solo publicaba lobbies, fondeo y salas liquidadas). Solo datos
+ *  que la vista pública ya muestra: nunca la semilla, fragmentos ni quién
+ *  decidió qué. */
+export interface PlayingSummary {
+  roomId: Hex;
+  stake: number;
+  /** Asientos de la sala y cuántos siguen vivos. */
+  seats: number;
+  alive: number;
+  stage: Pick<AlephView["stage"], "index" | "kind" | "phase">;
+  startedAt: number;
+  /** Fin de la fase en curso (epoch ms). */
+  deadline: number;
+}
+
+export function listAlephPlaying(now = Date.now()): PlayingSummary[] {
+  settleDue(now);
+  const out: PlayingSummary[] = [];
+  for (const r of rooms.values()) {
+    if (r.status !== "playing") continue;
+    try {
+      // La vista PÚBLICA (sin address): lo mismo que ve cualquier espectador.
+      const v = viewFor(stateOf(r));
+      out.push({
+        roomId: r.id,
+        stake: r.stake,
+        seats: v.seats.length,
+        alive: v.seats.filter((x) => x.status === "alive").length,
+        stage: { index: v.stage.index, kind: v.stage.kind, phase: v.stage.phase },
+        startedAt: r.startedAt!,
+        deadline: r.phaseDeadline!,
+      });
+    } catch {
+      // Una sala que no re-simula no se lista: se disuelve en su próximo plazo.
+    }
+  }
+  // La que arrancó hace menos, primero: es la que más partida tiene por delante.
+  return out.sort((a, b) => b.startedAt - a.startedAt);
+}
+
 /** Tests: vaciar todo en memoria (no toca el store). */
 export function __resetAlephForTest(): void {
   rooms.clear();

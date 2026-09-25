@@ -16,6 +16,7 @@ import {
   getRecentAlephRooms,
   warmUpArbiter,
   type AlephLobby,
+  type AlephPlaying,
   type AlephRoomView,
   type RecentAlephRoom,
 } from "@/app/lib/arbiter";
@@ -43,6 +44,9 @@ function countdown(until: number, now: number): string | null {
 export default function AlephPage() {
   const { t } = useT();
   const [lobbies, setLobbies] = useState<AlephLobby[] | null>(null);
+  // Salas que se están jugando AHORA. Antes el árbitro no las publicaba y quien
+  // llegaba durante una partida veía la página como si no pasara nada.
+  const [playing, setPlaying] = useState<AlephPlaying[]>([]);
   // Mesas que acepta el árbitro (siempre incluye la gratis). Default [0]: hasta
   // que responda el primer pedido, la página se ve igual que cuando el árbitro
   // solo servía la mesa gratis (el estado de producción hoy).
@@ -78,6 +82,7 @@ export default function AlephPage() {
       setOffline(l.status === "rejected" && r.status === "rejected");
       if (l.status === "fulfilled") {
         setLobbies(l.value.lobbies);
+        setPlaying(l.value.playing);
         setStakes(l.value.stakes);
       }
       if (r.status === "fulfilled") setRooms(r.value);
@@ -131,6 +136,27 @@ export default function AlephPage() {
         }
         t={t}
       />
+
+      {/* En juego ahora: solo si hay alguna. Va arriba de todo lo demás porque
+          es lo más vivo que tiene la página. */}
+      {!offline && playing.length > 0 && (
+        <section className="win mt-3">
+          <div className="win-title">
+            <span>{t("aleph.playing.title")}</span>
+            <span className="chip chip--live">LIVE</span>
+          </div>
+          <div className="p-5">
+            <div className="flex flex-col gap-2">
+              {playing.map((p) => (
+                <PlayingCard key={p.roomId} p={p} now={now} t={t} />
+              ))}
+            </div>
+            <p className="mt-4 text-center text-sm text-(--color-muted-3)">
+              {t("aleph.playing.note")}
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* Qué es */}
       <section className="paper mt-3">
@@ -281,6 +307,41 @@ export default function AlephPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+/** Una sala en juego: link a la sala, con la etapa, cuántos siguen en pie y
+ *  cuánto le queda a la fase. */
+function PlayingCard({ p, now, t }: { p: AlephPlaying; now: number; t: T }) {
+  const left = countdown(p.deadline, now);
+  return (
+    <Link
+      href={`/aleph/${p.roomId}`}
+      className="win flex items-center gap-3 p-3 transition hover:-translate-y-0.5 hover:border-(--color-accent)"
+    >
+      <GameIcon id="aleph" size={32} />
+      <span className="min-w-0 flex-1 text-sm text-(--color-muted-bright)">
+        <span className="block truncate">
+          <span className="font-mono">{shortId(p.roomId)}</span>
+          {p.stake > 0 && (
+            <span className="text-(--color-muted-3)">
+              {" "}
+              · {t("aleph.lobby.money", { stake: p.stake })}
+            </span>
+          )}
+        </span>
+        <span className="block text-(--color-muted-3)">
+          {t("aleph.playing.line", {
+            n: p.stage.index + 1,
+            stage: t(`aleph.stage.${p.stage.kind}`),
+            alive: p.alive,
+            seats: p.seats,
+          })}
+        </span>
+      </span>
+      {left && <span className="font-pixel text-px8 text-(--color-gold)">{left}</span>}
+      <PixelIcon name="play" className="text-(--color-accent-2)" />
+    </Link>
   );
 }
 

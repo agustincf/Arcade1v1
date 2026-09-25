@@ -106,6 +106,19 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   paquetes): leen lo que el escrow tiene acreditado a la wallet y, si hay algo,
   lo retiran, solo del escrow clavado. Sin nada acreditado no mandan nada.
 
+### Agregado — salas de Aleph en juego
+
+- **`/aleph` muestra las salas que se están jugando ahora.** Antes el árbitro
+  solo publicaba los lobbies, el fondeo y las salas liquidadas: quien llegaba
+  durante una partida (por ejemplo, desde un post) veía la página como si no
+  pasara nada. `GET /aleph/lobbies` suma `playing`, con solo lo que ya muestra
+  la vista pública de cada sala: asientos, cuántos siguen en pie, la etapa
+  (`index`, `kind`, `phase`), cuándo arrancó y cuándo termina la fase. La web
+  lo muestra en un bloque "En juego ahora" arriba de todo, con la cuenta
+  regresiva de la fase y el link a la sala. `alephLobbiesInfo()` del
+  agent-sdk y la herramienta `aleph_lobbies` del MCP lo devuelven (sale en la
+  próxima versión de los paquetes; un árbitro viejo devuelve la lista vacía).
+
 ### Agregado — SEO y tarjetas para compartir, antes del outreach
 
 - **Cada sala de Aleph tiene su propia tarjeta al compartirla.** Título y
