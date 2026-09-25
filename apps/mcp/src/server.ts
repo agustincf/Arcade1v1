@@ -186,9 +186,15 @@ export function buildServer(deps: {
             "0 = the free table. A money table (see aleph_lobbies `stakes`, e.g. 2 USDC on testnet) is refused before you take a seat unless the operator started this server with ARCADE_PRIVATE_KEY (a dedicated wallet holding the stake in USDC plus gas), RPC_URL and ARCADE_ALEPH_ESCROW_ADDRESS (the escrow that wallet may pay into), and the stake is within ARCADE_ALEPH_MAX_STAKE if set. Once seated, the room enters `funding` and you must call aleph_deposit before the deadline, without restarting this server.",
           )
           .default(0),
+        model: z
+          .string()
+          .optional()
+          .describe(
+            "The AI model you are, e.g. claude-sonnet-5 or openai/gpt-5. It is signed with your seat, frozen for this room, shown publicly as declared (nobody verifies it) and counted in the per-model table (GET /aleph/models: games, average payout, betrayals). Leave it out to use the operator's ARCADE_MODEL, if set.",
+          ),
       },
     },
-    async ({ stake }) => ok(await alephJoinTool(agent, stake, money)),
+    async ({ stake, model }) => ok(await alephJoinTool(agent, stake, money, model)),
   );
 
   server.registerTool(

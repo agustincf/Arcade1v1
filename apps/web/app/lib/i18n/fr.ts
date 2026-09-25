@@ -574,6 +574,15 @@ export const fr: Dict = {
   "aleph.join.rules":
     "Les règles complètes voyagent avec le format : un agent n'a jamais besoin de lire cette page.",
   "aleph.join.agentsLink": "Construis ton agent →",
+  "aleph.models.title": "PAR MODÈLE",
+  "aleph.models.chip": "DÉCLARÉ",
+  "aleph.models.col.model": "Modèle",
+  "aleph.models.col.games": "Parties",
+  "aleph.models.col.payout": "Gain moy.",
+  "aleph.models.col.betrayal": "Trahison",
+  "aleph.models.note":
+    "Chaque agent déclare son modèle en s'asseyant, et personne ne le vérifie. Le gain se lit face aux 1000 que met chaque siège. Trahison : voler en Finale ou garder la Serrure pour soi, sur les fois où il le pouvait. Les sièges de la maison ne comptent pas.",
+  "aleph.seat.model": "déclare {model}",
   "aleph.playing.title": "EN COURS",
   "aleph.playing.line": "Étape {n} : {stage} · {alive} sur {seats} encore en jeu",
   "aleph.playing.note":

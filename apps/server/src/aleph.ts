@@ -37,6 +37,7 @@ import {
 } from "@arcade1v1/game-sdk/aleph";
 import {
   matchmakeAuthMessage,
+  normalizeModel,
   alephActionAuthMessage,
   alephViewAuthMessage,
   MATCHMAKE_AUTH_TTL_MS,
@@ -45,6 +46,8 @@ import { AUTH_REQUIRED } from "./matchmaking.js";
 import { applyMultiResult, type RatingUpdate } from "./ratings.js";
 import { jsonStore } from "./persist.js";
 import { recordMatchCreated, recordMatchSettled } from "./stats.js";
+import { recordAlephRoom } from "./aleph-models.js";
+import { isAlephHouseAddress } from "./aleph-house-seats.js";
 import { signAlephSeat, signAlephPayout, alephSeatsHash, alephTableHash } from "./sign.js";
 import {
   alephChain,
@@ -146,6 +149,10 @@ export interface AlephRoom {
   stages?: number; // etapas jugadas, guardadas al liquidar (listar no re-simula)
   payouts?: Record<string, number>;
   eloUpdates?: Record<string, RatingUpdate>;
+  /** Modelo de IA que DECLARÓ cada asiento al sentarse (firmado, normalizado).
+   *  Se congela ahí: volver a pedir asiento no lo cambia. Sin campo = nadie
+   *  declaró (y todas las salas de antes de que existiera). */
+  models?: Record<string, string>;
 }
 
 /** Lo que un asiento necesita para depositar: lo lee de su vista privada
@@ -233,7 +240,7 @@ export type AlephRoomView = {
   settleOutcome?: AlephSettleOutcome; // `settled`, stake > 0: cerrada sin hash propio
   refundTx?: Hex; // `dissolved`, stake > 0: el hash del `cancelRoom` del árbitro
   refundOutcome?: AlephRefundOutcome; // `dissolved`, stake > 0: cerrado sin hash propio
-  seats: { address: string; status: SeatStatus; pocket: number }[];
+  seats: { address: string; status: SeatStatus; pocket: number; model?: string }[];
 } & Partial<Omit<AlephView, "seats">>;
 
 export interface AlephAuth {
@@ -382,15 +389,18 @@ async function verifySigned(
   if (signer.toLowerCase() !== address) throw new AlephError("bad signature");
 }
 
-/** Firma del asiento: mismo mensaje que cualquier emparejamiento, con game "aleph". */
+/** Firma del asiento: mismo mensaje que cualquier emparejamiento, con game
+ *  "aleph" y, si declaró uno, el modelo (ya normalizado). Un modelo que la
+ *  firma no cubre da "bad signature": nadie puede declararlo por otro. */
 async function verifySeatAuth(
   stake: number,
   address: string,
   auth: AlephAuth | undefined,
   now: number,
+  model?: string,
 ): Promise<void> {
   await verifySigned(
-    matchmakeAuthMessage("aleph", stake, address, Number(auth?.ts)),
+    matchmakeAuthMessage("aleph", stake, address, Number(auth?.ts), model),
     auth?.signature,
     auth?.ts,
     address,
@@ -398,12 +408,15 @@ async function verifySeatAuth(
   );
 }
 
-/** Pedir asiento. Idempotente: si ya estás en una sala viva, la devuelve. */
+/** Pedir asiento. Idempotente: si ya estás en una sala viva, la devuelve.
+ *  `model`: el modelo de IA que el agente declara (va firmado; se normaliza con
+ *  `normalizeModel` y queda en el asiento de ESTA sala). */
 export async function joinAleph(
   stake: number,
   address: string,
   auth?: AlephAuth,
   now = Date.now(),
+  model?: unknown,
 ): Promise<AlephRoomView> {
   if (!alephEnabled()) throw new AlephError("aleph disabled");
   if (!ALEPH_STAKES.includes(stake)) {
@@ -414,7 +427,8 @@ export async function joinAleph(
   }
   address = normAddr(address);
   if (!ADDRESS_RE.test(address)) throw new AlephError("invalid address");
-  await verifySeatAuth(stake, address, auth, now);
+  const declared = normalizeModel(model);
+  await verifySeatAuth(stake, address, auth, now, declared);
   settleDue(now);
   const mine = liveRoomOf(address);
   if (mine) return withDeposit(mine, roomView(mine, address), address);
@@ -440,6 +454,7 @@ export async function joinAleph(
     openLobby.set(stake, room.id);
   }
   room.seats.push(address);
+  if (declared) room.models = { ...room.models, [address]: declared };
   if (room.seats.length >= ALEPH_MAX_SEATS) closeLobby(room, now);
   persist();
   return withDeposit(room, roomView(room, address), address);
@@ -698,6 +713,24 @@ function settleRoom(room: AlephRoom, s: AlephState, now: number): void {
   // de cadena (async, con reintento). Acá solo queda anotado que falta.
   if (room.stake > 0) room.chain = { attempts: 0, nextAttemptAt: now };
   recordMatchSettled(0, now);
+  // La tabla por modelo. Nunca puede tumbar la liquidación: si `settleRoom`
+  // tira, `settleDue` disuelve la sala (y reembolsa una de plata).
+  if (room.models) {
+    try {
+      recordAlephRoom(
+        room.id,
+        {
+          models: room.models,
+          payouts: s.payouts!,
+          results: s.results,
+          isHouse: isAlephHouseAddress,
+        },
+        now,
+      );
+    } catch (e) {
+      console.error("[aleph] tabla por modelo:", e);
+    }
+  }
   // La sala ya no cambia: soltamos su estado derivado. Si alguien la mira, se
   // re-simula bajo demanda y vuelve a cachearse; lo que NO puede pasar es que
   // listar las últimas 100 re-simule 100 registros de golpe tras un reinicio.
@@ -792,6 +825,8 @@ export function alephLog(roomId: string, now = Date.now()) {
     settledAt: room.settledAt,
     events: room.events,
     payouts: room.payouts,
+    // Lo que DECLARÓ cada asiento (firmado al sentarse; nadie lo verifica).
+    models: room.models,
     // Mesa de plata: la tabla en USDC y su firma van en el registro PÚBLICO, así
     // cualquiera puede presentar el `settle` si la transacción del árbitro falló
     // (mientras la firma no venza: `deadline`, en segundos).
@@ -1083,6 +1118,19 @@ function durableSig(room: AlephRoom): { payoutSig?: Hex; payoutDeadline?: number
   return { payoutSig: c.payoutSig, payoutDeadline: c.payoutDeadline };
 }
 
+/** El modelo que declaró cada asiento, sin `model: undefined` en los que no
+ *  declararon (la forma de la vista sigue igual para ellos). */
+function withModels<T extends { address: string }>(
+  room: AlephRoom,
+  seats: T[],
+): (T & { model?: string })[] {
+  if (!room.models) return seats;
+  return seats.map((x) => {
+    const model = room.models![x.address];
+    return model ? { ...x, model } : x;
+  });
+}
+
 export function roomView(room: AlephRoom, address?: string): AlephRoomView {
   const base = {
     roomId: room.id,
@@ -1115,11 +1163,19 @@ export function roomView(room: AlephRoom, address?: string): AlephRoomView {
       // liquidada). Mientras siga vacío, el reembolso todavía está en camino.
       refundTx: room.chain?.refundTx,
       refundOutcome: room.chain?.refundOutcome,
-      seats: room.seats.map((a) => ({ address: a, status: "alive" as SeatStatus, pocket: 0 })),
+      seats: withModels(
+        room,
+        room.seats.map((a) => ({ address: a, status: "alive" as SeatStatus, pocket: 0 })),
+      ),
     };
   }
   const v = viewFor(stateOf(room), address);
-  const out: AlephRoomView = { ...base, ...v, deadline: room.phaseDeadline };
+  const out: AlephRoomView = {
+    ...base,
+    ...v,
+    seats: withModels(room, v.seats),
+    deadline: room.phaseDeadline,
+  };
   if (room.status === "settled") {
     out.secretSeed = room.secretSeed;
     const a = address ? normAddr(address) : undefined;

@@ -175,6 +175,9 @@ export async function alephJoinTool(
   agent: Agent,
   stake = 0,
   money: MoneyConfig = {},
+  /** El modelo que declara quien llama. Sin él, el `model` del agente (el
+   *  ARCADE_MODEL del operador), si hay. */
+  model?: string,
 ): Promise<AlephAgentView> {
   if (stake > 0) {
     const refused = `not taking a seat at the ${stake} USDC table`;
@@ -185,7 +188,7 @@ export async function alephJoinTool(
       );
     }
   }
-  return withLegal(agent, await agent.alephJoin(stake));
+  return withLegal(agent, await agent.alephJoin(stake, model ? { model } : {}));
 }
 
 export async function alephViewTool(agent: Agent, roomId: string): Promise<AlephAgentView> {

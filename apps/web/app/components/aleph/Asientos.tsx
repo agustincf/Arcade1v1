@@ -78,6 +78,14 @@ function Tarjeta({
               anti-suplantación de wallet.tsx, no una preferencia de layout. */}
           <div className="font-mono text-2xs text-(--color-muted-3)">{etiqueta.wallet}</div>
         </div>
+        {/* Afuera de las dos formas de la etiqueta: se ve en cualquier ancho.
+            Sin `truncate`: en la grilla de 4 columnas se comía el nombre del
+            modelo, que es el dato; se parte en renglones (hasta 48 caracteres). */}
+        {etiqueta.modelo && (
+          <div className="font-mono text-2xs leading-snug wrap-anywhere text-(--color-accent-2)">
+            {t("aleph.seat.model", { model: etiqueta.modelo })}
+          </div>
+        )}
         <div className="asiento-chips mt-1 flex flex-wrap items-center gap-2">
           {/* CASA/WEBHOOK es chip de IDENTIDAD: no cuenta para el tope de dos,
               que es sobre los de estado. */}

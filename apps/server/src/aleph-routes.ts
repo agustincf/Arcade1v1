@@ -14,6 +14,7 @@ import {
   ALEPH_STAKES,
 } from "./aleph.js";
 import { resolveDisplay } from "./profiles.js";
+import { alephModelStats } from "./aleph-models.js";
 
 function fail(res: Response, e: unknown): void {
   if (e instanceof AlephError) {
@@ -31,7 +32,7 @@ export const alephRouter = Router();
 
 // Pedir asiento (firmado en producción: matchmakeAuthMessage("aleph", stake, address, ts)).
 alephRouter.post("/aleph/join", async (req, res) => {
-  const { stake, address, signature, ts } = req.body ?? {};
+  const { stake, address, signature, ts, model } = req.body ?? {};
   if (stake === undefined || stake === null || !address) {
     return res.status(400).json({ error: "faltan stake o address" });
   }
@@ -40,7 +41,7 @@ alephRouter.post("/aleph/join", async (req, res) => {
   }
   try {
     const auth = signature ? { signature: String(signature), ts: Number(ts) } : undefined;
-    const v = await joinAleph(Number(stake), String(address), auth);
+    const v = await joinAleph(Number(stake), String(address), auth, Date.now(), model);
     res.json({ ...v, seats: withDisplay(v.seats) });
   } catch (e) {
     fail(res, e);
@@ -53,6 +54,16 @@ alephRouter.post("/aleph/join", async (req, res) => {
 alephRouter.get("/aleph/lobbies", (_req, res) => {
   try {
     res.json({ lobbies: listAlephLobbies(), playing: listAlephPlaying(), stakes: ALEPH_STAKES });
+  } catch (e) {
+    fail(res, e);
+  }
+});
+
+// La tabla por modelo: lo que DECLARÓ cada agente al sentarse, sumado al
+// liquidar cada sala (partidas, pago promedio, traiciones sobre oportunidades).
+alephRouter.get("/aleph/models", (_req, res) => {
+  try {
+    res.json({ models: alephModelStats() });
   } catch (e) {
     fail(res, e);
   }

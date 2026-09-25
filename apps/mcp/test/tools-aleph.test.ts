@@ -50,6 +50,8 @@ class FakeAleph extends ArbiterClient {
   deposit?: AlephDeposit;
   /** Cuántas veces se pidió asiento: "no se sentó" tiene que poder fallar. */
   joins = 0;
+  /** El modelo que viajó en el último pedido de asiento. */
+  joinedModel?: string;
   constructor() {
     super("http://fake");
   }
@@ -83,8 +85,14 @@ class FakeAleph extends ArbiterClient {
   async alephLobbiesInfo() {
     return { lobbies: await this.alephLobbies(), playing: [], stakes: [0, 2] };
   }
-  async alephJoin(_stake: number, address: string) {
+  async alephJoin(
+    _stake: number,
+    address: string,
+    _auth?: { signature: string; ts: number },
+    model?: string,
+  ) {
     this.joins++;
+    this.joinedModel = model;
     return this.view(address.toLowerCase());
   }
   async alephView(_roomId: string, pass?: AlephViewPass) {
@@ -114,6 +122,18 @@ test("alephLobbiesTool: lista los lobbies abiertos y los stakes que acepta el á
   // ninguna herramienta, de que el árbitro acepta una mesa paga (hallazgo de
   // review sobre esta misma tarea).
   assert.deepEqual(out.stakes, [0, 2]);
+});
+
+test("alephJoinTool: el modelo que declara el que llama viaja normalizado; sin él, el del operador", async () => {
+  const fake = new FakeAleph();
+  const agent = createAgent({ client: fake, model: "gpt-5" });
+  await alephJoinTool(agent, 0, {}, "Claude Sonnet 5");
+  assert.equal(fake.joinedModel, "claude-sonnet-5");
+  await alephJoinTool(agent, 0);
+  assert.equal(fake.joinedModel, "gpt-5", "sin parámetro, el ARCADE_MODEL del operador");
+  const bare = createAgent({ client: fake });
+  await alephJoinTool(bare, 0);
+  assert.equal(fake.joinedModel, undefined);
 });
 
 test("alephJoinTool / alephViewTool: la vista vuelve con las acciones legales, `me` y `msLeft`; la vista va con pase", async () => {

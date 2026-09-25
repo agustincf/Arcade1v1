@@ -67,7 +67,12 @@ function fundingFake(deposit = depositFixture()): FakeAleph {
 class FakeAleph extends ArbiterClient {
   /** Cada pedido que recibió, en orden: "no tocó la red" tiene que poder fallar. */
   calls: string[] = [];
-  joins: { stake: number; address: string; auth?: { signature: string; ts: number } }[] = [];
+  joins: {
+    stake: number;
+    address: string;
+    auth?: { signature: string; ts: number };
+    model?: string;
+  }[] = [];
   views: (AlephViewPass | undefined)[] = [];
   acts: { address: string; body: AlephActBody }[] = [];
   rulesV = ALEPH_RULES_V;
@@ -102,9 +107,14 @@ class FakeAleph extends ArbiterClient {
     this.calls.push("lobbies");
     return this.lobbies;
   }
-  async alephJoin(stake: number, address: string, auth?: { signature: string; ts: number }) {
+  async alephJoin(
+    stake: number,
+    address: string,
+    auth?: { signature: string; ts: number },
+    model?: string,
+  ) {
     this.calls.push("join");
-    this.joins.push({ stake, address, auth });
+    this.joins.push({ stake, address, auth, model });
     return this.view();
   }
   async alephView(_roomId: string, pass?: AlephViewPass) {
@@ -135,6 +145,26 @@ test("alephJoin: firma matchmakeAuthMessage('aleph', 0, address, ts) con la wall
   // Sin argumento, la mesa gratis.
   await agent.alephJoin();
   assert.equal(fake.joins[1].stake, 0);
+});
+
+test("alephJoin: el modelo de createAgent va normalizado en el pedido y firmado", async () => {
+  const fake = new FakeAleph();
+  const agent = createAgent({ client: fake, model: "Claude Sonnet 5" });
+  await agent.alephJoin(0);
+  const j = fake.joins[0];
+  assert.equal(j.model, "claude-sonnet-5");
+  const signer = await recoverMessageAddress({
+    message: matchmakeAuthMessage("aleph", 0, agent.address, j.auth!.ts, "claude-sonnet-5"),
+    signature: j.auth!.signature as Hex,
+  });
+  assert.equal(signer.toLowerCase(), agent.address.toLowerCase());
+  // El de la llamada le gana al de createAgent.
+  await agent.alephJoin(0, { model: "gpt-5" });
+  assert.equal(fake.joins[1].model, "gpt-5");
+  // Sin modelo: nada en el pedido y el mensaje de siempre.
+  const bare = createAgent({ client: fake });
+  await bare.alephJoin(0);
+  assert.equal(fake.joins[2].model, undefined);
 });
 
 test("alephJoin: una mesa de plata exige rpcUrl, privateKey y escrow, cada uno por separado; con los tres firma stake 2", async () => {

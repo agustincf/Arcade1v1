@@ -93,6 +93,42 @@ test("alephLobbiesInfo: GET /aleph/lobbies con las mesas que acepta el árbitro"
   assert.deepEqual(await old.alephLobbiesInfo(), { lobbies: [], playing: [], stakes: [0] });
 });
 
+test("alephJoin: con modelo, va en el cuerpo del pedido", async () => {
+  const cap: Captured = {};
+  const client = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: fakeFetch(cap, { ...VIEW, status: "lobby" }),
+  });
+  await client.alephJoin(0, ADDR, { signature: "0xsig", ts: 123 }, "gpt-5");
+  assert.deepEqual(JSON.parse(String(cap.init?.body)), {
+    stake: 0,
+    address: ADDR,
+    signature: "0xsig",
+    ts: 123,
+    model: "gpt-5",
+  });
+});
+
+test("alephModels: GET /aleph/models (lista vacía contra un árbitro que no la tiene)", async () => {
+  const cap: Captured = {};
+  const row = {
+    model: "gpt-5",
+    games: 3,
+    avgPayout: 1100,
+    betrayal: { chances: 2, count: 1, rate: 0.5 },
+    lock: { chances: 1, betrayals: 0 },
+    final: { played: 1, steals: 1 },
+    firstAt: 1,
+    lastAt: 2,
+  };
+  const client = new ArbiterClient("http://arbiter.test", {
+    fetchImpl: fakeFetch(cap, { models: [row] }),
+  });
+  assert.deepEqual(await client.alephModels(), [row]);
+  assert.equal(cap.url, "http://arbiter.test/aleph/models");
+  const old = new ArbiterClient("http://arbiter.test", { fetchImpl: fakeFetch({}, {}) });
+  assert.deepEqual(await old.alephModels(), []);
+});
+
 test("alephJoin: POST /aleph/join con stake, address y la firma", async () => {
   const cap: Captured = {};
   const client = new ArbiterClient("http://arbiter.test", {

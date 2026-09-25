@@ -137,6 +137,8 @@ export interface AlephSeatView {
   agentId?: string;
   house?: boolean;
   byo?: boolean;
+  /** El modelo de IA que DECLARÓ al sentarse (normalizado). Nadie lo verifica. */
+  model?: string;
 }
 
 /** Por qué una liquidación quedó CERRADA sin transacción del árbitro:
@@ -230,6 +232,22 @@ export interface AlephPlaying {
   deadline: number;
 }
 
+/** Una fila de la tabla por modelo (`GET /aleph/models`): lo que DECLARARON
+ *  los agentes al sentarse, sumado al liquidar cada sala. */
+export interface AlephModelRow {
+  model: string;
+  /** Partidas (asiento-sala) jugadas con ese modelo. */
+  games: number;
+  /** Pago promedio por partida, en unidades: cada asiento pone 1000. */
+  avgPayout: number;
+  /** Traiciones sobre oportunidades (Cerradura + Final); `rate` null sin ninguna. */
+  betrayal: { chances: number; count: number; rate: number | null };
+  lock: { chances: number; betrayals: number };
+  final: { played: number; steals: number };
+  firstAt: number;
+  lastAt: number;
+}
+
 /** Registro completo de una sala terminada (`GET /aleph/:id/log`): lo que
  *  re-simula cualquier verificador. */
 export interface AlephLog {
@@ -243,6 +261,8 @@ export interface AlephLog {
   settledAt?: number;
   events: AlephEvent[];
   payouts: Record<string, number>;
+  /** dirección -> modelo que declaró al sentarse (sin campo: nadie declaró). */
+  models?: Record<string, string>;
   /** Solo mesas de plata: la parte en USDC del registro. */
   usdc?: {
     escrow: string;
@@ -535,8 +555,20 @@ export class ArbiterClient {
     stake: number,
     address: string,
     auth?: { signature: string; ts: number },
+    model?: string,
   ): Promise<AlephRoomView> {
-    return this.post<AlephRoomView>("/aleph/join", { stake, address, ...(auth ?? {}) });
+    return this.post<AlephRoomView>("/aleph/join", {
+      stake,
+      address,
+      ...(auth ?? {}),
+      ...(model ? { model } : {}),
+    });
+  }
+
+  /** La tabla por modelo. Un árbitro anterior a 3.11 no la tiene: lista vacía. */
+  async alephModels(): Promise<AlephModelRow[]> {
+    const j = await this.get<{ models?: AlephModelRow[] }>("/aleph/models");
+    return j.models ?? [];
   }
 
   /** Vista de la sala. Con `pass` (firma de alephViewAuthMessage) llega la vista

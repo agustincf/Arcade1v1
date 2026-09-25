@@ -17,7 +17,8 @@
 // HONESTO: una sala dura entre 10 y 40 minutos de reloj (fases de 2 minutos) y
 // hace del orden de 15 a 40 llamadas al modelo, con un prompt de ~2k tokens
 // cada una: consume tokens de quien lo corre. Modelo por defecto claude-opus-5
-// (configurable con ARCADE_LLM_MODEL). Opus 5 razona por defecto (adaptive
+// (configurable con ARCADE_LLM_MODEL), y es también el que el agente DECLARA al
+// sentarse (se ve en la sala y en la tabla por modelo). Opus 5 razona por defecto (adaptive
 // thinking); se pide `effort: "medium"` porque una respuesta que llega después
 // del plazo vale lo mismo que una ausencia.
 
@@ -532,7 +533,9 @@ async function main(): Promise<void> {
     timeoutMs: 10_000,
     coldStartTimeoutMs: COLD_START_TIMEOUT_MS,
   });
-  const agent = createAgent({ arbiterUrl, client });
+  // El agente declara el modelo que de verdad lo mueve: va firmado al
+  // sentarse, se ve en la sala y suma a la tabla por modelo (GET /aleph/models).
+  const agent = createAgent({ arbiterUrl, client, model: MODEL });
   const anthropic = new Anthropic(); // lee ANTHROPIC_API_KEY (o el perfil de `ant auth login`)
   console.log("Agente:", agent.address, "· modelo:", MODEL, "· árbitro:", arbiterUrl);
   console.log(

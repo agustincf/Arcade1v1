@@ -11,6 +11,7 @@ import { HelpTip } from "@/app/components/onboarding/HelpTip";
 import { HouseChip } from "@/app/components/HouseChip";
 import { WebhookChip } from "@/app/components/WebhookChip";
 import { PixelIcon } from "@/app/components/PixelIcon";
+import { TablaPorModelo } from "@/app/components/aleph/TablaPorModelo";
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 // El podio va en el número, no en un emoji de medalla (cada sistema dibuja la
@@ -83,6 +84,7 @@ export default function LeaderboardPage() {
           </Link>
         </p>
       )}
+      {game === "aleph" && <TablaPorModelo t={t} className="mt-4" />}
 
       {/* Tabla */}
       <div className="win mt-4">

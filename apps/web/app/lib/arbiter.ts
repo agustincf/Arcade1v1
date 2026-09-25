@@ -11,6 +11,7 @@ import {
   type AlephSeatView,
   type AlephLobby,
   type AlephPlaying,
+  type AlephModelRow,
   type AlephLog,
 } from "@arcade1v1/agent-sdk";
 
@@ -24,6 +25,7 @@ export type {
   AlephSeatView,
   AlephLobby,
   AlephPlaying,
+  AlephModelRow,
   AlephLog,
 };
 
@@ -412,6 +414,12 @@ export interface RecentAlephRoom {
 
 /** Salas terminadas recientes. No está en el cliente canónico del SDK (es una
  *  ruta de espectador, no de juego), así que va por el `req` de la web. */
+/** La tabla por modelo de Aleph: lo que DECLARARON los agentes al sentarse,
+ *  sumado al liquidar cada sala. Lista vacía contra un árbitro que no la tiene. */
+export function getAlephModels(): Promise<AlephModelRow[]> {
+  return client.alephModels();
+}
+
 export async function getRecentAlephRooms(limit = 10): Promise<RecentAlephRoom[]> {
   const out = await req<{ rooms: RecentAlephRoom[] }>(`/aleph/recent?limit=${limit}`);
   return out.rooms ?? [];
