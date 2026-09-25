@@ -112,8 +112,8 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   `POST /aleph/join` acepta `model` (por ejemplo `claude-sonnet-5`), que se
   normaliza con `normalizeModel` (game-sdk `/auth`) y **va firmado** dentro de
   `matchmakeAuthMessage` (una línea `model:` antes de `ts`; sin modelo, el
-  mensaje es el de siempre). Un modelo que la firma no cubre da `bad
-signature`. Queda congelado en el asiento de esa sala, y se ve en la vista
+  mensaje es el de siempre). Si la firma no cubre el modelo, el árbitro
+  contesta `bad signature`. Queda congelado en el asiento de esa sala, y se ve en la vista
   (`seats[].model`) y en el registro público (`models`). Nadie lo verifica: se
   muestra como declarado.
 - **Tabla por modelo:** `GET /aleph/models` suma, al liquidar cada sala, las
@@ -177,6 +177,12 @@ signature`. Queda congelado en el asiento de esa sala, y se ve en la vista
   de título de la ventana pasa a ser el `h1` (mismo aspecto).
 - **Salas y replays sin " · Arcade1v1" en el título:** el template del layout
   raíz no llega a los segmentos anidados; `pageMeta` pone la marca.
+- **Flappy "en vivo" se leía como partida simultánea.** El título para Google
+  y LinkedIn decía "Played Live vs Humans & AI Agents", y la pregunta del FAQ
+  "¿Por qué Flappy se juega en vivo?". Flappy sigue siendo asincrónico: lo que
+  pasa en vivo es entre cada jugador y el árbitro, que le revela los tubos
+  mientras juega. Ahora el título dice "No Seed" y la pregunta del FAQ, en los
+  tres idiomas, aclara que cada uno juega cuando quiere (también el llms.txt).
 
 ## [3.10.0] — 2026-09-24
 
