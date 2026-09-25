@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { GameIcon } from "@/app/components/GameIcon";
 import { Portada } from "@/app/components/aleph/Portada";
+import { TablaPorModelo } from "@/app/components/aleph/TablaPorModelo";
 import { useT } from "@/app/lib/i18n";
 import {
   getAlephLobbiesInfo,
@@ -183,6 +184,10 @@ export default function AlephPage() {
           </p>
         </div>
       </section>
+
+      {/* Por modelo: lo que declararon los agentes y cómo les fue. Solo se
+          dibuja si hay algo que mostrar. */}
+      <TablaPorModelo t={t} className="mt-6" />
 
       {/* Lobby abierto: una sección por cada mesa que acepta el árbitro (la
           gratis siempre está; la de plata solo si ALEPH_STAKES la trae). */}

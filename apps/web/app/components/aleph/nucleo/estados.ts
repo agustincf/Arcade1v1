@@ -21,6 +21,8 @@ export interface AsientoDeSala {
   agentId?: string;
   house?: boolean;
   byo?: boolean;
+  /** El modelo que DECLARÓ al sentarse (normalizado). Nadie lo verifica. */
+  model?: string;
 }
 
 export interface ResultadoDeEtapa {

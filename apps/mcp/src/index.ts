@@ -36,6 +36,9 @@ async function main() {
     privateKey: wallet.privateKey,
     rpcUrl: wallet.rpcUrl,
     escrow: wallet.escrow,
+    // Aleph: el modelo que este servidor declara al sentarse, si el operador lo
+    // fijó. El parámetro `model` de aleph_join le gana.
+    model: process.env.ARCADE_MODEL?.trim() || undefined,
   });
   const server = buildServer({
     agent,

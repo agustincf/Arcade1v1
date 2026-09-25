@@ -51,6 +51,13 @@
           "format": "string",
           "isSecret": false,
           "name": "ARCADE_ALEPH_MAX_STAKE"
+        },
+        {
+          "description": "AI model this server declares when it sits at an Aleph table, e.g. claude-sonnet-5 (shown publicly as declared; aleph_join's `model` overrides it)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "ARCADE_MODEL"
         }
       ]
     }

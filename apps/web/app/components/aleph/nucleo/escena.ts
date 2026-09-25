@@ -38,6 +38,9 @@ export interface EtiquetaDeAsiento {
   wallet: string;
   /** CASA/WEBHOOK, ya traducido, o `null`. */
   tag: string | null;
+  /** El modelo que declaró al sentarse, o nada. Va aparte de la etiqueta plana
+   *  (que alimenta la charla y el friso): es un dato de la mesa, no del nombre. */
+  modelo?: string;
 }
 
 /** El bolsillo de un asiento, en UN solo lugar: mientras la sala juega es

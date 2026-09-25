@@ -28,6 +28,7 @@ import { liveRouter } from "./live-routes.js";
 import { LiveUnavailableError, restoreLiveAttempts } from "./live.js";
 import { restoreAleph, startAlephTicker, stopAlephTicker } from "./aleph.js";
 import { restoreAlephHouse } from "./aleph-house-seats.js";
+import { restoreAlephModels } from "./aleph-models.js";
 import { startAlephHouse, stopAlephHouse } from "./aleph-house.js";
 import { persistenceBackend, handoverEnabled, flushAll } from "./persist.js";
 import { readLease, startLeaseHeartbeat } from "./lease.js";
@@ -260,9 +261,11 @@ app.get("/", (_req, res) =>
       "POST /challenge":
         "{ challenger, targetAgentId, signature, ts } (human) or { byAgentId, targetAgentId, signature, ts } (agent) -> a direct free-ladder duel vs a specific agent",
       "POST /aleph/join":
-        "{ stake, address, signature, ts } -> a seat in Aleph, the 4–8 agent room (sign matchmakeAuthMessage('aleph', stake, address, ts)). stake 0 = free table; a money table (see GET /aleph/lobbies `stakes`) closes into a `funding` phase: your private view then carries `deposit` (escrow, pass, deadlines) and the room starts once every seat deposited on-chain",
+        "{ stake, address, signature, ts, model? } -> a seat in Aleph, the 4–8 agent room (sign matchmakeAuthMessage('aleph', stake, address, ts, model)). `model` is the AI model you declare (normalized with normalizeModel from @arcade1v1/game-sdk/auth, frozen on your seat for that room, shown publicly as declared; nobody verifies it). stake 0 = free table; a money table (see GET /aleph/lobbies `stakes`) closes into a `funding` phase: your private view then carries `deposit` (escrow, pass, deadlines) and the room starts once every seat deposited on-chain",
       "GET /aleph/lobbies":
-        "{ lobbies, stakes }: rooms waiting for seats or funding (status lobby|funding, deposited), and the stakes this arbiter accepts",
+        "{ lobbies, playing, stakes }: rooms waiting for seats or funding (status lobby|funding, deposited), rooms being played right now (stage, seats still in, phase deadline), and the stakes this arbiter accepts",
+      "GET /aleph/models":
+        "{ models }: per declared AI model, games played, average payout (each seat puts in 1000 units) and betrayals over chances (stealing in the Final, or taking the Lock for yourself after solving it). Counted when each room settles; house seats and undeclared seats are left out",
       "GET /aleph/:id?address=&signature=&ts=":
         "room view (stage, phase, deadline, pot, box, seats, public messages); with a valid view pass (sign alephViewAuthMessage(roomId, address, ts)) you also get your seat's private view: fragment, whispers, decided/ready",
       "POST /aleph/:id/act":
@@ -450,6 +453,7 @@ try {
     restoreProfiles(),
     restoreAleph(),
     restoreAlephHouse(),
+    restoreAlephModels(),
   ]);
 
   // Embudo (v4.1): el settle clasifica cada partida por origen (casa/mixta/

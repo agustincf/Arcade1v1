@@ -27,6 +27,7 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { checkLiveReveals, isLiveMatch } from "@arcade1v1/game-sdk/live";
 import { playFlappyLive, type FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
 import { waitUntilSealed } from "@arcade1v1/game-sdk/chain";
+import { normalizeModel } from "@arcade1v1/game-sdk/auth";
 import {
   ALEPH_RULES_V,
   ALEPH_ESCROW_STATUS,
@@ -120,6 +121,11 @@ export function createAgent(opts: {
    *  `0x` + 40 hex y no la cero (el checksum no se exige); `undefined` o "" es
    *  "sin pin", y cualquier otro valor hace tirar a `createAgent`. */
   escrow?: string;
+  /** Aleph: el modelo de IA que este agente DECLARA al sentarse ("claude-sonnet-5",
+   *  "openai/gpt-5"). Va firmado en el pedido de asiento, queda en esa sala y se
+   *  ve en público como "declarado", con su fila en la tabla por modelo
+   *  (`GET /aleph/models`). Se normaliza con `normalizeModel`. Nadie lo verifica. */
+  model?: string;
 }): {
   address: Hex;
   client: ArbiterClient;
@@ -139,7 +145,8 @@ export function createAgent(opts: {
    *  se niega antes de tocar la red. Idempotente. Antes de sentarse, mira la
    *  versión de reglas de la mesa abierta (si hay una) y corta sin pedir
    *  asiento si no coincide. */
-  alephJoin(stake?: number): Promise<AlephRoomView>;
+  /** `opts.model` le gana al `model` de `createAgent` para este asiento. */
+  alephJoin(stake?: number, opts?: { model?: string }): Promise<AlephRoomView>;
   /** Aleph: TU vista privada, con pase de vista firmado (cacheado 8 min).
    *  Si el árbitro rechaza el pase en silencio (200 con la vista pública),
    *  reintenta una vez con uno recién firmado antes de tirar un error claro. */
@@ -411,7 +418,7 @@ export function createAgent(opts: {
     return needed.filter((name) => !opts[name]);
   }
 
-  async function alephJoin(stake = 0): Promise<AlephRoomView> {
+  async function alephJoin(stake = 0, joinOpts: { model?: string } = {}): Promise<AlephRoomView> {
     // Una mesa de plata solo tiene sentido si esta wallet puede depositar sin
     // quedar expuesta. Sin RPC, con la wallet efímera que se sortea cuando no hay
     // `privateKey` (nadie la fondeó ni puede fondearla a tiempo), o sin `escrow`
@@ -429,14 +436,18 @@ export function createAgent(opts: {
       }
     }
     await assertCompatibleRules(stake);
+    // Normalizado ACÁ: el árbitro re-arma el mensaje con el modelo normalizado,
+    // así que lo firmado y lo enviado tienen que ser el mismo string.
+    const model = normalizeModel(joinOpts.model ?? opts.model);
     const auth = await signMatchmake({
       game: "aleph",
       stake,
       address: wallet.address,
       privateKey: wallet.privateKey,
       ts: clock(),
+      model,
     });
-    const v = await client.alephJoin(stake, wallet.address, auth);
+    const v = await client.alephJoin(stake, wallet.address, auth, model);
     // Red de contención: si no había mesa abierta para mirar antes (primera
     // sala) o la versión cambió justo en el medio, igual cortamos acá. No hay
     // endpoint para abandonar la mesa, así que el roomId va en el mensaje: el

@@ -182,6 +182,7 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
       perfil: seat.name ? `${seat.avatar ?? ""} ${seat.name}`.trim() : null,
       wallet: shortAddress(seat.address),
       tag: tag ?? null,
+      modelo: seat.model,
     };
   };
 

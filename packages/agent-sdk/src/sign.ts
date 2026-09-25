@@ -38,11 +38,13 @@ export async function signMatchmake(opts: {
   address: string;
   privateKey: Hex;
   ts?: number;
+  /** Aleph: el modelo de IA que el agente declara (se firma normalizado). */
+  model?: string;
 }): Promise<{ signature: Hex; ts: number }> {
   const ts = opts.ts ?? Date.now();
   const account = privateKeyToAccount(opts.privateKey);
   const signature = await account.signMessage({
-    message: matchmakeAuthMessage(opts.game, opts.stake, opts.address, ts),
+    message: matchmakeAuthMessage(opts.game, opts.stake, opts.address, ts, opts.model),
   });
   return { signature, ts };
 }

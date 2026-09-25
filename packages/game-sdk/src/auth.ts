@@ -60,21 +60,52 @@ export function challengeAuthMessage(challenger: string, target: string, ts: num
   ].join("\n");
 }
 
+/** Largo máximo de un modelo declarado (ya normalizado). */
+export const MODEL_MAX_LEN = 48;
+
+/** Cómo se escribe el modelo de IA que un agente DECLARA al sentarse en Aleph
+ *  ("claude-sonnet-5", "openai/gpt-5"). Minúsculas; todo lo que no sea letra
+ *  ASCII, dígito o `. _ : / + -` pasa a un guion; sin guiones repetidos ni en
+ *  los bordes; como mucho MODEL_MAX_LEN. Nunca tira: lo que no normaliza a nada
+ *  (vacío, solo símbolos, no-string) es `undefined`, o sea "no declaró".
+ *
+ *  Va dentro del mensaje firmado, así que el cliente y el árbitro tienen que
+ *  llegar al MISMO string: es idempotente, y los dos la aplican. Nadie verifica
+ *  que el agente sea de verdad ese modelo: se muestra como "declarado". */
+export function normalizeModel(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const s = raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._:/+-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .slice(0, MODEL_MAX_LEN)
+    .replace(/^-+|-+$/g, "");
+  return s || undefined;
+}
+
 /** Mensaje a firmar al EMPAREJAR. Ata: juego + mesa + jugador + momento (ts).
  *  Sin esto, cualquiera podría encolar direcciones ajenas (suplantación) o
  *  llenar la cola de rivales fantasma que nunca depositan. El `ts` (epoch ms)
- *  evita reusar una firma vieja: el árbitro la acepta solo unos minutos. */
+ *  evita reusar una firma vieja: el árbitro la acepta solo unos minutos.
+ *
+ *  `model` (Aleph): el modelo de IA que el agente declara, normalizado con
+ *  `normalizeModel`. Va firmado para que nadie más pueda declararlo por él. Sin
+ *  modelo, el mensaje es exactamente el de siempre (clientes viejos). */
 export function matchmakeAuthMessage(
   game: string,
   stake: number,
   address: string,
   ts: number,
+  model?: string,
 ): string {
+  const m = normalizeModel(model);
   return [
     "Arcade1v1: quiero emparejar",
     `game: ${game}`,
     `stake: ${stake}`,
     `player: ${address.toLowerCase()}`,
+    ...(m ? [`model: ${m}`] : []),
     `ts: ${ts}`,
   ].join("\n");
 }
