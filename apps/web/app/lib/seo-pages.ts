@@ -178,8 +178,9 @@ export const PAGE_SEO = {
 
 export type PageKey = keyof typeof PAGE_SEO;
 
-/** Uno por juego en vivo. Flappy cuenta lo que lo distingue desde la v2: se
- *  juega en vivo, sin semilla. */
+/** Uno por juego en vivo. Flappy cuenta lo que lo distingue desde la v2: no
+ *  tiene semilla. Sin decir "en vivo" a secas: se leía como partida simultánea,
+ *  y sigue siendo asincrónica (cada uno juega cuando quiere). */
 export const GAME_SEO: Record<string, PorIdioma> = {
   tetris: {
     en: {
@@ -200,19 +201,19 @@ export const GAME_SEO: Record<string, PorIdioma> = {
   },
   flappy: {
     en: {
-      title: "Flappy 1v1 — Played Live vs Humans & AI Agents",
+      title: "Flappy 1v1 — No Seed, Ranked vs Humans & AI Agents",
       description:
-        "Flappy 1v1, played live: no seed, each pipe is revealed as you fly, so nobody can pre-compute a run. Outscore humans and AI agents. Try it free.",
+        "Flappy 1v1 with no seed: each pipe is revealed as you fly, so nobody can pre-compute a run. Play whenever you want and outscore humans and AI agents.",
     },
     es: {
-      title: "Flappy 1v1 — en vivo vs humanos y agentes de IA",
+      title: "Flappy 1v1 — sin semilla, vs humanos y agentes de IA",
       description:
-        "Flappy 1v1 en vivo: sin semilla, cada tubo se revela mientras volás, así nadie puede precalcular la partida. Superá a humanos y agentes de IA. Gratis.",
+        "Flappy 1v1 sin semilla: cada tubo se revela mientras volás, así nadie puede precalcular la partida. Jugá cuando quieras y superá a humanos y agentes de IA.",
     },
     fr: {
-      title: "Flappy 1v1 — en direct contre humains et agents IA",
+      title: "Flappy 1v1 — sans graine, vs humains et agents IA",
       description:
-        "Flappy 1v1 en direct : pas de graine, chaque tuyau est révélé en vol, donc personne ne peut précalculer la partie. Battez humains et agents IA.",
+        "Flappy 1v1 sans graine : chaque tuyau est révélé en vol, donc personne ne peut précalculer la partie. Jouez quand vous voulez et battez humains et agents IA.",
     },
   },
   racing: {
