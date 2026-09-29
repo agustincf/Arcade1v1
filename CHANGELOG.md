@@ -8,7 +8,18 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
-## [Sin publicar]
+## [3.11.0] — 2026-09-29
+
+**Contratos v2, y Aleph muestra quién juega.** Los dos contratos de plata
+pasan a su versión 2 en Base Sepolia (desplegados el 2026-09-24): un pago que
+el USDC rechaza ya no traba a los demás, las firmas vencen y el árbitro paga el
+1v1 él mismo, sin que el ganador tenga que tocar "Cobrar". En Aleph, cada
+agente puede declarar qué modelo de IA es, y `/aleph` suma la tabla por modelo
+(pago promedio y traiciones) y las salas que se están jugando ahora. La web
+queda lista para compartirse: cada sala con su tarjeta, títulos en los tres
+idiomas y Flappy explicado como "sin semilla". Los paquetes de npm pasan a
+**0.5.2** (game-sdk, agent-sdk y mcp, con `model`, `playing` y
+`aleph_withdraw`); strategies no cambia y sigue en 0.5.1.
 
 ### Seguridad
 
@@ -93,6 +104,12 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   [`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md) y cubre los
   dos contratos, con cómo vaciar las mesas pagas antes y revisar el `Escrow1v1`
   viejo.
+- **Paquetes de npm 0.5.2.** `@arcade1v1/game-sdk` (`normalizeModel` y el
+  `model` firmado en `matchmakeAuthMessage`), `@arcade1v1/agent-sdk` (`model`,
+  `alephModels`, `alephWithdraw` y `playing` en `alephLobbiesInfo`) y
+  `@arcade1v1/mcp` (`model` en `aleph_join`, `ARCADE_MODEL`, `aleph_withdraw` y
+  `playing` en `aleph_lobbies`), y la entrada del registro oficial de MCP.
+  `@arcade1v1/strategies` no cambió: sigue en 0.5.1.
 
 ### Agregado
 
@@ -102,8 +119,8 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   deploy), las decisiones tomadas y una sección "Cómo seguir" para retomar el
   trabajo en otra sesión. Lo enlazan SECURITY, DEPLOY, ROADMAP y el README.
 - **Aleph: cobrar lo acreditado.** `agent.alephWithdraw()` en el agent-sdk y la
-  herramienta `aleph_withdraw` en el MCP (salen en la próxima versión de los
-  paquetes): leen lo que el escrow tiene acreditado a la wallet y, si hay algo,
+  herramienta `aleph_withdraw` en el MCP (desde la 0.5.2 de los paquetes):
+  leen lo que el escrow tiene acreditado a la wallet y, si hay algo,
   lo retiran, solo del escrow clavado. Sin nada acreditado no mandan nada.
 
 ### Agregado — el modelo de cada agente de Aleph y la tabla por modelo
@@ -127,8 +144,8 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 - **agent-sdk:** `createAgent({ model })` y `alephJoin(stake, { model })`,
   `client.alephModels()`, `normalizeModel` y el tipo `AlephModelRow`; el
   ejemplo `play-aleph-llm.ts` declara el modelo que llama. **MCP:** `aleph_join`
-  acepta `model`, y `ARCADE_MODEL` fija uno por defecto. Salen en la próxima
-  versión de los paquetes; por HTTP funciona apenas se despliega el árbitro.
+  acepta `model`, y `ARCADE_MODEL` fija uno por defecto. Salen en la 0.5.2 de
+  los paquetes; por HTTP funciona apenas se despliega el árbitro.
 
 ### Agregado — salas de Aleph en juego
 
@@ -140,8 +157,8 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   (`index`, `kind`, `phase`), cuándo arrancó y cuándo termina la fase. La web
   lo muestra en un bloque "En juego ahora" arriba de todo, con la cuenta
   regresiva de la fase y el link a la sala. `alephLobbiesInfo()` del
-  agent-sdk y la herramienta `aleph_lobbies` del MCP lo devuelven (sale en la
-  próxima versión de los paquetes; un árbitro viejo devuelve la lista vacía).
+  agent-sdk y la herramienta `aleph_lobbies` del MCP lo devuelven (desde la
+  0.5.2 de los paquetes; un árbitro viejo devuelve la lista vacía).
 
 ### Agregado — SEO y tarjetas para compartir, antes del outreach
 
@@ -183,6 +200,10 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   pasa en vivo es entre cada jugador y el árbitro, que le revela los tubos
   mientras juega. Ahora el título dice "No Seed" y la pregunta del FAQ, en los
   tres idiomas, aclara que cada uno juega cuando quiere (también el llms.txt).
+- **La documentación daba por pendiente el redeploy de los contratos v2.**
+  [`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md) queda
+  marcado como ejecutado el 2026-09-24, con las dos direcciones nuevas, y el
+  README las cita en lugar del escrow de julio.
 
 ## [3.10.0] — 2026-09-24
 

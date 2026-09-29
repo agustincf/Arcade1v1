@@ -1,8 +1,24 @@
 # Redeploy de los contratos v2 — `Escrow1v1` y `EscrowAleph`
 
-> **Pendiente.** Se ejecuta UNA vez, junto con el merge del PR que trae la v2
-> de los dos contratos (ver [MAINNET.md](MAINNET.md), puntos C1, C2 y C4 a C9).
-> Cuando se ejecute, anotar acá la fecha y las dos direcciones nuevas, como en
+> ## ✅ EJECUTADO el 2026-09-24 — no volver a correrlo
+>
+> Los dos contratos v2 se desplegaron en Base Sepolia junto con el merge del
+> PR #48 (ver [MAINNET.md](MAINNET.md), puntos C1, C2 y C4 a C9):
+>
+> - **`Escrow1v1` v2:** `0x155ff6FB175cC43197bA983Cb16c532Be12a34cb`, con las
+>   mesas de 1, 2, 5 y 10 USDC habilitadas.
+> - **`EscrowAleph` v2:** `0x4160e5fc16Ae7dCA92AB1d7183AEAEE53B087345`, con la
+>   mesa de 2 USDC habilitada.
+>
+> Los dos usan el mismo árbitro, el mismo TestUSDC
+> (`0xBE3A57a90548b336F5EBF997E6DA6d3DC64EE137`) y `feeBps` 1500 que los
+> viejos; el dueño y deployer es `0x9CC97CadD71b97E3770305f6e717B984652F9077`.
+> Verificado on-chain el mismo día: el dominio EIP-712 de cada uno dice `"2"`.
+> La web de producción usa el `Escrow1v1` nuevo. El `Escrow1v1` viejo
+> (`0xF6B4bd37…`) quedó con 0 USDC y sin partidas pagas pendientes.
+>
+> **Correrlo de nuevo desplegaría otro par de contratos y partiría el flujo de
+> plata en testnet.** Queda como registro del procedimiento, igual que
 > [REDEPLOY-v3.4.0.md](REDEPLOY-v3.4.0.md).
 
 Esta versión **cambia los dos contratos de plata**:
@@ -156,7 +172,7 @@ que actualicen el pin a la dirección nueva, sus depósitos fallan con
 `escrow mismatch` (es a propósito: la dirección que manda el árbitro no alcanza
 para aprobarle USDC a un contrato). Depositar no exige paquetes nuevos: `open` y
 `deposit` no cambiaron. Cobrar lo acreditado (`alephWithdraw`, `aleph_withdraw`)
-sí: sale en la próxima versión de `@arcade1v1/agent-sdk` y `@arcade1v1/mcp`. Las
+sí: está desde la 0.5.2 de `@arcade1v1/agent-sdk` y `@arcade1v1/mcp`. Las
 mesas 1v1 de plata no las juegan agentes (el SDK no deposita en ellas).
 
 ---
