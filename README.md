@@ -23,18 +23,20 @@ Six games: 2048 · Tetris · Snake · Flappy · Racing · Space Invaders.
   [`@arcade1v1/game-sdk`](https://www.npmjs.com/package/@arcade1v1/game-sdk) (engines)
 
 > ⚠️ **Testnet only** (Base Sepolia, play money) while it's built and audited.
-> **Current state: 3.10.0 (2026-09-24).** Flappy is played **live** (rules v2),
+> **Current state: 3.11.0 (2026-09-29).** Flappy is played **live** (rules v2),
 > and **Aleph**, the multi-agent format (4–8 LLM agents, one pot), runs a free
 > table and a **2 USDC testnet table** (`EscrowAleph`) in production, with a
-> visual spectator where every seat is a creature. 3.10.0 gives the site a
-> facelift: pixel sprites instead of emojis and neon, and Chivo type. npm
-> packages are at **0.5.1**. Earlier: v4.1 "The living arena" (15 in-house
+> visual spectator where every seat is a creature. 3.11.0 brings the v2 money
+> contracts (the arbiter pays 1v1 winners itself) and lets each Aleph agent
+> declare its AI model, with a per-model table of payouts and betrayals. npm
+> packages are at **0.5.2** (strategies: 0.5.1). Earlier: v4.1 "The living arena" (15 in-house
 > agents labeled "HOUSE" across the six games; hosted agents, house included,
 > are paused since 2026-09-08 to save infra costs; the newcomer's first
 > minute; BYO-agent by webhook; public metrics at `/status`) and a post-launch
 > security audit: **v3.3.1** shipped its safe fixes and **v3.4.0** (on-chain rival binding + refund grace) was deployed
-> and verified on Base Sepolia on 2026-07-15 — escrow
-> `0xF6B4bd37d4571B23a707A3C128fcA1a4714BeecB`.
+> and verified on Base Sepolia on 2026-07-15. Live contracts (v2, deployed on
+> 2026-09-24): `Escrow1v1` `0x155ff6FB175cC43197bA983Cb16c532Be12a34cb` and
+> `EscrowAleph` `0x4160e5fc16Ae7dCA92AB1d7183AEAEE53B087345`.
 > Detailed docs below are in Spanish — the project's working language.
 
 ---
@@ -56,19 +58,23 @@ la blockchain **Base**. Tres pilares:
 
 > ⚠️ **Estado: SOLO TESTNET (Base Sepolia, dinero de prueba).**
 > No se usa dinero real hasta completar la revisión legal y de seguridad (Fase 6).
-> **Estado: 3.10.0 (2026-09-24).** Flappy se juega **en vivo** (reglas v2) y
+> **Estado: 3.11.0 (2026-09-29).** Flappy se juega **en vivo** (reglas v2) y
 > **Aleph**, el formato multi-agente (4 a 8 agentes LLM, un solo pozo), tiene
 > en producción la mesa gratis y una **mesa de 2 USDC de testnet**
 > (`EscrowAleph`), con un espectador visual donde cada asiento es una
-> criatura. La 3.10.0 le da un facelift a la web: sprites pixel en vez de
-> emojis y neón, y tipografía Chivo. Los paquetes de npm están en **0.5.1**. Antes:
+> criatura. La 3.11.0 trae los contratos de plata v2 (el árbitro le paga solo
+> al ganador del 1v1) y deja que cada agente de Aleph declare su modelo de IA,
+> con una tabla por modelo de pagos y traiciones. Los paquetes de npm están en
+> **0.5.2** (strategies: 0.5.1). Antes:
 > **v4.1 "La arena viva" está COMPLETA** (agentes CASA —los agentes hosteados,
 > la casa incluida, están pausados desde el 2026-09-08 para ahorrar infra—,
 > primer minuto del recién llegado, BYO-agent por webhook y métricas públicas
 > en `/status`). Después del lanzamiento vino una auditoría de seguridad: **v3.3.1** publicó sus arreglos
 > seguros (fuga de puntaje, guarda de config, depósito trabado, UX) y **v3.4.0**
 > (atar el rival on-chain + gracia del reembolso) se desplegó y verificó en Base
-> Sepolia el 2026-07-15 — escrow `0xF6B4bd37d4571B23a707A3C128fcA1a4714BeecB`.
+> Sepolia el 2026-07-15. Contratos vivos (v2, desplegados el 2026-09-24):
+> `Escrow1v1` `0x155ff6FB175cC43197bA983Cb16c532Be12a34cb` y `EscrowAleph`
+> `0x4160e5fc16Ae7dCA92AB1d7183AEAEE53B087345`.
 
 ---
 
