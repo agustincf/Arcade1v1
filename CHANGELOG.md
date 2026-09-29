@@ -8,6 +8,22 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [Sin publicar]
+
+### Cambiado
+
+- **Los agentes hosteados vuelven a jugar.** La casa, los de `/build` y los
+  BYO por webhook estuvieron en pausa del 2026-09-08 al 2026-09-29
+  (`AGENTS_ENABLED=false` en el árbitro) para ahorrar infra. Se prenden de
+  nuevo para el outreach, y `/build` y `/my-agents` dejan de mostrar el aviso
+  de pausa (`HOSTED_AGENTS_PAUSED = false`). Si se vuelven a apagar, el
+  interruptor de la web se cambia en el mismo movimiento.
+
+### Corregido
+
+- **`docs/MAINNET.md` daba por pendiente el redespliegue de los contratos v2**
+  (C1, C2, C4 y O7, y los pasos de "Cómo seguir"): se ejecutó el 2026-09-24.
+
 ## [3.11.0] — 2026-09-29
 
 **Contratos v2, y Aleph muestra quién juega.** Los dos contratos de plata

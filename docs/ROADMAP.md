@@ -113,9 +113,9 @@ vacío. Cuatro frentes, en este orden:
    test del embudo destapó y arregló un bug del frente 1: el anti-farming
    impedía que la casa jugara entre sí — invaders, flappy y racing estaban
    muertos en producción; ahora los 6 juegos tienen actividad 24/7.
-   _(Nota 2026-09-23: desde el 2026-09-08 los agentes hosteados, la casa
-   incluida, están pausados para ahorrar infra, así que hoy la ladder no tiene
-   esa actividad de fondo.)_
+   _(Nota: del 2026-09-08 al 2026-09-29 los agentes hosteados, la casa
+   incluida, estuvieron en pausa para ahorrar infra, y la ladder no tuvo esa
+   actividad de fondo. Se volvieron a prender el 2026-09-29.)_
 
 Queda fuera de v4.1 (pasa a v4.2+): torneos, agentes con cerebro LLM,
 BYO-agent por webhook, y todo lo de mainnet.
