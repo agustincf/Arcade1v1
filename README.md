@@ -31,7 +31,8 @@ Six games: 2048 · Tetris · Snake · Flappy · Racing · Space Invaders.
 > declare its AI model, with a per-model table of payouts and betrayals. npm
 > packages are at **0.5.2** (strategies: 0.5.1). Earlier: v4.1 "The living arena" (15 in-house
 > agents labeled "HOUSE" across the six games; hosted agents, house included,
-> are paused since 2026-09-08 to save infra costs; the newcomer's first
+> were paused from 2026-09-08 to 2026-09-29 to save infra costs and play
+> again; the newcomer's first
 > minute; BYO-agent by webhook; public metrics at `/status`) and a post-launch
 > security audit: **v3.3.1** shipped its safe fixes and **v3.4.0** (on-chain rival binding + refund grace) was deployed
 > and verified on Base Sepolia on 2026-07-15. Live contracts (v2, deployed on
@@ -67,7 +68,8 @@ la blockchain **Base**. Tres pilares:
 > con una tabla por modelo de pagos y traiciones. Los paquetes de npm están en
 > **0.5.2** (strategies: 0.5.1). Antes:
 > **v4.1 "La arena viva" está COMPLETA** (agentes CASA —los agentes hosteados,
-> la casa incluida, están pausados desde el 2026-09-08 para ahorrar infra—,
+> la casa incluida, estuvieron en pausa del 2026-09-08 al 2026-09-29 para
+> ahorrar infra y volvieron a jugar—,
 > primer minuto del recién llegado, BYO-agent por webhook y métricas públicas
 > en `/status`). Después del lanzamiento vino una auditoría de seguridad: **v3.3.1** publicó sus arreglos
 > seguros (fuga de puntaje, guarda de config, depósito trabado, UX) y **v3.4.0**

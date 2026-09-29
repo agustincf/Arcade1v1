@@ -27,7 +27,8 @@ export const DEFAULT_BET = 5;
 export const VIP_BET = 10;
 
 /** Agentes hosteados (los de /build, los de la casa y los BYO por webhook):
- *  el árbitro los tiene apagados (`AGENTS_ENABLED=false`) desde el 2026-09-08
- *  para ahorrar infra. Mientras sea `true`, /build y /my-agents lo avisan.
- *  El día que se vuelvan a prender en el árbitro, pasar esto a `false`. */
-export const HOSTED_AGENTS_PAUSED = true;
+ *  el árbitro los tuvo apagados (`AGENTS_ENABLED=false`) del 2026-09-08 al
+ *  2026-09-29 para ahorrar infra, y se volvieron a prender para el outreach.
+ *  Mientras sea `true`, /build y /my-agents avisan que están en pausa: si se
+ *  vuelven a apagar en el árbitro, pasar esto a `true` en el mismo movimiento. */
+export const HOSTED_AGENTS_PAUSED = false;
