@@ -18,11 +18,20 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   nuevo para el outreach, y `/build` y `/my-agents` dejan de mostrar el aviso
   de pausa (`HOSTED_AGENTS_PAUSED = false`). Si se vuelven a apagar, el
   interruptor de la web se cambia en el mismo movimiento.
+- **El friso de etapas de una sala de Aleph se explica solo.** Arriba lleva el
+  rótulo "Etapas de la sala"; cada carta dice qué etapa es al pasarle el mouse,
+  con sus marcas ("Etapa 3: la Oferta del demonio. Alguien dejó la mesa"); y
+  abajo aparece la leyenda de los dos puntos (alguien dejó la mesa, la caja
+  premió al pozo) cuando la sala tiene alguno. Hasta ahora eran dibujos de 8 px
+  que solo se explicaban a los lectores de pantalla. Sin claves de i18n nuevas:
+  usa las que ya tenía el friso.
 
 ### Corregido
 
 - **`docs/MAINNET.md` daba por pendiente el redespliegue de los contratos v2**
   (C1, C2, C4 y O7, y los pasos de "Cómo seguir"): se ejecutó el 2026-09-24.
+- **`docs/ROADMAP.md` daba la etapa 5 (el espectador) como pendiente de un PR
+  de pulido**: ese pulido entró en el #41, el 2026-09-24.
 
 ## [3.11.0] — 2026-09-29
 

@@ -817,8 +817,11 @@ llenar").
 
 ### El friso
 
-Una fila de cartas chiquitas de 14×20 px, `flex-wrap`, marcadas como `<ol>` con
-`aria-label` `aleph.frieze.title`:
+Una fila de cartas chiquitas de 14×20 px, `flex-wrap`, marcadas como `<ol>` y
+nombradas por un rótulo visible arriba, `aleph.frieze.title` ("Etapas de la
+sala"), con `aria-labelledby` (enmienda del 2026-09-29: antes el nombre era
+solo un `aria-label` y, a la vista, la fila eran cinco dibujos sin
+explicación):
 
 - **Jugadas**, una por `results[]`, de frente: fondo `surface-2`, borde muted,
   el glifo de la etapa adentro (≤ 4 rects: dos barras el Reparto, una moneda la
@@ -840,9 +843,24 @@ Una fila de cartas chiquitas de 14×20 px, `flex-wrap`, marcadas como `<ol>` con
   mientras está `playing`: cuando liquidó, la Final cortó el mazo y dibujar
   dorsos sería mentir sobre etapas que nunca se van a jugar.
 
-Cada carta lleva su `aria-label`: `aleph.frieze.played`, `aleph.frieze.current`,
-`aleph.frieze.back`, más `aleph.frieze.left` y `aleph.frieze.bonus` en las
-marcas. Con ocho asientos el mazo arranca con 10 cartas (`buildDeck`: dos
+Cada carta lleva su nombre: `aleph.frieze.played`, `aleph.frieze.current` o
+`aleph.frieze.back`, y detrás, separadas por punto, `aleph.frieze.left` y
+`aleph.frieze.bonus` si la carta tiene esas marcas ("Etapa 3: la Oferta del
+demonio. Alguien dejó la mesa"). El nombre va dos veces (enmienda del
+2026-09-29): como texto `sr-only`, primer hijo del `<li>` (varios lectores no
+leen el `aria-label` de un listitem, ver `6cd22a9`), y como `title` del dibujo
+de la carta, que es `aria-hidden` y ocupa la carta entera, para que el mouse
+vea lo mismo que oye el lector sin que el lector lo oiga dos veces. En el
+celular no hay tooltip: ahí explican la fila el rótulo y la leyenda. Las marcas
+ya no llevan `role="img"` propio: las cuenta el nombre de su carta.
+
+**La leyenda**, debajo, solo si alguna carta jugada tiene marcas, y solo con las
+que hay: una carta de muestra de 10×14 px con el punto en la misma esquina que
+en el friso y, al lado, `aleph.frieze.left` o `aleph.frieze.bonus`. Se lee por
+la esquina y no solo por el color. Va `aria-hidden`: es la clave de un dibujo, y
+el lector ya oye cada marca en el nombre de su carta.
+
+Con ocho asientos el mazo arranca con 10 cartas (`buildDeck`: dos
 Ofertas, una Cerradura, un Reparto y N−2 Votos) más el Reparto de apertura y la
 Final, así que la sala llega a unas 12 etapas: entran en una fila a 375 px con
 cartas de 14 px y 4 px de separación (12 × 18 = 216 px sobre 319 disponibles).
@@ -1263,7 +1281,9 @@ inline en el `<head>` por eso.
   van `aria-hidden` por la regla de la línea siguiente.
 - Pozo, caja, mazo, glifos del friso y la barra del invariante van
   `aria-hidden="true"`: su información está en el texto de al lado.
-- El friso es un `<ol aria-label>` con un `aria-label` por carta.
+- El friso es un `<ol aria-labelledby>` nombrado por su rótulo visible, con el
+  nombre de cada carta en texto `sr-only` y la leyenda `aria-hidden` (ver "El
+  friso").
 - **Nada de texto dibujado adentro del SVG.** Ni `<text>`, ni `<title>`. Todo
   rótulo es HTML traducible. Press Start 2P no tiene glifos devanagari y el
   sitio se sirve en hindi.
