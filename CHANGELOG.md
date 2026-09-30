@@ -18,11 +18,32 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   nuevo para el outreach, y `/build` y `/my-agents` dejan de mostrar el aviso
   de pausa (`HOSTED_AGENTS_PAUSED = false`). Si se vuelven a apagar, el
   interruptor de la web se cambia en el mismo movimiento.
+- **El friso de etapas de una sala de Aleph se explica solo.** Arriba lleva el
+  rótulo "Etapas de la sala"; cada carta dice qué etapa es al pasarle el mouse,
+  con sus marcas ("Etapa 3: la Oferta del demonio. Alguien dejó la mesa"); y
+  abajo aparece la leyenda de los dos puntos (alguien dejó la mesa, la caja
+  premió al pozo) cuando la sala tiene alguno. Hasta ahora eran dibujos de 8 px
+  que solo se explicaban a los lectores de pantalla. Sin claves de i18n nuevas:
+  usa las que ya tenía el friso.
+- **En una sala terminada, cada finalista dice lo que eligió en la Final.** El
+  que no se llevó la corona decía "terminó": ahora dice "robó" o "dividió" (con
+  corona sigue "ganó la Final"). Y la olla del pozo va apagada cuando el pozo
+  quedó en 0, en la mesa y entre los finalistas: dorada y llena contradecía a
+  "el pozo se quemó".
+- **Una sala terminada ya no muestra el mazo ni su nota.** El mazo apagado y
+  sin número no decía nada (en celular ocupaba un renglón para él solo), y "El
+  orden del mazo es secreto" era falso: el secreto se publica al liquidar.
 
 ### Corregido
 
 - **`docs/MAINNET.md` daba por pendiente el redespliegue de los contratos v2**
   (C1, C2, C4 y O7, y los pasos de "Cómo seguir"): se ejecutó el 2026-09-24.
+- **`docs/ROADMAP.md` daba la etapa 5 (el espectador) como pendiente de un PR
+  de pulido**: ese pulido entró en el #41, el 2026-09-24.
+- **El aviso de sala inexistente decía que las terminadas se guardan 7 días**:
+  el árbitro las guarda 90 días y, como tope, las 50 más recientes
+  (`ALEPH_FINISHED_TTL_MS`, `ALEPH_MAX_SETTLED_KEPT`). Ahora dice que guarda
+  solo las más recientes, sin números que se vuelvan a desactualizar.
 
 ## [3.11.0] — 2026-09-29
 
