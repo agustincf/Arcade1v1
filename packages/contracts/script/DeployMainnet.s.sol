@@ -31,7 +31,11 @@ contract DeployMainnet is Script {
         address usdc = vm.envAddress("USDC_ADDRESS");
         address arbiter = vm.envAddress("ARBITER_ADDRESS");
         address platform = vm.envAddress("PLATFORM_WALLET");
-        uint16 feeBps = uint16(vm.envUint("FEE_BPS"));
+        // Sin truncar en silencio: `uint16(67036)` es 1500 y pasaría el tope
+        // del constructor con la comisión equivocada. Un typo tiene que frenar.
+        uint256 feeRaw = vm.envUint("FEE_BPS");
+        require(feeRaw <= type(uint16).max, "FEE_BPS fuera de rango");
+        uint16 feeBps = uint16(feeRaw);
         address owner = vm.envAddress("OWNER_ADDRESS");
 
         // Guardas de seguridad: nada de tokens de prueba ni dueños vacíos en mainnet.
