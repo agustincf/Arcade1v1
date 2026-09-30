@@ -18,6 +18,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { Asientos } from "../app/components/aleph/Asientos.js";
 import { Friso } from "../app/components/aleph/Friso.js";
+import { Mesa } from "../app/components/aleph/Mesa.js";
 import { modeloDeEscena } from "../app/components/aleph/nucleo/escena.js";
 import type { AsientoDeSala, SalaDeAleph } from "../app/components/aleph/nucleo/estados.js";
 import { direcciones } from "./aleph-ayuda.js";
@@ -194,4 +195,114 @@ test("friso: la leyenda de los puntos sale solo si hay puntos, y con los que hay
     ["salida", "aleph.frieze.left"],
   ]);
   assert.deepEqual(entradas(frisoDe(soloSalida)), [["salida", "aleph.frieze.left"]]);
+});
+
+/** Estos tests no miran la etiqueta de los asientos. */
+const sinEtiqueta = () => ({ plana: "x", perfil: null, wallet: "w", tag: null });
+
+/** En juego y con la mesa llena: el pozo todavía tiene plata y quedan cartas. */
+const enJuego: SalaDeAleph = {
+  status: "playing",
+  seats: direcciones(4, 11).map(
+    (address): AsientoDeSala => ({ address, status: "alive", pocket: 0 }),
+  ),
+  stage: { index: 1, kind: "vote", phase: "talk", acted: [] },
+  results: [{ index: 0, kind: "share", bonus: 0 }],
+  pot: 3040,
+  box: 960,
+  potInitial: 4000,
+  cardsLeft: 5,
+  messages: [],
+};
+
+/** La Final en juego: los dos vivos frente a frente, con el pozo en la mesa. */
+const finalEnJuego: SalaDeAleph = {
+  status: "playing",
+  seats: [
+    { address: a, status: "alive", pocket: 300 },
+    { address: b, status: "alive", pocket: 250 },
+    { address: c, status: "voted_out", pocket: 200 },
+    { address: d, status: "left", pocket: 450 },
+  ],
+  stage: { index: 4, kind: "final", phase: "talk", acted: [] },
+  results: [
+    { index: 0, kind: "share", bonus: 0 },
+    { index: 1, kind: "share", bonus: 0 },
+    { index: 2, kind: "offer", accepted: [d], eachGot: 450 },
+    { index: 3, kind: "vote", eliminated: c, votes: { [a]: 1, [c]: 2 } },
+  ],
+  pot: 1800,
+  box: 1000,
+  potInitial: 4000,
+  cardsLeft: 2,
+  messages: [],
+};
+
+/** La misma Final, liquidada: robaron los dos y el pozo se quemó en la caja. */
+const finalLiquidada: SalaDeAleph = {
+  ...finalEnJuego,
+  status: "settled",
+  stage: undefined,
+  seats: [
+    { address: a, status: "finished", pocket: 300 },
+    { address: b, status: "finished", pocket: 250 },
+    { address: c, status: "voted_out", pocket: 200 },
+    { address: d, status: "left", pocket: 450 },
+  ],
+  results: [
+    ...(finalEnJuego.results ?? []),
+    { index: 4, kind: "final", choices: { [a]: "steal", [b]: "steal" } },
+  ],
+  pot: 0,
+  box: 2800,
+  payouts: { [a]: 1000, [b]: 950, [c]: 900, [d]: 1150 },
+};
+
+/** La mesa dibujada: cada objeto como [su rótulo, la clase de su dibujo], y
+ *  si trae la nota del mazo. */
+function mesaDe(room: SalaDeAleph): { objetos: string[][]; nota: boolean } {
+  const mesa = modeloDeEscena(room).mesa;
+  assert.ok(mesa, "la sala tiene que tener mesa");
+  const html = renderToStaticMarkup(React.createElement(Mesa, { mesa, t }));
+  const objetos = [
+    ...html.matchAll(
+      /<div class="mesa-objeto"><svg[^>]*\bclass="([^"]*)"[^>]*>.*?<span class="block[^"]*">([^<]*)<\/span>/g,
+    ),
+  ].map((m) => [m[2], m[1]]);
+  return { objetos, nota: html.includes("aleph.scene.deckNote") };
+}
+
+test("mesa: en juego, el mazo con su nota; liquidada, sin mazo ni nota y la olla vacía apagada", () => {
+  assert.deepEqual(mesaDe(enJuego), {
+    objetos: [
+      ["aleph.room.pot", "objeto"],
+      ["aleph.room.box", "objeto"],
+      ["aleph.scene.deck", "objeto"],
+    ],
+    nota: true,
+  });
+  // Liquidada, el mazo ya no dice nada: la Final no sale de él, y el orden que
+  // la nota llama secreto se publica con la sala. Y el pozo quedó en 0.
+  assert.deepEqual(mesaDe(liquidada), {
+    objetos: [
+      ["aleph.room.pot", "objeto objeto--apagado"],
+      ["aleph.room.box", "objeto objeto--apagado"],
+    ],
+    nota: false,
+  });
+});
+
+test("la Final: la olla del medio se apaga cuando el pozo se vació", () => {
+  const olla = (room: SalaDeAleph) =>
+    renderToStaticMarkup(
+      React.createElement(Asientos, {
+        modelo: modeloDeEscena(room),
+        destello: null,
+        t,
+        etiquetaDe: sinEtiqueta,
+      }),
+    ).match(/<li class="escena-pozo"[^>]*><svg[^>]*\bclass="([^"]*)"/)?.[1];
+  assert.equal(olla(finalEnJuego), "objeto");
+  // Robaron los dos: la olla dorada llena contradecía a "el pozo se quemó".
+  assert.equal(olla(finalLiquidada), "objeto objeto--apagado");
 });

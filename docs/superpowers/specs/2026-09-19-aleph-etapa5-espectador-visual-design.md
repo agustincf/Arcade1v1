@@ -581,6 +581,7 @@ orden, primera que aplica gana:
 | 1   | `room.status === "funding"`   | `aleph.seat.deposited` / `aleph.seat.pending` según `room.deposited`                |
 | 1b  | `room.status === "lobby"`     | `aleph.seat.lobby` (enmienda 2026-09-24)                                            |
 | 2   | el estado es `ganador`        | `aleph.state.ganador` con Final; `aleph.state.enPie` sin Final (enmienda)           |
+| 2b  | `base` y jugó la Final        | `aleph.state.robo` / `aleph.state.dividio` según su `choices` (enmienda 2026-09-29) |
 | 3   | el estado es `hablando`       | `aleph.state.hablando`                                                              |
 | 4   | el estado es `esperando`      | `aleph.state.esperando`                                                             |
 | 5   | el estado es `sellado`        | `aleph.state.decidio` en `decide`, `aleph.state.listo` en `talk`                    |
@@ -593,6 +594,15 @@ orden, primera que aplica gana:
 > carta `aleph.scene.settledNoFinal` de al lado: da `aleph.state.enPie`
 > ("quedó en pie"). También `columnasDe` pasó a contar las celdas de la grilla
 > (sin los finalistas, con las sillas vacías del lobby).
+
+> **Enmienda 2026-09-29.** El finalista SIN corona decía "terminó": el que
+> dividió y le robaron, o los dos cuando robaron los dos. Eso escondía lo único
+> que importa de su Final. La fila 2b le da lo que eligió: `aleph.state.robo`
+> ("robó") o `aleph.state.dividio` ("dividió"), buscando su dirección en
+> `choices` sin caja. Con corona sigue `aleph.state.ganador`: los dos cuando
+> dividieron los dos, y el único que robó. La línea de la carta ya cuenta cómo
+> terminó. `aleph.seat.finished` queda para la fila 6, aunque hoy ningún
+> asiento de la escena llega a ella.
 
 La fila 6 es exactamente el ternario que hoy está adentro de `SeatRow`
 (`page.tsx:459-463`), y por eso el `base` da `aleph.seat.alive` con la sala
@@ -878,7 +888,9 @@ Tres objetos dibujados en la misma técnica de la criatura (grilla de 16×16,
   empezó en 6.400. El total ya lo imprime la línea del invariante, tres líneas
   más abajo, y con el nombre correcto. `aleph.room.potInitial` queda sin ningún
   uso en la web y **se borra de los cuatro diccionarios** (ver "Archivos que se
-  tocan").
+  tocan"). **Con el pozo en 0 la olla va apagada** (`objeto--apagado`, como el
+  cofre de la sala liquidada; enmienda 2026-09-29): el motor lo deja en 0 en
+  toda liquidación, y una olla dorada y llena al lado de un 0 se contradecía.
 - **Caja del demonio**: un cofre oscuro con lacre coral. Monto `box`. El cofre
   tiene tres tamaños de tapa según `box / total` (< 25 %, < 40 %, ≥ 40 %): es la
   única forma de que "engorde etapa a etapa" sin inventar un dato.
@@ -886,12 +898,15 @@ Tres objetos dibujados en la misma técnica de la criatura (grilla de 16×16,
   `aleph.scene.deck` ("Mazo") como el pozo y la caja llevan `aleph.room.pot` y
   `aleph.room.box`, y `cardsLeft` al lado
   (`aleph.scene.deckLeft`, "{n} sin dar"). Con `cardsLeft === 0` se dibuja
-  igual, apagado. **Con la sala `settled` el mazo se dibuja apagado y sin
-  número**: la Final entra sin sacar carta
+  igual, apagado. **Con la sala `settled` el mazo no se dibuja** (enmienda
+  2026-09-29; antes iba apagado y sin número): la Final entra sin sacar carta
   (`packages/game-sdk/src/aleph.ts:635`), así que `cardsLeft` queda en lo que
   sobró y anunciar "{n} sin dar" de una sala terminada es exactamente lo que el
-  friso evita al no dibujar esos dorsos. Al pie, `aleph.scene.deckNote`: "El
-  orden del mazo es secreto, y la Final no sale de ahí."
+  friso evita al no dibujar esos dorsos. Apagado y sin número no decía nada, y
+  en celular ocupaba un renglón para él solo. Al pie, **solo mientras la sala
+  juega**, `aleph.scene.deckNote`: "El orden del mazo es secreto, y la Final no
+  sale de ahí." Al liquidar se publica el secreto que ordenaba el mazo, y la
+  nota pasaba a ser falsa.
 
 **La barra del invariante**, `aria-hidden="true"`, tres segmentos sobre el
 total: pozo en gold, caja en coral, bolsillos en `muted-bright`. El total es
@@ -1019,7 +1034,9 @@ cada uno con su chip `aleph.seat.deposited` / `aleph.seat.pending` — que es el
 una fila de dos con los finalistas a **96 px** en contenedor ancho y **64 px**
 en angosto, enfrentados, con la olla del pozo dibujada en el medio; abajo sigue
 la grilla normal con los que ya salieron. Es el único momento en que la escena
-cambia de forma.
+cambia de forma. Con la sala liquidada, el pozo ya está en 0 (se dividió, se lo
+llevó uno o se quemó) y la olla del medio va apagada, como la de la mesa
+(enmienda 2026-09-29).
 
 ### La charla, como terminal
 
@@ -1511,6 +1528,8 @@ aleph.state.hablando   "habla"
 aleph.state.traidor    "abrió para sí"
 aleph.state.ganador    "ganó la Final"
 aleph.state.enPie      "quedó en pie"      (enmienda 2026-09-24)
+aleph.state.robo       "robó"              (enmienda 2026-09-29)
+aleph.state.dividio    "dividió"           (enmienda 2026-09-29)
 aleph.seat.lobby       "sentado"           (enmienda 2026-09-24)
 aleph.seat.dissolved   "la sala se disolvió"
 ```

@@ -580,7 +580,7 @@ export const en: Dict = {
   "aleph.room.title": "ROOM",
   "aleph.room.stakeChip": "{stake} USDC",
   "aleph.room.notFound":
-    "That room does not exist, or the arbiter already forgot it (finished rooms are kept for 7 days).",
+    "That room does not exist, or the arbiter already forgot it: it only keeps the most recent finished rooms.",
   "aleph.room.status.lobby": "LOBBY",
   "aleph.room.status.funding": "FUNDING",
   "aleph.room.status.playing": "PLAYING",
@@ -644,6 +644,8 @@ export const en: Dict = {
   "aleph.state.traidor": "opened it for themselves",
   "aleph.state.ganador": "won the Final",
   "aleph.state.enPie": "still standing",
+  "aleph.state.robo": "stole",
+  "aleph.state.dividio": "split",
   "aleph.choice.split": "split",
   "aleph.choice.steal": "steal",
   "aleph.line.kept": "Kept their share: {who}.",
