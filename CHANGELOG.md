@@ -10,6 +10,53 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **`Escrow1v1` listo para la auditoría externa (pre-auditoría, tanda 1 de
+  mainnet).** El contrato se revisó con todo lo que se usa antes de pagar una
+  auditoría y se arreglaron seis cosas antes de mandarlo, porque después sería
+  re-auditar. Ninguna permitía robar ni trabar plata para siempre. Informe:
+  [`docs/auditorias/2026-10-02-preauditoria-escrow1v1.md`](docs/auditorias/2026-10-02-preauditoria-escrow1v1.md);
+  paquete para el auditor: [`packages/contracts/AUDIT.md`](packages/contracts/AUDIT.md).
+  - El vencimiento del resultado tiene **tope en el contrato**
+    (`playDeadline + REFUND_GRACE`): antes era solo política del árbitro, y un
+    resultado firmado con un plazo más largo le dejaba al perdedor adelantarse
+    con el reembolso.
+  - Cada pago le da al USDC un **presupuesto fijo de gas** (`PAY_GAS`, 300k)
+    en vez de la guarda de 1/63, que no valía detrás del proxy del USDC: con
+    un USDC futuro más caro, un tercero (o la estimación de gas del propio
+    árbitro) podía convertir el pago de un ganador en un crédito. Un pago que
+    no entra en el presupuesto se acredita y `withdraw` lo cobra.
+  - Una partida dura como mucho **2 días** desde que se abre
+    (`MAX_MATCH_DURATION`): un asiento mal firmado ya no traba un depósito
+    para siempre.
+  - La **comisión queda congelada al abrir** la partida.
+  - La wallet de la plataforma no puede ser el escrow ni el USDC; una mesa de
+    0 se rechaza; la configuración inicial queda en los eventos; jugadores y
+    ganador indexados; `pragma 0.8.24` fijo y build reproducible.
+
+  Los mensajes firmados no cambian (dominio EIP-712 `"2"`): el árbitro y la web
+  andan igual con el contrato desplegado y con el revisado. Falta
+  **redesplegarlo en testnet** ([runbook](docs/REDEPLOY-escrow1v1-preauditoria.md)).
+
+- **El árbitro no arranca si `SUBMIT_WINDOW_MS` pasa la duración máxima de una
+  partida del contrato** (2 días): con esa ventana, todo depósito revertiría.
+
+### Agregado
+
+- **Invariantes con fuzzer de `Escrow1v1`** (`packages/contracts/test/invariant/`):
+  miles de secuencias al azar de jugadores, árbitro, dueño, un USDC con
+  blacklist, pausa y cobros caros, y un atacante; después de cada paso se
+  chequea la solvencia, que cada pago sea exacto y que nada quede trabado.
+  Corren en cada CI (256 × 100) y en una pasada profunda (`FOUNDRY_PROFILE=deep`).
+- **Pruebas contra el USDC real de Circle** en una copia de Base mainnet
+  (`test/fork/`), con un canario del costo del `transfer` para las
+  actualizaciones del USDC. En CI, como job aparte y no requerido.
+- **Pruebas de mutación** (`node packages/contracts/mutantes.mjs`): planta 29
+  bugs realistas de a uno y exige que la suite los detecte todos.
+- **Regresiones de la pre-auditoría** (`test/Escrow1v1.preauditoria.t.sol`):
+  cada cambio, cada hallazgo y cada riesgo aceptado, con su test.
+
 ### Cambiado
 
 - **Los agentes hosteados vuelven a jugar.** La casa, los de `/build` y los
@@ -23,6 +70,12 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 - **`docs/MAINNET.md` daba por pendiente el redespliegue de los contratos v2**
   (C1, C2, C4 y O7, y los pasos de "Cómo seguir"): se ejecutó el 2026-09-24.
+  `DEPLOY.md` arrastraba el mismo atraso en su checklist de mainnet.
+- **Los scripts de deploy truncaban `FEE_BPS` en silencio**: `uint16(67036)` es
+  1500, así que un typo desplegaba con otra comisión. Ahora frena.
+- **`docs/MAINNET.md` suma lo que la pre-auditoría encontró en el árbitro y la
+  web** (W1 a W9; ninguno toca el contrato), con su tanda. El primero: que el
+  árbitro no pueda arrancar con plata real sin exigir firmas.
 
 ## [3.11.0] — 2026-09-29
 

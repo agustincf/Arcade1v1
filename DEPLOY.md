@@ -291,22 +291,23 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
 - [ ] `REQUIRE_AUTH` queda obligatorio por defecto en producción (no lo desactives).
 - [ ] `FEE_BPS` del deploy = el `FEE_BPS` del árbitro = el 15% que muestra la web
       (si cambiás la comisión, cambiala en los tres lados).
-- [~] **`EscrowAleph`: reembolsos que no se traben por la blacklist de USDC.**
-  Hecho en el código (v2): cada pago va por su cuenta y el que el USDC
-  rechaza queda acreditado a su dueño (`withdraw`). Falta el redespliegue en
-  testnet ([runbook](docs/REDEPLOY-contratos-v2.md)) y que entre en la
-  auditoría. Detalle en `packages/contracts/README.md`.
-- [~] **`EscrowAleph`: la tabla firmada con vencimiento.** Hecho en el código
-  (v2): `Payout(roomId, tableHash, deadline)`, y el árbitro no publica una
-  firma antes de tenerla guardada. Va en el mismo redespliegue.
+- [x] **`EscrowAleph` v2: reembolsos que no se traban por la blacklist de USDC
+      y tabla firmada con vencimiento.** Desplegado en testnet el 2026-09-24
+      ([runbook](docs/REDEPLOY-contratos-v2.md)). Mainnet arranca sin las mesas
+      de plata de Aleph (`docs/MAINNET.md`, decisión 6).
 - [x] **Flappy en vivo: cada compromiso guardado antes de revelar.** Hecho: cada
       intento tiene su registro chico en `arcade:live` (Redis), escrito ANTES de
       revelar valores nuevos o de contestar el final; si no se puede guardar, el
       compromiso contesta 503 sin revelar nada.
-- [~] **`Escrow1v1` v2**: crédito de respaldo para la blacklist, resultado que
-  vence, asiento con stake y plazos, dueño en dos pasos, y el árbitro que
-  liquida solo. Hecho en el código; falta el redespliegue en testnet
-  ([runbook](docs/REDEPLOY-contratos-v2.md)) y que entre en la auditoría.
+- [x] **`Escrow1v1` v2** (crédito de respaldo para la blacklist, resultado que
+      vence, asiento con stake y plazos, dueño en dos pasos, el árbitro liquida
+      solo): desplegado en testnet el 2026-09-24.
+- [~] **`Escrow1v1` revisado en la pre-auditoría** (tope al vencimiento del
+  resultado, presupuesto fijo de gas por pago, duración máxima, comisión
+  congelada): hecho en el código y listo para la auditoría
+  ([`packages/contracts/AUDIT.md`](packages/contracts/AUDIT.md)); falta el
+  redespliegue en testnet
+  ([runbook](docs/REDEPLOY-escrow1v1-preauditoria.md)) y la auditoría.
 - [ ] **El resto de la lista** (la operación, la auditoría y lo legal):
       [`docs/MAINNET.md`](docs/MAINNET.md).
 
