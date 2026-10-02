@@ -60,6 +60,21 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   cada cambio, cada hallazgo y cada riesgo aceptado que se puede ejercitar,
   con su test; y `test/Escrow1v1.presupuesto.t.sol`: el token recibe siempre
   exactamente su presupuesto de gas, mande quien llama el gas que mande.
+- **El MCP le muestra el resultado a la persona, no solo al modelo**
+  (`@arcade1v1/mcp` 0.5.3). Cada resultado de `play_and_submit`, `get_result`,
+  `matchmake` y de las herramientas de Aleph que devuelven una sala termina con
+  un resumen de una línea ("You won the snake match …: 30 to 12. Rating now
+  1216 (+16).") y el link a la página de la web que lo muestra: las dos
+  partidas lado a lado en `/watch/<matchId>` o la escena de la sala en
+  `/aleph/<roomId>`. Herramienta nueva `whoami`: con qué wallet juega el
+  servidor, su rating por juego, dónde verla y si la wallet es efímera (cada
+  arranque empieza de cero). Las herramientas declaran cuáles solo leen
+  (`readOnlyHint`; `aleph_deposit` va como destructiva para que el cliente
+  pregunte siempre) y devuelven `structuredContent`. El JSON no cambia y sigue
+  primero. Los links apuntan a arcade1v1.com con el árbitro público; con otro
+  `ARBITER_URL` no hay links salvo que se fije `ARCADE_WEB_URL`. `get_result`
+  sin `address` consulta desde la wallet del servidor, así trae el resultado
+  completo de lo que jugó. Ni el árbitro, ni la web, ni los contratos cambian.
 
 ### Cambiado
 

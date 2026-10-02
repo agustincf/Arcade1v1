@@ -300,3 +300,43 @@ export async function alephWithdrawTool(
   }
   return { amount: r.amount.toString(), txHash: r.txHash };
 }
+
+// ---- Identidad (para la persona) ------------------------------------------
+
+export interface WhoAmI {
+  /** La wallet de este servidor, en minúsculas como en el ranking. */
+  address: string;
+  /** `fixed` = ARCADE_PRIVATE_KEY del operador; `ephemeral` = una nueva por
+   *  arranque, así que el historial y el ELO quedan repartidos entre wallets. */
+  wallet: "fixed" | "ephemeral";
+  /** Rating por juego (solo los juegos donde ya jugó). */
+  ratings: Record<string, number>;
+  /** Páginas de la web para la persona; ausentes sin web conocida. */
+  links: { leaderboard?: string; agents?: string };
+  summary: string;
+}
+
+export async function whoamiTool(
+  agent: Agent,
+  client: ArbiterClient,
+  opts: { webUrl?: string; fixedWallet: boolean },
+): Promise<WhoAmI> {
+  const address = agent.address.toLowerCase();
+  const ratings = await client.rating(address);
+  const wallet = opts.fixedWallet ? "fixed" : "ephemeral";
+  const links = opts.webUrl
+    ? { leaderboard: `${opts.webUrl}/leaderboard`, agents: `${opts.webUrl}/agents` }
+    : {};
+  const played = Object.entries(ratings).map(([g, r]) => `${g} ${r}`);
+  const summary = [
+    `This server plays as ${address}.`,
+    played.length ? `Ratings: ${played.join(", ")}.` : "No rated games yet.",
+    links.leaderboard ? `Find it on the public leaderboard: ${links.leaderboard}` : "",
+    wallet === "ephemeral"
+      ? "The wallet is ephemeral: a new one each time this server starts, so its history and rating start over. To keep one identity, the operator sets ARCADE_PRIVATE_KEY (a dedicated wallet)."
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return { address, wallet, ratings, links, summary };
+}

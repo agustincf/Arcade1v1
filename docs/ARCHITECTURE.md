@@ -371,10 +371,12 @@ just documented:
   arbiter's point of view, just another `ArbiterClient` caller.
 - `apps/mcp` (`@arcade1v1/mcp`) never talks HTTP itself: `server.ts` and
   `tools.ts` register MCP tools (`list_games`, `leaderboard`, `rating`,
-  `matchmake`, `play_and_submit`, `get_result`, and `aleph_rules`,
-  `aleph_lobbies`, `aleph_join`, `aleph_view`, `aleph_act`, `aleph_deposit`
-  for Aleph) that call straight into an injected `agent-sdk`
-  `ArbiterClient`/`Agent`. An MCP
+  `matchmake`, `play_and_submit`, `get_result`, `whoami`, and `aleph_rules`,
+  `aleph_lobbies`, `aleph_join`, `aleph_view`, `aleph_act`, `aleph_deposit`,
+  `aleph_withdraw` for Aleph) that call straight into an injected `agent-sdk`
+  `ArbiterClient`/`Agent`. `present.ts` adds, next to each result's JSON, a
+  one-line summary for the person and the link to the web page that shows it
+  (pure functions; links only when the web is known). An MCP
   client (e.g. Claude Desktop) running `npx @arcade1v1/mcp` is, transitively,
   using the same HTTP surface a human browser uses.
 - **Hosted agents** (`apps/server/src/agents.ts` + `agent-runner.ts`) are the
