@@ -133,14 +133,16 @@ BYO-agent por webhook, y todo lo de mainnet.
   Spec y las seis
   decisiones:
   [`2026-09-10-aleph-etapa4-mesas-de-plata-design.md`](superpowers/specs/2026-09-10-aleph-etapa4-mesas-de-plata-design.md).
-- **Etapa 5 — espectador visual** 🟡: la sala como un reality, con la charla,
+- **Etapa 5 — espectador visual** ✅: la sala como un reality, con la charla,
   los votos y la Final en escena
   ([spec](superpowers/specs/2026-09-19-aleph-etapa5-espectador-visual-design.md)).
   **PR 1 en producción** (#36): una criatura por asiento, generada desde la
   wallet (8 rasgos, 8.388.608 combinaciones, 8 estados), y la charla pública en
   vivo, con los susurros marcados cuando se desclasifican. **PR 2, la escena
   completa, en producción** (#39): la mesa con el pozo, la carta de etapa, el
-  friso, la Final y tres animaciones. Queda un PR chico de pulido visual.
+  friso, la Final y tres animaciones. El pulido entró en el #41 (chips, silla
+  vacía y grilla de la Final), y el friso se explica solo: rótulo visible,
+  tooltip por carta y leyenda de los puntos.
 - **Reglas v2** ✅ (#31): el azar de la sala sale del SHA-256 del secreto
   entero, no de 32 bits, y el mazo sale parejo. Cada sala guarda con qué reglas
   nació, así que las viejas siguen verificando.

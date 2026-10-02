@@ -139,7 +139,9 @@ export function Asientos({
           {/* El pozo, en el medio de los dos. Va en su propio <li> porque un
               <ol> solo puede tener <li> de hijo directo. */}
           <li className="escena-pozo" aria-hidden="true">
-            <Olla clase="objeto" />
+            {/* Con el pozo en 0 —la Final ya lo dividió, se lo llevó uno o se
+                quemó— la olla va apagada, como la de la mesa. */}
+            <Olla clase={modelo.mesa?.pozo === 0 ? "objeto objeto--apagado" : "objeto"} />
           </li>
           <Tarjeta
             asiento={modelo.finalistas[1]}

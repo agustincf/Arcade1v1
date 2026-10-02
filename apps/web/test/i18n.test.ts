@@ -13,6 +13,20 @@ import { ALEPH_RULES } from "@arcade1v1/game-sdk/aleph";
 
 const DICTS = { en, es, fr };
 
+/** Las claves de chip de los ocho estados de la criatura, en el orden de
+ *  `ESTADOS`: base, hablando, esperando, sellado, se_fue, votado, abandono,
+ *  ganador — cada una con la clave que le da `chipDeAsiento`. */
+const OCHO_ESTADOS = [
+  "aleph.seat.alive",
+  "aleph.state.hablando",
+  "aleph.state.esperando",
+  "aleph.state.decidio",
+  "aleph.seat.left",
+  "aleph.seat.voted_out",
+  "aleph.seat.abandoned",
+  "aleph.state.ganador",
+];
+
 test("los 3 idiomas tienen exactamente las mismas claves", () => {
   const keys = Object.fromEntries(
     Object.entries(DICTS).map(([l, d]) => [l, new Set(Object.keys(d))]),
@@ -81,21 +95,10 @@ test("los ocho estados de la criatura se leen distinto en los 3 idiomas", () => 
   // entre sí"). Va acá y no en `aleph-criatura.test.ts` porque el que puede
   // romperla es el DICCIONARIO, no el generador: dos estados que compartan
   // texto dejan al lector de pantalla sin forma de distinguirlos, y el
-  // `aria-label` de la criatura interpola justamente estos ocho. El orden es el
-  // de `ESTADOS`: base, hablando, esperando, sellado, se_fue, votado, abandono,
-  // ganador — cada uno con la clave que le da `chipDeAsiento`.
-  const OCHO = [
-    "aleph.seat.alive",
-    "aleph.state.hablando",
-    "aleph.state.esperando",
-    "aleph.state.decidio",
-    "aleph.seat.left",
-    "aleph.seat.voted_out",
-    "aleph.seat.abandoned",
-    "aleph.state.ganador",
-  ];
+  // `aria-label` de la criatura interpola justamente estos ocho (la lista,
+  // `OCHO_ESTADOS`, está arriba).
   for (const [lang, dict] of Object.entries(DICTS)) {
-    const textos = OCHO.map((k) => dict[k]);
+    const textos = OCHO_ESTADOS.map((k) => dict[k]);
     assert.equal(new Set(textos).size, 8, `${lang}: dos estados dicen lo mismo · ${textos}`);
   }
 });
@@ -202,4 +205,18 @@ test("las cuatro claves huérfanas de la sala ya no están en ningún idioma", (
   ])
     for (const [lang, dict] of Object.entries(DICTS))
       assert.equal(dict[k], undefined, `${lang} todavía tiene ${k}`);
+});
+
+test("los chips de la Final (robó, dividió) están en los 3 idiomas y no repiten otro estado", () => {
+  // Salen en el mismo `aria-label` de la criatura que los ocho estados: un
+  // finalista que robó y uno que dividió no pueden sonar igual, ni confundirse
+  // con otro estado.
+  for (const [lang, dict] of Object.entries(DICTS)) {
+    const robo = dict["aleph.state.robo"];
+    const dividio = dict["aleph.state.dividio"];
+    assert.ok(robo && dividio, `${lang}: faltan los chips de la Final`);
+    assert.notEqual(robo, dividio, `${lang}: robó y dividió dicen lo mismo`);
+    const estados = new Set(OCHO_ESTADOS.map((k) => dict[k]));
+    assert.ok(!estados.has(robo) && !estados.has(dividio), `${lang}: repite un estado`);
+  }
 });

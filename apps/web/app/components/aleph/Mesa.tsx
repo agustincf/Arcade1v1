@@ -21,7 +21,9 @@ export function Mesa({ mesa, t }: { mesa: MesaDeEscena; t: Traductor }) {
     <div className="mt-4">
       <div className="mesa">
         <div className="mesa-objeto">
-          <Olla />
+          {/* Con el pozo en 0 la olla va apagada, como el cofre de la sala
+              liquidada: dorada y llena, contradecía al número de al lado. */}
+          <Olla clase={mesa.pozo === 0 ? "objeto objeto--apagado" : "objeto"} />
           <span>
             <span className="block text-sm text-(--color-muted-3)">{t("aleph.room.pot")}</span>
             <span className="font-pixel text-px16 text-(--color-gold)">{mesa.pozo}</span>
@@ -34,20 +36,21 @@ export function Mesa({ mesa, t }: { mesa: MesaDeEscena; t: Traductor }) {
             <span className="font-pixel text-px16 text-(--color-muted-bright)">{mesa.caja}</span>
           </span>
         </div>
-        <div className="mesa-objeto">
-          {/* Con la sala liquidada el mazo va apagado y SIN número: la Final
-              entra sin sacar carta, así que `cardsLeft` quedó en lo que sobró y
-              anunciar "{n} sin dar" de una sala terminada sería mentir. */}
-          <Mazo apagado={mesa.liquidada || mesa.cartasSinDar === 0} />
-          <span>
-            <span className="block text-sm text-(--color-muted-3)">{t("aleph.scene.deck")}</span>
-            {!mesa.liquidada && (
+        {/* Con la sala liquidada el mazo no se dibuja: la Final entra sin
+            sacar carta, así que `cardsLeft` quedó en lo que sobró y anunciar
+            "{n} sin dar" sería mentir, y apagado y sin número solo ocupaba
+            lugar (en celular, un renglón entero para él solo). */}
+        {!mesa.liquidada && (
+          <div className="mesa-objeto">
+            <Mazo apagado={mesa.cartasSinDar === 0} />
+            <span>
+              <span className="block text-sm text-(--color-muted-3)">{t("aleph.scene.deck")}</span>
               <span className="rotulo text-(--color-muted-bright)">
                 {t("aleph.scene.deckLeft", { n: mesa.cartasSinDar })}
               </span>
-            )}
-          </span>
-        </div>
+            </span>
+          </div>
+        )}
       </div>
 
       {mesa.liquidada ? (
@@ -77,7 +80,11 @@ export function Mesa({ mesa, t }: { mesa: MesaDeEscena; t: Traductor }) {
           </p>
         </>
       )}
-      <p className="mt-2 text-sm text-(--color-muted-3)">{t("aleph.scene.deckNote")}</p>
+      {/* La nota es de la sala en juego: al liquidar se publica el secreto que
+          ordenaba el mazo, y "el orden es secreto" pasaba a ser falso. */}
+      {!mesa.liquidada && (
+        <p className="mt-2 text-sm text-(--color-muted-3)">{t("aleph.scene.deckNote")}</p>
+      )}
     </div>
   );
 }

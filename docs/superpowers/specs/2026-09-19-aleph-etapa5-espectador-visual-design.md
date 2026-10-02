@@ -581,6 +581,7 @@ orden, primera que aplica gana:
 | 1   | `room.status === "funding"`   | `aleph.seat.deposited` / `aleph.seat.pending` según `room.deposited`                |
 | 1b  | `room.status === "lobby"`     | `aleph.seat.lobby` (enmienda 2026-09-24)                                            |
 | 2   | el estado es `ganador`        | `aleph.state.ganador` con Final; `aleph.state.enPie` sin Final (enmienda)           |
+| 2b  | `base` y jugó la Final        | `aleph.state.robo` / `aleph.state.dividio` según su `choices` (enmienda 2026-09-29) |
 | 3   | el estado es `hablando`       | `aleph.state.hablando`                                                              |
 | 4   | el estado es `esperando`      | `aleph.state.esperando`                                                             |
 | 5   | el estado es `sellado`        | `aleph.state.decidio` en `decide`, `aleph.state.listo` en `talk`                    |
@@ -593,6 +594,15 @@ orden, primera que aplica gana:
 > carta `aleph.scene.settledNoFinal` de al lado: da `aleph.state.enPie`
 > ("quedó en pie"). También `columnasDe` pasó a contar las celdas de la grilla
 > (sin los finalistas, con las sillas vacías del lobby).
+
+> **Enmienda 2026-09-29.** El finalista SIN corona decía "terminó": el que
+> dividió y le robaron, o los dos cuando robaron los dos. Eso escondía lo único
+> que importa de su Final. La fila 2b le da lo que eligió: `aleph.state.robo`
+> ("robó") o `aleph.state.dividio` ("dividió"), buscando su dirección en
+> `choices` sin caja. Con corona sigue `aleph.state.ganador`: los dos cuando
+> dividieron los dos, y el único que robó. La línea de la carta ya cuenta cómo
+> terminó. `aleph.seat.finished` queda para la fila 6, aunque hoy ningún
+> asiento de la escena llega a ella.
 
 La fila 6 es exactamente el ternario que hoy está adentro de `SeatRow`
 (`page.tsx:459-463`), y por eso el `base` da `aleph.seat.alive` con la sala
@@ -817,8 +827,11 @@ llenar").
 
 ### El friso
 
-Una fila de cartas chiquitas de 14×20 px, `flex-wrap`, marcadas como `<ol>` con
-`aria-label` `aleph.frieze.title`:
+Una fila de cartas chiquitas de 14×20 px, `flex-wrap`, marcadas como `<ol>` y
+nombradas por un rótulo visible arriba, `aleph.frieze.title` ("Etapas de la
+sala"), con `aria-labelledby` (enmienda del 2026-09-29: antes el nombre era
+solo un `aria-label` y, a la vista, la fila eran cinco dibujos sin
+explicación):
 
 - **Jugadas**, una por `results[]`, de frente: fondo `surface-2`, borde muted,
   el glifo de la etapa adentro (≤ 4 rects: dos barras el Reparto, una moneda la
@@ -840,9 +853,24 @@ Una fila de cartas chiquitas de 14×20 px, `flex-wrap`, marcadas como `<ol>` con
   mientras está `playing`: cuando liquidó, la Final cortó el mazo y dibujar
   dorsos sería mentir sobre etapas que nunca se van a jugar.
 
-Cada carta lleva su `aria-label`: `aleph.frieze.played`, `aleph.frieze.current`,
-`aleph.frieze.back`, más `aleph.frieze.left` y `aleph.frieze.bonus` en las
-marcas. Con ocho asientos el mazo arranca con 10 cartas (`buildDeck`: dos
+Cada carta lleva su nombre: `aleph.frieze.played`, `aleph.frieze.current` o
+`aleph.frieze.back`, y detrás, separadas por punto, `aleph.frieze.left` y
+`aleph.frieze.bonus` si la carta tiene esas marcas ("Etapa 3: la Oferta del
+demonio. Alguien dejó la mesa"). El nombre va dos veces (enmienda del
+2026-09-29): como texto `sr-only`, primer hijo del `<li>` (varios lectores no
+leen el `aria-label` de un listitem, ver `6cd22a9`), y como `title` del dibujo
+de la carta, que es `aria-hidden` y ocupa la carta entera, para que el mouse
+vea lo mismo que oye el lector sin que el lector lo oiga dos veces. En el
+celular no hay tooltip: ahí explican la fila el rótulo y la leyenda. Las marcas
+ya no llevan `role="img"` propio: las cuenta el nombre de su carta.
+
+**La leyenda**, debajo, solo si alguna carta jugada tiene marcas, y solo con las
+que hay: una carta de muestra de 10×14 px con el punto en la misma esquina que
+en el friso y, al lado, `aleph.frieze.left` o `aleph.frieze.bonus`. Se lee por
+la esquina y no solo por el color. Va `aria-hidden`: es la clave de un dibujo, y
+el lector ya oye cada marca en el nombre de su carta.
+
+Con ocho asientos el mazo arranca con 10 cartas (`buildDeck`: dos
 Ofertas, una Cerradura, un Reparto y N−2 Votos) más el Reparto de apertura y la
 Final, así que la sala llega a unas 12 etapas: entran en una fila a 375 px con
 cartas de 14 px y 4 px de separación (12 × 18 = 216 px sobre 319 disponibles).
@@ -860,7 +888,9 @@ Tres objetos dibujados en la misma técnica de la criatura (grilla de 16×16,
   empezó en 6.400. El total ya lo imprime la línea del invariante, tres líneas
   más abajo, y con el nombre correcto. `aleph.room.potInitial` queda sin ningún
   uso en la web y **se borra de los cuatro diccionarios** (ver "Archivos que se
-  tocan").
+  tocan"). **Con el pozo en 0 la olla va apagada** (`objeto--apagado`, como el
+  cofre de la sala liquidada; enmienda 2026-09-29): el motor lo deja en 0 en
+  toda liquidación, y una olla dorada y llena al lado de un 0 se contradecía.
 - **Caja del demonio**: un cofre oscuro con lacre coral. Monto `box`. El cofre
   tiene tres tamaños de tapa según `box / total` (< 25 %, < 40 %, ≥ 40 %): es la
   única forma de que "engorde etapa a etapa" sin inventar un dato.
@@ -868,12 +898,15 @@ Tres objetos dibujados en la misma técnica de la criatura (grilla de 16×16,
   `aleph.scene.deck` ("Mazo") como el pozo y la caja llevan `aleph.room.pot` y
   `aleph.room.box`, y `cardsLeft` al lado
   (`aleph.scene.deckLeft`, "{n} sin dar"). Con `cardsLeft === 0` se dibuja
-  igual, apagado. **Con la sala `settled` el mazo se dibuja apagado y sin
-  número**: la Final entra sin sacar carta
+  igual, apagado. **Con la sala `settled` el mazo no se dibuja** (enmienda
+  2026-09-29; antes iba apagado y sin número): la Final entra sin sacar carta
   (`packages/game-sdk/src/aleph.ts:635`), así que `cardsLeft` queda en lo que
   sobró y anunciar "{n} sin dar" de una sala terminada es exactamente lo que el
-  friso evita al no dibujar esos dorsos. Al pie, `aleph.scene.deckNote`: "El
-  orden del mazo es secreto, y la Final no sale de ahí."
+  friso evita al no dibujar esos dorsos. Apagado y sin número no decía nada, y
+  en celular ocupaba un renglón para él solo. Al pie, **solo mientras la sala
+  juega**, `aleph.scene.deckNote`: "El orden del mazo es secreto, y la Final no
+  sale de ahí." Al liquidar se publica el secreto que ordenaba el mazo, y la
+  nota pasaba a ser falsa.
 
 **La barra del invariante**, `aria-hidden="true"`, tres segmentos sobre el
 total: pozo en gold, caja en coral, bolsillos en `muted-bright`. El total es
@@ -1001,7 +1034,9 @@ cada uno con su chip `aleph.seat.deposited` / `aleph.seat.pending` — que es el
 una fila de dos con los finalistas a **96 px** en contenedor ancho y **64 px**
 en angosto, enfrentados, con la olla del pozo dibujada en el medio; abajo sigue
 la grilla normal con los que ya salieron. Es el único momento en que la escena
-cambia de forma.
+cambia de forma. Con la sala liquidada, el pozo ya está en 0 (se dividió, se lo
+llevó uno o se quemó) y la olla del medio va apagada, como la de la mesa
+(enmienda 2026-09-29).
 
 ### La charla, como terminal
 
@@ -1263,7 +1298,9 @@ inline en el `<head>` por eso.
   van `aria-hidden` por la regla de la línea siguiente.
 - Pozo, caja, mazo, glifos del friso y la barra del invariante van
   `aria-hidden="true"`: su información está en el texto de al lado.
-- El friso es un `<ol aria-label>` con un `aria-label` por carta.
+- El friso es un `<ol aria-labelledby>` nombrado por su rótulo visible, con el
+  nombre de cada carta en texto `sr-only` y la leyenda `aria-hidden` (ver "El
+  friso").
 - **Nada de texto dibujado adentro del SVG.** Ni `<text>`, ni `<title>`. Todo
   rótulo es HTML traducible. Press Start 2P no tiene glifos devanagari y el
   sitio se sirve en hindi.
@@ -1491,6 +1528,8 @@ aleph.state.hablando   "habla"
 aleph.state.traidor    "abrió para sí"
 aleph.state.ganador    "ganó la Final"
 aleph.state.enPie      "quedó en pie"      (enmienda 2026-09-24)
+aleph.state.robo       "robó"              (enmienda 2026-09-29)
+aleph.state.dividio    "dividió"           (enmienda 2026-09-29)
 aleph.seat.lobby       "sentado"           (enmienda 2026-09-24)
 aleph.seat.dissolved   "la sala se disolvió"
 ```

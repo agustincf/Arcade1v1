@@ -136,6 +136,15 @@ export function estadoDeAsiento(
   return { estado, traidor };
 }
 
+/** Lo que eligió en la Final, si la jugó: `choices` solo existe con la Final
+ *  resuelta. Sin caja, como el resto del módulo: el motor escribe `choices`
+ *  en minúsculas y el asiento puede venir en EIP-55. */
+function eleccionEnLaFinal(room: SalaDeAleph, address: string): "split" | "steal" | null {
+  const choices = (room.results ?? []).find((r) => r.kind === "final")?.choices ?? {};
+  const clave = Object.keys(choices).find((x) => igual(x, address));
+  return clave === undefined ? null : choices[clave];
+}
+
 /** El ÚNICO lugar donde vive la tabla de chips: con esta función en un solo
  *  lado, el ternario no se repite en cada forma de tarjeta. Las filas 0 y 1 van
  *  arriba de todo porque en esos dos estados de sala el `seat.status` no dice
@@ -157,6 +166,13 @@ export function chipDeAsiento(seat: AsientoDeSala, room: SalaDeAleph, previo?: E
     return (room.results ?? []).some((r) => r.kind === "final")
       ? "aleph.state.ganador"
       : "aleph.state.enPie";
+  // El finalista SIN corona —el que dividió y le robaron, o los dos que
+  // robaron y quemaron el pozo— decía "terminó", que no cuenta lo único que
+  // importa de su Final: lo que eligió. Con corona sigue "ganó la Final".
+  if (estado === "base") {
+    const eleccion = eleccionEnLaFinal(room, seat.address);
+    if (eleccion) return eleccion === "steal" ? "aleph.state.robo" : "aleph.state.dividio";
+  }
   if (estado === "hablando") return "aleph.state.hablando";
   if (estado === "esperando") return "aleph.state.esperando";
   if (estado === "sellado")

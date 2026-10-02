@@ -589,3 +589,37 @@ test("8b bis. la corona de la Final, con y sin Final, y el traidor suma un segun
   // Y la marca es de quien la tiene: B no la hereda por estar en la misma sala.
   assert.equal(estadoDeAsiento({ ...vivo, address: B }, casos[3][2]).traidor, false);
 });
+
+test("8b ter. en la Final liquidada, el finalista sin corona dice lo que eligió", () => {
+  const final = (choices: Record<string, "split" | "steal">): SalaDeAleph => ({
+    status: "settled",
+    seats: [
+      { address: A, status: "finished", pocket: 5 },
+      { address: B, status: "finished", pocket: 5 },
+    ],
+    results: [{ index: 0, kind: "final", choices }],
+  });
+  const chips = (room: SalaDeAleph) => room.seats.map((s) => chipDeAsiento(s, room));
+  // Robaron los dos: nadie lleva corona, y "terminó" escondía justo eso.
+  assert.deepEqual(chips(final({ [A]: "steal", [B]: "steal" })), [
+    "aleph.state.robo",
+    "aleph.state.robo",
+  ]);
+  // Robó uno: él ganó la Final; el otro dividió y se quedó sin el pozo.
+  assert.deepEqual(chips(final({ [A]: "steal", [B]: "split" })), [
+    "aleph.state.ganador",
+    "aleph.state.dividio",
+  ]);
+  // Dividieron los dos: los dos llevan corona, y su chip no cambia.
+  assert.deepEqual(chips(final({ [A]: "split", [B]: "split" })), [
+    "aleph.state.ganador",
+    "aleph.state.ganador",
+  ]);
+  // Sin caja: `choices` llega en minúsculas y el asiento puede venir en EIP-55.
+  const eip55 = {
+    address: `0x${B.slice(2).toUpperCase()}`,
+    status: "finished" as const,
+    pocket: 5,
+  };
+  assert.equal(chipDeAsiento(eip55, final({ [A]: "steal", [B]: "steal" })), "aleph.state.robo");
+});
