@@ -191,17 +191,6 @@ contract Escrow1v1ForkTest is Test {
         assertGt(rev, 0);
     }
 
-    /// Canario de las actualizaciones de Circle: el transfer real, a una
-    /// dirección NUEVA (lo más caro: escritura en frío), tiene que entrar con
-    /// holgura en PAY_GAS. Medido en el bloque fijo: ~30k como mínimo.
-    function test_Fork_ElTransferRealEntraHolgadoEnElPresupuesto() public onFork {
-        TransferProbe probe = new TransferProbe();
-        deal(USDC, address(probe), 1_000_000);
-        uint256 minimo = probe.minGas(USDC, makeAddr("nueva"), 1_000, 300_000);
-        console2.log("gas minimo de un transfer real a una direccion nueva:", minimo);
-        assertLe(minimo * 4, esc.PAY_GAS(), "PAY_GAS deja menos de 4x de margen: revisar antes de seguir");
-    }
-
     // --------------------------------------------------------------------- //
 
     function _sweep(bytes memory data, uint256 lo, uint256 hi, uint256 step)
@@ -252,5 +241,91 @@ contract Escrow1v1ForkTest is Test {
     function _unBlacklist(address a) internal {
         vm.prank(fiat.blacklister());
         fiat.unBlacklist(a);
+    }
+}
+
+/// @notice Lo que cuesta una salida de VERDAD: todo se arma en `setUp`, así que
+///         el test arranca con el USDC frío (EIP-2929), como una transacción
+///         real. (Armar la partida en la misma función del test calienta el
+///         proxy, la implementación y los saldos, y mide ~28 % de menos.)
+contract Escrow1v1ForkFrioTest is Test {
+    address constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    uint256 constant ARB_PK = 0xA11CE;
+    uint64 constant GRACE = 30 minutes;
+    uint256 constant STAKE = 10_000_000;
+    bytes32 constant ID = keccak256("fork-frio");
+
+    Escrow1v1 esc;
+    TransferProbe probe;
+    address nueva;
+    bytes settleData;
+    bool forked;
+
+    function setUp() public {
+        string memory rpc = vm.envOr("BASE_RPC_URL", string(""));
+        if (bytes(rpc).length == 0) return;
+        vm.createSelectFork(rpc, vm.envOr("FORK_BLOCK", uint256(51_972_000)));
+        forked = true;
+        probe = new TransferProbe();
+        deal(USDC, address(probe), 1_000_000);
+        nueva = makeAddr("nueva");
+
+        address p1 = makeAddr("p1");
+        address p2 = makeAddr("p2");
+        esc = new Escrow1v1(USDC, vm.addr(ARB_PK), makeAddr("platform"), 1500, address(0x5AFE));
+        vm.prank(address(0x5AFE));
+        esc.setAllowedStake(STAKE, true);
+        uint64 fundDl = uint64(block.timestamp + 70 minutes);
+        uint64 playDl = uint64(block.timestamp + 2 hours);
+        address[2] memory who = [p1, p2];
+        for (uint256 i = 0; i < 2; i++) {
+            deal(USDC, who[i], STAKE);
+            vm.prank(who[i]);
+            IERC20(USDC).approve(address(esc), STAKE);
+            bytes memory seat = _sig(esc.seatDigest(ID, who[i], STAKE, fundDl, playDl));
+            vm.prank(who[i]);
+            if (i == 0) esc.open(ID, STAKE, fundDl, playDl, seat);
+            else esc.join(ID, seat);
+        }
+        uint64 dl = playDl + GRACE;
+        settleData = abi.encodeCall(Escrow1v1.settle, (ID, p1, dl, _sig(esc.resultDigest(ID, p1, dl))));
+    }
+
+    modifier onFork() {
+        if (!forked) vm.skip(true);
+        _;
+    }
+
+    /// Canario de las actualizaciones de Circle: un `transfer` real y frío a
+    /// una dirección NUEVA (lo más caro) tiene que dejar al menos 6x de margen
+    /// en PAY_GAS. Medido en el bloque fijo: 41.051. Si una versión nueva del
+    /// USDC lo hace fallar, el presupuesto quedó chico: revisar antes de seguir.
+    function test_Fork_ElTransferRealEntraHolgadoEnElPresupuesto() public onFork {
+        uint256 minimo = probe.minGas(USDC, nueva, 1_000, 300_000);
+        console2.log("gas minimo de un transfer real y frio a una direccion nueva:", minimo);
+        assertLe(minimo * 6, esc.PAY_GAS(), "PAY_GAS deja menos de 6x de margen: revisar antes de seguir");
+    }
+
+    /// El gas que hay que darle a un `settle` real (sin contar los 21.000 de la
+    /// transacción ni el calldata). AUDIT.md (A7) dice ~400k: lo ata.
+    function test_Fork_ElSettleRealPideMenosDe400kDeGas() public onFork {
+        uint256 snap = vm.snapshotState(); // el USDC está frío acá
+        uint256 lo = 100_000;
+        uint256 hi = 2_000_000;
+        while (lo < hi) {
+            uint256 mid = (lo + hi) / 2;
+            vm.revertToState(snap);
+            (bool ok,) = address(esc).call{gas: mid}(settleData);
+            if (ok) hi = mid;
+            else lo = mid + 1;
+        }
+        vm.revertToState(snap);
+        console2.log("gas minimo de un settle real (frio):", lo);
+        assertLt(lo, 400_000, "el settle pide mas de lo documentado en AUDIT.md (A7)");
+    }
+
+    function _sig(bytes32 d) internal pure returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ARB_PK, d);
+        return abi.encodePacked(r, s, v);
     }
 }

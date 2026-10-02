@@ -34,11 +34,38 @@ deploy no rompe nada.
 ### 1) Cerrar las mesas de plata del 1v1 y esperar que se vacíen
 
 En Render, `STAKES_ALLOWED=` (vacía) y redeploy. Una partida de plata vive como
-mucho unas 2,5 h; después revisá que en el contrato de hoy
-(`0x155ff6FB175cC43197bA983Cb16c532Be12a34cb`) no quede ninguna `Open` ni
-`Funded`, con el mismo comando de
-[REDEPLOY-contratos-v2.md](REDEPLOY-contratos-v2.md) ("Revisar el `Escrow1v1`
-viejo"), cambiando `OLD` por esa dirección. Aleph no se toca.
+mucho unas 2,5 h. Después revisá que en el contrato de hoy no quede ninguna
+`Open` ni `Funded` **desde que se desplegó** (bloque 47.255.314, el
+2026-09-24), no solo las últimas 48 h: los reembolsos del árbitro son de un
+solo intento (W4 de [MAINNET.md](MAINNET.md)) y alguna vieja pudo quedar
+colgada. El rango va en tramos porque los nodos públicos limitan `cast logs`.
+Imprime cada partida con su estado (el último número: `1` = `Open`, `2` =
+`Funded`, `3` = pagada, `4` = reembolsada):
+
+```bash
+OLD=0x155ff6FB175cC43197bA983Cb16c532Be12a34cb      # el Escrow1v1 v2 de hoy
+RPC=${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}
+HEAD=$(cast block-number --rpc-url "$RPC")
+for ((FROM = 47255314; FROM <= HEAD; FROM += 10000)); do
+  TO=$((FROM + 9999)); [ "$TO" -gt "$HEAD" ] && TO=$HEAD
+  for id in $(cast logs --address "$OLD" "MatchOpened(bytes32 indexed,address,uint256)" \
+      --from-block "$FROM" --to-block "$TO" --rpc-url "$RPC" --json | jq -r '.[].topics[1]'); do
+    echo "$id $(cast call "$OLD" "matches(bytes32)(address,address,uint256,bool,bool,uint64,uint64,uint8)" \
+      "$id" --rpc-url "$RPC" | tail -1)"
+  done
+done
+```
+
+Si alguna quedó `Open` o `Funded`:
+
+- **`Funded` con ganador:** `GET https://arcade1v1.onrender.com/match/<id>`
+  muestra `winner`, `signature` y `signatureDeadline`. Mientras no venza,
+  cualquiera la presenta (paga el gas):
+  `cast send "$OLD" "settle(bytes32,address,uint64,bytes)" <id> <winner> <signatureDeadline> <signature> --private-key <cualquiera con gas> --rpc-url "$RPC"`.
+- **Cualquier otra:** reembolsala con la llave del árbitro o del dueño:
+  `cast send "$OLD" "cancelMatch(bytes32)" <id> --private-key <árbitro o dueño> --rpc-url "$RPC"`.
+
+Aleph no se toca.
 
 ### 2) Desplegar el contrato revisado
 

@@ -80,8 +80,8 @@ Estado actualizado: **3.11.0 en testnet** (no opera con dinero real).
 > (la guarda de 1/63 no valía detrás del proxy del USDC), duración máxima de una
 > partida, comisión congelada al abrir, chequeos de la wallet de la plataforma e
 > higiene de auditoría. Los mensajes firmados no cambiaron. En el árbitro y la
-> web aparecieron nueve puntos más para la tanda 3 (W1 a W9 en
-> [`docs/MAINNET.md`](docs/MAINNET.md)); el primero, que no pueda arrancar con
+> web aparecieron nueve puntos más (W1 a W9 en
+> [`docs/MAINNET.md`](docs/MAINNET.md): W7 en la tanda 2, el resto en la 3); el primero, que no pueda arrancar con
 > plata real sin exigir firmas. Informe:
 > [`docs/auditorias/2026-10-02-preauditoria-escrow1v1.md`](docs/auditorias/2026-10-02-preauditoria-escrow1v1.md);
 > paquete para el auditor:

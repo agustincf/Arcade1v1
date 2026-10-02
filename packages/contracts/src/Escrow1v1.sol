@@ -24,8 +24,8 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  *    ganador, por ejemplo); el contrato la VERIFICA y paga: premio al
  *    ganador + comision a la wallet de la plataforma.
  *  - Reembolsos: si no se llena la partida a tiempo, si pasa el plazo de juego
- *    (mas una gracia) sin liquidar, o si el arbitro cancela (empate /
- *    disputa), se devuelve el dinero a los jugadores.
+ *    (mas una gracia) sin liquidar, o si el arbitro o el dueño cancelan
+ *    (empate / disputa), se devuelve el dinero a los jugadores.
  *  - Cada pago (premio, comision o reembolso) se EMPUJA por separado. Si el
  *    USDC rechaza uno (una direccion en la blacklist de Circle, el token en
  *    pausa), ese monto queda ACREDITADO en `owed` y lo demas se paga igual.
@@ -36,10 +36,12 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  * administrativo: solo sale por estas reglas. Pero las reglas confian en el
  * ARBITRO (decide quien gano y a quien sienta) y en el DUEÑO (rota al arbitro,
  * la wallet de la plataforma, la comision de las partidas que se abran desde
- * ahi, y las mesas habilitadas). Una llave del arbitro comprometida puede
- * sentarse en cada partida ABIERTA y firmarse la victoria; no puede tocar una
- * partida llena entre otros dos, ni lo acreditado, ni trabar un deposito mas de
- * MAX_MATCH_DURATION (+ la gracia). Detalle: packages/contracts/AUDIT.md.
+ * ahi, y las mesas habilitadas; y cancela, como el arbitro). Una llave del
+ * arbitro comprometida puede sentarse en cada partida ABIERTA y firmarse la
+ * victoria, y en una partida LLENA puede elegir al ganador entre los dos o
+ * cancelarla (reembolso). No puede desviar una partida llena a un tercero, ni
+ * tocar lo acreditado, ni trabar un deposito mas de MAX_MATCH_DURATION +
+ * REFUND_GRACE desde que se abrio. Detalle: packages/contracts/AUDIT.md.
  *
  * Version 2 (antes de mainnet, decidida el 2026-09-24), los mismos arreglos
  * que EscrowAleph v2 mas los propios del 1v1:

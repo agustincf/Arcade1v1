@@ -42,6 +42,11 @@ const MUTANTES = [
     "",
   ],
   [
+    "_pay con un margen corto (2_000)",
+    "(PAY_GAS * 64) / 63 + 5_000",
+    "(PAY_GAS * 64) / 63 + 2_000",
+  ],
+  [
     "_pay le da al token todo el gas (sin presupuesto)",
     "success := call(g, token, 0, 0x00, 0x44, 0x00, 0x20)",
     "success := call(gas(), token, 0, 0x00, 0x44, 0x00, 0x20)",

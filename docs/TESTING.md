@@ -79,7 +79,7 @@ entirely from the root.
 | `packages/agent-sdk` (12) | `agent.test.ts`, `agent-aleph.test.ts`, `aleph-client.test.ts`, `aleph-llm.test.ts`, `aleph-sign.test.ts`, `aleph-text.test.ts`, `client.test.ts`, `live-client.test.ts`, `racing-llm.test.ts`, `rules-guard.test.ts`, `sign.test.ts`, `strategies.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `node:test`            |
 | `packages/game-sdk` (14)  | `aleph-azar.test.ts`, `aleph-invariants.test.ts`, `aleph-rules.test.ts`, `aleph-usdc.test.ts`, `aleph.test.ts`, `auth.test.ts`, `chain.test.ts`, `engines.test.ts`, `flappy-live-driver.test.ts`, `flappy-live-session.test.ts`, `flappy-live.test.ts`, `live.test.ts`, `racing-fairness.test.ts`, `sha256.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `node:test`            |
 | `packages/strategies` (3) | `live-step.test.ts`, `strategies-v2.test.ts`, `strategies.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `node:test`            |
-| `packages/contracts`      | `Escrow1v1.t.sol` (50 tests), `Escrow1v1.preauditoria.t.sol` (29), `EscrowAleph.t.sol` (63), `invariant/Escrow1v1.invariant.t.sol` (4 invariants + 1 canary), `fork/Escrow1v1.fork.t.sol` (9, need `BASE_RPC_URL`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Foundry (`forge test`) |
+| `packages/contracts`      | `Escrow1v1.t.sol` (50 tests), `Escrow1v1.preauditoria.t.sol` (29), `Escrow1v1.presupuesto.t.sol` (5), `EscrowAleph.t.sol` (63), `invariant/Escrow1v1.invariant.t.sol` (4 invariants + 1 canary), `fork/Escrow1v1.fork.t.sol` (10, need `BASE_RPC_URL`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Foundry (`forge test`) |
 
 **No tests exist for:**
 
@@ -90,7 +90,8 @@ entirely from the root.
 
 There is no code coverage tool configured anywhere in the repo (no
 `jest.config`, `vitest.config`, `.nycrc`, or `c8` setup), so there is no
-coverage threshold to meet.
+coverage threshold to meet. (The contract is the exception: it uses Foundry's built-in
+`forge coverage`, see `packages/contracts/AUDIT.md` §7.)
 
 ## Writing new tests
 
@@ -153,9 +154,12 @@ Since the pre-audit of `Escrow1v1` (2026-10, see
 `packages/contracts/AUDIT.md`) there are three more layers:
 
 - **`Escrow1v1.preauditoria.t.sol`** (29 tests) — every pre-audit change,
-  every finding it closes and every accepted risk, with `ProxyUSDC.sol`
+  every finding it closes and every accepted risk that can be exercised, with `ProxyUSDC.sol`
   (a delegating proxy like Circle's `FiatTokenProxy`, and a token that rejects
   by burning all gas).
+- **`Escrow1v1.presupuesto.t.sol`** (5 tests) — the per-payment gas budget
+  is exact: with the token cold, the caller's gas is swept one unit at a time
+  and the token must always receive the same gas, nearly all of `PAY_GAS`.
 - **`test/invariant/`** — stateful fuzzing. A handler plays random sequences
   (players, arbiter, owner, a `ChaosUSDC` with blacklist, pause and expensive
   payees, and an attacker) and after every call the suite checks solvency,
@@ -166,7 +170,7 @@ Since the pre-audit of `Escrow1v1` (2026-10, see
 - **`test/fork/`** — against Circle's real USDC on a Base mainnet fork at a
   fixed block (skipped unless `BASE_RPC_URL` is set). Includes a canary for
   the cost of a real `transfer` against the per-payment gas budget.
-- **Mutation testing** — `node packages/contracts/mutantes.mjs` plants 29
+- **Mutation testing** — `node packages/contracts/mutantes.mjs` plants 30
   realistic bugs one at a time and requires the suite (minus the fork tests)
   to catch every one.
 
@@ -246,7 +250,7 @@ starts a fresh one, tears it down on exit) — they are not part of the
 ## CI integration
 
 Defined in `.github/workflows/ci.yml`, triggered on push to `main` and on
-every pull request. Two jobs:
+every pull request. Three jobs (the third is not required for merging):
 
 - **`web-and-server`** — Node 22, `npm ci`, then `npm run check` (typecheck +
   lint + format check + `node:test` suite + arbiter selftest), then the

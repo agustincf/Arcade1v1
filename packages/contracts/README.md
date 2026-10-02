@@ -59,9 +59,11 @@ entradas, y las salidas no la miran. El dueño se transfiere en dos pasos
 Dominio EIP-712: `Arcade1v1Escrow` **version 2**. La v1 firmaba
 `Result(matchId, winner)` sin vencimiento y `Seat(matchId, player)` sin
 condiciones, y empujaba el premio y los reembolsos juntos: un jugador en la
-blacklist de USDC trababa la plata del otro para siempre. El redespliegue en
-Base Sepolia va con el merge:
-[`docs/REDEPLOY-contratos-v2.md`](../../docs/REDEPLOY-contratos-v2.md).
+blacklist de USDC trababa la plata del otro para siempre. La v2 se desplegó en
+Base Sepolia el 2026-09-24
+([`docs/REDEPLOY-contratos-v2.md`](../../docs/REDEPLOY-contratos-v2.md)); la
+versión revisada en la pre-auditoría está pendiente de redesplegar
+([`docs/REDEPLOY-escrow1v1-preauditoria.md`](../../docs/REDEPLOY-escrow1v1-preauditoria.md)).
 
 Pruebas:
 
@@ -73,17 +75,22 @@ Pruebas:
   de conservacion por todos los caminos de salida, gas justo, reentrada y
   dueño en dos pasos).
 - `test/Escrow1v1.preauditoria.t.sol` (29): cada cambio de la pre-auditoria,
-  cada hallazgo que cierra y cada riesgo aceptado, con su test.
+  cada hallazgo que cierra y cada riesgo aceptado que se puede ejercitar, con
+  su test.
+- `test/Escrow1v1.presupuesto.t.sol` (5): el token recibe SIEMPRE exactamente
+  su presupuesto de gas, mande quien llama el gas que mande (medido en frio,
+  de a 1 unidad de gas).
 - `test/invariant/` — invariantes con fuzzer: un handler juega secuencias al
   azar (jugadores, arbitro, dueño, un USDC con blacklist, pausa y cobros
   caros, y un atacante) y despues de cada paso se chequea la solvencia, que
-  cada pago sea exacto, que nada quede trabado y que nada no autorizado ande.
+  cada pago sea exacto y que nada no autorizado ande; al final de cada
+  secuencia, que nada quede trabado.
   En CI 256 × 100; mas profundo: `FOUNDRY_PROFILE=deep forge test --match-path 'test/invariant/*'`.
 - `test/fork/` — contra el USDC REAL de Circle en una copia de Base mainnet:
   `BASE_RPC_URL=https://mainnet.base.org forge test --match-path 'test/fork/*'`
   (sin la variable se saltean). Correrlo de nuevo cuando el proxy del USDC se
   actualice.
-- Mutacion: `node mutantes.mjs` planta 29 bugs realistas de a uno y exige que
+- Mutacion: `node mutantes.mjs` planta 30 bugs realistas de a uno y exige que
   la suite los detecte todos (~10 min).
 
 **Auditoria:** el paquete para el auditor externo es [`AUDIT.md`](AUDIT.md).
@@ -138,8 +145,8 @@ para antes de mainnet): los pagos se empujaban todos en la misma transacción,
 así que un solo depositante en la blacklist de USDC hacía revertir la
 liquidación y los tres reembolsos (el pozo de una sala en `Funding` quedaba
 trabado para siempre); y la tabla firmada no vencía, así que dos tablas firmadas
-para la misma sala valían las dos. El redespliegue en Base Sepolia va con el
-merge: [`docs/REDEPLOY-contratos-v2.md`](../../docs/REDEPLOY-contratos-v2.md).
+para la misma sala valían las dos. La v2 se desplegó en Base Sepolia el
+2026-09-24: [`docs/REDEPLOY-contratos-v2.md`](../../docs/REDEPLOY-contratos-v2.md).
 También desde la v2: `Ownable2Step` sin `renounceOwnership`, y una mesa
 deshabilitada no acepta `deposit`.
 
@@ -177,8 +184,10 @@ cd packages/contracts
 forge test -vv
 ```
 
-Estado actual: 113 pruebas pasando — 50 de `Escrow1v1.t.sol` + 63 de
-`EscrowAleph.t.sol`.
+Estado actual: 152 pruebas pasando — 50 de `Escrow1v1.t.sol`, 29 de
+`Escrow1v1.preauditoria.t.sol`, 5 de `Escrow1v1.presupuesto.t.sol`, 63 de
+`EscrowAleph.t.sol`, y 4 invariantes con su canario — más 10 contra el USDC
+real con `BASE_RPC_URL`.
 
 ## Desplegar en Base Sepolia (testnet)
 
@@ -226,11 +235,11 @@ Requiere `.env.mainnet` (copiado de `.env.mainnet.example`) con
 `PLATFORM_WALLET`, `FEE_BPS` y `OWNER_ADDRESS` (la wallet de hardware que
 firma y queda como dueña del contrato).
 
-> Estado: `Escrow1v1` v2 probado (50/50 pruebas) y flujo completo verificado en
+> Estado: `Escrow1v1` revisado para la auditoría (ver arriba) y flujo completo verificado en
 > Anvil con el árbitro real (depósito, liquidación por el árbitro, ganador que se
 > le adelanta, ganador en la blacklist, reembolsos); `EscrowAleph` v2 probado
 > (63/63) y verificado en Anvil con el árbitro y el SDK reales. Las v1 tienen
-> smoke en Base Sepolia; las v2 se redespliegan con el merge. `DeployMainnet.s.sol` despliega solo
+> smoke en Base Sepolia; las v2 se desplegaron el 2026-09-24, y el `Escrow1v1` revisado está pendiente. `DeployMainnet.s.sol` despliega solo
 > `Escrow1v1`: el de `EscrowAleph` a mainnet todavía no existe. Las direcciones de un entorno publicado y sus
 > secretos no se guardan en Git (`.env`, `.env.mainnet` y `broadcast/` estan
 > en `.gitignore`), por lo que deben verificarse en la configuracion de ese

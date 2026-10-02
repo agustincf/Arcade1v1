@@ -15,7 +15,8 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 - **`Escrow1v1` listo para la auditoría externa (pre-auditoría, tanda 1 de
   mainnet).** El contrato se revisó con todo lo que se usa antes de pagar una
   auditoría y se arreglaron seis cosas antes de mandarlo, porque después sería
-  re-auditar. Ninguna permitía robar ni trabar plata para siempre. Informe:
+  re-auditar. Con el árbitro honesto y bien configurado, ninguna permitía robar
+  ni trabar plata para siempre. Informe:
   [`docs/auditorias/2026-10-02-preauditoria-escrow1v1.md`](docs/auditorias/2026-10-02-preauditoria-escrow1v1.md);
   paquete para el auditor: [`packages/contracts/AUDIT.md`](packages/contracts/AUDIT.md).
   - El vencimiento del resultado tiene **tope en el contrato**
@@ -29,7 +30,7 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
     no entra en el presupuesto se acredita y `withdraw` lo cobra.
   - Una partida dura como mucho **2 días** desde que se abre
     (`MAX_MATCH_DURATION`): un asiento mal firmado ya no traba un depósito
-    para siempre.
+    hasta que el dueño lo cancele.
   - La **comisión queda congelada al abrir** la partida.
   - La wallet de la plataforma no puede ser el escrow ni el USDC; una mesa de
     0 se rechaza; la configuración inicial queda en los eventos; jugadores y
@@ -47,15 +48,18 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 - **Invariantes con fuzzer de `Escrow1v1`** (`packages/contracts/test/invariant/`):
   miles de secuencias al azar de jugadores, árbitro, dueño, un USDC con
   blacklist, pausa y cobros caros, y un atacante; después de cada paso se
-  chequea la solvencia, que cada pago sea exacto y que nada quede trabado.
+  chequea la solvencia y que cada pago sea exacto; al final de cada
+  secuencia, que nada quede trabado.
   Corren en cada CI (256 × 100) y en una pasada profunda (`FOUNDRY_PROFILE=deep`).
 - **Pruebas contra el USDC real de Circle** en una copia de Base mainnet
   (`test/fork/`), con un canario del costo del `transfer` para las
   actualizaciones del USDC. En CI, como job aparte y no requerido.
-- **Pruebas de mutación** (`node packages/contracts/mutantes.mjs`): planta 29
+- **Pruebas de mutación** (`node packages/contracts/mutantes.mjs`): planta 30
   bugs realistas de a uno y exige que la suite los detecte todos.
 - **Regresiones de la pre-auditoría** (`test/Escrow1v1.preauditoria.t.sol`):
-  cada cambio, cada hallazgo y cada riesgo aceptado, con su test.
+  cada cambio, cada hallazgo y cada riesgo aceptado que se puede ejercitar,
+  con su test; y `test/Escrow1v1.presupuesto.t.sol`: el token recibe siempre
+  exactamente su presupuesto de gas, mande quien llama el gas que mande.
 
 ### Cambiado
 

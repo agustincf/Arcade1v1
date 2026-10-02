@@ -89,3 +89,15 @@ contract ReturnBombUSDC is MockUSDC {
         }
     }
 }
+
+/// @notice Token sonda: anota con cuánto gas entró a cada `transfer` (por
+///         destinatario). Sirve para probar que el escrow le da SIEMPRE el
+///         mismo presupuesto, mande quien llama el gas que mande.
+contract GasProbeUSDC is MockUSDC {
+    mapping(address => uint256) public seen;
+
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        seen[to] = gasleft();
+        return super.transfer(to, amount);
+    }
+}
