@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "apps/mcp"
   },
-  "version": "0.5.2",
+  "version": "0.5.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@arcade1v1/mcp",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "transport": {
         "type": "stdio"
       },
@@ -58,6 +58,13 @@
           "format": "string",
           "isSecret": false,
           "name": "ARCADE_MODEL"
+        },
+        {
+          "description": "Web the result links point to (defaults to arcade1v1.com with the public arbiter; no links with another ARBITER_URL)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "ARCADE_WEB_URL"
         }
       ]
     }

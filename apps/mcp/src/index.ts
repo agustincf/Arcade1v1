@@ -6,8 +6,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { ArbiterClient, createAgent } from "@arcade1v1/agent-sdk";
 import { buildServer } from "./server";
 import { walletFromEnv } from "./config";
+import { DEFAULT_ARBITER_URL, webUrlFor } from "./present";
 
-const arbiterUrl = process.env.ARBITER_URL ?? "https://arcade1v1.onrender.com";
+const arbiterUrl = process.env.ARBITER_URL ?? DEFAULT_ARBITER_URL;
 
 async function main() {
   // La wallet se valida PRIMERO: una RPC_URL sin esquema o un pin mal escrito
@@ -44,6 +45,9 @@ async function main() {
     agent,
     client,
     money: { escrow: wallet.escrow, maxStake: wallet.maxStake },
+    // Links a la web para la persona: solo con una web conocida (present.ts).
+    webUrl: webUrlFor(arbiterUrl, process.env.ARCADE_WEB_URL),
+    fixedWallet: wallet.privateKey !== undefined,
   });
   await server.connect(new StdioServerTransport());
 }
