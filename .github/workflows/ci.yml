@@ -2,11 +2,14 @@
 # Replica lo que hoy se chequea a mano:
 #   - tipos (tsc) de la web y del servidor árbitro
 #   - selftest del árbitro (emparejamiento + firma + anti-trampa)
-#   - tests del contrato (forge) y los e2e en cadena local (anvil):
+#   - tests del contrato (forge: unitarios, pre-auditoría e invariantes con
+#     fuzzer) y los e2e en cadena local (anvil):
 #       * integración árbitro <-> contrato (el digest EIP-712 coincide)
 #       * pago completo (dos jugadores depositan, el árbitro firma, paga al ganador)
 #       * mesa de plata de Aleph (4 asientos depositan, el árbitro firma la tabla
 #         y el contrato paga a todos; después, un fondeo incompleto que se cancela)
+#   - aparte, no requerido para mergear: Escrow1v1 contra el USDC real de
+#     Circle en una copia de Base mainnet (test/fork/)
 name: CI
 
 on:
@@ -109,3 +112,35 @@ jobs:
 
       - name: Pago de una mesa de plata de Aleph en cadena local (anvil)
         run: bash packages/contracts/check-aleph-e2e.sh
+
+  # Escrow1v1 contra el USDC REAL de Circle (blacklist, pausa, proxy, costo del
+  # transfer), en una copia de Base mainnet en un bloque fijo: test/fork/.
+  # Job aparte y NO requerido para mergear (main exige solo los dos de arriba):
+  # depende de un nodo público, y si el nodo se cae no tiene que trabar un merge.
+  # foundry-toolchain guarda en caché lo que lee de la red, así que después de la
+  # primera corrida casi no la usa.
+  contracts-fork:
+    name: Contrato contra el USDC real (copia de Base)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Traer librerías del contrato
+        run: |
+          git clone --depth 1 --recurse-submodules --branch v1.16.1 \
+            https://github.com/foundry-rs/forge-std \
+            packages/contracts/lib/forge-std
+          git clone --depth 1 --recurse-submodules --branch v5.6.1 \
+            https://github.com/OpenZeppelin/openzeppelin-contracts \
+            packages/contracts/lib/openzeppelin-contracts
+
+      - name: Instalar Foundry (forge, anvil, cast)
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.3
+
+      - name: Tests contra el USDC real (copia de Base mainnet)
+        run: forge test --match-path 'test/fork/*' -vv
+        working-directory: packages/contracts
+        env:
+          BASE_RPC_URL: https://mainnet.base.org

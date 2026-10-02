@@ -117,7 +117,7 @@ contract Escrow1v1Test is Test {
     }
 
     function _status(bytes32 id) internal view returns (Escrow1v1.Status status) {
-        (,,,,,,, status) = escrow.matches(id);
+        (,,,,,,, status,) = escrow.matches(id);
     }
 
     // --- Abrir bloquea el deposito de p1 y guarda las condiciones firmadas ---
@@ -125,8 +125,17 @@ contract Escrow1v1Test is Test {
         _open();
         assertEq(usdc.balanceOf(p1), 0, "p1 deposito");
         assertEq(usdc.balanceOf(address(escrow)), stake, "escrow tiene 1 stake");
-        (address a, address b, uint256 st, bool paid1, bool paid2, uint64 fund, uint64 play, Escrow1v1.Status s) =
-            escrow.matches(matchId);
+        (
+            address a,
+            address b,
+            uint256 st,
+            bool paid1,
+            bool paid2,
+            uint64 fund,
+            uint64 play,
+            Escrow1v1.Status s,
+            uint16 fee
+        ) = escrow.matches(matchId);
         assertEq(a, p1);
         assertEq(b, address(0));
         assertEq(st, stake);
@@ -134,6 +143,7 @@ contract Escrow1v1Test is Test {
         assertEq(fund, fundDl, "plazo de fondeo del asiento");
         assertEq(play, playDl, "plazo de juego del asiento");
         assertEq(uint8(s), uint8(Escrow1v1.Status.Open));
+        assertEq(fee, feeBps, "la comision vigente queda congelada al abrir");
     }
 
     // --- Camino feliz: ganador cobra, plataforma cobra comision ---
@@ -372,7 +382,7 @@ contract Escrow1v1Test is Test {
         vm.expectRevert(bytes("bad seat"));
         escrow.open(matchId, stake, fundDl + 10 minutes, playDl, seat); // fondeo mas largo
         vm.expectRevert(bytes("bad seat"));
-        escrow.open(matchId, stake, fundDl, playDl + 7 days, seat); // juego mas largo
+        escrow.open(matchId, stake, fundDl, playDl + 1 days, seat); // juego mas largo (dentro del tope)
         escrow.open(matchId, stake, fundDl, playDl, seat); // las firmadas: entra
         vm.stopPrank();
     }
@@ -463,13 +473,14 @@ contract Escrow1v1Test is Test {
         assertEq(usdc.balanceOf(p1), 9_000_000);
     }
 
-    // El vencimiento va DENTRO de la firma: presentarla con otro plazo (para
-    // estirarle la vida) no verifica.
+    // El vencimiento va DENTRO de la firma: presentarla con otro plazo no
+    // verifica. (Uno posterior al tope ya lo frena antes `deadline too late`:
+    // ver test/Escrow1v1.preauditoria.t.sol.)
     function test_SettleRejectsDeadlineThatWasNotSigned() public {
         _openAndJoin();
         bytes memory sig = _signResult(p1);
         vm.expectRevert(bytes("bad signature"));
-        escrow.settle(matchId, p1, _resultDl() + 1 days, sig);
+        escrow.settle(matchId, p1, _resultDl() - 1, sig);
     }
 
     // La política del árbitro: el resultado vence justo cuando se abre el
@@ -722,17 +733,22 @@ contract Escrow1v1Test is Test {
 
     // --- Gas justo -------------------------------------------------------------
     // settle es permissionless, así que cualquiera elige con cuánto gas llamarlo.
-    // Si el envío del premio se queda sin gas mientras settle todavía tiene para
-    // seguir, sin la guarda de `_pay` ese pago sano se volvía un crédito (y el
-    // ganador tenía que retirarlo a mano). Con el USDC real la ventana no se
-    // abre; con un token de pago caro sí, así que el test la abre a propósito y
-    // barre límites de gas: con cualquiera, o la liquidación revierte entera o
-    // paga, y nunca acredita a quien el token no rechazó.
-    function test_SettleWithTightGasNeverCreditsHealthyWinner() public {
+    // Cada pago le da al USDC exactamente PAY_GAS, así que ese gas no decide
+    // nada: con poco, la liquidación revierte entera; con suficiente, el
+    // resultado es siempre el mismo. Un pago que ENTRA en el presupuesto se
+    // cobra siempre (nunca se acredita a quien el token no rechazó), y uno que
+    // NO entra se acredita siempre (y `withdraw`, sin tope, lo cobra). Nunca
+    // hay una franja de gas intermedia donde cambie el resultado.
+    function test_SettleWithTightGasIsAllOrNothing() public {
+        _sweepTightGas(150_000, false); // cobrar es caro, pero entra en PAY_GAS
+        _sweepTightGas(2_000_000, true); // no entra: crédito determinista
+    }
+
+    function _sweepTightGas(uint256 burn, bool expectCredit) internal {
         GasHungryUSDC tok = new GasHungryUSDC();
         Escrow1v1 esc = new Escrow1v1(address(tok), arbiter, platform, feeBps, owner);
         _fundMatchOn(esc, tok, matchId);
-        tok.setHungry(p1, 2_000_000); // el premio es el último pago y es caro
+        tok.setHungry(p1, burn); // el premio es el último pago y es caro
         uint64 dl = _resultDl();
         bytes32 rd = esc.resultDigest(matchId, p1, dl);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(arbiterPk, rd);
@@ -741,20 +757,33 @@ contract Escrow1v1Test is Test {
         uint256 snap = vm.snapshotState();
         uint256 okRuns = 0;
         uint256 revertedRuns = 0;
-        for (uint256 g = 1_500_000; g <= 2_600_000; g += 10_000) {
+        for (uint256 g = 100_000; g <= 1_500_000; g += 10_000) {
             vm.revertToState(snap);
             (bool ok,) = address(esc).call{gas: g}(callData);
             if (!ok) {
+                assertEq(okRuns, 0, "con mas gas nunca vuelve a revertir");
                 revertedRuns++;
                 continue;
             }
             okRuns++;
-            assertEq(esc.owed(p1), 0, "ningun credito forzado");
-            assertEq(tok.balanceOf(p1), 9_000_000, "cobro entero");
-            assertEq(esc.owed(platform), 0, "ni a la plataforma");
+            if (expectCredit) {
+                assertEq(esc.owed(p1), 9_000_000, "fuera del presupuesto: acreditado siempre");
+                assertEq(tok.balanceOf(p1), 0, "y nada empujado");
+            } else {
+                assertEq(esc.owed(p1), 0, "ningun credito forzado");
+                assertEq(tok.balanceOf(p1), 9_000_000, "cobro entero");
+            }
+            assertEq(esc.owed(platform), 0, "la comision se cobra igual");
         }
-        assertGt(revertedRuns, 0, "el barrido paso por la ventana de gas justo");
+        assertGt(revertedRuns, 0, "el barrido paso por el gas insuficiente");
         assertGt(okRuns, 0, "el barrido llego a liquidar");
+        if (expectCredit) {
+            vm.revertToState(snap);
+            (bool ok,) = address(esc).call(callData);
+            assertTrue(ok);
+            esc.withdrawFor(p1);
+            assertEq(tok.balanceOf(p1), 9_000_000, "withdraw cobra lo que no entraba en el presupuesto");
+        }
     }
 
     /// Una partida fondeada sobre otro escrow y otro token (para los tests que
@@ -808,7 +837,7 @@ contract Escrow1v1Test is Test {
         // liquidada (la cancelación nunca entró) y no se perdió un centavo.
         evil.arm(address(esc), abi.encodeWithSelector(Escrow1v1.cancelMatch.selector, matchId));
         esc.settle(matchId, p1, dl, sig);
-        (,,,,,,, Escrow1v1.Status status) = esc.matches(matchId);
+        (,,,,,,, Escrow1v1.Status status,) = esc.matches(matchId);
         assertEq(uint8(status), uint8(Escrow1v1.Status.Settled), "la reentrada no la cancelo");
         assertEq(esc.owed(platform), 1_000_000, "comision acreditada");
         assertEq(esc.owed(p1), 9_000_000, "premio acreditado");

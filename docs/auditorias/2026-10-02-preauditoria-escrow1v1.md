@@ -1,0 +1,113 @@
+# Pre-auditoría de Escrow1v1 (2026-09-29 → 2026-10-02)
+
+> Tanda 1 del camino a mainnet ([`docs/MAINNET.md`](../MAINNET.md)): dejar
+> `Escrow1v1` listo para la auditoría externa. El paquete para el auditor, en
+> inglés, es [`packages/contracts/AUDIT.md`](../../packages/contracts/AUDIT.md).
+
+## En corto (para el dueño)
+
+- **El contrato quedó listo para auditar.** Se le buscaron fallas de todas las
+  formas que se usan antes de pagar una auditoría: pruebas automáticas que
+  juegan miles de partidas al azar y revisan cada centavo, pruebas contra el
+  USDC real de Circle en una copia de Base, dos analizadores automáticos y
+  varias revisiones independientes que intentaron romperlo.
+- **Con el árbitro honesto y bien configurado, no apareció ninguna forma de
+  robar plata ni de trabarla para siempre.** Lo que puede hacer una llave del
+  árbitro filtrada está acotado y documentado (A1 de `AUDIT.md`).
+- **Se encontraron 6 cosas para mejorar en el contrato y se arreglaron todas
+  ahora**, antes de la auditoría (después hubiera sido pagar para re-auditar).
+  La más importante: la seguridad de los pagos dependía de que el USDC siguiera
+  siendo barato de mover; ahora no depende de eso.
+- **Lo que hay que hacer vos:** redesplegar `Escrow1v1` en testnet (Base
+  Sepolia) con la versión revisada, para que lo que pruebe la gente sea lo
+  mismo que se audita. Es el mismo procedimiento que el del 24/9:
+  [runbook](../REDEPLOY-escrow1v1-preauditoria.md).
+- **En el árbitro y la web aparecieron otras cosas** (no son del contrato, no
+  cambian la auditoría). Dos importan antes de mainnet: que el árbitro NO
+  pueda arrancar con plata real sin exigir firmas, y que no presentar el
+  puntaje no sea gratis. Quedan anotadas en `docs/MAINNET.md` para la tanda 3.
+
+## Cómo se revisó
+
+| Qué                                                    | Resultado                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pruebas unitarias y de regresión                       | 152 en verde (113 de antes + 29 de la pre-auditoría + 5 del presupuesto exacto de gas + 5 de invariantes)                                                                                                                                                                            |
+| Invariantes con fuzzer (`test/invariant/`)             | 256 × 100 en cada CI; pasada profunda 2000 × 300: las 4 en verde (600.000 operaciones cada una)                                                                                                                                                                                      |
+| Mutación (bugs plantados a propósito, `mutantes.mjs`)  | 30 de 30 detectados                                                                                                                                                                                                                                                                  |
+| Contra el USDC real (copia de Base, bloque 51.972.000) | 10 en verde: blacklist, pausa, escrow bloqueado, barridos de gas; medido en frío, como una transacción real, un `transfer` necesita 41.051 de gas y un `settle` 380.865                                                                                                              |
+| Slither 0.11.6 (102 detectores)                        | solo `timestamp` (5, esperado: los plazos son el producto) y `assembly` (1: el pago, copiado de OpenZeppelin)                                                                                                                                                                        |
+| Aderyn 0.6.8 (88 detectores)                           | 0 altos; 4 bajos esperados: centralización (el dueño es una Safe), literales grandes, la copia de OpenZeppelin en el pago, y un falso "TODO" (la palabra _todo_ de los comentarios en castellano)                                                                                    |
+| Cobertura de `Escrow1v1.sol`                           | 100 % de líneas, instrucciones, ramas y funciones                                                                                                                                                                                                                                    |
+| Revisiones                                             | 2 revisores adversariales (con prueba de concepto para cada afirmación), 5 verificadores que intentaron refutar los hallazgos del árbitro, 3 diseños independientes (mínimo, robusto, pragmático) con una síntesis, un barrido de despliegue y paridad EIP-712, y un red-team fresco |
+
+## Cambios al contrato (todos antes de la auditoría)
+
+El dominio EIP-712 sigue en `("Arcade1v1Escrow", "2")`: los mensajes firmados
+no cambiaron, así que el árbitro y la web siguen andando igual con el contrato
+viejo y con el nuevo. La versión revisada se reconoce en cadena por `PAY_GAS()`
+y `MAX_MATCH_DURATION()`.
+
+| #   | Cambio                                                                                                                                                                                                                                                            | Por qué (hallazgo)                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `settle` exige `deadline <= playDeadline + REFUND_GRACE`                                                                                                                                                                                                          | F-03: el tope era solo política del árbitro. Un resultado firmado con un vencimiento más largo (un bug, un reloj corrido) le dejaba al perdedor adelantarse con el reembolso.                                                                                                                                                                                                                                                                       |
+| 2   | Presupuesto fijo de gas por pago (`PAY_GAS = 300.000`) en vez de la guarda de 1/63                                                                                                                                                                                | F-01 y F-02 (y su variante sin atacante, RT3-01): la guarda no valía detrás del proxy del USDC. Con un USDC futuro caro, un tercero (o la propia estimación de gas del árbitro) podía convertir el pago de un ganador sano en un crédito; y un rechazo que quema todo el gas trababa todas las salidas. Ahora quien llama no decide nada con su gas. Elegido por 2 de 3 diseños y reforzado por el red-team; 300k y no 100k por el margen (RT3-03). |
+| 3   | `open` exige `playDeadline <= ahora + MAX_MATCH_DURATION` (2 días)                                                                                                                                                                                                | F-04: un asiento mal firmado podía trabar un depósito hasta que el dueño lo cancelara.                                                                                                                                                                                                                                                                                                                                                              |
+| 4   | La comisión queda congelada al abrir (`Match.frozenFeeBps`)                                                                                                                                                                                                       | F-05: un cambio de comisión del dueño afectaba las partidas en juego.                                                                                                                                                                                                                                                                                                                                                                               |
+| 5   | La wallet de la plataforma no puede ser el escrow ni el USDC                                                                                                                                                                                                      | F-06: la comisión quedaba varada.                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 6   | Higiene de auditoría: eventos con la configuración inicial, jugadores y ganador indexados, constantes con nombre, mesa de 0 rechazada, `pragma 0.8.24` fijo, build reproducible (`evm_version`, remappings), y el NatSpec dice el modelo de confianza tal cual es | RT3-06, RT3-07, DEP-1 (en parte: la build; el resto del deploy queda en W7), Aderyn. El NatSpec decía "nadie, ni siquiera el dueño, puede sacar el dinero", y eso exageraba (ver F-04/F-05).                                                                                                                                                                                                                                                        |
+| —   | Scripts de deploy: `FEE_BPS` ya no se trunca en silencio                                                                                                                                                                                                          | F-10 (no es del contrato).                                                                                                                                                                                                                                                                                                                                                                                                                          |
+
+Lo que se decidió **no** cambiar, con su porqué, está en `AUDIT.md` §5
+(riesgos aceptados): atar el rol al asiento (F-07, se arregla en la web), un
+barrido del USDC suelto, una función de pausa, y subir la versión del dominio.
+
+## Hallazgos del contrato
+
+| ID        | Gravedad (revisada)                        | Qué                                                                                                                                      | Estado                                                    |
+| --------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| F-01      | Baja hoy (inalcanzable con el USDC actual) | La guarda de gas de `_pay` se esquivaba detrás de un proxy si el `transfer` costara ≥ ~900k (actualización del USDC).                    | Arreglado (cambio 2)                                      |
+| RT3-01    | Baja hoy                                   | Variante de F-01 sin atacante: el `settle` del propio árbitro, con la estimación de gas del nodo, caía en la franja del crédito forzado. | Arreglado (cambio 2)                                      |
+| F-02      | Informativa detrás del proxy real (RT3-02) | Un rechazo que quema todo el gas hacía revertir toda salida que le pagara a esa dirección, también el reembolso del otro.                | Arreglado (cambio 2)                                      |
+| F-03      | Media                                      | Resultado con vencimiento posterior a la apertura del reembolso.                                                                         | Arreglado (cambio 1)                                      |
+| F-04      | Riesgo aceptado + arreglo parcial          | Una llave del árbitro filtrada toma las partidas ABIERTAS (acotado por sus stakes) y podía trabar depósitos con plazos absurdos.         | Plazos: arreglado (cambio 3). Lo demás: A1 de `AUDIT.md`. |
+| F-05      | Baja                                       | El dueño puede hacerse árbitro y cambiaba la comisión de partidas en juego.                                                              | Comisión: arreglado (cambio 4). Dueño → árbitro: A1.      |
+| F-06      | Informativa                                | Wallet de plataforma = el escrow o el token.                                                                                             | Arreglado (cambio 5)                                      |
+| F-07      | Informativa                                | Los asientos no dicen el rol; la web confiaba en el rol.                                                                                 | Aceptado en cadena (A3); arreglo en la web (tanda 3)      |
+| F-09      | Informativa                                | Solo firmas canónicas de 65 bytes: un firmante KMS tiene que normalizar `s`.                                                             | Nota operativa (C12)                                      |
+| F-10      | Baja                                       | Scripts de deploy truncaban `FEE_BPS`.                                                                                                   | Arreglado                                                 |
+| RT3-06/07 | Informativa                                | Eventos e higiene.                                                                                                                       | Arreglado (cambio 6)                                      |
+
+## Hallazgos del árbitro y la web (no son del contrato)
+
+Verificados uno por uno por escépticos que intentaron refutarlos; los cinco
+más graves, por dos. Ninguno pide cambiar Solidity: van a la **tanda 3**
+(árbitro y web en modo mainnet) o a la **tanda 2** (deploy), y están en
+`docs/MAINNET.md`.
+
+| ID              | Veredicto               | Gravedad                         | Qué                                                                                                                                                                                                                                                                                  |
+| --------------- | ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| F6              | Confirmado              | **Media, la primera a arreglar** | Con `REQUIRE_AUTH=false`, o si falta `NODE_ENV=production`, el árbitro acepta puntajes sin firma: cualquiera rinde a un depositante con un puntaje bajo y el rival se lleva el pozo. Hoy solo avisa (y con `NODE_ENV` sin poner, ni avisa).                                          |
+| F3              | Confirmado (dos veces)  | Media                            | No presentar el puntaje es gratis: a las ~2 h 15 m la partida se cancela y los dos recuperan su stake. Un jugador con una mala corrida no la presenta; con la semilla anticipada (C13), el p2 juega la semilla antes de depositar y decide. Arreglo: si uno solo presentó, gana ese. |
+| F1              | Parcialmente confirmado | Media                            | Rival fantasma en las mesas pagas: se empareja con alguien que no depositó. El que llega pierde a lo sumo el gas de un approve; un fantasma que se UNE y no deposita traba el stake del que abrió hasta 70 min.                                                                      |
+| F2              | Confirmado              | Media                            | Los reembolsos del árbitro (`cancelMatch`) son de un solo intento: si el RPC falla unos segundos, no se reintenta nunca, y la web dice "reembolsado". La plata no se pierde (los reembolsos son permissionless), se demora.                                                          |
+| INT-1           | Confirmado (con prueba) | Media                            | Si la firma del resultado falla una vez (después: un KMS que tarda), la partida queda decidida y sin firma para siempre: el ganador termina reembolsado.                                                                                                                             |
+| INT-2           | Confirmado              | Media                            | El árbitro no chequea al arrancar que la cadena, el contrato y su propio rol (`arbiter()`) sean los que cree.                                                                                                                                                                        |
+| DEP-1..5        | Confirmados             | Media                            | El deploy a mainnet no fija el commit auditado ni la versión de las librerías, no verifica la fuente en Basescan, no relee el contrato desplegado, no pasa el dueño a la Safe, y no exige la red ni el USDC exactos. **Tanda 2.**                                                    |
+| F5 / RT3-04     | Parcialmente confirmado | Baja                             | Rotar la llave del árbitro deja sin cobrar a los ganadores ya decididos y sin liquidar; no hay runbook.                                                                                                                                                                              |
+| F4              | Confirmado              | Baja                             | El atajo de la web "¿ya deposité?" mira el rol y no la dirección (F-07).                                                                                                                                                                                                             |
+| F7              | Confirmado              | Baja                             | Redis no es obligatorio para las mesas pagas del 1v1.                                                                                                                                                                                                                                |
+| F8, F9          | Confirmados             | Baja                             | Un waiter vencido se descarta sin cancelar en cadena; un asiento sigue sirviendo 10 min después de que el árbitro olvidó la partida.                                                                                                                                                 |
+| F10             | Confirmado              | Baja                             | La ventana de envío usa el valor actual de la variable, no el plazo congelado.                                                                                                                                                                                                       |
+| F11             | Confirmado              | Baja                             | Las partidas gratis disparan simulaciones de `cancelMatch` en la misma cola que los pagos.                                                                                                                                                                                           |
+| RT3-05          | Código leído            | Baja                             | El árbitro decide "firma vencida" con el reloj del servidor y no con el de la cadena.                                                                                                                                                                                                |
+| DEP-6, INT-3    | Confirmados             | Baja                             | Nada ata la comisión del deploy al 15% que ve la gente; la guarda de configuración valida valores recortados pero los firmantes leen los crudos.                                                                                                                                     |
+| F12, F13, DOC-1 | Confirmados             | Informativa                      | `/match/:id/bot` sin autenticación si se prende el bot de prueba; parámetros del contrato copiados a mano en la config; DEPLOY.md atrasado y scripts que matan cualquier anvil.                                                                                                      |
+
+## Qué falta para mandarlo a auditar
+
+1. Mergear este PR (lo hacés vos desde GitHub).
+2. **Redesplegar `Escrow1v1` en Base Sepolia** con la versión revisada
+   ([runbook](../REDEPLOY-escrow1v1-preauditoria.md)). `EscrowAleph` no cambia.
+3. Etiquetar el commit que se audita (`escrow1v1-audit`) y pedir
+   cotizaciones con `packages/contracts/AUDIT.md`.
+4. Mientras tanto, tandas 2 y 3 (`docs/MAINNET.md`).
