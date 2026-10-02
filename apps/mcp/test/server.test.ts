@@ -8,16 +8,22 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { ArbiterClient, createAgent, ALEPH_RULES_V } from "@arcade1v1/agent-sdk";
 import { buildServer } from "../src/server";
 
-async function connected() {
-  const client = new ArbiterClient("http://fake");
+async function connected(
+  opts: { fetchImpl?: typeof fetch; webUrl?: string; fixedWallet?: boolean } = {},
+) {
+  const client = new ArbiterClient(
+    "http://fake",
+    opts.fetchImpl ? { fetchImpl: opts.fetchImpl } : {},
+  );
   const agent = createAgent({ client });
-  const server = buildServer({ agent, client });
+  const server = buildServer({ agent, client, webUrl: opts.webUrl, fixedWallet: opts.fixedWallet });
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   await server.connect(serverT);
   const mcp = new Client({ name: "test", version: "0.0.0" });
   await mcp.connect(clientT);
   return {
     mcp,
+    agent,
     close: async () => {
       await mcp.close();
       await server.close();
@@ -32,7 +38,7 @@ async function connected() {
 const textOf = (res: unknown) =>
   ((res as { content: unknown }).content as { type: string; text: string }[])[0].text;
 
-test("buildServer publica las 6 herramientas 1v1 y las 7 de Aleph", async () => {
+test("buildServer publica las 6 herramientas 1v1, whoami y las 7 de Aleph", async () => {
   const { mcp, close } = await connected();
   try {
     const { tools } = await mcp.listTools();
@@ -50,6 +56,7 @@ test("buildServer publica las 6 herramientas 1v1 y las 7 de Aleph", async () => 
       "matchmake",
       "play_and_submit",
       "rating",
+      "whoami",
     ]);
     const mm = tools.find((t) => t.name === "matchmake")!;
     assert.match(
@@ -110,6 +117,92 @@ test("aleph_rules y list_games responden por el protocolo (sin red)", async () =
     const games = JSON.parse(textOf(await mcp.callTool({ name: "list_games", arguments: {} })));
     assert.deepEqual(games.formats, ["aleph"]);
     assert.equal(games.games.length, 6);
+  } finally {
+    await close();
+  }
+});
+
+// ---- Lo que ve la persona ----------------------------------------------------
+
+const jsonReply = (body: unknown) =>
+  (async () =>
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })) as typeof fetch;
+
+test("las herramientas que solo leen lo anuncian; las que firman, no", async () => {
+  const { mcp, close } = await connected();
+  try {
+    const { tools } = await mcp.listTools();
+    const ro = tools
+      .filter((t) => t.annotations?.readOnlyHint === true)
+      .map((t) => t.name)
+      .sort();
+    assert.deepEqual(ro, [
+      "aleph_lobbies",
+      "aleph_rules",
+      "aleph_view",
+      "get_result",
+      "leaderboard",
+      "list_games",
+      "rating",
+      "whoami",
+    ]);
+    for (const t of tools) assert.ok(t.annotations, `${t.name} trae annotations`);
+    const dep = tools.find((t) => t.name === "aleph_deposit")!;
+    assert.equal(dep.annotations?.destructiveHint, true, "mover plata pide confirmación");
+  } finally {
+    await close();
+  }
+});
+
+test("get_result: el JSON sigue primero; después, resumen y link a la repetición", async () => {
+  const view = {
+    matchId: "0xabc",
+    game: "2048",
+    stake: 0,
+    status: "settled",
+    scores: {},
+    yourScore: 1240,
+    rivalScore: 980,
+    rating: 1214,
+    ratingDelta: 14,
+  };
+  const { mcp, close } = await connected({
+    fetchImpl: jsonReply(view),
+    webUrl: "https://arcade1v1.com",
+  });
+  try {
+    const res = (await mcp.callTool({
+      name: "get_result",
+      arguments: { matchId: "0xabc" },
+    })) as { content: { text: string }[]; structuredContent?: unknown };
+    assert.deepEqual(JSON.parse(res.content[0].text), view, "content[0] es el JSON de siempre");
+    assert.deepEqual(res.structuredContent, view);
+    assert.match(res.content[1].text, /You won .* 1240 to 980/);
+    assert.match(res.content[1].text, /\+14/);
+    assert.match(res.content[1].text, /https:\/\/arcade1v1\.com\/watch\/0xabc/);
+  } finally {
+    await close();
+  }
+});
+
+test("whoami: dirección en minúsculas, rating y aviso de wallet efímera", async () => {
+  const { mcp, agent, close } = await connected({
+    fetchImpl: jsonReply({ ratings: { snake: 1180 } }),
+    webUrl: "https://arcade1v1.com",
+  });
+  try {
+    const res = (await mcp.callTool({ name: "whoami", arguments: {} })) as {
+      content: { text: string }[];
+    };
+    const w = JSON.parse(res.content[0].text);
+    assert.equal(w.address, agent.address.toLowerCase());
+    assert.equal(w.wallet, "ephemeral");
+    assert.deepEqual(w.ratings, { snake: 1180 });
+    assert.equal(w.links.leaderboard, "https://arcade1v1.com/leaderboard");
+    assert.match(res.content[1].text, /ephemeral.*ARCADE_PRIVATE_KEY/);
   } finally {
     await close();
   }
