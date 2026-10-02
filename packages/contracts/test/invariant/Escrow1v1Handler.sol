@@ -22,7 +22,9 @@ contract Escrow1v1Handler is Test {
     Escrow1v1 public immutable escrow;
     ChaosUSDC public immutable usdc;
     address public immutable owner;
-    address public immutable platform;
+    /// @notice Las dos wallets entre las que el dueño mueve la comisión.
+    address public immutable platformA;
+    address public immutable platformB;
     address public immutable attacker;
 
     /// @notice La llave del árbitro vigente (el fuzzer la puede rotar).
@@ -43,6 +45,7 @@ contract Escrow1v1Handler is Test {
         uint64 fundDl;
         uint64 playDl;
         Escrow1v1.Status status;
+        uint16 feeBps; // la comisión vigente al abrir: la que se cobra al liquidar
     }
 
     bytes32[] public ids;
@@ -73,7 +76,8 @@ contract Escrow1v1Handler is Test {
         ChaosUSDC _usdc,
         uint256 _arbiterPk,
         address _owner,
-        address _platform,
+        address _platformA,
+        address _platformB,
         address[] memory _players,
         address _attacker
     ) {
@@ -81,7 +85,8 @@ contract Escrow1v1Handler is Test {
         usdc = _usdc;
         arbiterPk = _arbiterPk;
         owner = _owner;
-        platform = _platform;
+        platformA = _platformA;
+        platformB = _platformB;
         attacker = _attacker;
         players = _players;
         // Cada jugador (y el atacante) aprueba una vez; el approve exacto de la
@@ -107,15 +112,16 @@ contract Escrow1v1Handler is Test {
         bytes32 id = keccak256(abi.encode("partida", nonce++));
         _ensureBalance(p, st);
         bytes memory seat = _seat(arbiterPk, id, p, st, f, pl);
-        bool expectOk = escrow.allowedStake(st) && _healthy(p);
+        bool expectOk = escrow.allowedStake(st) && _canMove(p);
         uint256 before = usdc.balanceOf(address(escrow));
+        uint16 feeAtOpen = escrow.feeBps();
 
         vm.prank(p);
         try escrow.open(id, st, f, pl, seat) {
             if (!expectOk) _violation("open: entro plata con la mesa cerrada, el token en pausa o una direccion bloqueada");
             if (usdc.balanceOf(address(escrow)) != before + st) _violation("open: el escrow no recibio exactamente el stake");
             ids.push(id);
-            ghost[id] = Ghost(p, address(0), st, f, pl, Escrow1v1.Status.Open);
+            ghost[id] = Ghost(p, address(0), st, f, pl, Escrow1v1.Status.Open, feeAtOpen);
             ghostLocked += st;
             opens++;
         } catch {
@@ -143,7 +149,7 @@ contract Escrow1v1Handler is Test {
         Ghost storage g = ghost[id];
         _ensureBalance(p, g.stake);
         bytes memory seat = _seat(arbiterPk, id, p, g.stake, g.fundDl, g.playDl);
-        bool expectOk = p != g.p1 && block.timestamp <= g.fundDl && escrow.allowedStake(g.stake) && _healthy(p);
+        bool expectOk = p != g.p1 && block.timestamp <= g.fundDl && escrow.allowedStake(g.stake) && _canMove(p);
         uint256 before = usdc.balanceOf(address(escrow));
 
         vm.prank(p);
@@ -210,7 +216,8 @@ contract Escrow1v1Handler is Test {
         // para probar también el retiro sin nada acreditado.
         address a = accountSeed % 4 == 0 ? _eligible(accountSeed / 4) : _withCredit(accountSeed / 4);
         uint256 amt = escrow.owed(a);
-        bool expectOk = amt > 0 && _healthy(a);
+        // `withdraw` no tiene presupuesto de gas: un destinatario caro también cobra.
+        bool expectOk = amt > 0 && _canMove(a);
         address caller = forOther ? _anyone(callerSeed) : a;
         uint256 bal = usdc.balanceOf(a);
         uint256 callerBal = usdc.balanceOf(caller);
@@ -234,9 +241,11 @@ contract Escrow1v1Handler is Test {
     //                       GAS JUSTO (permissionless)                      //
     // --------------------------------------------------------------------- //
     // settle y dos de los reembolsos los puede mandar cualquiera, con el gas
-    // que quiera. La guarda de `_pay` tiene que impedir que alguien convierta
-    // el pago de otro en un crédito mandando gas justo: o se paga bien, o
-    // revierte todo. Uno de los jugadores cobra caro (ver ChaosUSDC.hungry).
+    // que quiera. Cada pago le da al USDC exactamente `PAY_GAS`: con gas justo
+    // la transacción entera revierte, y con gas de sobra el resultado es el
+    // mismo que con todo el gas. Nunca un pago que entra en el presupuesto
+    // queda acreditado, y uno que no entra queda acreditado siempre (ver
+    // ChaosUSDC.burnOf: p3 cobra caro pero entra, p4 no entra).
 
     function settleTightGas(uint256 matchSeed, bool p1Wins, uint256 gasSeed, uint256 callerSeed) external {
         bytes32 id = _pick(matchSeed, Escrow1v1.Status.Funded);
@@ -323,13 +332,43 @@ contract Escrow1v1Handler is Test {
         escrow.setFeeBps(fee);
     }
 
+    /// @notice El dueño manda la comisión a la otra wallet (de lo que se
+    ///         liquide desde ahora).
+    function switchPlatform() public {
+        address next = escrow.platformWallet() == platformA ? platformB : platformA;
+        vm.prank(owner);
+        escrow.setPlatformWallet(next);
+    }
+
+    /// @notice Configuraciones que ni el dueño puede poner: la comisión al
+    ///         propio escrow o al token (quedaría varada) y una mesa de 0.
+    function badOwnerConfig(uint256 which) public {
+        uint256 k = which % 3;
+        bool ok;
+        vm.prank(owner);
+        if (k == 0) {
+            try escrow.setPlatformWallet(address(escrow)) {
+                ok = true;
+            } catch {}
+        } else if (k == 1) {
+            try escrow.setPlatformWallet(address(usdc)) {
+                ok = true;
+            } catch {}
+        } else {
+            try escrow.setAllowedStake(0, true) {
+                ok = true;
+            } catch {}
+        }
+        if (ok) _violation("dueno: puso una configuracion que el contrato tiene que rechazar");
+    }
+
     /// @notice El dueño rota la llave del árbitro (se filtró, o se cambia de
     ///         proveedor). Desde ahí, lo firmado con la vieja no vale.
     function rotateArbiter(uint256 pkSeed) public {
         uint256 pk = bound(pkSeed, 1, SECP256K1_N - 1);
         if (pk == arbiterPk) return;
         address a = vm.addr(pk);
-        if (a == attacker || a == owner || a == platform || _isPlayer(a)) return;
+        if (a == attacker || a == owner || a == platformA || a == platformB || _isPlayer(a)) return;
         oldArbiterPks.push(arbiterPk);
         arbiterPk = pk;
         vm.prank(owner);
@@ -538,6 +577,38 @@ contract Escrow1v1Handler is Test {
         if (ok) _violation("ataque: una funcion anduvo con la partida en el estado equivocado");
     }
 
+    /// @notice Un resultado firmado por el árbitro VIGENTE pero con un
+    ///         vencimiento posterior a `playDeadline + gracia` (un bug, un
+    ///         reloj corrido): no liquida, ni siquiera antes de ese tope.
+    function attackLateDeadline(uint256 matchSeed, uint256 extra, bool p1Wins) public {
+        bytes32 id = _pick(matchSeed, Escrow1v1.Status.Funded);
+        if (id == bytes32(0)) return;
+        Ghost storage g = ghost[id];
+        address w = p1Wins ? g.p1 : g.p2;
+        uint64 dl = g.playDl + GRACE + 1 + uint64(extra % 7 days);
+        bytes memory sig = _result(arbiterPk, id, w, dl);
+        vm.prank(attacker);
+        try escrow.settle(id, w, dl, sig) {
+            _violation("ataque: liquido un resultado que vence despues de abrirse el reembolso");
+        } catch {}
+    }
+
+    /// @notice Un asiento firmado por el árbitro vigente con plazos que pasan
+    ///         `MAX_MATCH_DURATION`: no abre (un deposito no se traba por años).
+    function attackFarDeadlines(uint256 actorSeed, uint256 extra) public {
+        address p = _player(actorSeed);
+        uint256 st = _stake(extra);
+        uint64 f = uint64(block.timestamp + 1 hours);
+        uint64 pl = uint64(block.timestamp + escrow.MAX_MATCH_DURATION() + 1 + extra % 365 days);
+        bytes32 id = keccak256(abi.encode("eterna", nonce++));
+        bytes memory seat = _seat(arbiterPk, id, p, st, f, pl);
+        _ensureBalance(p, st);
+        vm.prank(p);
+        try escrow.open(id, st, f, pl, seat) {
+            _violation("ataque: abrio una partida que dura mas que MAX_MATCH_DURATION");
+        } catch {}
+    }
+
     /// @notice Ni el dueño puede subir la comisión por encima del tope.
     function feeAboveCap(uint256 seed) public {
         uint16 max = escrow.MAX_FEE_BPS();
@@ -590,7 +661,7 @@ contract Escrow1v1Handler is Test {
     // operación normal.
 
     function attack(uint256 which, uint256 a, uint256 b, bool c) external {
-        uint256 k = which % 11;
+        uint256 k = which % 13;
         if (k == 0) attackForgedResult(a, b, c);
         else if (k == 1) attackOldArbiterKey(a, b, c);
         else if (k == 2) attackOutsiderWinner(a);
@@ -601,7 +672,9 @@ contract Escrow1v1Handler is Test {
         else if (k == 7) attackStrangerCancel(a, c);
         else if (k == 8) attackClosedMatch(a, b);
         else if (k == 9) attackAdmin(a);
-        else attackWrongState(a, b);
+        else if (k == 10) attackWrongState(a, b);
+        else if (k == 11) attackLateDeadline(a, b, c);
+        else attackFarDeadlines(a, b);
     }
 
     function chaos(uint256 which, uint256 seed) external {
@@ -613,12 +686,14 @@ contract Escrow1v1Handler is Test {
     }
 
     function ownerAction(uint256 which, uint256 seed, bool on) external {
-        uint256 k = which % 4;
+        uint256 k = which % 6;
         // Casi siempre se reabre la mesa: cerrada para siempre no se juega.
         if (k == 0) setAllowedStake(seed, on || seed % 4 != 0);
         else if (k == 1) setFeeBps(seed);
         else if (k == 2) rotateArbiter(seed);
-        else feeAboveCap(seed);
+        else if (k == 3) feeAboveCap(seed);
+        else if (k == 4) switchPlatform();
+        else badOwnerConfig(seed);
     }
 
     // --------------------------------------------------------------------- //
@@ -634,7 +709,8 @@ contract Escrow1v1Handler is Test {
         usdc.setPaused(false);
         usdc.setBlacklisted(address(escrow), false);
         for (uint256 i = 0; i < players.length; i++) usdc.setBlacklisted(players[i], false);
-        usdc.setBlacklisted(platform, false);
+        usdc.setBlacklisted(platformA, false);
+        usdc.setBlacklisted(platformB, false);
 
         uint256 latest = block.timestamp;
         for (uint256 i = 0; i < ids.length; i++) {
@@ -652,8 +728,8 @@ contract Escrow1v1Handler is Test {
                 _refundAndCheck(id, abi.encodeCall(Escrow1v1.refundExpired, (id)), attacker, true, 0, "drain refundExpired");
             }
         }
-        for (uint256 i = 0; i <= players.length; i++) {
-            address a = i < players.length ? players[i] : platform;
+        for (uint256 i = 0; i < players.length + 2; i++) {
+            address a = _eligible(i);
             uint256 amt = escrow.owed(a);
             if (amt == 0) continue;
             uint256 bal = usdc.balanceOf(a);
@@ -706,13 +782,15 @@ contract Escrow1v1Handler is Test {
 
     /// @dev Lo que tenía cada uno antes de liquidar.
     struct SettleBefore {
+        address platform; // la wallet que cobra la comisión ahora
         uint256 winner;
         uint256 loser;
-        uint256 platform;
+        uint256 platformWealth;
         uint256 winnerOwed;
         uint256 platformOwed;
-        bool winnerHealthy;
-        bool platformHealthy;
+        bool winnerPayable;
+        bool platformPayable;
+        bool winnerPricey;
     }
 
     function _settleCall(bytes32 id, bool p1Wins, address caller, uint256 gasLimit)
@@ -731,16 +809,20 @@ contract Escrow1v1Handler is Test {
     function _settleAndCheck(SettleCall memory c) internal {
         Ghost storage g = ghost[c.id];
         uint256 pot = g.stake * 2;
-        uint256 fee = (pot * escrow.feeBps()) / 10_000;
+        // La comisión de ESTA partida (congelada al abrir), no la vigente.
+        uint256 fee = (pot * g.feeBps) / 10_000;
         bool expectOk = block.timestamp <= c.deadline;
+        address plat = escrow.platformWallet();
         SettleBefore memory b = SettleBefore({
+            platform: plat,
             winner: _wealth(c.winner),
             loser: _wealth(c.loser),
-            platform: _wealth(platform),
+            platformWealth: _wealth(plat),
             winnerOwed: escrow.owed(c.winner),
-            platformOwed: escrow.owed(platform),
-            winnerHealthy: _healthy(c.winner),
-            platformHealthy: _healthy(platform)
+            platformOwed: escrow.owed(plat),
+            winnerPayable: _payable(c.winner),
+            platformPayable: _payable(plat),
+            winnerPricey: _pricey(c.winner)
         });
         bytes memory data = abi.encodeCall(
             Escrow1v1.settle, (c.id, c.winner, c.deadline, _result(arbiterPk, c.id, c.winner, c.deadline))
@@ -753,15 +835,20 @@ contract Escrow1v1Handler is Test {
         }
         if (!expectOk) _violation("settle: liquido con el resultado vencido");
         if (_wealth(c.winner) != b.winner + (pot - fee)) _violation("settle: el ganador no recibio exactamente el premio");
-        if (_wealth(platform) != b.platform + fee) _violation("settle: la plataforma no recibio exactamente la comision");
+        if (_wealth(b.platform) != b.platformWealth + fee) {
+            _violation("settle: la plataforma no recibio exactamente la comision");
+        }
         if (_wealth(c.loser) != b.loser) _violation("settle: el perdedor recibio plata");
-        if (b.winnerHealthy && escrow.owed(c.winner) != b.winnerOwed) {
+        if (b.winnerPayable && escrow.owed(c.winner) != b.winnerOwed) {
             _violation("settle: un ganador que podia cobrar quedo acreditado");
         }
-        if (b.platformHealthy && escrow.owed(platform) != b.platformOwed) {
+        if (b.winnerPricey && escrow.owed(c.winner) != b.winnerOwed + (pot - fee)) {
+            _violation("settle: un pago que no entra en el presupuesto de gas no quedo acreditado");
+        }
+        if (b.platformPayable && escrow.owed(b.platform) != b.platformOwed) {
             _violation("settle: la plataforma podia cobrar y quedo acreditada");
         }
-        if (escrow.owed(c.winner) != b.winnerOwed || escrow.owed(platform) != b.platformOwed) creditsSeen++;
+        if (escrow.owed(c.winner) != b.winnerOwed || escrow.owed(b.platform) != b.platformOwed) creditsSeen++;
         g.status = Escrow1v1.Status.Settled;
         ghostLocked -= pot;
         settles++;
@@ -773,8 +860,10 @@ contract Escrow1v1Handler is Test {
         uint256 b;
         uint256 aOwed;
         uint256 bOwed;
-        bool aHealthy;
-        bool bHealthy;
+        bool aPayable;
+        bool bPayable;
+        bool aPricey;
+        bool bPricey;
     }
 
     function _refundAndCheck(
@@ -792,8 +881,10 @@ contract Escrow1v1Handler is Test {
             b: joined ? _wealth(g.p2) : 0,
             aOwed: escrow.owed(g.p1),
             bOwed: joined ? escrow.owed(g.p2) : 0,
-            aHealthy: _healthy(g.p1),
-            bHealthy: joined && _healthy(g.p2)
+            aPayable: _payable(g.p1),
+            bPayable: joined && _payable(g.p2),
+            aPricey: _pricey(g.p1),
+            bPricey: joined && _pricey(g.p2)
         });
 
         vm.prank(caller);
@@ -806,11 +897,17 @@ contract Escrow1v1Handler is Test {
         if (joined && _wealth(g.p2) != r.b + g.stake) {
             _violation(string.concat(what, ": p2 no recupero exactamente su stake"));
         }
-        if (r.aHealthy && escrow.owed(g.p1) != r.aOwed) {
+        if (r.aPayable && escrow.owed(g.p1) != r.aOwed) {
             _violation(string.concat(what, ": p1 podia cobrar y quedo acreditado"));
         }
-        if (r.bHealthy && escrow.owed(g.p2) != r.bOwed) {
+        if (r.bPayable && escrow.owed(g.p2) != r.bOwed) {
             _violation(string.concat(what, ": p2 podia cobrar y quedo acreditado"));
+        }
+        if (r.aPricey && escrow.owed(g.p1) != r.aOwed + g.stake) {
+            _violation(string.concat(what, ": un pago a p1 fuera del presupuesto de gas no quedo acreditado"));
+        }
+        if (r.bPricey && escrow.owed(g.p2) != r.bOwed + g.stake) {
+            _violation(string.concat(what, ": un pago a p2 fuera del presupuesto de gas no quedo acreditado"));
         }
         if (escrow.owed(g.p1) != r.aOwed || (joined && escrow.owed(g.p2) != r.bOwed)) creditsSeen++;
         ghostLocked -= joined ? g.stake * 2 : g.stake;
@@ -838,10 +935,11 @@ contract Escrow1v1Handler is Test {
         return players[seed % players.length];
     }
 
-    /// @dev Quien puede tener crédito: los jugadores y la plataforma.
+    /// @dev Quien puede tener crédito: los jugadores y las dos wallets de plataforma.
     function _eligible(uint256 seed) internal view returns (address) {
-        uint256 k = seed % (players.length + 1);
-        return k < players.length ? players[k] : platform;
+        uint256 k = seed % (players.length + 2);
+        if (k < players.length) return players[k];
+        return k == players.length ? platformA : platformB;
     }
 
     /// @dev Cualquiera: para las funciones permissionless, quién llama no puede
@@ -849,7 +947,7 @@ contract Escrow1v1Handler is Test {
     function _anyone(uint256 seed) internal view returns (address) {
         uint256 k = seed % (players.length + 3);
         if (k < players.length) return players[k];
-        if (k == players.length) return platform;
+        if (k == players.length) return platformA;
         if (k == players.length + 1) return attacker;
         return vm.addr(arbiterPk);
     }
@@ -857,7 +955,7 @@ contract Escrow1v1Handler is Test {
     /// @dev Alguien con crédito, recorriendo en círculo desde `seed`; si nadie
     ///      tiene, el de `seed`.
     function _withCredit(uint256 seed) internal view returns (address) {
-        uint256 n = players.length + 1;
+        uint256 n = players.length + 2;
         for (uint256 i = 0; i < n; i++) {
             address a = _eligible(seed + i);
             if (escrow.owed(a) > 0) return a;
@@ -883,9 +981,20 @@ contract Escrow1v1Handler is Test {
         return usdc.balanceOf(a) + escrow.owed(a);
     }
 
-    /// @dev El USDC le dejaría mover plata a `a` desde o hacia el escrow.
-    function _healthy(address a) internal view returns (bool) {
+    /// @dev El USDC le dejaría mover plata a `a` desde o hacia el escrow (con
+    ///      todo el gas: depósitos y `withdraw`).
+    function _canMove(address a) internal view returns (bool) {
         return !usdc.paused() && !usdc.blacklisted(a) && !usdc.blacklisted(address(escrow));
+    }
+
+    /// @dev Pagarle a `a` cuesta más que el presupuesto de cada pago empujado.
+    function _pricey(address a) internal view returns (bool) {
+        return usdc.burnOf(a) > escrow.PAY_GAS();
+    }
+
+    /// @dev Un pago empujado a `a` TIENE que llegar a su wallet.
+    function _payable(address a) internal view returns (bool) {
+        return _canMove(a) && !_pricey(a);
     }
 
     function _ensureBalance(address p, uint256 amount) internal {

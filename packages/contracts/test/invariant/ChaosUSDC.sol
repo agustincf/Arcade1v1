@@ -6,9 +6,10 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /// @notice USDC de prueba para las invariantes: junta en un solo token las tres
 ///         cosas que pueden hacer fallar un pago del escrow sin que nadie haga
 ///         nada mal — la BLACKLIST de Circle (la dirección no envía ni recibe),
-///         la PAUSA del token entero y un destinatario cuyo cobro cuesta mucho
-///         gas (abre la ventana de la guarda de gas de `_pay`). El fuzzer las
-///         prende y apaga en cualquier orden, en medio de las partidas.
+///         la PAUSA del token entero y destinatarios cuyo cobro cuesta mucho
+///         gas (`burnOf`): uno que entra en el presupuesto de gas de cada pago
+///         del escrow (`PAY_GAS`) y uno que no. El fuzzer prende y apaga la
+///         blacklist y la pausa en cualquier orden, en medio de las partidas.
 ///
 ///         A diferencia del real, `mint` no mira ni la pausa ni la blacklist:
 ///         es solo la forma de darle saldo a un jugador en el test, no una
@@ -16,8 +17,8 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract ChaosUSDC is ERC20 {
     mapping(address => bool) public blacklisted;
     bool public paused;
-    address public hungry;
-    uint256 public burn;
+    /// @notice Gas que quema un `transfer` HACIA esa dirección.
+    mapping(address => uint256) public burnOf;
 
     constructor() ERC20("Chaos USDC", "USDC") {}
 
@@ -37,9 +38,8 @@ contract ChaosUSDC is ERC20 {
         paused = on;
     }
 
-    function setHungry(address to, uint256 gasToBurn) external {
-        hungry = to;
-        burn = gasToBurn;
+    function setBurn(address to, uint256 gasToBurn) external {
+        burnOf[to] = gasToBurn;
     }
 
     function _update(address from, address to, uint256 value) internal override {
@@ -47,9 +47,10 @@ contract ChaosUSDC is ERC20 {
         if (from != address(0) && to != address(0)) {
             require(!paused, "Pausable: paused");
             require(!blacklisted[from] && !blacklisted[to], "Blacklistable: account is blacklisted");
-            if (to == hungry) {
+            uint256 b = burnOf[to];
+            if (b > 0) {
                 uint256 start = gasleft();
-                while (start - gasleft() < burn) {}
+                while (start - gasleft() < b) {}
             }
         }
         super._update(from, to, value);

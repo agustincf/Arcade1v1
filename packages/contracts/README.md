@@ -19,8 +19,9 @@ seguridad de **OpenZeppelin**. Los dos estan desplegados en **Base Sepolia**
 - `settle(id, winner, deadline, signature)` — con la **firma del arbitro**
   sobre `Result(matchId, winner, deadline)` (EIP-712, verificada on-chain),
   paga premio al ganador + comision a la wallet de la plataforma. La firma
-  vence: el arbitro la emite hasta `playDeadline + REFUND_GRACE`, justo cuando
-  se abre el reembolso. La presenta el propio arbitro; cualquiera puede.
+  vence, y el contrato le pone tope: a lo sumo `playDeadline + REFUND_GRACE`,
+  justo cuando se abre el reembolso (`deadline too late` si no). La presenta
+  el propio arbitro; cualquiera puede.
 - `refundUnfunded` — si no se lleno a tiempo (paso el `fundDeadline`), cada uno
   recupera su deposito.
 - `refundExpired` — si se lleno pero paso el plazo de juego sin resultado
@@ -31,13 +32,22 @@ seguridad de **OpenZeppelin**. Los dos estan desplegados en **Base Sepolia**
   reembolso se empujan por separado. Si el USDC rechaza uno (la direccion en la
   blacklist de Circle, o el token en pausa), ese monto queda en
   `owed[address]` (evento `Credited`) y lo demas se paga igual. Se cobra con
-  `withdraw` / `withdrawFor(account)`, igual que en `EscrowAleph`, con la misma
-  guarda de gas.
+  `withdraw` / `withdrawFor(account)`. Cada pago le da al USDC un
+  **presupuesto fijo de gas** (`PAY_GAS`, 300k; un `transfer` real cuesta
+  ~30-41k): quien llama no puede decidir con su gas si un pago se paga o se
+  acredita, y un pago que no entra en el presupuesto se acredita siempre
+  (revision pre-auditoria; `EscrowAleph` conserva la guarda anterior de 1/63).
 - `resultDigest` / `seatDigest` — vistas auxiliares (para el backend/tests) que
   devuelven los hashes EIP-712 que firma el arbitro.
 
-Nadie puede sacar el dinero de los jugadores a mano: solo se mueve por estas
-reglas. La comision (`feeBps`) tiene un tope duro de 20% (`MAX_FEE_BPS`).
+No hay una funcion para sacar el dinero de los jugadores a mano: solo se mueve
+por estas reglas, que confian en el arbitro (decide quien gano y a quien
+sienta) y en el dueño (rota al arbitro, la wallet y la comision de las
+partidas que se abran desde ahi). El detalle de esa confianza, y lo que puede
+hacer una llave comprometida, esta en [`AUDIT.md`](AUDIT.md). La comision
+(`feeBps`) tiene un tope duro de 20% (`MAX_FEE_BPS`) y **queda congelada al
+abrir cada partida**. Una partida dura como mucho `MAX_MATCH_DURATION` (2
+dias) desde que se abre.
 
 Las mesas (montos de apuesta permitidos) se habilitan una por una con
 `setAllowedStake` — los scripts de despliegue habilitan 1, 2, 5 y 10 USDC. Una
@@ -53,13 +63,30 @@ blacklist de USDC trababa la plata del otro para siempre. El redespliegue en
 Base Sepolia va con el merge:
 [`docs/REDEPLOY-contratos-v2.md`](../../docs/REDEPLOY-contratos-v2.md).
 
-Pruebas: `forge test --match-contract Escrow1v1Test -vv` (50 pruebas: el ciclo
-completo, los tres reembolsos, la gracia, el secuestro del slot, y desde la v2
-las condiciones del asiento, el freno de mesa, el vencimiento del resultado
-justo cuando abre el reembolso, la rotacion de la llave del arbitro, la
-blacklist en la liquidacion y en los reembolsos, USDC en pausa, retiro y
-`withdrawFor`, fuzz de conservacion por todos los caminos de salida, gas justo,
-reentrada y dueño en dos pasos).
+Pruebas:
+
+- `forge test --match-contract Escrow1v1Test -vv` (50: el ciclo completo, los
+  tres reembolsos, la gracia, el secuestro del slot, las condiciones del
+  asiento, el freno de mesa, el vencimiento del resultado justo cuando abre el
+  reembolso, la rotacion de la llave del arbitro, la blacklist en la
+  liquidacion y en los reembolsos, USDC en pausa, retiro y `withdrawFor`, fuzz
+  de conservacion por todos los caminos de salida, gas justo, reentrada y
+  dueño en dos pasos).
+- `test/Escrow1v1.preauditoria.t.sol` (29): cada cambio de la pre-auditoria,
+  cada hallazgo que cierra y cada riesgo aceptado, con su test.
+- `test/invariant/` — invariantes con fuzzer: un handler juega secuencias al
+  azar (jugadores, arbitro, dueño, un USDC con blacklist, pausa y cobros
+  caros, y un atacante) y despues de cada paso se chequea la solvencia, que
+  cada pago sea exacto, que nada quede trabado y que nada no autorizado ande.
+  En CI 256 × 100; mas profundo: `FOUNDRY_PROFILE=deep forge test --match-path 'test/invariant/*'`.
+- `test/fork/` — contra el USDC REAL de Circle en una copia de Base mainnet:
+  `BASE_RPC_URL=https://mainnet.base.org forge test --match-path 'test/fork/*'`
+  (sin la variable se saltean). Correrlo de nuevo cuando el proxy del USDC se
+  actualice.
+- Mutacion: `node mutantes.mjs` planta 29 bugs realistas de a uno y exige que
+  la suite los detecte todos (~10 min).
+
+**Auditoria:** el paquete para el auditor externo es [`AUDIT.md`](AUDIT.md).
 
 ## EscrowAleph — las mesas de plata de Aleph (N asientos)
 

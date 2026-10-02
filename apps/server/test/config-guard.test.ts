@@ -52,6 +52,27 @@ test("config on-chain completa y bien formada: sin errores", () => {
   assert.deepEqual(productionConfigErrors(OK), []);
 });
 
+test("SUBMIT_WINDOW_MS no puede pasar la duración máxima de una partida del contrato", () => {
+  const dosDias = String(2 * 24 * 60 * 60 * 1000);
+  assert.deepEqual(
+    productionConfigErrors({ ...OK, SUBMIT_WINDOW_MS: dosDias }),
+    [],
+    "justo el tope: entra",
+  );
+  assert.deepEqual(
+    productionConfigErrors({ ...OK, SUBMIT_WINDOW_MS: "7200000" }),
+    [],
+    "el default (2 h)",
+  );
+  for (const malo of [String(Number(dosDias) + 1), "30d", "NaN"]) {
+    const errs = productionConfigErrors({ ...OK, SUBMIT_WINDOW_MS: malo });
+    assert.ok(
+      errs.some((e) => e.includes("SUBMIT_WINDOW_MS")),
+      `"${malo}" tiene que frenar el arranque`,
+    );
+  }
+});
+
 test("faltan variables on-chain: un error por cada una", () => {
   const errs = productionConfigErrors({
     NODE_ENV: "production",

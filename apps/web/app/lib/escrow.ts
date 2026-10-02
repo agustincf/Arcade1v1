@@ -115,6 +115,10 @@ export const escrowAbi = [
     stateMutability: "nonpayable",
   },
   // Getter público del struct Match: para leer estado y plazos desde la web.
+  // Desde la revisión pre-auditoría de Escrow1v1 devuelve un campo más al
+  // final (`feeBps`, la comisión congelada al abrir). No se decodifica a
+  // propósito: viem ignora lo que sobra, así que esta ABI sirve para el
+  // contrato desplegado y para el revisado (con el campo, la del viejo rompe).
   {
     type: "function",
     name: "matches",

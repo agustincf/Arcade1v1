@@ -22,14 +22,15 @@ contract Escrow1v1InvariantTest is StdInvariant, Test {
     Escrow1v1Handler handler;
 
     address owner = makeAddr("owner");
-    address platform = makeAddr("platform");
+    address platformA = makeAddr("platformA");
+    address platformB = makeAddr("platformB");
     address attacker = makeAddr("attacker");
     address[] players;
 
     function setUp() public {
         usdc = new ChaosUSDC();
         uint256 arbiterPk = 0xA11CE;
-        escrow = new Escrow1v1(address(usdc), vm.addr(arbiterPk), platform, 1500, owner);
+        escrow = new Escrow1v1(address(usdc), vm.addr(arbiterPk), platformA, 1500, owner);
 
         vm.startPrank(owner);
         escrow.setAllowedStake(1_000_000, true);
@@ -42,13 +43,15 @@ contract Escrow1v1InvariantTest is StdInvariant, Test {
         players.push(makeAddr("p1"));
         players.push(makeAddr("p2"));
         players.push(makeAddr("p3"));
-        handler = new Escrow1v1Handler(escrow, usdc, arbiterPk, owner, platform, players, attacker);
+        players.push(makeAddr("p4"));
+        handler = new Escrow1v1Handler(escrow, usdc, arbiterPk, owner, platformA, platformB, players, attacker);
 
-        // Cobrarle a p3 cuesta 3M de gas: abre la ventana en la que un envío
-        // con gas justo se queda sin gas mientras `_pay` todavía tiene 1/64
-        // (unos 45k) para seguir y acreditar. Con 150k la ventana no se abre:
-        // a `_pay` no le quedaría ni para escribir el crédito.
-        usdc.setHungry(players[3], 3_000_000);
+        // Cobrarle a p3 cuesta 150k de gas: entra en el presupuesto de cada
+        // pago (PAY_GAS = 300k), así que se le TIENE que pagar, con cualquier
+        // gas con el que la transacción salga bien. A p4 le cuesta 400k: no
+        // entra, así que se le acredita SIEMPRE y cobra con `withdraw`.
+        usdc.setBurn(players[3], 150_000);
+        usdc.setBurn(players[4], 400_000);
 
         bytes4[] memory selectors = new bytes4[](15);
         selectors[0] = Escrow1v1Handler.open.selector;
@@ -127,7 +130,7 @@ contract Escrow1v1InvariantTest is StdInvariant, Test {
     ///         mandó por fuera. Ni un centavo de más (plata que nadie puede
     ///         sacar) ni de menos (se pagó algo que no se debía).
     function invariant_solvency() public view {
-        uint256 owedSum = escrow.owed(platform);
+        uint256 owedSum = escrow.owed(platformA) + escrow.owed(platformB);
         for (uint256 i = 0; i < players.length; i++) owedSum += escrow.owed(players[i]);
         assertEq(
             usdc.balanceOf(address(escrow)),
@@ -158,7 +161,8 @@ contract Escrow1v1InvariantTest is StdInvariant, Test {
                 bool paid2,
                 uint64 fund,
                 uint64 play,
-                Escrow1v1.Status status
+                Escrow1v1.Status status,
+                uint16 fee
             ) = escrow.matches(id);
             assertEq(uint8(status), uint8(g.status), "estado de la partida");
             assertEq(p1, g.p1, "p1");
@@ -168,6 +172,7 @@ contract Escrow1v1InvariantTest is StdInvariant, Test {
             assertEq(play, g.playDl, "plazo de juego");
             assertTrue(paid1, "p1 siempre pago al abrir");
             assertEq(paid2, g.p2 != address(0), "p2 pago si y solo si se unio");
+            assertEq(fee, g.feeBps, "la comision quedo congelada al abrir");
         }
     }
 

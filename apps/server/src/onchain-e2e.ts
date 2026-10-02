@@ -447,9 +447,11 @@ const freshMatchId = () => ("0x" + randomBytes(32).toString("hex")) as Hex;
 
 // Gas y fees fijos para la transacción que se adelanta: nada se estima contra
 // un bloque donde ya espera el cancel del árbitro, y la propina alcanza de
-// sobra para minarse primero.
+// sobra para minarse primero. El gas cubre el peor caso de una salida: cada
+// pago le exige a quien llama poder darle al USDC su presupuesto entero
+// (`PAY_GAS`, 300k), así que un `settle` necesita ~350k aunque gaste ~100k.
 const AHEAD = {
-  gas: 300_000n,
+  gas: 800_000n,
   maxFeePerGas: parseGwei("100"),
   maxPriorityFeePerGas: parseGwei("100"),
 };
