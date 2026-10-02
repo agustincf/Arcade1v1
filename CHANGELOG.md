@@ -44,6 +44,14 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   el árbitro las guarda 90 días y, como tope, las 50 más recientes
   (`ALEPH_FINISHED_TTL_MS`, `ALEPH_MAX_SETTLED_KEPT`). Ahora dice que guarda
   solo las más recientes, sin números que se vuelvan a desactualizar.
+- **Un test de Flappy en vivo fallaba al azar en CI** ("tras una caída dura,
+  el intento vuelve desde su registro"). El secreto de cada partida es
+  aleatorio y, en ~1 de cada 200, la política del test chocaba dentro de los
+  primeros compromisos: el intento se cerraba y el árbitro contestaba el
+  intento terminado, no el conflicto que el test esperaba. El árbitro hacía lo
+  correcto; ahora ese test y el de "cada compromiso se guarda antes de
+  contestar" juegan con un secreto fijo, y el primero comprueba que el intento
+  siga abierto antes de simular la caída.
 
 ## [3.11.0] — 2026-09-29
 
