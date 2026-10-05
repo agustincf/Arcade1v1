@@ -33,6 +33,7 @@ import {
   http,
   isAddress,
   keccak256,
+  toHex,
   zeroAddress,
   type Hex,
 } from "viem";
@@ -464,6 +465,21 @@ function forgeVersion(): string | null {
 interface Artifact {
   bytecode: { object: Hex };
   deployedBytecode: { object: Hex; immutableReferences?: ImmutableRefs };
+  rawMetadata?: string;
+  metadata?: {
+    compiler: { version: string };
+    settings: unknown;
+    sources: Record<string, { keccak256: string }>;
+  };
+}
+
+/** El código de creación sin la metadata que solc le pega al final (CBOR; sus
+ *  dos últimos bytes dicen cuánto mide). Dos builds con la misma fuente pueden
+ *  diferir solo ahí si cambia algo de la metadata y no el código. */
+export function withoutMetadata(code: Hex): Hex {
+  const hex = code.replace(/^0x/, "");
+  const cborBytes = parseInt(hex.slice(-4), 16) + 2;
+  return `0x${hex.slice(0, hex.length - cborBytes * 2)}`;
 }
 
 /** Compila (sin los tests) y devuelve el artefacto de Escrow1v1. */
@@ -898,10 +914,29 @@ async function main(): Promise<number> {
       if (!arg) throw new Error("fuente <dirección>");
       return verifySource(arg) ? 0 : 1;
     case "hash": {
-      const hash = keccak256(build().bytecode.object);
+      const artifact = build();
+      const hash = keccak256(artifact.bytecode.object);
       const commit = run("git", ["rev-parse", "--short", "HEAD"]).trim();
       console.log(
         JSON.stringify({ commit, creationCodeHash: hash, forge: forgeVersion() }, null, 2),
+      );
+      // Para comparar dos builds que no dan el mismo hash: ¿difiere el código
+      // o solo la metadata? ¿qué archivo o qué opción del compilador?
+      const m = artifact.metadata;
+      console.log(
+        JSON.stringify(
+          {
+            codeWithoutMetadata: keccak256(withoutMetadata(artifact.bytecode.object)),
+            metadata: artifact.rawMetadata ? keccak256(toHex(artifact.rawMetadata)) : null,
+            solc: m?.compiler.version,
+            settings: m?.settings,
+            sources: Object.fromEntries(
+              Object.entries(m?.sources ?? {}).map(([k, v]) => [k, v.keccak256]),
+            ),
+          },
+          null,
+          2,
+        ),
       );
       return 0;
     }

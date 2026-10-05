@@ -24,6 +24,7 @@ import {
   lastBroadcastEscrow,
   basescanStatus,
   requiredBalanceWei,
+  withoutMetadata,
   type Check,
   type PreflightFacts,
   type DeployExpect,
@@ -280,6 +281,11 @@ test("el código desplegado se compara con el compilado salvo los inmutables", (
   assert.equal(runtimeCodeMatches("0x6081abcdf3fe", compiled, refs), false); // fuera del inmutable
   assert.equal(runtimeCodeMatches("0x6080abcdf3", compiled, refs), false); // otro largo
   assert.equal(runtimeCodeMatches("0x", compiled, refs), false); // sin código
+});
+
+test("el código sin la metadata que solc pega al final", () => {
+  // 3 bytes de código + 4 de metadata (CBOR) + 2 que dicen que la metadata mide 4.
+  assert.equal(withoutMetadata("0x600160aabbccdd0004"), "0x600160");
 });
 
 test("la dirección del escrow sale del registro del deploy de forge", () => {
