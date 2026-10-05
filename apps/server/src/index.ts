@@ -16,6 +16,7 @@ import {
   setHouseAddressCheck,
   startSweeper,
   stopSweeper,
+  escrowExpect,
 } from "./matchmaking.js";
 import { leaderboard, ratingsOf, restoreRatings } from "./ratings.js";
 import { restoreAgents, listAgents, hostedAgentByAddress, isHouseWallet } from "./agents.js";
@@ -45,16 +46,20 @@ import {
 import { readinessGate, getMode, setMode, waitForIdle, HANDOVER_PATH } from "./readiness.js";
 import { deployedCommit } from "./version.js";
 import { arbiterAddress } from "./sign.js";
-import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
+import { moneyAuthErrors, productionConfigErrors, parseTrustProxy } from "./config-guard.js";
+import { escrowGate, startEscrowCheck, stopEscrowCheck } from "./escrow-check.js";
+import { onchainEnabled } from "./onchain.js";
 import { agentsRouter, agentsPostLimit } from "./agents-routes.js";
 import { gasSnapshot, startGasMonitor, stopGasMonitor } from "./gas-monitor.js";
 import { startAgentRunner, stopAgentRunner } from "./agent-runner.js";
 import { registerJob, startJobs, stopJobs } from "./jobs.js";
 
-// Guarda de producción (fail-fast): no arrancar con dinero real mal configurado.
-const cfgErrors = productionConfigErrors();
+// Guarda de arranque (fail-fast): no arrancar con dinero real mal configurado.
+// La firma obligatoria con un escrow se exige en cualquier entorno; el resto,
+// en producción.
+const cfgErrors = [...moneyAuthErrors(), ...productionConfigErrors()];
 if (cfgErrors.length) {
-  console.error("❌ Configuración de producción inválida — el servidor no arranca:");
+  console.error("❌ Configuración inválida — el servidor no arranca:");
   for (const e of cfgErrors) console.error("   - " + e);
   process.exit(1);
 }
@@ -206,7 +211,16 @@ rlSweep.unref?.();
 // alcanza para confirmar desde afuera que un deploy salió y cómo quedó el
 // traspaso.
 const COMMIT = deployedCommit();
-app.get("/health", (_req, res) => res.json({ ok: true, commit: COMMIT, mode: getMode() }));
+// `escrow` (solo con el escrow del 1v1 activo): "ok", "blocked" o "unverified",
+// el veredicto del chequeo contra la cadena (escrow-check.ts).
+app.get("/health", (_req, res) =>
+  res.json({
+    ok: true,
+    commit: COMMIT,
+    mode: getMode(),
+    ...(onchainEnabled() ? { escrow: escrowGate().status } : {}),
+  }),
+);
 
 // MÉTRICAS públicas (página /status): datos reales del árbitro, sin inflar.
 // activeAgents se cuenta en vivo acá (vive en agents.ts) y se inyecta al
@@ -405,11 +419,20 @@ app.get("/rating/:address", (req, res) => {
 //  - aleph-house: completa el lobby que está por vencerse y juega esos asientos.
 //  - sweeper: vence partidas y pide sus reembolsos on-chain.
 //  - agents: los agentes hosteados juegan solos.
+//  - escrow-check: cruza el escrow del 1v1 con la cadena cada minuto; las mesas
+//    pagas están cerradas hasta que coincide (escrow-check.ts).
 registerJob({ name: "gas", start: () => void startGasMonitor(), stop: stopGasMonitor });
 registerJob({ name: "aleph-ticker", start: startAlephTicker, stop: stopAlephTicker });
 registerJob({ name: "aleph-house", start: startAlephHouse, stop: stopAlephHouse });
 registerJob({ name: "sweeper", start: startSweeper, stop: stopSweeper });
 registerJob({ name: "agents", start: startAgentRunner, stop: stopAgentRunner });
+if (onchainEnabled()) {
+  registerJob({
+    name: "escrow-check",
+    start: () => startEscrowCheck(escrowExpect),
+    stop: stopEscrowCheck,
+  });
+}
 
 // PROBAR REDIS ANTES DE ESCUCHAR: si Upstash no responde, el proceso termina sin
 // haber escuchado, el deploy falla y la instancia vieja sigue atendiendo.

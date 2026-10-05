@@ -402,6 +402,8 @@ export const fr: Dict = {
   "err.wrongNetwork":
     "Ton wallet est sur un autre réseau. Accepte le changement de réseau proposé (ou passe sur {chain} manuellement) et réessaie.",
   "err.signFailed": "Ton wallet n'a pas pu signer : {reason}",
+  "err.tablesClosed":
+    "Les tables payantes sont fermées un instant (l'arbitre vérifie le contrat). La table gratuite reste ouverte : réessaie dans un moment.",
   "err.rulesVersion":
     "Les règles du jeu ont été mises à jour pendant que tu jouais. Recharge la page et rejoue.",
   "build.prev": "Retour",

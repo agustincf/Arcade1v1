@@ -14,7 +14,7 @@ import { onchainEnabled } from "@/app/lib/escrow";
 import { txUrl } from "@/app/lib/explorer";
 import { moneyTableBlocked } from "@/app/lib/config-guard";
 import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
-import { failureText } from "@/app/lib/errors";
+import { failureText, isPaidTableClosed } from "@/app/lib/errors";
 import { useSignMessage } from "wagmi";
 import {
   scoreAuthMessage,
@@ -110,7 +110,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // "rules" es que las reglas del juego cambiaron mientras jugabas (el replay
   // quedó viejo: hace falta recargar, no reintentar a ciegas con el mismo run).
   // En todos los casos hay una acción de recuperación (antes quedaba trancado sin salida).
-  const [error, setError] = useState<null | "sign" | "server" | "rules">(null);
+  const [error, setError] = useState<null | "sign" | "server" | "rules" | "tablesClosed">(null);
   const [retry, setRetry] = useState(0);
   const [slowHint, setSlowHint] = useState(false);
   // En produccion NUNCA simulamos un rival: si el arbitro no responde, error.
@@ -285,9 +285,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
             ? { fundDeadline: v.fundDeadline, playDeadline: v.playDeadline }
             : null,
         );
-      } catch {
+      } catch (e) {
         mmStarted.current = false;
-        if (devMode) {
+        if (isPaidTableClosed(e)) {
+          setError("tablesClosed");
+        } else if (devMode) {
           setOffline(true);
           setSeed(rnd());
         } else {
@@ -854,7 +856,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                   ? t("match.signCancelled")
                   : error === "rules"
                     ? t("err.rulesVersion")
-                    : t("match.error")}
+                    : error === "tablesClosed"
+                      ? t("err.tablesClosed")
+                      : t("match.error")}
               </p>
               <button
                 onClick={error === "rules" ? () => window.location.reload() : retryAfterError}

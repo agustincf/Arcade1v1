@@ -13,6 +13,7 @@ import {
   classifySignError,
   classifyArbiterError,
   failureText,
+  isPaidTableClosed,
 } from "../app/lib/errors.js";
 
 test("isSignCancelled: código EIP-1193 4001 (rechazo del usuario)", () => {
@@ -123,4 +124,22 @@ test("failureText: cada fallo mapea a una clave i18n con sus variables", () => {
     key: "err.rejected",
     vars: { reason: "agent not found" },
   });
+});
+
+// El árbitro cierra las mesas pagas mientras no pudo cruzar su config con el
+// contrato (escrow-check.ts): la pantalla de partida lo dice en vez del
+// genérico "no pudimos conectar", que mandaba a mirar la conexión.
+test("isPaidTableClosed: reconoce el cierre de mesas pagas del árbitro", () => {
+  assert.equal(
+    isPaidTableClosed(new Error("paid tables disabled: could not read the escrow contract")),
+    true,
+  );
+  assert.equal(
+    isPaidTableClosed(
+      new Error("paid table disabled: stake 5 is not allowed by the escrow contract"),
+    ),
+    true,
+  );
+  assert.equal(isPaidTableClosed(new TypeError("Failed to fetch")), false);
+  assert.equal(isPaidTableClosed(new Error("signature required")), false);
 });

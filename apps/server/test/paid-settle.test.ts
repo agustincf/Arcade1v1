@@ -32,6 +32,8 @@ process.env.ESCROW_ADDRESS = "0x" + "e".repeat(40);
 process.env.CHAIN_ID = "84532";
 
 const MM = await import("../src/matchmaking.js");
+// Escrow verificado contra una cadena que contesta lo esperado (escrow-ok.ts).
+await (await import("./escrow-ok.js")).escrowVerified();
 const OC = await import("../src/onchain.js");
 const S = await import("../src/sign.js");
 const { ONCHAIN_STATUS: ST } = OC;

@@ -390,6 +390,8 @@ export const en: Dict = {
   "err.wrongNetwork":
     "Your wallet is on a different network. Approve the network switch it suggests (or switch to {chain} manually) and try again.",
   "err.signFailed": "Your wallet couldn't sign: {reason}",
+  "err.tablesClosed":
+    "Paid tables are closed for a moment (the arbiter is verifying the contract). The free table is still open: try again in a bit.",
   "err.rulesVersion":
     "The game rules were updated while you were playing. Reload the page and play again.",
   "build.prev": "Back",

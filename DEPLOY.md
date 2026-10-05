@@ -100,8 +100,9 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     de Vercel y el propio).
   - `REQUIRE_AUTH` — la firma de los envíos **y del emparejamiento** es
     **obligatoria por defecto** cuando `NODE_ENV=production`. No hace falta
-    setearla; solo poné `REQUIRE_AUTH=false` si querés desactivarla a propósito
-    (no recomendado con dinero en juego).
+    setearla. Con un escrow configurado (`ESCROW_ADDRESS` o
+    `ALEPH_ESCROW_ADDRESS`) la firma opcional **no arranca** en ningún entorno:
+    `REQUIRE_AUTH=false` solo sirve sin plata en juego (una demo).
   - `NODE_ENV=production` — apaga el bot de prueba.
   - `UPSTASH_REDIS_REST_URL` y `UPSTASH_REDIS_REST_TOKEN` — **persistencia
     durable** (¡importante en Render y similares!). El disco de esos hostings es
@@ -112,7 +113,8 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     Si al arrancar Redis no responde, el server **no arranca** (mejor eso que
     arrancar vacío y pisar los datos buenos).
   - Opcionales: `STAKES_ALLOWED=1,2,5,10` (mesas que acepta el árbitro; deben
-    coincidir con el contrato; **vacía, `STAKES_ALLOWED=`, cierra todas las
+    coincidir con el contrato, y el árbitro lo comprueba: una mesa que el
+    contrato no permite queda cerrada; **vacía, `STAKES_ALLOWED=`, cierra todas las
     mesas de plata del 1v1** y deja solo la ladder gratis: es el freno rápido,
     sin transacción), `SUBMIT_WINDOW_MS` (ventana de envío, default 2h)
     y `RL_MAX` / `RL_MAX_EXPENSIVE` / `RL_MAX_LIVE` (rate limit global / de
@@ -288,9 +290,13 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
 - [ ] **ETH real** para el gas en la wallet que despliega **y un poco en la del
       árbitro** (paga el gas de las liquidaciones y de los reembolsos por
       empate/vencimiento).
-- [ ] `REQUIRE_AUTH` queda obligatorio por defecto en producción (no lo desactives).
+- [ ] `REQUIRE_AUTH` queda obligatorio por defecto en producción (con escrow, el
+      árbitro no arranca sin firma obligatoria).
 - [ ] `FEE_BPS` del deploy = el `FEE_BPS` del árbitro = el 15% que muestra la web
       (si cambiás la comisión, cambiala en los tres lados).
+- [ ] Después del deploy, `curl -s https://<árbitro>/health` da `"escrow":"ok"`.
+      Si da `blocked`, el log `[escrow-check]` dice qué no coincide (red,
+      árbitro o comisión) y las mesas pagas siguen cerradas hasta arreglarlo.
 - [x] **`EscrowAleph` v2: reembolsos que no se traban por la blacklist de USDC
       y tabla firmada con vencimiento.** Desplegado en testnet el 2026-09-24
       ([runbook](docs/REDEPLOY-contratos-v2.md)). Mainnet arranca sin las mesas

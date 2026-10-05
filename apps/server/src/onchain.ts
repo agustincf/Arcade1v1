@@ -18,6 +18,11 @@ export function onchainEnabled(): boolean {
   return !!ESCROW && ESCROW.toLowerCase() !== ZERO;
 }
 
+/** Dirección del escrow del 1v1 (vacía si no hay). */
+export function escrowAddress(): Hex {
+  return ESCROW;
+}
+
 /** Red segun CHAIN_ID: 31337 anvil, 8453 Base mainnet, si no Base Sepolia. */
 export function chain(): Chain {
   const id = Number(process.env.CHAIN_ID ?? 84532);

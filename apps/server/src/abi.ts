@@ -112,6 +112,28 @@ export const escrowAbi = [
     outputs: [{ type: "address" }],
     stateMutability: "view",
   },
+  // Los tres que el árbitro compara al arrancar (escrow-check.ts).
+  {
+    type: "function",
+    name: "arbiter",
+    inputs: [],
+    outputs: [{ type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "feeBps",
+    inputs: [],
+    outputs: [{ type: "uint16" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "allowedStake",
+    inputs: [{ type: "uint256" }],
+    outputs: [{ type: "bool" }],
+    stateMutability: "view",
+  },
   // El getter devuelve, desde la revisión pre-auditoría de Escrow1v1, un
   // campo más al final (`frozenFeeBps`, la comisión congelada al abrir). NO se
   // decodifica a propósito: viem ignora lo que sobra, así que esta ABI sirve
