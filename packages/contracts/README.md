@@ -220,20 +220,40 @@ bash check-deploy.sh
 
 ## Desplegar en Base mainnet (dinero real)
 
-Script separado (`script/DeployMainnet.s.sol`) con guardas: exige un USDC real
-(no despliega ningun token de prueba), firma con wallet de hardware
-(`--ledger` / `--trezor`) o keystore (`--account`), y pide confirmacion
-explicita antes de ejecutar.
+Un solo comando, que no firma nada si algo no es exactamente lo aprobado
+(W7 de [`docs/MAINNET.md`](../../docs/MAINNET.md)):
 
 ```bash
-cd packages/contracts
-bash deploy-base-mainnet.sh
+bash deploy-base-mainnet.sh            # chequeos, confirmación, deploy y relectura
+bash deploy-base-mainnet.sh chequeos   # solo los chequeos, sin firmar
+bash deploy-base-mainnet.sh verificar <dirección>   # releer un deploy (p. ej. después de que la Safe acepte)
 ```
 
-Requiere `.env.mainnet` (copiado de `.env.mainnet.example`) con
-`BASE_MAINNET_RPC_URL`, `USDC_ADDRESS` (USDC real de Base), `ARBITER_ADDRESS`,
-`PLATFORM_WALLET`, `FEE_BPS` y `OWNER_ADDRESS` (la wallet de hardware que
-firma y queda como dueña del contrato).
+- **Antes de firmar** (`deploy-mainnet.ts`): el bytecode compilado es el de
+  [`build-aprobada.json`](build-aprobada.json) (cubre fuente, librerías,
+  compilador y configuración; se completa al cerrar la auditoría, y mientras
+  sea `null` no hay deploy), el árbol está limpio y el commit está en `main`,
+  la red es Base (8453) con el USDC de Circle, la Safe contesta como una Safe,
+  la Ledger y el árbitro son cuentas comunes (sin delegación EIP-7702) y
+  alcanza el gas.
+- **El deploy** (`script/DeployMainnet.s.sol`, firma la Ledger): red, USDC,
+  comisión (15%) y mesas (1, 2, 5, 10) son constantes del script, atadas a la
+  web por `test/deploy-mainnet.test.ts`; la Ledger habilita las mesas y le
+  pasa el contrato a la Safe (`transferOwnership`; la Safe después firma
+  `acceptOwnership()`). La fuente va a Basescan (`--verify`).
+- **Después** (`verificar`): el código desplegado contra el compilado (salvo
+  los inmutables), cada parámetro, las mesas, el dominio EIP-712, el traspaso
+  a la Safe y la fuente en Basescan.
+
+Requiere `.env.mainnet` con `DEPLOYER_ADDRESS` (la Ledger), `SAFE_ADDRESS`,
+`ARBITER_ADDRESS`, `PLATFORM_WALLET`, `ETHERSCAN_API_KEY` y, opcional,
+`BASE_MAINNET_RPC_URL` (detalle en
+[`docs/CONFIGURATION.md`](../../docs/CONFIGURATION.md)). Ensayo completo, salvo
+la Ledger, en una copia de Base con el USDC real (corre en CI):
+
+```bash
+bash check-mainnet-deploy.sh
+```
 
 > Estado: `Escrow1v1` revisado para la auditoría (ver arriba) y flujo completo verificado en
 > Anvil con el árbitro real (depósito, liquidación por el árbitro, ganador que se

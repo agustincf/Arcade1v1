@@ -9,7 +9,8 @@
 #       * mesa de plata de Aleph (4 asientos depositan, el árbitro firma la tabla
 #         y el contrato paga a todos; después, un fondeo incompleto que se cancela)
 #   - aparte, no requerido para mergear: Escrow1v1 contra el USDC real de
-#     Circle en una copia de Base mainnet (test/fork/)
+#     Circle en una copia de Base mainnet (test/fork/), y el ensayo del deploy
+#     a mainnet en esa copia (check-mainnet-deploy.sh)
 name: CI
 
 on:
@@ -142,5 +143,20 @@ jobs:
       - name: Tests contra el USDC real (copia de Base mainnet)
         run: forge test --match-path 'test/fork/*' -vv
         working-directory: packages/contracts
+        env:
+          BASE_RPC_URL: https://mainnet.base.org
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias (para el ensayo del deploy, con tsx)
+        run: npm ci
+
+      # El deploy a mainnet de punta a punta (salvo la Ledger) en una copia de
+      # Base: USDC real, la Safe como dueña, y la relectura del contrato.
+      - name: Ensayo del deploy a mainnet (copia de Base)
+        run: bash packages/contracts/check-mainnet-deploy.sh
         env:
           BASE_RPC_URL: https://mainnet.base.org

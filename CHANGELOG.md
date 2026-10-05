@@ -132,6 +132,28 @@ idiomas y Flappy explicado como "sin semilla". Los paquetes de npm pasan a
 
 ### Seguridad
 
+- **El deploy a mainnet despliega exactamente lo aprobado, o nada** (W7 de
+  `docs/MAINNET.md`; pre-auditoría DEP-1 a DEP-6). `deploy-base-mainnet.sh`
+  ahora corre `deploy-mainnet.ts`:
+  - **Antes de firmar:** el bytecode de creación compilado tiene que dar el
+    hash de `packages/contracts/build-aprobada.json` (cubre la fuente, las
+    librerías, el compilador y su configuración; se completa al cerrar la
+    auditoría, y mientras sea `null` no hay deploy), el árbol limpio y el
+    commit en `main`, la red Base (8453) con el USDC de Circle, una Safe que
+    conteste como Safe, la Ledger y el árbitro sin código (sin delegación
+    EIP-7702) y gas suficiente.
+  - **El deploy:** red, USDC, comisión (15%) y mesas son constantes de
+    `DeployMainnet.s.sol`, atadas por un test a las de la web; la Ledger
+    habilita las mesas y le pasa el contrato a la Safe (`transferOwnership`;
+    la Safe firma `acceptOwnership()`), y la fuente va a Basescan.
+  - **Después:** relee el contrato desplegado (el código contra el compilado
+    salvo los inmutables, cada parámetro, las mesas, el dominio EIP-712, el
+    traspaso a la Safe y la fuente en Basescan) y dice los pasos que siguen.
+  - `.env.mainnet` cambia: `DEPLOYER_ADDRESS` (la Ledger), `SAFE_ADDRESS` y
+    `ETHERSCAN_API_KEY`; `OWNER_ADDRESS`, `USDC_ADDRESS` y `FEE_BPS` ya no se
+    usan (si quedaron con otro valor, el deploy no arranca).
+  - Ensayado de punta a punta, salvo la Ledger, en una copia de Base con el
+    USDC real (`check-mainnet-deploy.sh`, en el job de CI contra Base).
 - **El árbitro no arranca con plata en juego sin exigir firmas** (pre-auditoría
   F6, W1 de `docs/MAINNET.md`). Con un escrow configurado (`ESCROW_ADDRESS` o
   `ALEPH_ESCROW_ADDRESS`) y la firma opcional —`REQUIRE_AUTH=false`, o

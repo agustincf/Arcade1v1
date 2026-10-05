@@ -10,7 +10,7 @@ independently, each via its own env file:
 | `apps/web` (Next.js frontend)         | `apps/web/.env.local.example` → `.env.local`               | Next.js (build-time inline for `NEXT_PUBLIC_*`, server-only for the rest) |
 | `apps/server` (the "arbiter" backend) | `apps/server/.env.example` → `.env`                        | `dotenv/config`, loaded at the top of `src/index.ts`                      |
 | `packages/contracts` (testnet deploy) | `packages/contracts/.env.example` → `.env`                 | `deploy-base-sepolia.sh` (Foundry)                                        |
-| `packages/contracts` (mainnet deploy) | `packages/contracts/.env.mainnet.example` → `.env.mainnet` | `deploy-base-mainnet.sh` (Foundry, hardware-wallet signing)               |
+| `packages/contracts` (mainnet deploy) | `packages/contracts/.env.mainnet.example` → `.env.mainnet` | `deploy-base-mainnet.sh` → `deploy-mainnet.ts` (Ledger signing)           |
 
 None of these `.env*` files are committed — only the `.example` templates are.
 
@@ -323,19 +323,30 @@ process).
 
 ## packages/contracts (Base mainnet deploy — real money)
 
-Source: `packages/contracts/.env.mainnet.example`, used only by
-`deploy-base-mainnet.sh`. No private key is stored here by design — mainnet
-deploys sign with a hardware wallet (Ledger/Trezor) or keystore passed to
-`forge` via `--ledger`/`--account`.
+Source: `packages/contracts/.env.mainnet`, loaded by `deploy-base-mainnet.sh`
+and read by `deploy-mainnet.ts` (checks, deploy, read-back). No private key is
+stored here by design — the deploy signs with a Ledger (`forge --ledger`).
+The network (Base, `8453`), the USDC (Circle's
+`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`), the fee (`1500` bps, the 15%
+the web shows) and the tables (1, 2, 5, 10 USDC) are **constants** in
+`script/DeployMainnet.s.sol`, not variables: `test/deploy-mainnet.test.ts`
+ties them to the web's `PLATFORM_FEE`/`BET_AMOUNTS`. The code itself must be
+byte-for-byte the approved build pinned in `packages/contracts/build-aprobada.json`
+(set when the external audit closes; while it is `null`, there is no mainnet
+deploy).
 
-| Variable               | Required     | Default                                                                                                               | Description                                                                                                                                                                             |
-| ---------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BASE_MAINNET_RPC_URL` | Optional     | `https://mainnet.base.org`                                                                                            | RPC node used to deploy to Base mainnet.                                                                                                                                                |
-| `USDC_ADDRESS`         | **Required** | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (Base's real Circle USDC, pre-filled in the template, verified on-chain) | Real USDC token address; the deploy script verifies this against the chain before proceeding.                                                                                           |
-| `ARBITER_ADDRESS`      | **Required** | none                                                                                                                  | Same role as the testnet variable, but its private key must be held in a KMS/HSM or the hosting platform's secret store — never in plaintext in the repo.                               |
-| `PLATFORM_WALLET`      | **Required** | none                                                                                                                  | Wallet that receives the platform fee on mainnet.                                                                                                                                       |
-| `FEE_BPS`              | **Required** | `1500` in the template (15%)                                                                                          | Same semantics as testnet; contract hard cap `2000` (20%). Must match `apps/server`'s `FEE_BPS`.                                                                                        |
-| `OWNER_ADDRESS`        | **Required** | none                                                                                                                  | Secure wallet (hardware/eventually a Safe multisig) that deploys and becomes the contract owner. Must be the same address that signs the deploy (`forge`'s `--sender` with `--ledger`). |
+| Variable               | Required     | Default                    | Description                                                                                                                                                                                              |
+| ---------------------- | ------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BASE_MAINNET_RPC_URL` | Optional     | `https://mainnet.base.org` | RPC node used to deploy to Base mainnet. The checks refuse unless it reports chain `8453`.                                                                                                               |
+| `DEPLOYER_ADDRESS`     | **Required** | none                       | The Ledger account that signs the deploy (`forge --ledger --sender`). It is the owner only while it enables the tables; it must be a plain account (no code, no EIP-7702 delegation) with ETH for gas.   |
+| `SAFE_ADDRESS`         | **Required** | none                       | The Safe multisig that ends up as owner (`transferOwnership` in the deploy, then the Safe calls `acceptOwnership()`). The checks require a contract that answers `getThreshold`/`getOwners`.             |
+| `ARBITER_ADDRESS`      | **Required** | none                       | Same role as the testnet variable, but its private key must be held in a KMS/HSM or the hosting platform's secret store. Must be a plain account, distinct from the Ledger, the Safe and the fee wallet. |
+| `PLATFORM_WALLET`      | **Required** | none                       | Wallet that receives the platform fee on mainnet.                                                                                                                                                        |
+| `ETHERSCAN_API_KEY`    | **Required** | none                       | Etherscan v2 API key, used to verify the source on Basescan (`forge script --verify`) and to check it afterwards.                                                                                        |
+
+`OWNER_ADDRESS`, `USDC_ADDRESS` and `FEE_BPS` belonged to the previous version
+of this deploy: the checks refuse if they are still set to something other than
+the fixed values, so a stale value cannot pass unnoticed.
 
 ---
 
@@ -345,9 +356,10 @@ These values are configured independently in up to three places and must
 match for the system to work correctly (see `DEPLOY.md` for the full deploy
 walkthrough):
 
-- `FEE_BPS` — same value in `packages/contracts` deploy env, `apps/server`
-  (`FEE_BPS`), and hardcoded in the web's `app/lib/config.ts`
-  (`PLATFORM_FEE = 0.15`).
+- `FEE_BPS` — same value in the testnet deploy env (`packages/contracts/.env`),
+  `apps/server` (`FEE_BPS`), and hardcoded in the web's `app/lib/config.ts`
+  (`PLATFORM_FEE = 0.15`). The mainnet deploy has it as a constant tied to the
+  web's by a test, and the arbiter checks its own against the contract.
 - `CHAIN_ID` (arbiter) / `NEXT_PUBLIC_CHAIN_ID` (web) — must both point at the
   same network as the deployed contract.
 - `ESCROW_ADDRESS` (arbiter) / `NEXT_PUBLIC_ESCROW_ADDRESS` (web) — same

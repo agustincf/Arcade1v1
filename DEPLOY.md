@@ -283,8 +283,9 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
 (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, verificado on-chain) y exige
 **llaves seguras**. Antes de desplegar, cerrá estos puntos:
 
-- [ ] **Dueño del contrato = wallet segura** (hardware tipo Ledger, idealmente un
-      multisig **Safe** más adelante). NUNCA una clave generada por script en un `.env`.
+- [ ] **Dueño del contrato = una Safe multisig**, y una **Ledger** para firmar el
+      deploy (el script le pasa el contrato a la Safe, que lo acepta después).
+      NUNCA una clave generada por script en un `.env`.
 - [ ] **Llave del árbitro resguardada** (KMS/HSM o secret del hosting), no en texto
       plano. Su dirección va en `ARBITER_ADDRESS` y debe coincidir con la del servidor.
 - [ ] **ETH real** para el gas en la wallet que despliega **y un poco en la del
@@ -292,8 +293,9 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
       empate/vencimiento).
 - [ ] `REQUIRE_AUTH` queda obligatorio por defecto en producción (con escrow, el
       árbitro no arranca sin firma obligatoria).
-- [ ] `FEE_BPS` del deploy = el `FEE_BPS` del árbitro = el 15% que muestra la web
-      (si cambiás la comisión, cambiala en los tres lados).
+- [ ] `FEE_BPS` del árbitro = el 15% del contrato (el deploy a mainnet la tiene
+      fija, atada por un test al 15% que muestra la web; el árbitro compara la
+      suya con el contrato y, si no coincide, cierra las mesas pagas).
 - [ ] Después del deploy, `curl -s https://<árbitro>/health` da `"escrow":"ok"`.
       Si da `blocked`, el log `[escrow-check]` dice qué no coincide (red,
       árbitro o comisión) y las mesas pagas siguen cerradas hasta arreglarlo.
@@ -317,16 +319,41 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
 - [ ] **El resto de la lista** (la operación, la auditoría y lo legal):
       [`docs/MAINNET.md`](docs/MAINNET.md).
 
-**Desplegar** (firma con hardware wallet, sin claves en disco):
+**Desplegar** (firma una Ledger, sin claves en disco). Primero, en
+`packages/contracts/.env.mainnet`:
 
 ```bash
-cp packages/contracts/.env.mainnet.example packages/contracts/.env.mainnet   # completalo
-bash packages/contracts/deploy-base-mainnet.sh                                # pide MAINNET + firma en el Ledger
+BASE_MAINNET_RPC_URL=https://...        # tu nodo de Base mainnet (Alchemy/QuickNode)
+DEPLOYER_ADDRESS=0x...                  # la cuenta de tu Ledger que firma
+SAFE_ADDRESS=0x...                      # la Safe que queda de dueña
+ARBITER_ADDRESS=0x...                   # la llave del árbitro (resguardada)
+PLATFORM_WALLET=0x...                   # cobra la comisión
+ETHERSCAN_API_KEY=...                   # para verificar la fuente en Basescan
 ```
 
-El script verifica que el USDC sea el real, te hace confirmar, y al terminar imprime
-las variables. **Pegá** `NEXT_PUBLIC_CHAIN_ID=8453` + las direcciones en la web
-(producción) y `CHAIN_ID=8453` + `ESCROW_ADDRESS` + RPC de mainnet en el árbitro.
+Después, con la Ledger conectada y la app de Ethereum abierta:
+
+```bash
+bash packages/contracts/deploy-base-mainnet.sh chequeos   # mirar, sin firmar nada
+bash packages/contracts/deploy-base-mainnet.sh            # desplegar
+```
+
+El script no firma nada si algo falla: el código tiene que ser **exactamente**
+el aprobado (`packages/contracts/build-aprobada.json`, que se completa al cerrar
+la auditoría), el árbol limpio y el commit en `main`, la red Base con el USDC
+real, la Safe una Safe, y tiene que alcanzar el gas. Pide escribir `MAINNET`,
+y la Ledger pide 6 firmas (el contrato, las 4 mesas y el traspaso a la Safe).
+Al final relee el contrato desplegado y dice los pasos que siguen:
+
+1. **La Safe acepta**: en app.safe.global (red Base) → Transaction Builder →
+   la dirección del contrato → `acceptOwnership()`. Después,
+   `bash packages/contracts/deploy-base-mainnet.sh verificar <dirección>` tiene
+   que decir `✓ [duenio] la dueña es la Safe`.
+2. **El árbitro** (Render): `CHAIN_ID=8453`, `ESCROW_ADDRESS` y el RPC de
+   mainnet; `curl -s https://<árbitro>/health` tiene que dar `"escrow":"ok"`.
+3. **La web** (Vercel): `NEXT_PUBLIC_CHAIN_ID=8453`,
+   `NEXT_PUBLIC_ESCROW_ADDRESS` y `NEXT_PUBLIC_USDC_ADDRESS`.
+
 La red la elige `NEXT_PUBLIC_CHAIN_ID`: sin setear queda en **testnet** (seguro).
 
 ---

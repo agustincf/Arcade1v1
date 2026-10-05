@@ -14,7 +14,7 @@
     "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
     "typecheck:server": "tsc --noEmit -p apps/server/tsconfig.json",
     "typecheck:mcp": "tsc --noEmit -p apps/mcp/tsconfig.json",
-    "typecheck:packages": "tsc --noEmit -p packages/game-sdk/tsconfig.json && tsc --noEmit -p packages/strategies/tsconfig.json && tsc --noEmit -p packages/agent-sdk/tsconfig.json",
+    "typecheck:packages": "tsc --noEmit -p packages/game-sdk/tsconfig.json && tsc --noEmit -p packages/strategies/tsconfig.json && tsc --noEmit -p packages/agent-sdk/tsconfig.json && tsc --noEmit -p packages/contracts/tsconfig.json",
     "typecheck": "npm run typecheck:web && npm run typecheck:server && npm run typecheck:mcp && npm run typecheck:packages",
     "lint": "eslint .",
     "format": "prettier --write .",

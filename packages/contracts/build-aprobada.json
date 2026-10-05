@@ -1,0 +1,4 @@
+{
+  "$comment": "La build de Escrow1v1 que se puede desplegar a Base mainnet: deploy-base-mainnet.sh se niega si el bytecode de creación compilado no da exactamente este hash (cubre la fuente, las librerías, el compilador y su configuración). Se completa cuando se cierra la auditoría externa, con `npx tsx packages/contracts/deploy-mainnet.ts hash` corrido en el commit auditado y el forge de CI: { commit, creationCodeHash, forge, basis } (basis: qué la aprobó, p. ej. el informe de la auditoría). Mientras sea null, no hay deploy a mainnet.",
+  "aprobada": null
+}

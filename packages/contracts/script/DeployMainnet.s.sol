@@ -5,67 +5,65 @@ import {Script, console2} from "forge-std/Script.sol";
 import {Escrow1v1} from "../src/Escrow1v1.sol";
 
 /**
- * Despliegue a Base MAINNET — DINERO REAL.
+ * Despliegue a Base MAINNET — DINERO REAL. No se corre a mano: lo corre
+ * `deploy-base-mainnet.sh` (deploy-mainnet.ts), que antes chequea que el
+ * código sea exactamente el aprobado, la red, la Safe y el saldo, y después
+ * relee el contrato desplegado y verifica la fuente en Basescan.
  *
- * Diferencias clave con el de testnet (Deploy.s.sol):
- *  - USA EL USDC REAL de Base (USDC_ADDRESS obligatorio). NUNCA despliega un token
- *    de prueba: si falta, revierte.
- *  - El firmante lo provee `forge` por fuera con una WALLET DE HARDWARE
- *    (--ledger / --trezor) o un keystore (--account). NO hay PRIVATE_KEY en .env.
- *  - El dueño del contrato (admin) es OWNER_ADDRESS, que debe ser esa misma wallet
- *    segura (la que firma). Más adelante se puede transferir a un multisig (Safe).
+ * Lo que este script fija, sin variables que se puedan equivocar:
+ *  - La red: Base mainnet (8453). En cualquier otra, se niega.
+ *  - El USDC real de Circle en Base. Nunca un token de prueba.
+ *  - La comisión: 15%, la que muestra la web (`PLATFORM_FEE` en
+ *    apps/web/app/lib/config.ts). Un test las ata, con las mesas
+ *    (packages/contracts/test/deploy-mainnet.test.ts).
+ *  - Las mesas: 1, 2, 5 y 10 USDC.
  *
- * Variables de entorno (ver .env.mainnet.example):
- *   USDC_ADDRESS      = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913  (USDC real de Base)
- *   ARBITER_ADDRESS   = dirección del backend que firma resultados (su llave, resguardada)
- *   PLATFORM_WALLET   = wallet que cobra la comisión
- *   FEE_BPS           = 1500  (15%)
- *   OWNER_ADDRESS     = la wallet segura que despliega y queda como dueña (== --sender)
- *
- * Uso (con Ledger):
- *   forge script script/DeployMainnet.s.sol:DeployMainnet \
- *     --rpc-url "$BASE_MAINNET_RPC_URL" --ledger --sender "$OWNER_ADDRESS" --broadcast
+ * Lo que viene por entorno: ARBITER_ADDRESS (la llave del árbitro, resguardada),
+ * PLATFORM_WALLET (cobra la comisión) y SAFE_ADDRESS (la Safe multisig que
+ * queda de dueña). Firma la Ledger (`--ledger --sender`), que es la dueña
+ * mientras habilita las mesas; al final le pasa el contrato a la Safe en dos
+ * pasos (Ownable2Step): queda `pendingOwner` hasta que la Safe llama
+ * `acceptOwnership()`.
  */
 contract DeployMainnet is Script {
+    uint256 internal constant BASE_CHAIN_ID = 8453;
+    address internal constant USDC_BASE = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    uint16 internal constant FEE_BPS = 1500;
+
     function run() external {
-        address usdc = vm.envAddress("USDC_ADDRESS");
+        require(block.chainid == BASE_CHAIN_ID, "no es Base mainnet (8453)");
+        require(USDC_BASE.code.length > 0, "no hay USDC en esta red");
+
         address arbiter = vm.envAddress("ARBITER_ADDRESS");
         address platform = vm.envAddress("PLATFORM_WALLET");
-        // Sin truncar en silencio: `uint16(67036)` es 1500 y pasaría el tope
-        // del constructor con la comisión equivocada. Un typo tiene que frenar.
-        uint256 feeRaw = vm.envUint("FEE_BPS");
-        require(feeRaw <= type(uint16).max, "FEE_BPS fuera de rango");
-        uint16 feeBps = uint16(feeRaw);
-        address owner = vm.envAddress("OWNER_ADDRESS");
-
-        // Guardas de seguridad: nada de tokens de prueba ni dueños vacíos en mainnet.
-        require(usdc != address(0), "USDC_ADDRESS requerido (USDC real de Base)");
-        require(owner != address(0), "OWNER_ADDRESS requerido (wallet segura)");
+        address safe = vm.envAddress("SAFE_ADDRESS");
+        // Quien firma (`--sender`, la Ledger) es la dueña mientras habilita las mesas.
+        address deployer = msg.sender;
+        require(deployer != DEFAULT_SENDER, "falta --sender (la Ledger que firma)");
         require(arbiter != address(0) && platform != address(0), "arbiter/platform requeridos");
+        require(safe.code.length > 0, "SAFE_ADDRESS no es un contrato (tiene que ser la Safe)");
 
-        vm.startBroadcast(); // firma = el firmante de forge (--ledger / --account)
+        vm.startBroadcast(deployer);
 
-        Escrow1v1 escrow = new Escrow1v1(usdc, arbiter, platform, feeBps, owner);
+        Escrow1v1 escrow = new Escrow1v1(USDC_BASE, arbiter, platform, FEE_BPS, deployer);
 
-        // Mesas del producto: 1, 2, 5 y 10 USDC (6 decimales). Requiere que quien
-        // firma sea el dueño (por eso OWNER_ADDRESS debe ser == --sender).
+        // Mesas del producto: 1, 2, 5 y 10 USDC (6 decimales).
         escrow.setAllowedStake(1_000_000, true);
         escrow.setAllowedStake(2_000_000, true);
         escrow.setAllowedStake(5_000_000, true);
         escrow.setAllowedStake(10_000_000, true);
 
+        // Paso 1 de 2: la Safe queda como dueña pendiente. El paso 2 lo firma
+        // la Safe (acceptOwnership); hasta entonces la dueña sigue siendo la Ledger.
+        escrow.transferOwnership(safe);
+
         vm.stopBroadcast();
 
+        // Se chequea en la simulación, antes de mandar nada a la red.
+        require(escrow.owner() == deployer && escrow.pendingOwner() == safe, "traspaso a la Safe");
+        require(address(escrow.usdc()) == USDC_BASE && escrow.feeBps() == FEE_BPS, "parametros");
+
         console2.log("Escrow1v1 (MAINNET) desplegado en:", address(escrow));
-        console2.log("USDC (real):", usdc);
-        console2.log("Owner (admin):", owner);
-        console2.log("");
-        console2.log("=== Pega en apps/web/.env.local (produccion) ===");
-        console2.log("NEXT_PUBLIC_CHAIN_ID=8453");
-        console2.log("NEXT_PUBLIC_ESCROW_ADDRESS=%s", address(escrow));
-        console2.log("NEXT_PUBLIC_USDC_ADDRESS=%s", usdc);
-        console2.log("=== y en apps/server/.env (produccion) ===");
-        console2.log("CHAIN_ID=8453");
-        console2.log("ESCROW_ADDRESS=%s", address(escrow));
+        console2.log("Duena: la Ledger %s; pendiente: la Safe %s", deployer, safe);
     }
 }
