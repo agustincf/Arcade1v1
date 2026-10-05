@@ -72,8 +72,8 @@ unset ETHERSCAN_API_KEY
 # El registro del deploy de prueba va aparte: no pisa el de un deploy real.
 export FOUNDRY_BROADCAST="$TMP/broadcast"
 
-# La build de este commit (lo que iría a build-aprobada.json): sirve para ver
-# que da el mismo hash con el forge de CI que con el local.
+# La build de este commit, como iría a build-aprobada.json: en el log de CI
+# queda la de las librerías exactas, para comparar con una local.
 "$TSX" deploy-mainnet.ts hash
 
 echo "--- 1) El script se niega fuera de Base y con una Safe que no es un contrato ---"

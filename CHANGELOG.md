@@ -138,8 +138,10 @@ idiomas y Flappy explicado como "sin semilla". Los paquetes de npm pasan a
   - **Antes de firmar:** el bytecode de creación compilado tiene que dar el
     hash de `packages/contracts/build-aprobada.json` (cubre la fuente, las
     librerías, el compilador y su configuración; se completa al cerrar la
-    auditoría, y mientras sea `null` no hay deploy), el árbol limpio y el
-    commit en `main`, la red Base (8453) con el USDC de Circle, una Safe que
+    auditoría, y mientras sea `null` no hay deploy). Si no coincide, dice por
+    qué: qué archivo fuente (con el comando para reinstalar las librerías
+    exactas de CI), qué opción del compilador o qué versión de forge. Además: el árbol
+    limpio y el commit en `main`, la red Base (8453) con el USDC de Circle, una Safe que
     conteste como Safe, la Ledger y el árbitro sin código (sin delegación
     EIP-7702) y gas suficiente.
   - **El deploy:** red, USDC, comisión (15%) y mesas son constantes de

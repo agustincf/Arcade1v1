@@ -25,6 +25,9 @@ import {
   basescanStatus,
   requiredBalanceWei,
   withoutMetadata,
+  explainBuildMismatch,
+  LIBS,
+  type BuildInfo,
   type Check,
   type PreflightFacts,
   type DeployExpect,
@@ -33,6 +36,20 @@ import {
 
 const A = (c: string) => "0x" + c.repeat(40);
 const HASH = "0x" + "ab".repeat(32);
+const K = (c: string) => "0x" + c.repeat(64);
+
+/** La build aprobada: el hash y, para explicar una diferencia, el compilador,
+ *  sus opciones y cada archivo fuente. */
+const BUILD: BuildInfo = {
+  creationCodeHash: HASH,
+  codeWithoutMetadata: K("c"),
+  solc: "0.8.24+commit.e11b9ed9",
+  settings: { optimizer: { enabled: true, runs: 200 }, evmVersion: "cancun" },
+  sources: {
+    "src/Escrow1v1.sol": K("1"),
+    "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol": K("2"),
+  },
+};
 
 const ENV = {
   DEPLOYER_ADDRESS: A("1"),
@@ -47,8 +64,8 @@ const GOOD: PreflightFacts = {
   env: ENV,
   forgeVersion: "1.8.3",
   git: { dirty: [], headInMain: true },
-  build: { creationCodeHash: HASH },
-  approved: { commit: "abc1234", creationCodeHash: HASH, forge: "1.8.3", basis: "auditoría X" },
+  build: BUILD,
+  approved: { ...BUILD, commit: "abc1234", forge: "1.8.3", basis: "auditoría X" },
   chainId: BASE_CHAIN_ID,
   usdcHasCode: true,
   safe: { hasCode: true, threshold: 2, owners: [A("6"), A("7"), A("8")] },
@@ -69,14 +86,62 @@ test("sin build aprobada, el deploy no se puede firmar", () => {
   assert.match(msgOf(c, "build"), /build-aprobada\.json/);
 });
 
-test("otro código que el aprobado: con otro forge, dice qué versión instalar", () => {
-  const other = { ...GOOD, build: { creationCodeHash: "0x" + "cd".repeat(32) } };
-  const sameForge = preflightChecks(other);
-  assert.deepEqual(failed(sameForge), ["build"]);
-  assert.match(msgOf(sameForge, "build"), /no es el aprobado/);
+test("otro código que el aprobado: el deploy no se firma y dice por qué", () => {
+  const c = preflightChecks({ ...GOOD, build: { ...BUILD, creationCodeHash: K("d") } });
+  assert.deepEqual(failed(c), ["build"]);
+  assert.match(msgOf(c, "build"), /no es el aprobado/);
+});
 
-  const otherForge = preflightChecks({ ...other, forgeVersion: "1.9.0" });
-  assert.match(msgOf(otherForge, "build"), /foundryup --install v1\.8\.3/);
+test("por qué no coincide: el contrato, las librerías, el compilador o forge", () => {
+  const approved = GOOD.approved!;
+  const other = (patch: Partial<BuildInfo>) => ({ ...BUILD, creationCodeHash: K("d"), ...patch });
+
+  const src = explainBuildMismatch(
+    other({ sources: { ...BUILD.sources, "src/Escrow1v1.sol": K("9") } }),
+    approved,
+    "1.8.3",
+  );
+  assert.match(src, /src\/Escrow1v1\.sol/);
+  assert.doesNotMatch(src, /git clone/);
+
+  // Una librería que no es la exacta (o un archivo de más): cómo reinstalarlas,
+  // y si el código que se ejecuta es el mismo, lo dice.
+  const lib = explainBuildMismatch(
+    other({
+      sources: {
+        ...BUILD.sources,
+        "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol": K("9"),
+        "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol": K("8"),
+      },
+    }),
+    approved,
+    "1.7.1",
+  );
+  assert.match(lib, /SafeERC20\.sol/);
+  assert.match(lib, /git clone --depth 1 --branch v5\.6\.1 /);
+  assert.match(lib, /el código que se ejecuta es el mismo/);
+  assert.doesNotMatch(lib, /foundryup/, "no culpa a forge si cambió una librería");
+
+  const settings = explainBuildMismatch(
+    other({ settings: { optimizer: { enabled: true, runs: 1000 }, evmVersion: "cancun" } }),
+    approved,
+    "1.8.3",
+  );
+  assert.match(settings, /compilador/);
+
+  const forge = explainBuildMismatch(other({}), approved, "1.9.0");
+  assert.match(forge, /foundryup --install v1\.8\.3/);
+});
+
+test("las librerías exactas son las que instala CI", () => {
+  const ci = readFileSync(new URL("../../../.github/workflows/ci.yml", import.meta.url), "utf8");
+  const fromCi = [
+    ...ci.matchAll(
+      /--branch (v[\d.]+) \\\s+(https:\/\/\S+)\s+\\\s+packages\/contracts\/(lib\/\S+)/g,
+    ),
+  ].map((m) => `${m[3]} ${m[2]} ${m[1]}`);
+  assert.ok(fromCi.length >= 2, "CI clona las librerías");
+  for (const l of LIBS) assert.ok(fromCi.includes(`${l.dir} ${l.repo} ${l.tag}`), l.dir);
 });
 
 test("árbol con cambios, o un commit que no está en main: no", () => {

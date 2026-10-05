@@ -33,7 +33,6 @@ import {
   http,
   isAddress,
   keccak256,
-  toHex,
   zeroAddress,
   type Hex,
 } from "viem";
@@ -56,12 +55,80 @@ export interface Check {
   msg: string;
 }
 
-/** La build que se puede desplegar (build-aprobada.json). */
-export interface ApprovedBuild {
-  commit: string;
+/** Lo que identifica una build: el hash del bytecode de creación (cubre la
+ *  fuente, las librerías, el compilador y sus opciones, porque la metadata va
+ *  adentro) y, para explicar una diferencia, el código sin esa metadata, el
+ *  compilador, sus opciones y el keccak256 de cada archivo fuente. */
+export interface BuildInfo {
   creationCodeHash: string;
+  codeWithoutMetadata: string;
+  solc: string;
+  settings: unknown;
+  sources: Record<string, string>;
+}
+
+/** La build que se puede desplegar (build-aprobada.json). */
+export interface ApprovedBuild extends BuildInfo {
+  commit: string;
   forge: string;
   basis: string;
+}
+
+/** Las librerías exactas: las que clona CI (.github/workflows/ci.yml) y pide
+ *  AUDIT.md §7. Un test las ata a CI. */
+export const LIBS = [
+  { dir: "lib/forge-std", repo: "https://github.com/foundry-rs/forge-std", tag: "v1.16.1" },
+  {
+    dir: "lib/openzeppelin-contracts",
+    repo: "https://github.com/OpenZeppelin/openzeppelin-contracts",
+    tag: "v5.6.1",
+  },
+];
+
+/** JSON con las claves ordenadas: dos configuraciones iguales dan el mismo texto. */
+const canonical = (v: unknown): string =>
+  JSON.stringify(v, (_k, x) =>
+    x && typeof x === "object" && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b)))
+      : x,
+  );
+
+/** Por qué la build compilada no es la aprobada, y qué hacer. */
+export function explainBuildMismatch(
+  local: BuildInfo,
+  approved: ApprovedBuild,
+  forgeVersion: string | null,
+): string {
+  const files = [...new Set([...Object.keys(local.sources), ...Object.keys(approved.sources)])];
+  const differ = files.filter((f) => local.sources[f] !== approved.sources[f]).sort();
+  const own = differ.filter((f) => !f.startsWith("lib/"));
+  const libs = differ.filter((f) => f.startsWith("lib/"));
+  if (own.length) return `el contrato no es el aprobado: cambió ${own.join(", ")}`;
+  if (libs.length) {
+    const sameCode = same(local.codeWithoutMetadata, approved.codeWithoutMetadata)
+      ? " (el código que se ejecuta es el mismo, pero la build aprobada exige los archivos exactos)"
+      : "";
+    const list =
+      libs.slice(0, 3).join(", ") + (libs.length > 3 ? `, y ${libs.length - 3} más` : "");
+    const reinstall = [
+      `rm -rf ${LIBS.map((l) => l.dir).join(" ")}`,
+      ...LIBS.map((l) => `git clone --depth 1 --branch ${l.tag} ${l.repo} ${l.dir}`),
+    ].join(" && ");
+    return (
+      `las librerías no son las aprobadas: ${list}${sameCode}. ` +
+      `Reinstalalas exactas, desde packages/contracts: ${reinstall}`
+    );
+  }
+  if (local.solc !== approved.solc || canonical(local.settings) !== canonical(approved.settings)) {
+    return `la configuración del compilador no es la aprobada (solc ${local.solc}; mirá foundry.toml)`;
+  }
+  if (forgeVersion !== approved.forge) {
+    return (
+      `misma fuente y configuración, pero compilaste con forge ${forgeVersion ?? "?"} y la aprobada ` +
+      `con ${approved.forge}: instalá esa versión (foundryup --install v${approved.forge}) y probá de nuevo`
+    );
+  }
+  return "misma fuente, configuración y forge, pero otro bytecode: no despliegues y avisá";
 }
 
 export interface PreflightFacts {
@@ -69,7 +136,7 @@ export interface PreflightFacts {
   forgeVersion: string | null;
   /** `headInMain` null: no se pudo traer origin/main. */
   git: { dirty: string[]; headInMain: boolean | null };
-  build: { creationCodeHash: string } | { error: string };
+  build: BuildInfo | { error: string };
   approved: ApprovedBuild | null;
   /** null: el nodo no contestó (o faltan direcciones para preguntar). */
   chainId: number | null;
@@ -157,17 +224,8 @@ export function preflightChecks(f: PreflightFacts): Check[] {
   } else if ("error" in f.build) {
     checks.push(fail("build", `no compiló: ${f.build.error}`));
   } else if (!same(f.build.creationCodeHash, f.approved.creationCodeHash)) {
-    const why =
-      f.forgeVersion !== f.approved.forge
-        ? `compilaste con forge ${f.forgeVersion ?? "?"} y la aprobada se compiló con ${f.approved.forge}: ` +
-          `instalá esa versión (foundryup --install v${f.approved.forge}) y probá de nuevo`
-        : "¿cambió src/, lib/ o foundry.toml?";
-    checks.push(
-      fail(
-        "build",
-        `el código compilado no es el aprobado (${f.build.creationCodeHash} ≠ ${f.approved.creationCodeHash}): ${why}`,
-      ),
-    );
+    const why = explainBuildMismatch(f.build, f.approved, f.forgeVersion);
+    checks.push(fail("build", `el código compilado no es el aprobado: ${why}`));
   } else {
     checks.push(
       ok("build", `el código es el aprobado (commit ${f.approved.commit}; ${f.approved.basis})`),
@@ -465,7 +523,6 @@ function forgeVersion(): string | null {
 interface Artifact {
   bytecode: { object: Hex };
   deployedBytecode: { object: Hex; immutableReferences?: ImmutableRefs };
-  rawMetadata?: string;
   metadata?: {
     compiler: { version: string };
     settings: unknown;
@@ -488,6 +545,19 @@ function build(): Artifact {
   return JSON.parse(readFileSync(ARTIFACT, "utf8")) as Artifact;
 }
 
+function buildInfo(a: Artifact): BuildInfo {
+  if (!a.metadata) throw new Error("el artefacto de Escrow1v1 no trae la metadata");
+  return {
+    creationCodeHash: keccak256(a.bytecode.object),
+    codeWithoutMetadata: keccak256(withoutMetadata(a.bytecode.object)),
+    solc: a.metadata.compiler.version,
+    settings: a.metadata.settings,
+    sources: Object.fromEntries(
+      Object.entries(a.metadata.sources).map(([file, s]) => [file, s.keccak256]),
+    ),
+  };
+}
+
 function gitFacts(): PreflightFacts["git"] {
   const dirty = run("git", ["status", "--porcelain", "--", "."])
     .split("\n")
@@ -508,7 +578,14 @@ function gitFacts(): PreflightFacts["git"] {
 
 function readApproved(): ApprovedBuild | null {
   const j = JSON.parse(readFileSync(APPROVED_FILE, "utf8")) as { aprobada?: ApprovedBuild | null };
-  return j.aprobada ?? null;
+  const a = j.aprobada ?? null;
+  const fields = ["commit", "forge", "basis", "creationCodeHash", "codeWithoutMetadata", "solc"];
+  if (a && (fields.some((k) => !(a as unknown as Record<string, unknown>)[k]) || !a.sources)) {
+    throw new Error(
+      `build-aprobada.json incompleto: van ${fields.join(", ")}, settings y sources (los da "hash")`,
+    );
+  }
+  return a;
 }
 
 const hasCode = async (address: string) => {
@@ -581,7 +658,7 @@ async function gatherPreflight(): Promise<PreflightFacts> {
   const env = process.env;
   let buildFacts: PreflightFacts["build"];
   try {
-    buildFacts = { creationCodeHash: keccak256(build().bytecode.object) };
+    buildFacts = buildInfo(build());
   } catch (e) {
     buildFacts = { error: (e as Error).message.split("\n")[0] };
   }
@@ -914,30 +991,11 @@ async function main(): Promise<number> {
       if (!arg) throw new Error("fuente <dirección>");
       return verifySource(arg) ? 0 : 1;
     case "hash": {
-      const artifact = build();
-      const hash = keccak256(artifact.bytecode.object);
+      // Lo que va en "aprobada" de build-aprobada.json (falta "basis": qué la
+      // aprobó, p. ej. el informe de la auditoría).
       const commit = run("git", ["rev-parse", "--short", "HEAD"]).trim();
-      console.log(
-        JSON.stringify({ commit, creationCodeHash: hash, forge: forgeVersion() }, null, 2),
-      );
-      // Para comparar dos builds que no dan el mismo hash: ¿difiere el código
-      // o solo la metadata? ¿qué archivo o qué opción del compilador?
-      const m = artifact.metadata;
-      console.log(
-        JSON.stringify(
-          {
-            codeWithoutMetadata: keccak256(withoutMetadata(artifact.bytecode.object)),
-            metadata: artifact.rawMetadata ? keccak256(toHex(artifact.rawMetadata)) : null,
-            solc: m?.compiler.version,
-            settings: m?.settings,
-            sources: Object.fromEntries(
-              Object.entries(m?.sources ?? {}).map(([k, v]) => [k, v.keccak256]),
-            ),
-          },
-          null,
-          2,
-        ),
-      );
+      const info = buildInfo(build());
+      console.log(JSON.stringify({ commit, forge: forgeVersion(), basis: "", ...info }, null, 2));
       return 0;
     }
     default:

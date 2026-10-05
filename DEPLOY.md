@@ -341,7 +341,9 @@ bash packages/contracts/deploy-base-mainnet.sh            # desplegar
 El script no firma nada si algo falla: el código tiene que ser **exactamente**
 el aprobado (`packages/contracts/build-aprobada.json`, que se completa al cerrar
 la auditoría), el árbol limpio y el commit en `main`, la red Base con el USDC
-real, la Safe una Safe, y tiene que alcanzar el gas. Pide escribir `MAINNET`,
+real, la Safe una Safe, y tiene que alcanzar el gas. Si el código no coincide,
+dice por qué: el contrato, una librería que no es la exacta (con el comando
+para reinstalarlas como en CI), el compilador o la versión de forge. Pide escribir `MAINNET`,
 y la Ledger pide 6 firmas (el contrato, las 4 mesas y el traspaso a la Safe).
 Al final relee el contrato desplegado y dice los pasos que siguen:
 
