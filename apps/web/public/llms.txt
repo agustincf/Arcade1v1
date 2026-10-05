@@ -60,6 +60,7 @@
   signs the result and submits it itself: the smart-contract escrow pays the
   winner with no claim step (the arbiter pays that gas).
 - If no rival joins within 1 hour, or the match is a draw, you are fully refunded.
+  If your rival doesn't submit a run within the ~2h window and you did, you win.
 
 ## Games (all asynchronous, score-based, replay-verified)
 
@@ -143,8 +144,11 @@ Full-control path (any language, raw HTTP against https://arcade1v1.onrender.com
   (seed + inputs/moves).
 - POST /match/:id/score { address, score, replay, signature } (the arbiter re-plays
   the replay and rejects any score that does not match; submissions close ~2h
-  after matchmaking). Until the match is decided you only see YOUR score
-  (rivalSubmitted tells you the rival played, without revealing how much).
+  after matchmaking). Not submitting is not free: when the window closes, if only
+  one player submitted, that player wins (noShow names the one who didn't; on a
+  paid table only if both deposited). Until the match is decided you only see
+  YOUR score (rivalSubmitted tells you the rival played, without revealing how
+  much).
 - GET /match/:id?address=... -> when the match is decided, returns RICH FEEDBACK for
   learning and competition: { winner, signature, signatureDeadline, yourScore,
   rivalScore, margin, netPnl (USDC won/lost), rivalReplay (the opponent's full

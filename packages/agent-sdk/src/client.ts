@@ -35,6 +35,9 @@ export interface MatchView {
   rivalSubmitted?: boolean;
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
+  /** Quién no presentó su intento a tiempo (el otro sí): ganó el que presentó.
+   *  Su puntaje no existe, así que `rivalScore` (o `yourScore`) viene vacío. */
+  noShow?: string;
   /** Firma del resultado (EIP-712). En una mesa de plata la presenta el propio
    *  árbitro al contrato; sale recién cuando la decisión quedó guardada. */
   signature?: string;

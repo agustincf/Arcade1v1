@@ -15,6 +15,7 @@ import { txUrl } from "@/app/lib/explorer";
 import { moneyTableBlocked } from "@/app/lib/config-guard";
 import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
 import { failureText, isPaidTableClosed } from "@/app/lib/errors";
+import { noShowSide } from "@/app/lib/result";
 import { useSignMessage } from "wagmi";
 import {
   scoreAuthMessage,
@@ -128,6 +129,8 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [ratingDelta, setRatingDelta] = useState<number>(0);
   const [freeDone, setFreeDone] = useState(false);
   const [forfeit, setForfeit] = useState(false);
+  // Alguien no presentó su intento a tiempo: ganó el que sí (W2).
+  const [noShow, setNoShow] = useState<"rival" | "you" | null>(null);
   // Estado on-chain. El depósito es UNA sola acción: aprueba el USDC (solo la
   // primera vez) y enseguida abre/se une a la partida.
   const [role, setRole] = useState<"p1" | "p2" | null>(null);
@@ -445,7 +448,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
 
   function applyResult(v: MatchView) {
     const opp = v.opponent;
-    setRivalScore(opp ? (v.scores[opp] ?? 0) : 0);
+    const missed = noShowSide(v);
+    setNoShow(missed);
+    setRivalScore(missed === "rival" ? null : opp ? (v.scores[opp] ?? 0) : 0);
     if (v.outcome === "draw") setOutcome("draw");
     else if (v.outcome && v.role === v.outcome) {
       setOutcome("win");
@@ -1116,16 +1121,23 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
               <div className="mt-4 flex items-center justify-center gap-6 text-base">
                 <div>
                   <div className="text-sm text-(--color-muted-2)">{t("match.you")}</div>
-                  <div className="font-pixel text-base text-(--color-accent-2)">{youScore}</div>
+                  <div className="font-pixel text-base text-(--color-accent-2)">
+                    {noShow === "you" ? "—" : youScore}
+                  </div>
                 </div>
                 <div className="text-(--color-muted-3)">vs</div>
                 <div>
                   <div className="text-sm text-(--color-muted-2)">{t("match.rival")}</div>
                   <div className="font-pixel text-base text-(--color-muted-bright)">
-                    {rivalScore}
+                    {rivalScore ?? "—"}
                   </div>
                 </div>
               </div>
+              {noShow && (
+                <p className="mt-3 text-sm leading-relaxed text-(--color-muted)">
+                  {t(noShow === "rival" ? "match.rivalNoShow" : "match.youNoShow")}
+                </p>
+              )}
               {rating !== null && (
                 <p className="mt-3 text-sm text-(--color-muted)">
                   {t("lb.rating")}: <b className="text-(--color-gold)">{rating}</b>{" "}

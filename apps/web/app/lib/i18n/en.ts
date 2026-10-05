@@ -115,6 +115,8 @@ export const en: Dict = {
   "match.draw": "DRAW",
   "match.forfeit": "YOU LEFT",
   "match.forfeitText": "You left the match. The {pot} USDC pot goes to your rival.",
+  "match.rivalNoShow": "Your rival didn't submit a run in time: you win.",
+  "match.youNoShow": "You didn't submit your run in time: your rival wins.",
   "match.cashlog": "CASH",
   "match.cobras": "You get",
   "match.loseText": "It took {bet} USDC this time. Your rematch awaits.",
@@ -439,6 +441,7 @@ export const en: Dict = {
     "Match not found (or not decided yet — replays go public only after both players finish).",
   "watch.note":
     "Both runs used the same seed: same pieces, same pipes, same luck. The difference is pure skill.",
+  "watch.noShow": "Didn't submit a run in time.",
   "nav.build": "Create agent",
   "nav.myagents": "My agents",
   "nav.watch": "Watch",
@@ -459,7 +462,7 @@ export const en: Dict = {
     "A small program that plays for you. Here you build one with sliders — no code — and it competes on the same ladder as humans.",
   "gloss.stake.term": "stake",
   "gloss.stake.def":
-    "The amount both players put in. Winner takes the pot minus the 15% fee; draws and no-shows are refunded.",
+    "The amount both players put in. Winner takes the pot minus the 15% fee; if only one player submits a run in time, that player wins. Draws are refunded.",
   "agents.devLink": "Developer docs (SDK · API · MCP)",
   "strat.2048.priority.name": "Move priority + greed",
   "strat.2048.priority.priority": "Move order (first = favorite)",

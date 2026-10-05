@@ -324,15 +324,33 @@ test("llegar a MAX_REPLAY_TICKS cierra el intento", async () => {
   assert.deepEqual([last!.over, last!.tick, last!.score], [true, MAX_REPLAY_TICKS, 0]);
 });
 
-// Va ÚLTIMO: el barrendero vence todas las partidas de este proceso.
-test("un intento abandonado vence con la partida y ya no acepta compromisos", async () => {
-  const { id, p1 } = await livePair();
+// Van ÚLTIMOS: el barrendero vence todas las partidas de este proceso.
+test("al vencer, un intento a medio jugar cuenta lo alcanzado: le gana al que ni abrió el suyo", async () => {
+  const { id, p1, p2 } = await livePair();
   const s = opened(await liveStart(id, p1));
   await liveCommit(id, p1, { token: s.token, from: 0, to: 30, flaps: [0], have: s.revealed });
-  sweepMatches(Date.now() + SUBMIT_WINDOW_MS + 16 * 60_000);
-  assert.equal(getMatch(id, p1)!.status, "draw");
-  await assert.rejects(
-    liveCommit(id, p1, { token: s.token, from: 30, to: 40, flaps: [], have: 0 }),
-    /match already decided/,
-  );
+  await sweepMatches(Date.now() + SUBMIT_WINDOW_MS + 16 * 60_000);
+  const v = getMatch(id, p1)!;
+  assert.equal(v.status, "settled");
+  assert.equal(v.winner, p1);
+  assert.equal(v.noShow, p2, "el que no abrió su intento no presentó");
+  assert.equal(matchRecord(id)!.live![p1].over, true, "el intento quedó cerrado");
+  // Cerrado, contesta su final y no avanza un tick más.
+  const after = await liveCommit(id, p1, { token: s.token, from: 30, to: 40, flaps: [], have: 0 });
+  assert.equal(after.over, true);
+  assert.equal(after.tick, 30);
+});
+
+test("al vencer, si los dos dejaron su intento a medias, se decide por lo que alcanzó cada uno", async () => {
+  const { id, p1, p2 } = await livePair();
+  for (const p of [p1, p2]) {
+    const s = opened(await liveStart(id, p));
+    await liveCommit(id, p, { token: s.token, from: 0, to: 30, flaps: [0], have: s.revealed });
+  }
+  await sweepMatches(Date.now() + SUBMIT_WINDOW_MS + 16 * 60_000);
+  const v = getMatch(id, p1)!;
+  assert.ok(v.status === "settled" || v.status === "draw", "decidida por puntaje");
+  assert.equal(v.noShow, undefined, "los dos presentaron lo suyo");
+  assert.equal(v.yourScore, matchRecord(id)!.live![p1].score);
+  assert.equal(v.rivalScore, matchRecord(id)!.live![p2].score);
 });

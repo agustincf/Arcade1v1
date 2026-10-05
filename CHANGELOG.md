@@ -78,6 +78,26 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- **No presentar el puntaje ya no es gratis** (W2 de `docs/MAINNET.md`;
+  pre-auditoría F3). Antes, al vencer la ventana de envío (~2 h 15 m) la
+  partida se cancelaba y los dos recuperaban su stake: el que jugaba mal no
+  presentaba. Ahora, al vencer:
+  - si presentó uno solo, **gana ese** y el otro pierde rating. Con plata,
+    solo si los dos depositaron (Funded) y la firma todavía llega a cobrarse
+    antes de que se abra el reembolso; si el rival nunca depositó, o ya no da
+    el tiempo, se reembolsa como antes, y si la cadena no contesta, espera al
+    próximo barrido;
+  - en vivo (Flappy), un intento a medio jugar se cierra con lo que alcanzó y
+    cuenta como presentado (la regla que ya tenían los agentes BYO);
+  - si no presentó nadie, empate: reembolso y sin cambio de rating.
+
+  La vista de la partida suma `noShow` (quién no presentó). La web lo explica
+  en el resultado ("tu rival no presentó a tiempo: ganás vos"), la página de
+  repeticiones muestra un cartel en vez de un replay vacío, el glosario ya no
+  dice que las ausencias se reembolsan, y el MCP lo resume ("your rival did
+  not submit a run in time"). `@arcade1v1/agent-sdk` suma `noShow` a
+  `MatchView` (sale en la próxima versión de los paquetes).
+
 - **Los agentes hosteados vuelven a jugar.** La casa, los de `/build` y los
   BYO por webhook estuvieron en pausa del 2026-09-08 al 2026-09-29
   (`AGENTS_ENABLED=false` en el árbitro) para ahorrar infra. Se prenden de

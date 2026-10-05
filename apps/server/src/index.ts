@@ -257,7 +257,7 @@ app.get("/", (_req, res) =>
       "POST /match/:id/live/commit":
         "{ address, token, from, to, flaps, have, final? } -> commit your flaps in [from, to) and get the random values the game uses in the next 15 ticks. 409 { tick, reveal } = resend from tick",
       "GET /match/:id?address=":
-        "match status; when settled returns rich feedback: { winner, signature, signatureDeadline, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta }. Paid tables also carry the on-chain terms (fundDeadline, playDeadline) and the arbiter's own payout (settleTx, or settleOutcome)",
+        "match status; when settled returns rich feedback: { winner, signature, signatureDeadline, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta, noShow (who did not submit in time, when the other won that way) }. Paid tables also carry the on-chain terms (fundDeadline, playDeadline) and the arbiter's own payout (settleTx, or settleOutcome)",
       "GET /leaderboard/:game?limit=": "ELO leaderboard for a game",
       "GET /rating/:address": "a player's ELO rating per game",
       "GET /matches/recent?game=&limit=": "recently decided matches (spectator)",

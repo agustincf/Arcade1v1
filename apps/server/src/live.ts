@@ -23,6 +23,7 @@ import {
   finishLiveAttempt,
   matchRecord,
   persistMatches,
+  setExpiredLiveCloser,
   type LiveAttempt,
   type Match,
 } from "./matchmaking.js";
@@ -322,14 +323,36 @@ export async function closeLiveAttempt(id: string, address: string): Promise<boo
     } catch {
       return false; // decidida o vencida: el barrendero se encarga
     }
-    const e = engineFor(m, address, a);
-    a.over = true;
-    a.score = e.eng.score;
-    engines.delete(`${m.id}:${address}`);
-    await finishClosed(m, address, a);
+    await closeAtLastTick(m, address, a);
     return true;
   });
 }
+
+/** Cierra el intento en su último tick comprometido y cuenta lo alcanzado.
+ *  Quien lo llama tiene el candado del intento. */
+async function closeAtLastTick(m: Match, address: string, a: LiveAttempt): Promise<void> {
+  const e = engineFor(m, address, a);
+  a.over = true;
+  a.score = e.eng.score;
+  engines.delete(`${m.id}:${address}`);
+  await finishClosed(m, address, a);
+}
+
+/** AL VENCER LA PARTIDA (W2; lo llama el barrendero, ver expireMatch): cada
+ *  intento a medio jugar se cierra con lo que alcanzó, como el de un agente BYO
+ *  al que se le vence el plazo, y cuenta como presentado. Ya no se aceptan
+ *  compromisos (assertOpen), así que no compite con ninguno. */
+async function closeExpiredAttempts(m: Match): Promise<void> {
+  for (const address of Object.keys(m.live ?? {})) {
+    await withLiveLock(m.id, address, async () => {
+      const a = m.live?.[address];
+      if (!a || m.status === "settled" || m.status === "draw") return;
+      if (!a.over) await closeAtLastTick(m, address, a);
+      else if (m.scores[address] === undefined) await finishClosed(m, address, a);
+    });
+  }
+}
+setExpiredLiveCloser(closeExpiredAttempts);
 
 /** Al arrancar, DESPUÉS de restaurar las partidas: cada registro guardado manda
  *  sobre la copia del intento que traía el blob (que se guarda cada 20 s y puede

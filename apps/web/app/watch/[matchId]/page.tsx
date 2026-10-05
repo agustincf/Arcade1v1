@@ -68,13 +68,23 @@ export default function WatchMatchPage({ params }: { params: Promise<{ matchId: 
         <div className="grid gap-5 p-5 sm:grid-cols-2">
           {[p1, p2].map((p, i) => (
             <div key={i} className="flex flex-col items-center">
-              <ReplayPlayer
-                game={data.game}
-                replay={p.replay}
-                secret={data.secret}
-                label={playerLabel(p.address, p.name, p.avatar, agentTag(p, t))}
-                winner={data.winner?.toLowerCase() === p.address.toLowerCase()}
-              />
+              {p.replay === undefined ? (
+                // No presentó su intento a tiempo (W2): no hay nada que reproducir.
+                <div className="flex w-full flex-col items-center gap-2 rounded-md border border-(--color-border) p-6 text-center">
+                  <span className="text-sm font-medium">
+                    {playerLabel(p.address, p.name, p.avatar, agentTag(p, t))}
+                  </span>
+                  <span className="text-sm text-(--color-muted-2)">{t("watch.noShow")}</span>
+                </div>
+              ) : (
+                <ReplayPlayer
+                  game={data.game}
+                  replay={p.replay}
+                  secret={data.secret}
+                  label={playerLabel(p.address, p.name, p.avatar, agentTag(p, t))}
+                  winner={data.winner?.toLowerCase() === p.address.toLowerCase()}
+                />
+              )}
             </div>
           ))}
         </div>

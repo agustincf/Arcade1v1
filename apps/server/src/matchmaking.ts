@@ -160,6 +160,9 @@ export interface Match {
   status: Status;
   winner?: string;
   outcome?: "p1" | "p2" | "draw";
+  /** Quién no presentó su intento a tiempo, cuando el otro sí: ganó el que
+   *  presentó (W2, ver `expireMatch`). */
+  noShow?: string;
   signature?: Hex;
   isBot?: boolean;
   /** Verificaciones FALLIDAS por jugador. El candado de "un intento" solo se
@@ -784,7 +787,14 @@ async function settleIfReady(m: Match) {
   }
   const s1 = m.scores[m.p1];
   const s2 = m.scores[m.p2];
-  if (s1 === s2) {
+  await decide(m, s1 === s2 ? null : s1 > s2 ? m.p1 : m.p2);
+}
+
+/** Decide la partida: `winner` null es empate (reembolso). Firma, rating y,
+ *  en una mesa de plata, la liquidación. Corre una sola vez por partida: quien
+ *  la llama ya comprobó que no estaba decidida. */
+async function decide(m: Match, winner: string | null) {
+  if (winner === null) {
     m.status = "draw";
     m.outcome = "draw"; // empate -> reembolso (el arbitro cancela en el contrato)
     if (onchainEnabled()) {
@@ -793,7 +803,6 @@ async function settleIfReady(m: Match) {
         .catch((e) => console.error("cancelMatch onchain:", (e as Error).message));
     }
   } else {
-    const winner = s1 > s2 ? m.p1 : m.p2;
     m.winner = winner;
     m.outcome = winner === m.p1 ? "p1" : "p2";
     // El status se marca ANTES del await: durante la firma (async) una
@@ -804,8 +813,8 @@ async function settleIfReady(m: Match) {
   }
 
   // Rating ELO + métrica de partidas decididas (las de bot de prueba no cuentan,
-  // igual criterio que el ELO). settleIfReady corre una sola vez por partida
-  // (el guard de arriba corta si ya no está "ready"/"waiting").
+  // igual criterio que el ELO). Una sola vez por partida: settleIfReady y
+  // expireMatch llegan acá solo si no estaba decidida.
   if (!m.isBot && m.p2 && m.outcome) {
     m.eloUpdate = applyElo(m.game, m.p1, m.p2, m.outcome);
     // Embudo: cuántos de los dos son agentes de la casa (0=terceros puros,
@@ -988,6 +997,7 @@ export async function addBot(id: string) {
 /** Espera a que se resuelva lo on-chain que dejó la decisión: el reembolso del
  *  empate o la liquidación que manda el árbitro (si aplica). */
 export async function onchainSettled(id: string): Promise<void> {
+  await expiring.get(id);
   await Promise.all([matches.get(id)?.refundPromise, settling.get(id)]);
 }
 
@@ -1056,6 +1066,8 @@ export interface MatchView {
   challengeTarget?: boolean;
   outcome?: "p1" | "p2" | "draw";
   winner?: string;
+  /** Quién no presentó su intento a tiempo: ganó el otro, el que sí presentó. */
+  noShow?: string;
   /** Firma del resultado. En una mesa de plata la presenta el árbitro (y si
    *  no, el ganador); sale recién cuando la decisión quedó guardada. */
   signature?: Hex;
@@ -1124,6 +1136,7 @@ function view(m: Match, address?: string, opts?: { revealOwnScore?: boolean }): 
     challengeTarget: m.target !== undefined && address === m.target ? true : undefined,
     outcome: m.outcome,
     winner: m.winner,
+    noShow: m.noShow,
     signature: signatureVisible(m) ? m.signature : undefined,
     signatureDeadline: signatureVisible(m) ? m.signatureDeadline : undefined,
     isBot: m.isBot,
@@ -1252,8 +1265,9 @@ function healUnfinishedLiveAttempts(m: Match): void {
   }
 }
 
-export function sweepMatches(now = Date.now()) {
+export function sweepMatches(now = Date.now()): Promise<void> {
   let dirty = false;
+  const expirations: Promise<void>[] = [];
   for (const m of [...matches.values()]) {
     const finished = m.status === "settled" || m.status === "draw";
     if (!finished) healUnfinishedLiveAttempts(m);
@@ -1295,19 +1309,85 @@ export function sweepMatches(now = Date.now()) {
       }
       continue;
     }
-    // Emparejada pero sin resultado al vencer la ventana: expira -> reembolso.
-    if (now - m.createdAt > SUBMIT_WINDOW_MS + EXPIRE_GRACE_MS) {
-      m.status = "draw";
-      m.outcome = "draw";
-      if (onchainEnabled()) {
-        m.refundPromise = escrowChain()
-          .cancel(m.id)
-          .catch((e) => console.error("cancelMatch (expirada) onchain:", (e as Error).message));
-      }
-      dirty = true;
+    // Emparejada pero sin resultado al vencer la ventana (ver expireMatch).
+    if (now - m.createdAt > SUBMIT_WINDOW_MS + EXPIRE_GRACE_MS && !expiring.has(m.id)) {
+      const p = expireMatch(m, now)
+        .catch((e) =>
+          console.error(
+            `[vencida] ${m.id}: se reintenta en el próximo barrido:`,
+            (e as Error).message,
+          ),
+        )
+        .finally(() => expiring.delete(m.id));
+      expiring.set(m.id, p);
+      expirations.push(p);
     }
   }
   if (dirty) persist();
+  return Promise.all(expirations).then(() => undefined);
+}
+
+/** Vencimientos en curso (uno por partida: la lectura de la cadena es async). */
+const expiring = new Map<string, Promise<void>>();
+
+/** Lo que falta, como mínimo, para que venza la firma de un resultado que se
+ *  decide al vencer: si queda menos, el árbitro no llega a cobrarlo. */
+const FORFEIT_MARGIN_S = 5 * 60;
+
+/** Cierra los intentos en vivo a medio jugar de una partida que vence. Lo
+ *  registra live.ts al cargarse (matchmaking no puede importarlo). */
+let expiredLiveCloser: ((m: Match) => Promise<void>) | undefined;
+export function setExpiredLiveCloser(fn: (m: Match) => Promise<void>): void {
+  expiredLiveCloser = fn;
+}
+
+/** NO PRESENTAR YA NO ES GRATIS (W2; pre-auditoría F3). Antes, al vencer, la
+ *  partida se cancelaba y los dos recuperaban su stake: el que jugaba mal no
+ *  presentaba, y con la semilla anticipada hasta jugaba antes de depositar.
+ *  Ahora, al vencer la ventana de envío:
+ *   - En vivo, un intento a medio jugar se cierra con lo que alcanzó y cuenta
+ *     como presentado (la regla que ya tenían los agentes BYO).
+ *   - Si presentó uno solo, gana ese, y el otro pierde rating. Con plata, solo
+ *     si los dos depositaron (Funded) y la firma todavía llega a cobrarse antes
+ *     de que se abra el reembolso. Si el rival nunca depositó, o ya no da el
+ *     tiempo, se reembolsa como antes. Si la cadena no contesta, tira: el
+ *     próximo barrido reintenta.
+ *   - Si no presentó nadie, empate: reembolso y sin cambio de rating. */
+async function expireMatch(m: Match, now: number): Promise<void> {
+  if (m.live && expiredLiveCloser) await expiredLiveCloser(m);
+  if (isDecided(m) || !m.p2) return; // el cierre en vivo pudo decidirla
+  const p2 = m.p2;
+  const submitted = [m.p1, p2].filter((p) => m.scores[p] !== undefined);
+  if (submitted.length === 2) return settleIfReady(m);
+
+  let refunded = false;
+  if (submitted.length === 1) {
+    const winner = submitted[0];
+    let forfeit = !paidOnchain(m);
+    if (!forfeit) {
+      const c = await escrowChain().read(m.id);
+      forfeit =
+        c?.status === ONCHAIN_STATUS.Funded &&
+        Math.floor(now / 1000) < resultDeadlineOf(m) - FORFEIT_MARGIN_S;
+      refunded = c?.status === ONCHAIN_STATUS.Refunded;
+    }
+    if (forfeit) {
+      m.noShow = winner === m.p1 ? p2 : m.p1;
+      await decide(m, winner);
+      persist();
+      return;
+    }
+  }
+
+  m.status = "draw";
+  m.outcome = "draw";
+  if (refunded) m.settleOutcome = "refunded";
+  else if (onchainEnabled()) {
+    m.refundPromise = escrowChain()
+      .cancel(m.id)
+      .catch((e) => console.error("cancelMatch (expirada) onchain:", (e as Error).message));
+  }
+  persist();
 }
 
 let sweeper: NodeJS.Timeout | undefined;
@@ -1324,4 +1404,6 @@ export function startSweeper(): void {
 export async function stopSweeper(): Promise<void> {
   if (sweeper) clearInterval(sweeper);
   sweeper = undefined;
+  // La vuelta en curso: un vencimiento que esperaba la cadena (ver expireMatch).
+  await Promise.all(expiring.values());
 }
