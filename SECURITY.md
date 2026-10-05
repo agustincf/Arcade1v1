@@ -1,8 +1,8 @@
 # Repaso de seguridad — Arcade1v1 (Fase 6)
 
 Fecha: 2026-06-21 (1ª ronda) · 2026-06-26 (2ª ronda) · 2026-07-02 (3ª ronda —
-preparación mainnet, ver abajo) · Estado actualizado: **3.11.0 en testnet**
-(2026-09-29; no opera con dinero real).
+preparación mainnet, ver abajo) · 2026-10-02 (pre-auditoría de `Escrow1v1`) ·
+Estado actualizado: **3.11.0 en testnet** (no opera con dinero real).
 
 > Nota de mantenimiento (2026-07-11): los hallazgos y la verificación de la
 > tercera ronda siguen fechados el 2026-07-02. Este documento ya refleja las
@@ -69,6 +69,25 @@ preparación mainnet, ver abajo) · Estado actualizado: **3.11.0 en testnet**
 > intento en vivo, escrito antes de revelar: una caída dura ya no rebobina un
 > intento de Flappy. Falta el redespliegue de los dos contratos en testnet
 > ([`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md)).
+> (Ejecutado el 2026-09-24.)
+>
+> Nota de mantenimiento (2026-10-02, sin publicar): **pre-auditoría de
+> `Escrow1v1`**, para mandarlo a la auditoría externa con el código final.
+> Invariantes con fuzzer, mutación, pruebas contra el USDC real en una copia de
+> Base, Slither, Aderyn y revisiones adversariales con prueba de concepto. Ningún
+> hallazgo permitía robar ni trabar plata para siempre. Entraron seis cambios al
+> contrato: tope al vencimiento del resultado, presupuesto fijo de gas por pago
+> (la guarda de 1/63 no valía detrás del proxy del USDC), duración máxima de una
+> partida, comisión congelada al abrir, chequeos de la wallet de la plataforma e
+> higiene de auditoría. Los mensajes firmados no cambiaron. En el árbitro y la
+> web aparecieron nueve puntos más (W1 a W9 en
+> [`docs/MAINNET.md`](docs/MAINNET.md): W7 en la tanda 2, el resto en la 3); el primero, que no pueda arrancar con
+> plata real sin exigir firmas. Informe:
+> [`docs/auditorias/2026-10-02-preauditoria-escrow1v1.md`](docs/auditorias/2026-10-02-preauditoria-escrow1v1.md);
+> paquete para el auditor:
+> [`packages/contracts/AUDIT.md`](packages/contracts/AUDIT.md). Falta el
+> redespliegue del `Escrow1v1` revisado en testnet
+> ([runbook](docs/REDEPLOY-escrow1v1-preauditoria.md)).
 
 ---
 

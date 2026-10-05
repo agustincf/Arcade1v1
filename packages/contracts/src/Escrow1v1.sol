@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -24,16 +24,24 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  *    ganador, por ejemplo); el contrato la VERIFICA y paga: premio al
  *    ganador + comision a la wallet de la plataforma.
  *  - Reembolsos: si no se llena la partida a tiempo, si pasa el plazo de juego
- *    (mas una gracia) sin liquidar, o si el arbitro cancela (empate /
- *    disputa), se devuelve el dinero a los jugadores.
+ *    (mas una gracia) sin liquidar, o si el arbitro o el dueño cancelan
+ *    (empate / disputa), se devuelve el dinero a los jugadores.
  *  - Cada pago (premio, comision o reembolso) se EMPUJA por separado. Si el
  *    USDC rechaza uno (una direccion en la blacklist de Circle, el token en
  *    pausa), ese monto queda ACREDITADO en `owed` y lo demas se paga igual.
  *    Lo acreditado se retira con `withdraw` (o cualquiera se lo entrega a su
  *    dueño con `withdrawFor`).
  *
- * Nadie (ni siquiera el dueño) puede sacar el dinero de los jugadores a mano:
- * solo se mueve segun estas reglas.
+ * Nadie puede sacar el dinero de los jugadores con una funcion de "retiro"
+ * administrativo: solo sale por estas reglas. Pero las reglas confian en el
+ * ARBITRO (decide quien gano y a quien sienta) y en el DUEÑO (rota al arbitro,
+ * la wallet de la plataforma, la comision de las partidas que se abran desde
+ * ahi, y las mesas habilitadas; y cancela, como el arbitro). Una llave del
+ * arbitro comprometida puede sentarse en cada partida ABIERTA y firmarse la
+ * victoria, y en una partida LLENA puede elegir al ganador entre los dos o
+ * cancelarla (reembolso). No puede desviar una partida llena a un tercero, ni
+ * tocar lo acreditado, ni trabar un deposito mas de MAX_MATCH_DURATION +
+ * REFUND_GRACE desde que se abrio. Detalle: packages/contracts/AUDIT.md.
  *
  * Version 2 (antes de mainnet, decidida el 2026-09-24), los mismos arreglos
  * que EscrowAleph v2 mas los propios del 1v1:
@@ -53,6 +61,19 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  *  - Una mesa deshabilitada (`setAllowedStake(x, false)`) tampoco acepta
  *    `join`: es el freno de emergencia de las entradas. Las salidas (liquidar,
  *    reembolsar, retirar) nunca se frenan.
+ *
+ * Revision antes de la auditoria externa (2026-10, mismo dominio EIP-712 "2":
+ * los mensajes firmados no cambian):
+ *  - El vencimiento del resultado tiene tope en el contrato
+ *    (`playDeadline + REFUND_GRACE`), no solo en la politica del arbitro.
+ *  - Cada pago le da al USDC un presupuesto FIJO de gas (`PAY_GAS`): quien
+ *    llama no puede decidir con su gas si un pago se paga o se acredita, y la
+ *    seguridad no depende de cuanto cueste hoy el `transfer` del USDC.
+ *  - Una partida no puede durar mas de `MAX_MATCH_DURATION` desde que se abre.
+ *  - La comision queda congelada al abrir la partida.
+ *  - La wallet de la plataforma no puede ser el escrow ni el USDC.
+ *
+ * @custom:security-contact https://github.com/agustincf/Arcade1v1/security
  */
 contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
     using SafeERC20 for IERC20;
@@ -71,6 +92,23 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
 
     /// @notice Tope duro de comision para que nadie pueda abusar (20%).
     uint16 public constant MAX_FEE_BPS = 2000;
+
+    /// @dev Denominador de los basis points (10000 = 100%).
+    uint256 private constant BPS = 10_000;
+
+    /// @notice Gas que recibe el USDC en CADA pago empujado. Un `transfer` del
+    ///         FiatTokenV2_2 real a una direccion nueva cuesta ~41k (medido en
+    ///         una copia de Base, test/fork/): 300k deja ~7x de margen para una
+    ///         actualizacion del token o un reprecio del gas. Si algun dia un
+    ///         pago necesitara mas, se ACREDITA (nunca se pierde ni se traba) y
+    ///         `withdraw`, que no tiene tope, lo cobra.
+    uint256 public constant PAY_GAS = 300_000;
+
+    /// @notice Lo maximo que puede durar una partida desde que se abre:
+    ///         `playDeadline <= apertura + MAX_MATCH_DURATION`. El arbitro usa
+    ///         ~2 h; el tope acota cuanto puede trabar un deposito un asiento
+    ///         mal firmado (un bug o una llave comprometida).
+    uint64 public constant MAX_MATCH_DURATION = 2 days;
 
     /// @notice Margen tras el plazo de juego antes de habilitar el reembolso
     ///         permissionless (refundExpired). Le da al arbitro una ventana firme
@@ -98,6 +136,7 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
         uint64 fundDeadline; // plazo para que ambos depositen
         uint64 playDeadline; // plazo para decidir (antes de la gracia)
         Status status;
+        uint16 frozenFeeBps; // comision vigente al abrir: la que se cobra al liquidar
     }
 
     /// @notice Partidas por id.
@@ -135,10 +174,10 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
     event PlatformWalletUpdated(address indexed wallet);
     event FeeUpdated(uint16 feeBps);
     event AllowedStakeUpdated(uint256 amount, bool allowed);
-    event MatchOpened(bytes32 indexed id, address p1, uint256 stake);
-    event Deposited(bytes32 indexed id, address player);
+    event MatchOpened(bytes32 indexed id, address indexed p1, uint256 stake);
+    event Deposited(bytes32 indexed id, address indexed player);
     event MatchFunded(bytes32 indexed id);
-    event Settled(bytes32 indexed id, address winner, uint256 prize, uint256 fee);
+    event Settled(bytes32 indexed id, address indexed winner, uint256 prize, uint256 fee);
     event Refunded(bytes32 indexed id);
     /// @notice Un pago de la partida `id` que el USDC rechazo y quedo en `owed`.
     event Credited(bytes32 indexed id, address indexed account, uint256 amount);
@@ -153,8 +192,8 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
         address _arbiter,
         address _platformWallet,
         uint16 _feeBps,
-        address _owner
-    ) Ownable(_owner) EIP712("Arcade1v1Escrow", "2") {
+        address initialOwner
+    ) Ownable(initialOwner) EIP712("Arcade1v1Escrow", "2") {
         require(
             _usdc != address(0) &&
                 _arbiter != address(0) &&
@@ -162,28 +201,43 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
             "zero address"
         );
         require(_feeBps <= MAX_FEE_BPS, "fee too high");
+        // Comisiones pagadas al propio escrow (o al token) quedarian varadas:
+        // no son de ninguna partida ni de ningun credito.
+        require(_platformWallet != address(this) && _platformWallet != _usdc, "bad wallet");
         usdc = IERC20(_usdc);
         arbiter = _arbiter;
         platformWallet = _platformWallet;
         feeBps = _feeBps;
+        // La configuracion inicial queda en los logs, como cada cambio despues:
+        // un indexador reconstruye todo desde los eventos.
+        emit ArbiterUpdated(_arbiter);
+        emit PlatformWalletUpdated(_platformWallet);
+        emit FeeUpdated(_feeBps);
     }
 
     // --------------------------------------------------------------------- //
     //                              ADMIN                                    //
     // --------------------------------------------------------------------- //
 
+    /// @notice Rota la llave del arbitro. Desde ya, lo firmado con la anterior
+    ///         (asientos y resultados) no vale; si se vuelve a una llave usada,
+    ///         sus firmas viejas vuelven a valer (nunca volver a una filtrada).
     function setArbiter(address a) external onlyOwner {
         require(a != address(0), "zero address");
         arbiter = a;
         emit ArbiterUpdated(a);
     }
 
+    /// @notice Cambia a donde va la comision (de lo que se liquide desde ahora).
     function setPlatformWallet(address w) external onlyOwner {
         require(w != address(0), "zero address");
+        require(w != address(this) && w != address(usdc), "bad wallet");
         platformWallet = w;
         emit PlatformWalletUpdated(w);
     }
 
+    /// @notice Comision de las partidas que se ABRAN desde ahora (las abiertas
+    ///         antes cobran la suya, congelada en `Match.frozenFeeBps`).
     function setFeeBps(uint16 f) external onlyOwner {
         require(f <= MAX_FEE_BPS, "fee too high");
         feeBps = f;
@@ -194,6 +248,7 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
     ///         depositos nuevos: ni `open` ni `join`. Lo que ya esta adentro
     ///         sale igual (liquidacion, reembolsos y retiros no la miran).
     function setAllowedStake(uint256 amount, bool ok) external onlyOwner {
+        require(amount > 0, "zero stake");
         allowedStake[amount] = ok;
         emit AllowedStakeUpdated(amount, ok);
     }
@@ -227,6 +282,12 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
             fundDeadline > block.timestamp && playDeadline > fundDeadline,
             "bad deadlines"
         );
+        // Tope a lo que puede trabar un deposito (playDeadline > fundDeadline,
+        // asi que acota los dos plazos).
+        require(
+            uint256(playDeadline) <= block.timestamp + MAX_MATCH_DURATION,
+            "deadlines too far"
+        );
         // El arbitro debe haber autorizado a msg.sender para ESTA partida y con
         // ESTAS condiciones: sin esto, un observador front-runnea el open con el
         // mismo id y secuestra el slot de p1 (la partida real del rival queda
@@ -239,6 +300,7 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
         m.fundDeadline = fundDeadline;
         m.playDeadline = playDeadline;
         m.status = Status.Open;
+        m.frozenFeeBps = feeBps;
 
         usdc.safeTransferFrom(msg.sender, address(this), stake);
         emit MatchOpened(id, msg.sender, stake);
@@ -289,6 +351,15 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
         Match storage m = matches[id];
         require(m.status == Status.Funded, "not funded");
         require(block.timestamp <= deadline, "result expired");
+        // El resultado no puede sobrevivir a la apertura del reembolso: si
+        // valieran los dos a la vez, el perdedor front-runnearia un settle con
+        // refundExpired. La politica del arbitro firma exactamente este tope;
+        // el contrato ya no depende de que no se equivoque. (uint256: sin
+        // desborde con cualquier playDeadline firmado.)
+        require(
+            uint256(deadline) <= uint256(m.playDeadline) + REFUND_GRACE,
+            "deadline too late"
+        );
         require(winner == m.p1 || winner == m.p2, "bad winner");
         // Verificar que el arbitro firmo (id, winner, deadline).
         require(
@@ -300,7 +371,7 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
         m.status = Status.Settled;
 
         uint256 pot = m.stake * 2;
-        uint256 fee = (pot * feeBps) / 10000;
+        uint256 fee = (pot * m.frozenFeeBps) / BPS;
         uint256 prize = pot - fee;
 
         emit Settled(id, winner, prize, fee);
@@ -376,19 +447,52 @@ contract Escrow1v1 is Ownable2Step, ReentrancyGuard, EIP712 {
     ///      acreditado en `owed[to]`. Lo llaman solo funciones `nonReentrant`,
     ///      con el estado de la partida ya cerrado (Settled/Refunded) ANTES del
     ///      primer envio.
+    ///
+    ///      El USDC recibe SIEMPRE exactamente `PAY_GAS`. settle y dos de los
+    ///      reembolsos son permissionless y quien llama elige el gas: si el
+    ///      resultado dependiera de ese gas, alguien podria mandar el justo para
+    ///      que el pago de otro se quede sin gas y termine acreditado. Con el
+    ///      presupuesto fijo, o quien llama alcanza a darlo (y el resultado es
+    ///      el mismo con cualquier gas de mas), o la transaccion entera revierte.
+    ///      Reemplaza la guarda anterior (1/63 del gas previo), cuya premisa no
+    ///      vale detras de un proxy como el del USDC: si la falta de gas ocurre
+    ///      en la implementacion, el proxy devuelve 1/64 de lo que recibio.
     function _pay(bytes32 id, address to, uint256 amount) internal {
         if (amount == 0) return;
-        uint256 gasBefore = gasleft();
-        if (usdc.trySafeTransfer(to, amount)) return;
-        // Un envio que se quedo SIN GAS deja a este contrato con menos de 1/64
-        // del gas que tenia antes de llamar (EIP-150). Eso no es un rechazo del
-        // USDC: es quien llamo (settle y dos de los reembolsos son
-        // permissionless) mandando gas justo para convertir el pago de otro en
-        // un credito. Se revierte todo. Es el mismo chequeo que
-        // `ERC2771Forwarder` de OpenZeppelin.
-        require(gasleft() >= gasBefore / 63, "insufficient gas");
+        // EIP-150: un CALL recibe a lo sumo 63/64 de lo que queda. El margen
+        // cubre el acceso en frio a la cuenta (2600) y lo que va hasta el CALL.
+        require(gasleft() >= (PAY_GAS * 64) / 63 + 5_000, "insufficient gas");
+        if (_tryTransfer(to, amount)) return;
         owed[to] += amount;
         emit Credited(id, to, amount);
+    }
+
+    /// @dev `usdc.transfer(to, amount)` con `PAY_GAS` de gas, sin revertir:
+    ///      true solo si el token hizo el pago (devolvio `true`, o nada siendo
+    ///      un contrato). Es `SafeERC20._safeTransfer(token, to, value, false)`
+    ///      de OpenZeppelin 5.6.1 copiado tal cual, con UN cambio: el CALL
+    ///      recibe `PAY_GAS` en vez de `gas()`. Como el original, copia a lo
+    ///      sumo 32 bytes de la respuesta: un token que devolviera una respuesta
+    ///      enorme no puede cobrarle a quien llama el gas de copiarla (eso
+    ///      volveria a hacer depender el resultado del gas de quien llama).
+    function _tryTransfer(address to, uint256 amount) private returns (bool success) {
+        address token = address(usdc);
+        bytes4 selector = IERC20.transfer.selector;
+        uint256 g = PAY_GAS;
+
+        assembly ("memory-safe") {
+            let fmp := mload(0x40)
+            mstore(0x00, selector)
+            mstore(0x04, and(to, shr(96, not(0))))
+            mstore(0x24, amount)
+            success := call(g, token, 0, 0x00, 0x44, 0x00, 0x20)
+            // Si el call salio bien y devolvio true, listo. Si no, solo cuenta
+            // como pago si el token es un contrato y no devolvio nada.
+            if iszero(and(success, eq(mload(0x00), 1))) {
+                success := and(success, and(iszero(returndatasize()), gt(extcodesize(token), 0)))
+            }
+            mstore(0x40, fmp)
+        }
     }
 
     /// @notice Cobra lo que `msg.sender` tiene acreditado.
