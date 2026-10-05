@@ -1,0 +1,16 @@
+// Quién no presentó su intento a tiempo (W2), desde el lado de quien mira la
+// partida: la pantalla de la partida explica así una victoria o una derrota
+// que no salió de comparar puntajes.
+//
+// Correr: node --import tsx --test apps/web/test/result.test.ts
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { noShowSide } from "../app/lib/result.js";
+
+test("quién no presentó: el rival, vos, o nadie", () => {
+  assert.equal(noShowSide({ opponent: "0xb", noShow: "0xb" }), "rival");
+  assert.equal(noShowSide({ opponent: "0xb", noShow: "0xa" }), "you");
+  assert.equal(noShowSide({ opponent: "0xb" }), null);
+  assert.equal(noShowSide({ opponent: "0xB", noShow: "0xb" }), "rival", "sin importar mayúsculas");
+});

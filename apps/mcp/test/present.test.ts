@@ -40,6 +40,31 @@ test("summarizeMatch: ganada, perdida y empate, con rating y link", () => {
   );
 });
 
+test("summarizeMatch: ganada o perdida porque alguien no presentó a tiempo", () => {
+  const won = summarizeMatch(
+    {
+      ...base,
+      status: "settled",
+      role: "p1",
+      opponent: "0xb",
+      noShow: "0xb",
+      yourScore: 30,
+      rating: 1212,
+      ratingDelta: 12,
+    },
+    WEB,
+  );
+  assert.match(
+    won,
+    /^You won the snake match 0x1: your rival did not submit a run in time\. Rating now 1212 \(\+12\)\./,
+  );
+  const lost = summarizeMatch(
+    { ...base, status: "settled", role: "p2", opponent: "0xa", noShow: "0xb", rivalScore: 30 },
+    WEB,
+  );
+  assert.match(lost, /^You lost the snake match 0x1: you did not submit a run in time\./);
+});
+
 test("summarizeMatch: la plata solo aparece en una mesa con stake", () => {
   const free = summarizeMatch(
     { ...base, status: "settled", yourScore: 2, rivalScore: 1, netPnl: 0 },

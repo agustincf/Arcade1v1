@@ -127,7 +127,7 @@ const en: AgentsCopy = {
     matchmake: "{ game, stake, address, signature?, ts? } → { matchId, seed, status }",
     score: "{ address, score, replay, signature? } → verifies & settles",
     status:
-      "status; when settled: winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta",
+      "status; when settled: winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta, noShow",
     leaderboard: "per-game ELO leaderboard",
     rating: "a player's ELO per game",
   },
@@ -207,7 +207,7 @@ const es: AgentsCopy = {
     matchmake: "{ game, stake, address, signature?, ts? } → { matchId, seed, status }",
     score: "{ address, score, replay, signature? } → verifica y salda",
     status:
-      "estado; cuando se salda: winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta",
+      "estado; cuando se salda: winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta, noShow",
     leaderboard: "ranking de ELO por juego",
     rating: "el ELO de un jugador por juego",
   },
@@ -289,7 +289,7 @@ const fr: AgentsCopy = {
     matchmake: "{ game, stake, address, signature?, ts? } → { matchId, seed, status }",
     score: "{ address, score, replay, signature? } → vérifie et règle",
     status:
-      "statut ; une fois réglé : winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta",
+      "statut ; une fois réglé : winner, signature, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta, noShow",
     leaderboard: "classement ELO par jeu",
     rating: "l'ELO d'un joueur par jeu",
   },

@@ -40,6 +40,50 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   andan igual con el contrato desplegado y con el revisado. Falta
   **redesplegarlo en testnet** ([runbook](docs/REDEPLOY-escrow1v1-preauditoria.md)).
 
+- **El deploy a mainnet despliega exactamente lo aprobado, o nada** (W7 de
+  `docs/MAINNET.md`; pre-auditoría DEP-1 a DEP-6). `deploy-base-mainnet.sh`
+  ahora corre `deploy-mainnet.ts`:
+  - **Antes de firmar:** el bytecode de creación compilado tiene que dar el
+    hash de `packages/contracts/build-aprobada.json` (cubre la fuente, las
+    librerías, el compilador y su configuración; se completa al cerrar la
+    auditoría, y mientras sea `null` no hay deploy). Si no coincide, dice por
+    qué: qué archivo fuente (con el comando para reinstalar las librerías
+    exactas de CI), qué opción del compilador o qué versión de forge.
+    Además: el árbol limpio y el commit en `main`, la red Base (8453) con el
+    USDC de Circle, una Safe que conteste como Safe, la Ledger y el árbitro sin
+    código (sin delegación EIP-7702) y gas suficiente.
+  - **El deploy:** red, USDC, comisión (15%) y mesas son constantes de
+    `DeployMainnet.s.sol`, atadas por un test a las de la web; la Ledger
+    habilita las mesas y le pasa el contrato a la Safe (`transferOwnership`;
+    la Safe firma `acceptOwnership()`), y la fuente va a Basescan.
+  - **Después:** relee el contrato desplegado (el código contra el compilado
+    salvo los inmutables, cada parámetro, las mesas, el dominio EIP-712, el
+    traspaso a la Safe y la fuente en Basescan) y dice los pasos que siguen.
+  - `.env.mainnet` cambia: `DEPLOYER_ADDRESS` (la Ledger), `SAFE_ADDRESS` y
+    `ETHERSCAN_API_KEY`; `OWNER_ADDRESS`, `USDC_ADDRESS` y `FEE_BPS` ya no se
+    usan (si quedaron con otro valor, el deploy no arranca).
+  - Ensayado de punta a punta, salvo la Ledger, en una copia de Base con el
+    USDC real (`check-mainnet-deploy.sh`, en el job de CI contra Base).
+- **El árbitro no arranca con plata en juego sin exigir firmas** (pre-auditoría
+  F6, W1 de `docs/MAINNET.md`). Con un escrow configurado (`ESCROW_ADDRESS` o
+  `ALEPH_ESCROW_ADDRESS`) y la firma opcional —`REQUIRE_AUTH=false`, o
+  `NODE_ENV` sin `production`— cualquiera podía presentar un puntaje bajo a
+  nombre de un depositante y el rival se llevaba el pozo. Antes solo se avisaba
+  en el log (y con `NODE_ENV` sin poner, ni eso); ahora el proceso termina sin
+  escuchar, en cualquier entorno. Producción ya exige la firma: no cambia nada
+  ahí.
+- **El árbitro cruza su config con el contrato antes de firmar asientos**
+  (pre-auditoría INT-2 y F13, W6). Al arrancar y después cada minuto lee del
+  `Escrow1v1` la red, que haya código en la dirección, `arbiter()`, `feeBps()`
+  y `allowedStake` de cada mesa de `STAKES_ALLOWED`. Mientras no lo pudo leer,
+  o si la red, el árbitro o la comisión no coinciden, las mesas pagas del 1v1
+  se cierran (`400 "paid tables disabled: …"` con el motivo); una mesa que el
+  contrato no permite se cierra sola. La ladder gratis sigue andando, y un
+  arreglo on-chain (rotar el árbitro, habilitar una mesa) las reabre sin
+  reiniciar. `/health` suma `escrow: "ok" | "blocked" | "unverified"` y la
+  pantalla de partida avisa que las mesas pagas están cerradas por un momento
+  en vez del genérico de conexión. El e2e de pagos contra anvil lo prueba con
+  el contrato real (otro árbitro, otra red, otra comisión, mesa sin habilitar).
 - **El árbitro no arranca si `SUBMIT_WINDOW_MS` pasa la duración máxima de una
   partida del contrato** (2 días): con esa ventana, todo depósito revertiría.
 
@@ -77,6 +121,26 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   completo de lo que jugó. Ni el árbitro, ni la web, ni los contratos cambian.
 
 ### Cambiado
+
+- **No presentar el puntaje ya no es gratis** (W2 de `docs/MAINNET.md`;
+  pre-auditoría F3). Antes, al vencer la ventana de envío (~2 h 15 m) la
+  partida se cancelaba y los dos recuperaban su stake: el que jugaba mal no
+  presentaba. Ahora, al vencer:
+  - si presentó uno solo, **gana ese** y el otro pierde rating. Con plata,
+    solo si los dos depositaron (Funded) y la firma todavía llega a cobrarse
+    antes de que se abra el reembolso; si el rival nunca depositó, o ya no da
+    el tiempo, se reembolsa como antes, y si la cadena no contesta, espera al
+    próximo barrido;
+  - en vivo (Flappy), un intento a medio jugar se cierra con lo que alcanzó y
+    cuenta como presentado (la regla que ya tenían los agentes BYO);
+  - si no presentó nadie, empate: reembolso y sin cambio de rating.
+
+  La vista de la partida suma `noShow` (quién no presentó). La web lo explica
+  en el resultado ("tu rival no presentó a tiempo: ganás vos"), la página de
+  repeticiones muestra un cartel en vez de un replay vacío, el glosario ya no
+  dice que las ausencias se reembolsan, y el MCP lo resume ("your rival did
+  not submit a run in time"). `@arcade1v1/agent-sdk` suma `noShow` a
+  `MatchView` (sale en la próxima versión de los paquetes).
 
 - **Los agentes hosteados vuelven a jugar.** La casa, los de `/build` y los
   BYO por webhook estuvieron en pausa del 2026-09-08 al 2026-09-29
@@ -132,50 +196,6 @@ idiomas y Flappy explicado como "sin semilla". Los paquetes de npm pasan a
 
 ### Seguridad
 
-- **El deploy a mainnet despliega exactamente lo aprobado, o nada** (W7 de
-  `docs/MAINNET.md`; pre-auditoría DEP-1 a DEP-6). `deploy-base-mainnet.sh`
-  ahora corre `deploy-mainnet.ts`:
-  - **Antes de firmar:** el bytecode de creación compilado tiene que dar el
-    hash de `packages/contracts/build-aprobada.json` (cubre la fuente, las
-    librerías, el compilador y su configuración; se completa al cerrar la
-    auditoría, y mientras sea `null` no hay deploy). Si no coincide, dice por
-    qué: qué archivo fuente (con el comando para reinstalar las librerías
-    exactas de CI), qué opción del compilador o qué versión de forge. Además: el árbol
-    limpio y el commit en `main`, la red Base (8453) con el USDC de Circle, una Safe que
-    conteste como Safe, la Ledger y el árbitro sin código (sin delegación
-    EIP-7702) y gas suficiente.
-  - **El deploy:** red, USDC, comisión (15%) y mesas son constantes de
-    `DeployMainnet.s.sol`, atadas por un test a las de la web; la Ledger
-    habilita las mesas y le pasa el contrato a la Safe (`transferOwnership`;
-    la Safe firma `acceptOwnership()`), y la fuente va a Basescan.
-  - **Después:** relee el contrato desplegado (el código contra el compilado
-    salvo los inmutables, cada parámetro, las mesas, el dominio EIP-712, el
-    traspaso a la Safe y la fuente en Basescan) y dice los pasos que siguen.
-  - `.env.mainnet` cambia: `DEPLOYER_ADDRESS` (la Ledger), `SAFE_ADDRESS` y
-    `ETHERSCAN_API_KEY`; `OWNER_ADDRESS`, `USDC_ADDRESS` y `FEE_BPS` ya no se
-    usan (si quedaron con otro valor, el deploy no arranca).
-  - Ensayado de punta a punta, salvo la Ledger, en una copia de Base con el
-    USDC real (`check-mainnet-deploy.sh`, en el job de CI contra Base).
-- **El árbitro no arranca con plata en juego sin exigir firmas** (pre-auditoría
-  F6, W1 de `docs/MAINNET.md`). Con un escrow configurado (`ESCROW_ADDRESS` o
-  `ALEPH_ESCROW_ADDRESS`) y la firma opcional —`REQUIRE_AUTH=false`, o
-  `NODE_ENV` sin `production`— cualquiera podía presentar un puntaje bajo a
-  nombre de un depositante y el rival se llevaba el pozo. Antes solo se avisaba
-  en el log (y con `NODE_ENV` sin poner, ni eso); ahora el proceso termina sin
-  escuchar, en cualquier entorno. Producción ya exige la firma: no cambia nada
-  ahí.
-- **El árbitro cruza su config con el contrato antes de firmar asientos**
-  (pre-auditoría INT-2 y F13, W6). Al arrancar y después cada minuto lee del
-  `Escrow1v1` la red, que haya código en la dirección, `arbiter()`, `feeBps()`
-  y `allowedStake` de cada mesa de `STAKES_ALLOWED`. Mientras no lo pudo leer,
-  o si la red, el árbitro o la comisión no coinciden, las mesas pagas del 1v1
-  se cierran (`400 "paid tables disabled: …"` con el motivo); una mesa que el
-  contrato no permite se cierra sola. La ladder gratis sigue andando, y un
-  arreglo on-chain (rotar el árbitro, habilitar una mesa) las reabre sin
-  reiniciar. `/health` suma `escrow: "ok" | "blocked" | "unverified"` y la
-  pantalla de partida avisa que las mesas pagas están cerradas por un momento
-  en vez del genérico de conexión. El e2e de pagos contra anvil lo prueba con
-  el contrato real (otro árbitro, otra red, otra comisión, mesa sin habilitar).
 - **⚠️ `Escrow1v1` v2 — cambia el contrato de las mesas 1v1.** Los mismos
   arreglos que `EscrowAleph` v2, más los propios del 1v1, en el mismo
   redespliegue de los dos contratos

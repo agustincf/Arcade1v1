@@ -27,16 +27,30 @@ export const roomUrl = (web: string | undefined, roomId: string) =>
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
+/** El resultado de una partida decidida, para uno de sus jugadores; sin
+ *  jugador (consultada sin `address`) no hay "vos": undefined. */
+function verdictOf(v: MatchView, head: string): string | undefined {
+  if (v.noShow && v.role) {
+    // Alguien no presentó a tiempo: no hay dos puntajes que comparar.
+    return v.opponent?.toLowerCase() === v.noShow.toLowerCase()
+      ? `You won the ${head}: your rival did not submit a run in time.`
+      : `You lost the ${head}: you did not submit a run in time.`;
+  }
+  if (v.yourScore === undefined || v.rivalScore === undefined) return undefined;
+  const draw = v.status === "draw" || v.outcome === "draw" || v.yourScore === v.rivalScore;
+  const word = draw ? "Draw" : v.yourScore > v.rivalScore ? "You won" : "You lost";
+  return `${word} the ${head}: ${v.yourScore} to ${v.rivalScore}.`;
+}
+
 /** Una partida 1v1 en una o dos frases, desde el lado de quien consulta. */
 export function summarizeMatch(v: MatchView, web: string | undefined): string {
   const head = `${v.game} match ${v.matchId}`;
   const decided = v.status === "settled" || v.status === "draw";
   const parts: string[] = [];
 
-  if (decided && v.yourScore !== undefined && v.rivalScore !== undefined) {
-    const draw = v.status === "draw" || v.outcome === "draw" || v.yourScore === v.rivalScore;
-    const verdict = draw ? "Draw" : v.yourScore > v.rivalScore ? "You won" : "You lost";
-    parts.push(`${verdict} the ${head}: ${v.yourScore} to ${v.rivalScore}.`);
+  const verdict = decided ? verdictOf(v, head) : undefined;
+  if (verdict) {
+    parts.push(verdict);
     if (v.rating !== undefined) {
       parts.push(
         `Rating now ${v.rating}` +

@@ -117,6 +117,8 @@ export const es: Dict = {
   "match.draw": "EMPATE",
   "match.forfeit": "ABANDONASTE",
   "match.forfeitText": "Dejaste la partida. El pozo de {pot} USDC va para tu rival.",
+  "match.rivalNoShow": "Tu rival no presentó su intento a tiempo: ganás vos.",
+  "match.youNoShow": "No presentaste tu intento a tiempo: gana tu rival.",
   "match.cashlog": "CAJA",
   "match.cobras": "Cobrás",
   "match.loseText": "Esta vez se llevó {bet} USDC. La revancha te espera.",
@@ -446,6 +448,7 @@ export const es: Dict = {
     "Partida no encontrada (o todavía sin decidir: los replays se hacen públicos recién cuando jugaron los dos).",
   "watch.note":
     "Las dos corridas usaron la misma semilla: mismas piezas, mismos caños, misma suerte. La diferencia es pura habilidad.",
+  "watch.noShow": "No presentó su intento a tiempo.",
   "nav.build": "Crear agente",
   "nav.myagents": "Mis agentes",
   "nav.watch": "Mirar",
@@ -466,7 +469,7 @@ export const es: Dict = {
     "Un pequeño programa que juega por vos. Acá lo armás con perillas —sin código— y compite en el mismo ranking que los humanos.",
   "gloss.stake.term": "stake",
   "gloss.stake.def":
-    "Lo que ponen los dos jugadores. El ganador se lleva el pozo menos la comisión del 15%; empates y ausencias se reembolsan.",
+    "Lo que ponen los dos jugadores. El ganador se lleva el pozo menos la comisión del 15%; si uno solo presenta su intento a tiempo, gana ese. Los empates se reembolsan.",
   "agents.devLink": "Doc para devs (SDK · API · MCP)",
   "strat.2048.priority.name": "Prioridad de movimientos + codicia",
   "strat.2048.priority.priority": "Orden de movimientos (primero = favorito)",

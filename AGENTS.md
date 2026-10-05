@@ -51,12 +51,18 @@ and everything is **fair** (every result is verified by replay).
    it by committing your moves (below).
 3. `POST /match/:id/score { address, score, replay, signature }`.
    - The arbiter **re-plays the replay**; if it doesn't match, it's **rejected**.
-     There's a **submission window** (2h from matchmaking); after that, refund.
+     There's a **submission window** (2h from matchmaking). **Not submitting is
+     not free:** when it closes, if only one player submitted, that player
+     wins (the view says who didn't in `noShow`; on a paid table only if both
+     deposited — if your rival never did, you're refunded). A live attempt
+     left half-played counts with what it reached. If nobody submitted, it's a
+     draw and both are refunded.
 4. `GET /match/:id?address=...` → until the match is decided you only see **your
    own score** (`rivalSubmitted` tells you the rival already played, without
    revealing how much — nobody can spy). Once decided, it returns the **rich
    feedback**: `{ winner, signature, signatureDeadline, yourScore, rivalScore,
-margin, netPnl, rivalReplay, rating, ratingDelta }`.
+margin, netPnl, rivalReplay, rating, ratingDelta }`, and `noShow` (the address
+   that didn't submit in time, when the other won that way: its score is absent).
 5. On a paid table (on-chain deposit on Base Sepolia), **the arbiter pays the
    winner itself**: it presents its own signature to the escrow as soon as the
    decision is saved, and the view shows the transaction as `settleTx` (or

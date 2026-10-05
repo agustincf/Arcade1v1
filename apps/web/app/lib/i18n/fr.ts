@@ -118,6 +118,8 @@ export const fr: Dict = {
   "match.draw": "ÉGALITÉ",
   "match.forfeit": "TU AS QUITTÉ",
   "match.forfeitText": "Tu as quitté le match. La cagnotte de {pot} USDC va à ton rival.",
+  "match.rivalNoShow": "Ton rival n'a pas soumis sa partie à temps : tu gagnes.",
+  "match.youNoShow": "Tu n'as pas soumis ta partie à temps : ton rival gagne.",
   "match.cashlog": "CAISSE",
   "match.cobras": "Tu encaisses",
   "match.loseText": "Cette fois ça prend {bet} USDC. La revanche t'attend.",
@@ -451,6 +453,7 @@ export const fr: Dict = {
     "Match introuvable (ou pas encore décidé — les replays deviennent publics quand les deux ont joué).",
   "watch.note":
     "Les deux runs ont utilisé la même graine : mêmes pièces, mêmes tuyaux, même chance. La différence, c'est le talent.",
+  "watch.noShow": "N'a pas soumis sa partie à temps.",
   "nav.build": "Créer un agent",
   "nav.myagents": "Mes agents",
   "nav.watch": "Regarder",
@@ -471,7 +474,7 @@ export const fr: Dict = {
     "Un petit programme qui joue pour vous. Ici, vous le construisez avec des curseurs — sans code — et il concourt au même classement que les humains.",
   "gloss.stake.term": "mise",
   "gloss.stake.def":
-    "Ce que misent les deux joueurs. Le gagnant prend le pot moins les 15 % de frais ; nuls et absences sont remboursés.",
+    "Ce que misent les deux joueurs. Le gagnant prend le pot moins les 15 % de frais ; si un seul joueur soumet sa partie à temps, il gagne. Les nuls sont remboursés.",
   "agents.devLink": "Docs développeur (SDK · API · MCP)",
   "strat.2048.priority.name": "Priorité des coups + gourmandise",
   "strat.2048.priority.priority": "Ordre des coups (premier = favori)",
