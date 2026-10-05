@@ -4,7 +4,7 @@
 
 import { randomBytes, randomInt } from "node:crypto";
 import { recoverMessageAddress, type Hex } from "viem";
-import { signResult, signSeat } from "./sign.js";
+import { arbiterAddress, signResult, signSeat } from "./sign.js";
 import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
 import { verifyTetris, type ReplayTetris } from "@arcade1v1/game-sdk/tetris";
 import { verifyFlappy, type ReplayFlappy } from "@arcade1v1/game-sdk/flappy";
@@ -20,6 +20,8 @@ import {
 } from "@arcade1v1/game-sdk/auth";
 import {
   onchainEnabled,
+  escrowAddress,
+  chain,
   escrowChain,
   razonRechazoDeposito,
   ONCHAIN_STATUS,
@@ -27,6 +29,8 @@ import {
 } from "./onchain.js";
 import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
 import { jsonStore } from "./persist.js";
+import { authRequiredFor } from "./config-guard.js";
+import { paidTableClosed, type EscrowExpect } from "./escrow-check.js";
 import { forgetLiveAttempts, saveLiveAttempt, withLiveLock } from "./live-store.js";
 import { recordMatchCreated, recordMatchSettled, recordVerificationRejected } from "./stats.js";
 
@@ -196,15 +200,9 @@ export interface Match {
 // Comision (basis points) para calcular el PnL neto que se le informa al jugador.
 const FEE_BPS = Number(process.env.FEE_BPS ?? 1500);
 
-// AUTENTICACION OBLIGATORIA (secure-by-default): exigir que cada envío venga
-// firmado por la wallet del jugador. Sin esto, alguien podría mandar un puntaje
-// a nombre del rival (haciéndolo perder). Política:
-//   - REQUIRE_AUTH=true  -> obligatoria (cualquier entorno)
-//   - REQUIRE_AUTH=false -> desactivada explícitamente (opt-out, p. ej. una demo)
-//   - sin setear         -> obligatoria en producción, libre en dev (invitados)
-export const AUTH_REQUIRED =
-  process.env.REQUIRE_AUTH === "true" ||
-  (process.env.REQUIRE_AUTH !== "false" && process.env.NODE_ENV === "production");
+// AUTENTICACION OBLIGATORIA: la política está en config-guard.ts
+// (authRequiredFor), la misma que valida la guarda de arranque.
+export const AUTH_REQUIRED = authRequiredFor(process.env);
 
 const BOT = "0x000000000000000000000000000000000000b07a";
 
@@ -215,6 +213,18 @@ const STAKES_ALLOWED: number[] = (process.env.STAKES_ALLOWED ?? "1,2,5,10")
   .split(",")
   .map((s) => Number(s.trim()))
   .filter((n) => Number.isFinite(n) && n > 0);
+
+/** Lo que este árbitro espera del escrow, para cruzarlo con la cadena
+ *  (escrow-check.ts): la red y la llave con que firma, su comisión y sus mesas. */
+export function escrowExpect(): EscrowExpect {
+  return {
+    chainId: chain().id,
+    escrow: escrowAddress(),
+    arbiter: arbiterAddress(),
+    feeBps: FEE_BPS,
+    stakes: STAKES_ALLOWED,
+  };
+}
 
 /** Normaliza una dirección para usarla como clave interna (case-insensitive).
  *  Sin esto, "0xAbC..." y "0xabc..." serían DOS jugadores distintos (doble ELO,
@@ -462,6 +472,13 @@ export async function matchmake(
   // hosteados y cualquier humano que quiera ELO sin arriesgar plata.
   if (stake !== 0 && !STAKES_ALLOWED.includes(stake)) {
     throw new Error(`stake not allowed: ${stake} (mesas: 0, ${STAKES_ALLOWED.join(", ")})`);
+  }
+  // Ni un asiento firmado mientras el escrow no esté verificado contra la
+  // cadena (escrow-check.ts): con la red o el rol equivocados, la gente
+  // depositaría y ninguna firma del árbitro serviría para pagarle.
+  if (stake !== 0 && onchainEnabled()) {
+    const closed = paidTableClosed(stake);
+    if (closed) throw new Error(closed);
   }
 
   // AUTENTICACIÓN del emparejamiento (mismo criterio que el envío de puntaje):

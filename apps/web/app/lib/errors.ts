@@ -100,3 +100,11 @@ export function classifyArbiterError(e: unknown): ArbiterRejection {
   }
   return { kind: "server", reason };
 }
+
+/** true si el árbitro cerró las mesas pagas: no pudo cruzar su config con el
+ *  contrato todavía, no coincide, o el contrato no permite esa mesa (ver
+ *  apps/server/src/escrow-check.ts). La ladder gratis sigue andando. */
+export function isPaidTableClosed(e: unknown): boolean {
+  const reason = e instanceof Error ? e.message : String(e);
+  return /paid tables? disabled/i.test(reason);
+}

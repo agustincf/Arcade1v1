@@ -398,6 +398,8 @@ export const es: Dict = {
   "err.wrongNetwork":
     "Tu wallet está conectada en otra red. Aceptá el cambio de red que te propone (o pasala a {chain} a mano) y probá de nuevo.",
   "err.signFailed": "Tu wallet no pudo firmar: {reason}",
+  "err.tablesClosed":
+    "Las mesas con plata están cerradas por un momento (el árbitro está verificando el contrato). La mesa gratis sigue abierta: probá en un rato.",
   "err.rulesVersion":
     "Las reglas del juego se actualizaron mientras jugabas. Recargá la página y jugá de nuevo.",
   "build.prev": "Atrás",

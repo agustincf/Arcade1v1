@@ -26,7 +26,15 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
-import { matchmake, submitScore, onchainSettled, getMatch, type MatchView } from "./matchmaking.js";
+import {
+  matchmake,
+  submitScore,
+  onchainSettled,
+  getMatch,
+  escrowExpect,
+  type MatchView,
+} from "./matchmaking.js";
+import { verifyEscrow, paidTableClosed } from "./escrow-check.js";
 import {
   cancelMatchOnchain,
   readMatchOnchain,
@@ -154,6 +162,8 @@ async function main() {
   }
   console.log("✓ REFUND_GRACE del contrato coincide con el del árbitro:", Number(grace), "s");
 
+  await escrowCheckScenario();
+
   // Preparacion: mesa habilitada, gas para el arbitro (liquida y cancela), USDC.
   await send(owner, ESCROW, escrowAbi, "setAllowedStake", [stake, true]);
   await owner.sendTransaction({
@@ -222,6 +232,44 @@ async function main() {
 }
 
 /** Empate: los dos juegan IGUAL -> el arbitro cancela on-chain y se reembolsa. */
+/** W6: el árbitro cruza su config con el contrato REAL antes de firmar
+ *  asientos. Recién desplegado (sin mesas habilitadas) no abre ninguna mesa
+ *  paga; con las mesas habilitadas abre; y una red o un árbitro que no
+ *  coinciden cierran todo. Deja las cuatro mesas del árbitro habilitadas. */
+async function escrowCheckScenario() {
+  let g = await verifyEscrow(escrowExpect());
+  if (g.status !== "ok" || !g.closedStakes.includes(5)) {
+    fail(`contrato sin mesas: se esperaba ok con la de 5 cerrada, fue ${JSON.stringify(g)}`);
+  }
+  try {
+    await matchmake("2048", 5, P1);
+    fail("se emparejó una mesa que el contrato no permite");
+  } catch (e) {
+    if (!/stake 5 is not allowed/.test((e as Error).message)) throw e;
+  }
+  console.log("✓ escrow-check: una mesa que el contrato no permite no se abre");
+
+  for (const s of escrowExpect().stakes) {
+    await send(owner, ESCROW, escrowAbi, "setAllowedStake", [BigInt(s * 1_000_000), true]);
+  }
+  g = await verifyEscrow(escrowExpect());
+  if (g.status !== "ok" || g.closedStakes.length) fail(`mesas habilitadas: ${JSON.stringify(g)}`);
+  console.log("✓ escrow-check: red, contrato, árbitro, comisión y mesas coinciden");
+
+  for (const [what, wrong] of [
+    ["otro árbitro", { arbiter: P1 }],
+    ["otra red", { chainId: 8453 }],
+    ["otra comisión", { feeBps: 1000 }],
+  ] as const) {
+    g = await verifyEscrow({ ...escrowExpect(), ...wrong });
+    if (g.status !== "blocked") fail(`escrow-check con ${what}: ${JSON.stringify(g)}`);
+    if (!paidTableClosed(5)) fail(`escrow-check con ${what}: la mesa de 5 siguió abierta`);
+    console.log(`✓ escrow-check: ${what} cierra las mesas pagas (${g.reasons[0]})`);
+  }
+  g = await verifyEscrow(escrowExpect());
+  if (g.status !== "ok") fail(`escrow-check no se recuperó: ${JSON.stringify(g)}`);
+}
+
 async function drawScenario() {
   console.log("\n--- Empate (reembolso on-chain) ---");
   const stake = 10_000_000n;

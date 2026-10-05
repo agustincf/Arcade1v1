@@ -18,6 +18,8 @@ process.env.ARBITER_PRIVATE_KEY =
 const { RULES_V } = await import("@arcade1v1/game-sdk/rules");
 RULES_V.flappy = 2;
 const { matchmake } = await import("../src/matchmaking.js");
+// Escrow verificado contra una cadena que contesta lo esperado (escrow-ok.ts).
+await (await import("./escrow-ok.js")).escrowVerified();
 const { liveStart } = await import("../src/live.js");
 
 test("mesa de plata: sin poder leer el depósito on-chain no se abre el intento", async () => {

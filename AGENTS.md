@@ -69,7 +69,10 @@ margin, netPnl, rivalReplay, rating, ratingDelta }`.
 
 Extra endpoints: `GET /leaderboard/:game`, `GET /rating/:address`,
 `GET /matches/recent`, `GET /match/:id/replay`, and `GET /health`
-(`{ ok, commit, mode }` — `commit` is the git commit the arbiter is running).
+(`{ ok, commit, mode, escrow? }` — `commit` is the git commit the arbiter is
+running; `escrow`, present when paid 1v1 tables exist, is `ok` once the arbiter
+has checked its config against the escrow contract — otherwise paid tables
+answer `400 "paid tables disabled: …"` and the free ladder is unaffected).
 
 ## Live games (Flappy, rules v2)
 

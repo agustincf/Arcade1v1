@@ -527,7 +527,7 @@ settles, so the deck cannot be rewritten after the fact.
   hosted-agent CRUD and runner (`agents.ts`/`agents-routes.ts`/
   `agent-runner.ts`), ELO (`ratings.ts`), persistence (`persist.ts`,
   Redis/file), the deploy handoff (`handover.ts`/`lease.ts`/`readiness.ts`,
-  §10), the deployed commit for `/health` (`version.ts`), production fail-fast checks (`config-guard.ts`), and the
+  §10), the deployed commit for `/health` (`version.ts`), start-up fail-fast checks (`config-guard.ts`), the escrow cross-check that gates paid 1v1 tables (`escrow-check.ts`), and the
   self-test suite that exercises every verifier (`selftest.ts`).
 - **`apps/mcp`** — a thin protocol adapter; it owns no game or match logic,
   only MCP tool registration over `agent-sdk`.
@@ -591,7 +591,10 @@ arcade:lease:epoch`, which is atomic; the owner is the instance holding the
 - **`/health`** returns `{ ok, commit, mode }`: `commit` is the first 7
   characters of `RENDER_GIT_COMMIT` (`version.ts`, `null` outside Render),
   enough to confirm from outside which build is serving and how the handoff
-  ended.
+  ended. With the 1v1 escrow on it adds `escrow` (`ok`/`blocked`/`unverified`):
+  the `escrow-check` job compares the chain, `arbiter()`, `feeBps()` and
+  `allowedStake` with the arbiter's config every minute, and paid tables stay
+  closed until they match.
 
 Design: `docs/superpowers/specs/2026-09-18-traspaso-con-timbre-design.md`.
 

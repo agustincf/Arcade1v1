@@ -78,6 +78,26 @@ idiomas y Flappy explicado como "sin semilla". Los paquetes de npm pasan a
 
 ### Seguridad
 
+- **El árbitro no arranca con plata en juego sin exigir firmas** (pre-auditoría
+  F6, W1 de `docs/MAINNET.md`). Con un escrow configurado (`ESCROW_ADDRESS` o
+  `ALEPH_ESCROW_ADDRESS`) y la firma opcional —`REQUIRE_AUTH=false`, o
+  `NODE_ENV` sin `production`— cualquiera podía presentar un puntaje bajo a
+  nombre de un depositante y el rival se llevaba el pozo. Antes solo se avisaba
+  en el log (y con `NODE_ENV` sin poner, ni eso); ahora el proceso termina sin
+  escuchar, en cualquier entorno. Producción ya exige la firma: no cambia nada
+  ahí.
+- **El árbitro cruza su config con el contrato antes de firmar asientos**
+  (pre-auditoría INT-2 y F13, W6). Al arrancar y después cada minuto lee del
+  `Escrow1v1` la red, que haya código en la dirección, `arbiter()`, `feeBps()`
+  y `allowedStake` de cada mesa de `STAKES_ALLOWED`. Mientras no lo pudo leer,
+  o si la red, el árbitro o la comisión no coinciden, las mesas pagas del 1v1
+  se cierran (`400 "paid tables disabled: …"` con el motivo); una mesa que el
+  contrato no permite se cierra sola. La ladder gratis sigue andando, y un
+  arreglo on-chain (rotar el árbitro, habilitar una mesa) las reabre sin
+  reiniciar. `/health` suma `escrow: "ok" | "blocked" | "unverified"` y la
+  pantalla de partida avisa que las mesas pagas están cerradas por un momento
+  en vez del genérico de conexión. El e2e de pagos contra anvil lo prueba con
+  el contrato real (otro árbitro, otra red, otra comisión, mesa sin habilitar).
 - **⚠️ `Escrow1v1` v2 — cambia el contrato de las mesas 1v1.** Los mismos
   arreglos que `EscrowAleph` v2, más los propios del 1v1, en el mismo
   redespliegue de los dos contratos

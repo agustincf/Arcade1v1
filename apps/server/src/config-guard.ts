@@ -12,6 +12,42 @@ const ZERO = "0x0000000000000000000000000000000000000000";
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const PRIVKEY_RE = /^0x[0-9a-fA-F]{64}$/;
 
+const escrowSet = (raw: string | undefined) => {
+  const a = (raw || "").trim().toLowerCase();
+  return !!a && a !== ZERO;
+};
+
+// AUTENTICACION OBLIGATORIA (secure-by-default): exigir que cada envío venga
+// firmado por la wallet del jugador. Sin esto, alguien podría mandar un puntaje
+// a nombre del rival (haciéndolo perder). Política:
+//   - REQUIRE_AUTH=true  -> obligatoria (cualquier entorno)
+//   - REQUIRE_AUTH=false -> desactivada explícitamente (opt-out, p. ej. una demo)
+//   - sin setear         -> obligatoria en producción, libre en dev (invitados)
+// Vive acá (y matchmaking.ts la usa) para que la guarda de arranque valide
+// exactamente la misma regla que aplica el árbitro.
+export function authRequiredFor(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (
+    env.REQUIRE_AUTH === "true" || (env.REQUIRE_AUTH !== "false" && env.NODE_ENV === "production")
+  );
+}
+
+/** Con un escrow configurado (el del 1v1 o el de Aleph) hay plata en juego, y
+ *  sin firma obligatoria cualquiera actúa a nombre de un depositante: presenta
+ *  un puntaje bajo por él y el rival se lleva el pozo (pre-auditoría F6).
+ *  Antes eso solo se avisaba en el log, y con `NODE_ENV` sin poner ni siquiera
+ *  eso. Vale en CUALQUIER entorno: no depende de que alguien se acuerde de
+ *  poner `NODE_ENV=production`. */
+export function moneyAuthErrors(env: NodeJS.ProcessEnv = process.env): string[] {
+  if (!escrowSet(env.ESCROW_ADDRESS) && !escrowSet(env.ALEPH_ESCROW_ADDRESS)) return [];
+  if (authRequiredFor(env)) return [];
+  return [
+    "Hay un escrow configurado (ESCROW_ADDRESS o ALEPH_ESCROW_ADDRESS) pero la firma no es obligatoria " +
+      `(REQUIRE_AUTH=${env.REQUIRE_AUTH ?? "sin poner"}, NODE_ENV=${env.NODE_ENV ?? "sin poner"}): ` +
+      "cualquiera podría presentar un puntaje a nombre de un depositante. " +
+      "Poné NODE_ENV=production (y quitá REQUIRE_AUTH=false), o REQUIRE_AUTH=true.",
+  ];
+}
+
 export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): string[] {
   if (env.NODE_ENV !== "production") return [];
 

@@ -60,6 +60,8 @@ const { SecretSource } = await import("@arcade1v1/game-sdk/live");
 const { verifyFlappyLive } = await import("@arcade1v1/game-sdk/flappy-live");
 const { runStrategy } = await import("@arcade1v1/strategies");
 const mm = await import("../src/matchmaking.js");
+// Escrow verificado contra una cadena que contesta lo esperado (escrow-ok.ts).
+await (await import("./escrow-ok.js")).escrowVerified();
 const live = await import("../src/live.js");
 
 const forfeit = { ticks: 0, flaps: [], v: 2 };

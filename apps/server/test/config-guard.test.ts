@@ -6,7 +6,12 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { productionConfigErrors, parseTrustProxy } from "../src/config-guard.js";
+import {
+  authRequiredFor,
+  moneyAuthErrors,
+  productionConfigErrors,
+  parseTrustProxy,
+} from "../src/config-guard.js";
 
 const OK = {
   NODE_ENV: "production",
@@ -190,4 +195,48 @@ test("parseTrustProxy: saltos, booleanos, IP y basura", () => {
   assert.equal(parseTrustProxy("10.0.0.0/8"), "10.0.0.0/8");
   assert.equal(parseTrustProxy("basura"), undefined);
   assert.equal(parseTrustProxy(""), undefined);
+});
+
+// W1 (pre-auditoría F6): con un escrow configurado, el árbitro no arranca sin
+// exigir firmas. Antes solo avisaba (y con NODE_ENV sin poner, ni eso):
+// cualquiera presentaba un puntaje bajo a nombre de un depositante y el rival se
+// llevaba el pozo. Esta regla vale en CUALQUIER entorno, no solo en producción.
+
+const ESCROW_1V1 = { ESCROW_ADDRESS: "0x" + "a".repeat(40) };
+
+test("authRequiredFor: obligatoria en producción, libre en dev, y REQUIRE_AUTH manda", () => {
+  const env = (e: Record<string, string>) => e as unknown as NodeJS.ProcessEnv;
+  assert.equal(authRequiredFor(env({})), false);
+  assert.equal(authRequiredFor(env({ NODE_ENV: "production" })), true);
+  assert.equal(authRequiredFor(env({ NODE_ENV: "production", REQUIRE_AUTH: "false" })), false);
+  assert.equal(authRequiredFor(env({ REQUIRE_AUTH: "true" })), true);
+});
+
+test("escrow del 1v1 sin NODE_ENV ni REQUIRE_AUTH: no arranca", () => {
+  const errs = moneyAuthErrors(ESCROW_1V1 as unknown as NodeJS.ProcessEnv);
+  assert.equal(errs.length, 1);
+  assert.match(errs[0], /REQUIRE_AUTH/);
+});
+
+test("escrow del 1v1 en producción con REQUIRE_AUTH=false: no arranca", () => {
+  const env = { ...ESCROW_1V1, NODE_ENV: "production", REQUIRE_AUTH: "false" };
+  assert.equal(moneyAuthErrors(env as unknown as NodeJS.ProcessEnv).length, 1);
+});
+
+test("escrow de Aleph solo, sin firma obligatoria: tampoco arranca", () => {
+  const env = { ALEPH_ESCROW_ADDRESS: "0x" + "c".repeat(40) };
+  assert.equal(moneyAuthErrors(env as unknown as NodeJS.ProcessEnv).length, 1);
+});
+
+test("escrow con firma obligatoria (producción o REQUIRE_AUTH=true): arranca", () => {
+  const prod = { ...ESCROW_1V1, NODE_ENV: "production" };
+  const dev = { ...ESCROW_1V1, REQUIRE_AUTH: "true" };
+  assert.deepEqual(moneyAuthErrors(prod as unknown as NodeJS.ProcessEnv), []);
+  assert.deepEqual(moneyAuthErrors(dev as unknown as NodeJS.ProcessEnv), []);
+});
+
+test("sin escrow (o con la dirección cero) no hay plata: la firma puede ser opcional", () => {
+  assert.deepEqual(moneyAuthErrors({} as NodeJS.ProcessEnv), []);
+  const zero = { ESCROW_ADDRESS: "0x" + "0".repeat(40), REQUIRE_AUTH: "false" };
+  assert.deepEqual(moneyAuthErrors(zero as unknown as NodeJS.ProcessEnv), []);
 });
