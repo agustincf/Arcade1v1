@@ -9,6 +9,11 @@
 import { persistenceBackendFor } from "./persist.js";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
+
+/** Espejo de `Escrow1v1.MAX_MATCH_DURATION` (2 días, en segundos): el contrato
+ *  rechaza ("deadlines too far") un asiento cuya partida termine más allá de
+ *  eso desde que se abre. */
+export const ESCROW_MAX_MATCH_DURATION_S = 2 * 24 * 60 * 60;
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const PRIVKEY_RE = /^0x[0-9a-fA-F]{64}$/;
 
@@ -89,6 +94,19 @@ export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): st
     errors.push(
       "ARBITER_PRIVATE_KEY mal formada: debe ser 0x + 64 hex (32 bytes). " +
         "Una clave truncada o con espacios/saltos de línea no firma resultados válidos.",
+    );
+  }
+
+  // El plazo de juego que el árbitro firma en cada asiento sale de
+  // SUBMIT_WINDOW_MS (y nunca se firma antes de crear la partida, así que de
+  // ahí al depósito solo puede achicarse). Si pasa el tope del contrato, CADA
+  // depósito revierte con "deadlines too far": mejor no arrancar.
+  const submitRaw = (env.SUBMIT_WINDOW_MS || "").trim();
+  if (onchain && submitRaw && !(Number(submitRaw) <= ESCROW_MAX_MATCH_DURATION_S * 1000)) {
+    errors.push(
+      `SUBMIT_WINDOW_MS ("${submitRaw}") pasa el tope del contrato: una partida dura como mucho ` +
+        `${ESCROW_MAX_MATCH_DURATION_S * 1000} ms (Escrow1v1.MAX_MATCH_DURATION, 2 días) y con esa ventana ` +
+        "todo depósito revierte.",
     );
   }
 

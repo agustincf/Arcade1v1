@@ -19,12 +19,20 @@ sleep 2
 
 KEY0=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ACCT1=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+ACCT2=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
 
 cd "$ROOT/packages/contracts"
+# Solo se comparan digests: el "USDC" puede ser cualquier dirección. La wallet de
+# la plataforma va aparte: el constructor rechaza que sea el token mismo.
 ESCROW=$(forge create src/Escrow1v1.sol:Escrow1v1 \
   --rpc-url http://localhost:8545 --private-key "$KEY0" --broadcast \
-  --constructor-args "$ACCT1" "$ACCT1" "$ACCT1" 1500 "$ACCT1" 2>/dev/null \
+  --constructor-args "$ACCT1" "$ACCT1" "$ACCT2" 1500 "$ACCT1" 2>/dev/null \
   | grep "Deployed to:" | awk '{print $3}')
+if [ -z "$ESCROW" ]; then
+  echo "No se pudo desplegar Escrow1v1 en anvil ❌"
+  kill $ANVIL_PID 2>/dev/null || true
+  exit 1
+fi
 
 MATCHID=0x1111111111111111111111111111111111111111111111111111111111111111
 WINNER=$ACCT1

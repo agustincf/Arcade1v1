@@ -112,6 +112,11 @@ export const escrowAbi = [
     outputs: [{ type: "address" }],
     stateMutability: "view",
   },
+  // El getter devuelve, desde la revisión pre-auditoría de Escrow1v1, un
+  // campo más al final (`frozenFeeBps`, la comisión congelada al abrir). NO se
+  // decodifica a propósito: viem ignora lo que sobra, así que esta ABI sirve
+  // para el contrato desplegado y para el revisado. Agregarlo antes de que
+  // todos los entornos tengan el contrato nuevo rompe la lectura del viejo.
   {
     type: "function",
     name: "matches",

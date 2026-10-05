@@ -6,7 +6,31 @@ test = "test"
 solc = "0.8.24"
 optimizer = true
 optimizer_runs = 200
+# Build reproducible (lo que se audita y lo que se despliega tienen que dar el
+# mismo bytecode y la misma metadata): la EVM fija (OpenZeppelin 5.6 usa mcopy,
+# que pide cancun) y solo las remappings de remappings.txt, no las que forge
+# encuentra adentro de lib/ y terminan en la metadata.
+evm_version = "cancun"
+auto_detect_remappings = false
 
 # Variables de entorno usadas por los scripts de despliegue:
 #   BASE_SEPOLIA_RPC_URL, PRIVATE_KEY, USDC_ADDRESS, ARBITER_ADDRESS,
 #   PLATFORM_WALLET, FEE_BPS
+
+# Invariantes (test/invariant/): el fuzzer arma secuencias al azar de
+# operaciones y después de cada una chequea las reglas. `fail_on_revert` en
+# false porque el handler prueba a propósito cosas que TIENEN que revertir (y
+# anota como violación lo que no revierte, o lo que revierte sin deber).
+[invariant]
+runs = 256
+depth = 100
+fail_on_revert = false
+show_metrics = true
+
+# Pasada profunda, la que se corrió para el paquete de auditoría:
+#   FOUNDRY_PROFILE=deep forge test --match-path 'test/invariant/*'
+[profile.deep.invariant]
+runs = 2000
+depth = 300
+fail_on_revert = false
+show_metrics = true
