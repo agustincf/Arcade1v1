@@ -1,51 +1,32 @@
 #!/usr/bin/env bash
-# Despliegue a Base MAINNET — DINERO REAL. Con guardas y wallet de hardware.
+# Despliegue de Escrow1v1 a Base MAINNET — DINERO REAL. Firma una Ledger; la
+# dueña final es una Safe. Todo lo que hace está en deploy-mainnet.ts:
+#   1. chequeos: el código es EXACTAMENTE el aprobado (build-aprobada.json), el
+#      árbol está limpio y el commit en main, la red es Base con el USDC real,
+#      la Safe es una Safe, la Ledger y el árbitro son cuentas comunes, y
+#      alcanza el gas. Si algo falla, no se firma nada.
+#   2. confirmación (escribir MAINNET) y deploy: el contrato, las 4 mesas y el
+#      traspaso a la Safe (6 firmas en la Ledger), y la fuente a Basescan.
+#   3. relectura del contrato desplegado, y los pasos que siguen (la Safe
+#      acepta, el árbitro y la web apuntan al contrato).
 #
-# Requisitos (ver .env.mainnet.example + el checklist de DEPLOY.md):
-#   - Una WALLET DE HARDWARE (Ledger/Trezor) conectada, con ETH real para gas.
-#   - .env.mainnet completo (USDC real, ARBITER_ADDRESS, PLATFORM_WALLET, FEE_BPS,
-#     OWNER_ADDRESS). OWNER_ADDRESS = la dirección de tu hardware wallet.
+# Requisitos: la Ledger conectada (app de Ethereum abierta) con ETH real en Base,
+# `npm ci` en la raíz, y packages/contracts/.env.mainnet con DEPLOYER_ADDRESS
+# (la Ledger), SAFE_ADDRESS, ARBITER_ADDRESS, PLATFORM_WALLET,
+# ETHERSCAN_API_KEY y BASE_MAINNET_RPC_URL (ver DEPLOY.md).
 #
-# Uso:  bash packages/contracts/deploy-base-mainnet.sh
+# Uso:  bash packages/contracts/deploy-base-mainnet.sh            # desplegar
+#       bash packages/contracts/deploy-base-mainnet.sh chequeos   # solo mirar
+#       bash packages/contracts/deploy-base-mainnet.sh verificar <dirección>
+#       bash packages/contracts/deploy-base-mainnet.sh fuente <dirección>
+#       bash packages/contracts/deploy-base-mainnet.sh hash
 set -euo pipefail
-export PATH="$HOME/.foundry/bin:$PATH"
 cd "$(dirname "$0")"
 
 ENV_FILE=".env.mainnet"
-[ -f "$ENV_FILE" ] || { echo "❌ Falta $ENV_FILE (copialo de .env.mainnet.example y completalo)"; exit 1; }
-set -a; . "$ENV_FILE"; set +a
+[ -f "$ENV_FILE" ] || { echo "❌ Falta packages/contracts/$ENV_FILE (ver DEPLOY.md)"; exit 1; }
+set -a
+. "./$ENV_FILE"
+set +a
 
-# Exigir todas las variables (sin claves: la firma la pone la hardware wallet).
-for v in BASE_MAINNET_RPC_URL USDC_ADDRESS ARBITER_ADDRESS PLATFORM_WALLET FEE_BPS OWNER_ADDRESS; do
-  [ -n "${!v:-}" ] || { echo "❌ Falta $v en $ENV_FILE"; exit 1; }
-done
-
-# Confirmar que el USDC configurado es el real de Base (symbol == USDC, 6 decimales).
-SYM=$(cast call "$USDC_ADDRESS" 'symbol()(string)' --rpc-url "$BASE_MAINNET_RPC_URL" 2>/dev/null || echo "")
-DEC=$(cast call "$USDC_ADDRESS" 'decimals()(uint8)' --rpc-url "$BASE_MAINNET_RPC_URL" 2>/dev/null || echo "")
-echo "USDC configurado: $USDC_ADDRESS  ($SYM, $DEC decimales)"
-[ "$SYM" = '"USDC"' ] && [ "$DEC" = "6" ] || { echo "❌ Ese USDC_ADDRESS no parece el USDC real de Base. Abortando."; exit 1; }
-
-cat <<EOF
-
-⚠️  ESTÁS POR DESPLEGAR EN BASE MAINNET — ESTO MANEJA DINERO REAL.
-    Dueño/admin del contrato : $OWNER_ADDRESS  (debe ser tu hardware wallet)
-    Árbitro (firma pagos)    : $ARBITER_ADDRESS
-    Wallet de comisión       : $PLATFORM_WALLET
-    Comisión                 : $FEE_BPS bps
-    USDC                     : $USDC_ADDRESS
-
-EOF
-read -r -p 'Escribí MAINNET en mayúsculas para confirmar: ' CONFIRM
-[ "$CONFIRM" = "MAINNET" ] || { echo "Cancelado."; exit 1; }
-
-echo "🚀 Desplegando (firmá en tu hardware wallet)..."
-# --ledger: firma con Ledger. Para Trezor usá --trezor; para un keystore, --account <nombre>.
-forge script script/DeployMainnet.s.sol:DeployMainnet \
-  --rpc-url "$BASE_MAINNET_RPC_URL" \
-  --ledger --sender "$OWNER_ADDRESS" \
-  --broadcast -vv
-
-echo ""
-echo "✅ Listo. Pegá las líneas NEXT_PUBLIC_... en apps/web (producción),"
-echo "   y ESCROW_ADDRESS/CHAIN_ID=8453 en el árbitro (producción). Reiniciá ambos."
+exec ../../node_modules/.bin/tsx deploy-mainnet.ts "${@:-desplegar}"
