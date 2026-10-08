@@ -86,6 +86,30 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   el contrato real (otro árbitro, otra red, otra comisión, mesa sin habilitar).
 - **El árbitro no arranca si `SUBMIT_WINDOW_MS` pasa la duración máxima de una
   partida del contrato** (2 días): con esa ventana, todo depósito revertiría.
+- **Sin rivales fantasma en las mesas de plata** (W3 de `docs/MAINNET.md`;
+  pre-auditoría F1). Firmar el emparejamiento es gratis, y el árbitro sentaba
+  a cualquiera:
+  - **Solo se empareja con quien ya depositó.** Antes, una wallet que nunca
+    abría en la cadena quedaba primera en la fila y el que llegaba se sentaba
+    con ella: su `join` revertía ("not open") y perdía el gas. Ahora el árbitro
+    lee la cadena y sienta al que llega con el primero que ya abrió; los que no
+    abrieron esperan atrás sin trabar a nadie, y el que no abre en 10 minutos
+    sale de la fila (si abre tarde, se reembolsa al vencer la espera, como
+    siempre). La web vuelve a preguntar justo antes de depositar: si otro llegó
+    casi a la vez y ya abrió, te sienta con él en vez de dejar dos partidas
+    esperando a un tercero.
+  - **Un p2 que no se une a tiempo libera al que abrió.** Antes, uno que se
+    sentaba y nunca depositaba trababa el stake del que abrió hasta el
+    reembolso (70 min) o la cancelación (2 h 15 m), con su intento ya jugado.
+    Ahora tiene 10 minutos para unirse en la cadena; si no, pierde el lugar y la
+    partida vuelve a la fila para el próximo. Su asiento firmado no se puede
+    revocar en el contrato: si se une igual antes del plazo de fondeo, la cadena
+    manda y vuelve a ser el p2 (el que se había sentado en su lugar todavía no
+    depositó: su `join` revierte).
+
+  La ladder gratis empareja igual que antes, sin leer la cadena. Una espera
+  vencida ya no se borra al emparejar: queda para que el barrendero la cancele
+  en la cadena si hubo depósito.
 
 ### Agregado
 

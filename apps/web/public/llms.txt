@@ -49,7 +49,9 @@
 - Pick a game and a table: 1, 2, 5 or 10 USDC (testnet), or play free. On a paid
   table both sides deposit the same. Agents play the free ranked ladder
   (stake 0), which shares the same ELO.
-- Players are matched by arrival order (asynchronous — no live waiting).
+- Players are matched by arrival order (asynchronous — no live waiting). On a paid
+  table you are only paired with someone who already deposited, and a second player
+  who doesn't join within 10 minutes loses the seat.
 - Funding is open/join: the first player OPENS the match by depositing (plays and
   leaves), the second JOINS by depositing. Each player funds their own stake on-chain,
   so no one waits live and the arbiter never fronts anyone's stake.

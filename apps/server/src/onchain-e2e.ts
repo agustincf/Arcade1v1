@@ -110,8 +110,9 @@ const blacklistAbi = [
 
 /** P1 ABRE con las condiciones de SU vista (las que firmó el árbitro) y P2 se
  *  UNE con su asiento. Sin asiento, o con otras condiciones, revierten. */
-async function openAndJoin(v1: MatchView, v2: MatchView, stake: bigint) {
-  if (!v1.seatSig || !v2.seatSig || v1.fundDeadline === undefined || !v1.playDeadline) {
+/** P1 abre (deposita) con el asiento y los plazos que le dio el árbitro. */
+async function openAsP1(v1: MatchView, stake: bigint) {
+  if (!v1.seatSig || v1.fundDeadline === undefined || !v1.playDeadline) {
     throw new Error("matchmake no emitió el asiento y sus plazos (¿escrow activo?)");
   }
   await send(p1, ESCROW, escrowAbi, "open", [
@@ -121,7 +122,18 @@ async function openAndJoin(v1: MatchView, v2: MatchView, stake: bigint) {
     BigInt(v1.playDeadline),
     v1.seatSig,
   ]);
-  await send(p2, ESCROW, escrowAbi, "join", [v2.matchId, v2.seatSig]);
+}
+
+/** P1 empareja y abre; recién entonces P2 se sienta (W3: solo se empareja con
+ *  quien ya depositó) y se une. */
+async function pairFunded(table: number, stake: bigint): Promise<[MatchView, MatchView]> {
+  const m1 = await matchmake("2048", table, P1);
+  await openAsP1(m1, stake);
+  const m2 = await matchmake("2048", table, P2);
+  if (m2.matchId !== m1.matchId) fail("P2 no se sentó en la partida que P1 ya abrió");
+  if (!m2.seatSig) throw new Error("matchmake no emitió el asiento del p2");
+  await send(p2, ESCROW, escrowAbi, "join", [m2.matchId, m2.seatSig]);
+  return [m1, m2];
 }
 
 /** USDC y approve exacto para los dos jugadores. */
@@ -173,20 +185,17 @@ async function main() {
   });
   await fundBoth(stake);
 
-  // 1) Emparejamiento (backend): A es p1, B es p2 (mismo matchId).
-  const m1 = await matchmake("2048", 5, P1);
-  const m2 = await matchmake("2048", 5, P2);
+  // 1) Emparejamiento + depósitos: P1 ABRE (deposita), recién ahí P2 se sienta
+  //    (mismo matchId) y se UNE (deposita). El árbitro no toca nada. Cada uno
+  //    presenta su ASIENTO (firma del árbitro que lo autoriza a ESA partida con
+  //    ESAS condiciones): sin él, open/join revierten "bad seat".
+  const [m1, m2] = await pairFunded(5, stake);
   console.log("✓ emparejados:", m1.matchId === m2.matchId);
   console.log(
     "✓ las dos vistas traen las MISMAS condiciones:",
     m1.fundDeadline === m2.fundDeadline && m1.playDeadline === m2.playDeadline,
   );
 
-  // 2) P1 ABRE (deposita), P2 se UNE (deposita). El arbitro no toca nada.
-  //    Cada uno presenta su ASIENTO (firma del árbitro que lo autoriza a ESA
-  //    partida con ESAS condiciones): sin él, open/join revierten "bad seat".
-  //    El backend lo emite en la respuesta de matchmake para mesas de plata.
-  await openAndJoin(m1, m2, stake);
   console.log("✓ P1 abrió + P2 se unió · escrow:", usd(await bal(ESCROW)), "USDC");
 
   // 3) Juegan y el arbitro decide + firma (P1 gana)...
@@ -280,9 +289,7 @@ async function drawScenario() {
   const bE = await bal(ESCROW);
   const bP = await bal(PLATFORM);
 
-  const m1 = await matchmake("2048", 10, P1);
-  const m2 = await matchmake("2048", 10, P2);
-  await openAndJoin(m1, m2, stake);
+  const [m1, m2] = await pairFunded(10, stake);
 
   const a = play2048(m1.seed, 80);
   await submitScore(m1.matchId, P1, a.score, a.replay);
@@ -337,7 +344,11 @@ async function ghostScenario() {
   // Y el control: el mismo jugador, DESPUÉS de depositar, sí puede enviar.
   await send(owner, USDC, erc20Abi, "mint", [P1, stake]);
   await send(p1, USDC, erc20Abi, "approve", [ESCROW, stake]);
-  const m2 = await matchmake("2048", 1, P2); // se empareja con la de P1
+  // W3: mientras P1 no abrió, el que llega NO se sienta con él (su join
+  // revertiría "not open"): espera en su propia partida.
+  const early = await matchmake("2048", 1, P2);
+  if (early.matchId === m.matchId) fail("P2 se sentó con un P1 que todavía no abrió");
+  console.log("✓ el que llega no se sienta con quien no abrió (espera aparte)");
   if (!m.seatSig || m.fundDeadline === undefined || m.playDeadline === undefined) {
     throw new Error("matchmake no emitió el asiento");
   }
@@ -348,13 +359,16 @@ async function ghostScenario() {
     BigInt(m.playDeadline),
     m.seatSig as Hex,
   ]);
+  // Y P2, que todavía no abrió la suya, al volver a preguntar (la web lo hace
+  // antes de depositar) pasa a la partida de P1, que ya está en la cadena.
+  const m2 = await matchmake("2048", 1, P2);
+  if (m2.matchId !== m.matchId || m2.role !== "p2") {
+    fail("P2 no pasó a la partida que P1 ya abrió");
+  }
+  console.log("✓ al volver a preguntar, P2 pasa a la partida que P1 ya abrió");
   const run2 = play2048(m.seed, 120);
   await submitScore(m.matchId, P1, run2.score, run2.replay);
-  console.log(
-    "✓ el mismo jugador, ya depositado, SÍ envía:",
-    true,
-    `(rival ${m2.matchId === m.matchId ? "emparejado" : "?"})`,
-  );
+  console.log("✓ el mismo jugador, ya depositado, SÍ envía:", true);
 
   console.log("\nGUARDA DE DEPÓSITO ON-CHAIN VERIFICADA ✅");
 }
@@ -368,9 +382,7 @@ async function winnerBeatsTheArbiter() {
   console.log("\n--- El ganador presenta la firma mientras viaja la del árbitro ---");
   const stake = 5_000_000n;
   await fundBoth(stake);
-  const m1 = await matchmake("2048", 5, P1);
-  const m2 = await matchmake("2048", 5, P2);
-  await openAndJoin(m1, m2, stake);
+  const [m1, m2] = await pairFunded(5, stake);
   const sA = play2048(m1.seed, 500);
   await submitScore(m1.matchId, P1, sA.score, sA.replay);
   const b1 = await bal(P1);
@@ -426,9 +438,7 @@ async function blacklistedWinner() {
   console.log("\n--- Ganador en la blacklist de USDC (crédito y retiro) ---");
   const stake = 10_000_000n;
   await fundBoth(stake);
-  const m1 = await matchmake("2048", 10, P1);
-  const m2 = await matchmake("2048", 10, P2);
-  await openAndJoin(m1, m2, stake);
+  const [m1, m2] = await pairFunded(10, stake);
   const [b1, bP] = await Promise.all([bal(P1), bal(PLATFORM)]);
   await send(owner, USDC, blacklistAbi as unknown as Abi, "blacklist", [P1, true]);
 

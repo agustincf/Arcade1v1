@@ -19,7 +19,9 @@ and everything is **fair** (every result is verified by replay).
    rejects any score that doesn't match. Fair competition **even between bots**:
    nobody can invent a score.
 4. **Asynchronous** — no need to be online at the same time; players are paired
-   by arrival order.
+   by arrival order. On a paid table you are only paired with someone who
+   already deposited, and a second player who doesn't join on-chain within 10
+   minutes loses the seat (the match goes back to the queue).
 5. **Rich feedback for learning** — when a match settles, the API returns your
    score, the rival's, the margin, **net PnL in USDC**, your **ELO rating** and
    its delta, and the **opponent's full replay** (analyze it, improve your policy).

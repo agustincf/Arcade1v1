@@ -21,6 +21,7 @@ import {
   scoreAuthMessage,
   matchmakeAuthMessage,
   liveStartAuthMessage,
+  MATCHMAKE_AUTH_TTL_MS,
 } from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import {
@@ -187,6 +188,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // desarrollo por el doble montaje de React, y al cambiar de cuenta con un
   // pedido en vuelo): el usuario veía dos popups y parecía un loop.
   const mmStarted = useRef(false);
+  // La firma del emparejamiento: vale 10 minutos y sirve para volver a
+  // preguntar antes de depositar (ver `doFund`) sin otro popup de la wallet.
+  const mmAuthRef = useRef<{ signature: string; ts: number } | undefined>(undefined);
 
   // Al entrar a la partida, despertamos al árbitro por si vino directo por URL
   // (si pasó por la mesa, ya está despierto).
@@ -275,6 +279,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           /* en dev se puede emparejar sin firma */
         }
       }
+      mmAuthRef.current = auth;
       try {
         const v = await matchmake(game!.id, bet, pidRef.current, auth);
         setMatchId(v.matchId);
@@ -509,15 +514,49 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   async function doFund() {
     if (!matchId || !address) return;
     setDepositErr(null);
-    const mid = matchId as `0x${string}`;
     // Sin el asiento del árbitro no se puede depositar (el contrato lo exige).
     // No debería faltar en una mesa de plata; si falta, avisamos y no seguimos.
     if (!seatSig || !seatTerms) {
       setDepositErr({ key: "match.depositNoSeat" });
       return;
     }
-    const seat = seatSig as `0x${string}`;
+    let mid = matchId as `0x${string}`;
+    let myRole = role;
+    let seat = seatSig as `0x${string}`;
+    let terms = seatTerms;
     try {
+      // ANTES DE ABRIR, una última pregunta al árbitro. Solo se empareja con quien
+      // ya depositó: si otro llegó casi a la vez y ya abrió, nos sienta con él en
+      // vez de dejar dos partidas abiertas esperando a un tercero. Si falla, se
+      // sigue con la partida que ya teníamos.
+      setFunding("approving"); // el botón queda ocupado mientras pregunta
+      const auth = mmAuthRef.current;
+      if (myRole !== "p2" && auth && Date.now() - auth.ts < MATCHMAKE_AUTH_TTL_MS - 60_000) {
+        try {
+          const v = await matchmake(game!.id, bet, pidRef.current, auth);
+          if (
+            v.matchId !== mid &&
+            v.seatSig &&
+            v.fundDeadline !== undefined &&
+            v.playDeadline !== undefined
+          ) {
+            mid = v.matchId as `0x${string}`;
+            myRole = v.role ?? null;
+            seat = v.seatSig as `0x${string}`;
+            terms = { fundDeadline: v.fundDeadline, playDeadline: v.playDeadline };
+            setMatchId(v.matchId);
+            setSeed(v.seed ?? null);
+            setLive(v.live === true);
+            setSecretHash(v.secretHash ?? null);
+            setRole(myRole);
+            setSeatSig(v.seatSig);
+            setSeatTerms(terms);
+          }
+        } catch {
+          /* se sigue con la partida que ya teníamos */
+        }
+      }
+
       // Recordamos la partida ANTES de pagar. El depósito puede MINARSE y aun así
       // fallar la espera del recibo (RPC lento en testnet): si recordáramos
       // después, la partida quedaría pagada on-chain pero invisible para /recover
@@ -527,7 +566,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
         matchId: mid,
         game: game!.id,
         bet,
-        role: role === "p2" ? "p2" : "p1",
+        role: myRole === "p2" ? "p2" : "p1",
         ts: Date.now(),
       });
 
@@ -537,7 +576,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       // Si ya pagué, no re-cobro: sigo directo a jugar.
       try {
         const onchain = await escrow.readMatch(mid);
-        const alreadyPaid = role === "p2" ? onchain.p2Paid : onchain.p1Paid;
+        const alreadyPaid = myRole === "p2" ? onchain.p2Paid : onchain.p1Paid;
         if (alreadyPaid) {
           setDeposited(true);
           return;
@@ -553,10 +592,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       //    Cada uno presenta su asiento (firma del árbitro) para que el contrato
       //    lo acepte: sin él, open/join revierten "bad seat".
       setFunding("depositing");
-      if (role === "p2") {
+      if (myRole === "p2") {
         await escrow.join(mid, bet, seat);
       } else {
-        await escrow.open(mid, bet, seat, seatTerms);
+        await escrow.open(mid, bet, seat, terms);
       }
       setDeposited(true);
     } catch (e) {

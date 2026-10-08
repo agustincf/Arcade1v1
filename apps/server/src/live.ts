@@ -23,6 +23,7 @@ import {
   finishLiveAttempt,
   matchRecord,
   persistMatches,
+  reclaimSeat,
   setExpiredLiveCloser,
   type LiveAttempt,
   type Match,
@@ -173,6 +174,9 @@ export async function liveStart(
   auth?: { signature: string; ts: number },
 ): Promise<LiveStartView> {
   address = address.toLowerCase();
+  // Un p2 que perdió el lugar por no unirse a tiempo y se unió igual (W3): si
+  // la cadena lo confirma, vuelve a ser el p2. Lo dice la cadena, no el pedido.
+  await reclaimSeat(id, address);
   const m = liveMatchFor(id, address);
   if (auth?.signature) {
     const ts = Number(auth.ts);
