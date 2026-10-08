@@ -20,6 +20,13 @@ export function getPayout(bet: number) {
 export const IS_MAINNET = process.env.NEXT_PUBLIC_CHAIN_ID === "8453";
 export const NETWORK_LABEL = IS_MAINNET ? "Base" : "Base Sepolia · TEST";
 
+/** Los textos que en testnet dicen "testnet" tienen su versión para mainnet
+ *  (`<clave>.mainnet`): en la red real no pueden quedar a la vista. */
+const MAINNET_TEXTS = new Set(["marquee", "footer.demo", "faq.a6"]);
+export function netKey(key: string): string {
+  return IS_MAINNET && MAINNET_TEXTS.has(key) ? `${key}.mainnet` : key;
+}
+
 /** Mesa pre-seleccionada por defecto. */
 export const DEFAULT_BET = 5;
 

@@ -7,3 +7,18 @@ export function noShowSide(v: { opponent?: string; noShow?: string }): "rival" |
   if (!v.noShow) return null;
   return v.opponent && v.noShow.toLowerCase() === v.opponent.toLowerCase() ? "rival" : "you";
 }
+
+/** ¿`address` ya depositó en esta partida, según la cadena? Se mira la
+ *  DIRECCIÓN, no el rol (pre-auditoría F4/F-07): desde W3 el p2 de una partida
+ *  puede cambiar (el que no se unió a tiempo pierde el lugar), y `p2Paid`
+ *  diría "pagado" por el depósito de otro. */
+export function depositedBy(
+  onchain: { p1: string; p2: string; p1Paid: boolean; p2Paid: boolean },
+  address: string,
+): boolean {
+  const a = address.toLowerCase();
+  return (
+    (onchain.p1.toLowerCase() === a && onchain.p1Paid) ||
+    (onchain.p2.toLowerCase() === a && onchain.p2Paid)
+  );
+}

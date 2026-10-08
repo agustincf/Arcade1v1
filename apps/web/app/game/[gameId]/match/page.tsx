@@ -15,12 +15,13 @@ import { txUrl } from "@/app/lib/explorer";
 import { moneyTableBlocked } from "@/app/lib/config-guard";
 import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
 import { failureText, isPaidTableClosed } from "@/app/lib/errors";
-import { noShowSide } from "@/app/lib/result";
+import { depositedBy, noShowSide } from "@/app/lib/result";
 import { useSignMessage } from "wagmi";
 import {
   scoreAuthMessage,
   matchmakeAuthMessage,
   liveStartAuthMessage,
+  MATCHMAKE_AUTH_TTL_MS,
 } from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import {
@@ -131,6 +132,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [forfeit, setForfeit] = useState(false);
   // Alguien no presentó su intento a tiempo: ganó el que sí (W2).
   const [noShow, setNoShow] = useState<"rival" | "you" | null>(null);
+  // Mesa de plata que se reembolsa: "pending" hasta que la cadena lo confirme
+  // (el árbitro reintenta, W4), "done" cuando la plata volvió. Y si terminó
+  // sin que nadie se sentara.
+  const [refund, setRefund] = useState<"pending" | "done" | "none" | null>(null);
+  const [noRival, setNoRival] = useState(false);
   // Estado on-chain. El depósito es UNA sola acción: aprueba el USDC (solo la
   // primera vez) y enseguida abre/se une a la partida.
   const [role, setRole] = useState<"p1" | "p2" | null>(null);
@@ -187,6 +193,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // desarrollo por el doble montaje de React, y al cambiar de cuenta con un
   // pedido en vuelo): el usuario veía dos popups y parecía un loop.
   const mmStarted = useRef(false);
+  // La firma del emparejamiento: vale 10 minutos y sirve para volver a
+  // preguntar antes de depositar (ver `doFund`) sin otro popup de la wallet.
+  const mmAuthRef = useRef<{ signature: string; ts: number } | undefined>(undefined);
 
   // Al entrar a la partida, despertamos al árbitro por si vino directo por URL
   // (si pasó por la mesa, ya está despierto).
@@ -275,6 +284,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           /* en dev se puede emparejar sin firma */
         }
       }
+      mmAuthRef.current = auth;
       try {
         const v = await matchmake(game!.id, bet, pidRef.current, auth);
         setMatchId(v.matchId);
@@ -403,6 +413,32 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [awaitingPayment, matchId, address, role]);
 
+  // REEMBOLSO EN CAMINO (W4): la vista dice "done" recién cuando la cadena lo
+  // confirma; mientras, se consulta cada 5 s (en pausa con la pestaña oculta).
+  useEffect(() => {
+    if (refund !== "pending" || !matchId) return;
+    let vivo = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const consultar = async () => {
+      if (!vivo) return;
+      if (document.visibilityState !== "hidden") {
+        try {
+          const v = await getMatch(matchId, pidRef.current);
+          if (!vivo) return;
+          setRefund(v.refund ?? null);
+        } catch {
+          /* reintenta en la próxima vuelta */
+        }
+      }
+      if (vivo) timer = setTimeout(consultar, 5000);
+    };
+    timer = setTimeout(consultar, 5000);
+    return () => {
+      vivo = false;
+      clearTimeout(timer);
+    };
+  }, [refund, matchId]);
+
   // Pagado: ¿llegó a la wallet o quedó ACREDITADO en el contrato? Pasa si el
   // USDC rechazó el envío (la wallet en la blacklist de Circle, el token en
   // pausa); entonces el premio se retira desde /recover.
@@ -450,6 +486,8 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     const opp = v.opponent;
     const missed = noShowSide(v);
     setNoShow(missed);
+    setRefund(v.refund ?? null);
+    setNoRival(v.outcome === "draw" && !opp);
     setRivalScore(missed === "rival" ? null : opp ? (v.scores[opp] ?? 0) : 0);
     if (v.outcome === "draw") setOutcome("draw");
     else if (v.outcome && v.role === v.outcome) {
@@ -501,6 +539,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     } else if (v.settleOutcome === "refunded" || v.settleOutcome === "expired") {
       setClaimState("refunded");
     }
+    setRefund(v.refund ?? null);
   }
 
   // UNA sola acción para entrar a la partida: aprueba el USDC (solo la 1ra vez;
@@ -509,15 +548,64 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   async function doFund() {
     if (!matchId || !address) return;
     setDepositErr(null);
-    const mid = matchId as `0x${string}`;
     // Sin el asiento del árbitro no se puede depositar (el contrato lo exige).
     // No debería faltar en una mesa de plata; si falta, avisamos y no seguimos.
     if (!seatSig || !seatTerms) {
       setDepositErr({ key: "match.depositNoSeat" });
       return;
     }
-    const seat = seatSig as `0x${string}`;
+    let mid = matchId as `0x${string}`;
+    let myRole = role;
+    let seat = seatSig as `0x${string}`;
+    let terms = seatTerms;
+    // ¿Ya deposité? Pasa en un reintento tras un fallo de red DESPUÉS de minar
+    // el depósito: sin este chequeo, open()/join() revertirían ("match exists"
+    // / "not open") y el botón quedaría fallando para siempre. Si ya pagué, no
+    // re-cobro: sigo directo a jugar. Mira mi dirección, no mi rol (F4).
+    async function alreadyDeposited(id: `0x${string}`): Promise<boolean> {
+      try {
+        return depositedBy(await escrow.readMatch(id), address!);
+      } catch {
+        return false; // si no se puede leer el estado, seguimos con el depósito normal
+      }
+    }
     try {
+      setFunding("approving"); // el botón queda ocupado mientras pregunta
+      if (await alreadyDeposited(mid)) {
+        setDeposited(true);
+        return;
+      }
+      // ANTES DE DEPOSITAR, una última pregunta al árbitro:
+      //  - Solo se empareja con quien ya depositó (W3): si otro llegó casi a la
+      //    vez y ya abrió, nos sienta con él en vez de dejar dos partidas
+      //    abiertas esperando a un tercero.
+      //  - El asiento llega firmado de nuevo: si se rotó la llave del árbitro
+      //    (W8), el que teníamos ya no lo acepta el contrato.
+      // Si falla, se sigue con la partida y el asiento que ya teníamos.
+      const auth = mmAuthRef.current;
+      if (auth && Date.now() - auth.ts < MATCHMAKE_AUTH_TTL_MS - 60_000) {
+        try {
+          const v = await matchmake(game!.id, bet, pidRef.current, auth);
+          if (v.role && v.seatSig && v.fundDeadline !== undefined && v.playDeadline !== undefined) {
+            seat = v.seatSig as `0x${string}`;
+            terms = { fundDeadline: v.fundDeadline, playDeadline: v.playDeadline };
+            setSeatSig(v.seatSig);
+            setSeatTerms(terms);
+            if (v.matchId !== mid) {
+              mid = v.matchId as `0x${string}`;
+              myRole = v.role;
+              setMatchId(v.matchId);
+              setSeed(v.seed ?? null);
+              setLive(v.live === true);
+              setSecretHash(v.secretHash ?? null);
+              setRole(myRole);
+            }
+          }
+        } catch {
+          /* se sigue con la partida que ya teníamos */
+        }
+      }
+
       // Recordamos la partida ANTES de pagar. El depósito puede MINARSE y aun así
       // fallar la espera del recibo (RPC lento en testnet): si recordáramos
       // después, la partida quedaría pagada on-chain pero invisible para /recover
@@ -527,23 +615,14 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
         matchId: mid,
         game: game!.id,
         bet,
-        role: role === "p2" ? "p2" : "p1",
+        role: myRole === "p2" ? "p2" : "p1",
         ts: Date.now(),
       });
 
-      // ¿Mi lado YA está pagado? Pasa en un reintento tras un fallo de red DESPUÉS
-      // de minar el depósito: sin este chequeo, open()/join() revertirían
-      // ("match exists" / "not open") y el botón quedaría fallando para siempre.
-      // Si ya pagué, no re-cobro: sigo directo a jugar.
-      try {
-        const onchain = await escrow.readMatch(mid);
-        const alreadyPaid = role === "p2" ? onchain.p2Paid : onchain.p1Paid;
-        if (alreadyPaid) {
-          setDeposited(true);
-          return;
-        }
-      } catch {
-        /* si no se puede leer el estado, seguimos con el depósito normal */
+      // ¿Ya deposité en ESTA partida (la nueva, si cambió)?
+      if (await alreadyDeposited(mid)) {
+        setDeposited(true);
+        return;
       }
 
       // 1) Allowance (gratis salvo la primera vez de la wallet).
@@ -553,10 +632,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       //    Cada uno presenta su asiento (firma del árbitro) para que el contrato
       //    lo acepte: sin él, open/join revierten "bad seat".
       setFunding("depositing");
-      if (role === "p2") {
+      if (myRole === "p2") {
         await escrow.join(mid, bet, seat);
       } else {
-        await escrow.open(mid, bet, seat, seatTerms);
+        await escrow.open(mid, bet, seat, terms);
       }
       setDeposited(true);
     } catch (e) {
@@ -1187,8 +1266,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                       <p className="text-(--color-muted)">{t("match.loseText", { bet })}</p>
                     )}
                     {outcome === "draw" && (
-                      <p className="text-(--color-muted)">{t("match.drawText", { bet })}</p>
+                      <p className="text-(--color-muted)">
+                        {t(noRival ? "match.noRivalText" : "match.drawText", { bet })}
+                      </p>
                     )}
+                    {outcome === "draw" && <RefundStatus refund={refund} t={t} />}
                   </div>
                 </div>
               )}
@@ -1219,7 +1301,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                       )}
                     </>
                   ) : claimState === "refunded" ? (
-                    <p className="text-base text-(--color-muted)">{t("match.claimRefunded")}</p>
+                    refund === "pending" ? (
+                      <RefundStatus refund={refund} t={t} />
+                    ) : (
+                      <p className="text-base text-(--color-muted)">{t("match.claimRefunded")}</p>
+                    )
                   ) : (
                     <>
                       <p className="mb-3 text-sm text-(--color-muted)">{t("match.claimAuto")}</p>
@@ -1364,4 +1450,29 @@ function Money({ label, value }: { label: string; value: string }) {
       <span className="text-(--color-text)">{value}</span>
     </div>
   );
+}
+
+/** Dónde está el reembolso de una mesa de plata (W4): en camino, con el
+ *  atajo a /recover por si tarda, o ya de vuelta en la wallet. */
+function RefundStatus({
+  refund,
+  t,
+}: {
+  refund: "pending" | "done" | "none" | null;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  if (refund === "pending") {
+    return (
+      <p className="mt-2 text-sm text-(--color-muted)">
+        {t("match.refundPending")}{" "}
+        <Link href="/recover" className="text-(--color-accent-2) underline">
+          {t("nav.recover")}
+        </Link>
+      </p>
+    );
+  }
+  if (refund === "done") {
+    return <p className="mt-2 text-sm text-(--color-win)">{t("match.refundDone")}</p>;
+  }
+  return null;
 }

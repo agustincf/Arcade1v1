@@ -7,6 +7,7 @@
 // (recibe el env) para poder testearla sin tocar process.env real.
 
 import { persistenceBackendFor } from "./persist.js";
+import { alephChainIdFromEnv, chainIdFromEnv } from "./env.js";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
@@ -78,6 +79,34 @@ export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): st
         "sin el contrato de Aleph, toda mesa de plata se rechaza.",
     );
   }
+  // LA RED DE ALEPH (decisión 6 de docs/MAINNET.md): mainnet arranca solo con
+  // el 1v1, y las mesas de plata de Aleph siguen en testnet con su propia red.
+  const alephChainRaw = (env.ALEPH_CHAIN_ID || "").trim();
+  if (alephChainRaw && !(/^[0-9]+$/.test(alephChainRaw) && Number(alephChainRaw) > 0)) {
+    errors.push(
+      `ALEPH_CHAIN_ID inválido ("${alephChainRaw}"): debe ser un entero positivo (ej. 84532 testnet). ` +
+        "Con un valor raro, las mesas de plata de Aleph firmarían para la red del 1v1.",
+    );
+  }
+  const alephChain = alephChainIdFromEnv(env);
+  if (moneyStakes && alephOn && alephChain === 8453) {
+    errors.push(
+      "Las mesas de plata de Aleph irían a Base mainnet (ALEPH_CHAIN_ID, o CHAIN_ID si falta, es 8453): " +
+        "EscrowAleph no está auditado y mainnet arranca solo con el 1v1 (decisión 6 de docs/MAINNET.md). " +
+        "Poné ALEPH_CHAIN_ID=84532 y ALEPH_RPC_URL de Base Sepolia, o dejá ALEPH_STAKES=0.",
+    );
+  }
+  if (
+    moneyStakes &&
+    alephOn &&
+    alephChain !== chainIdFromEnv(env) &&
+    !(env.ALEPH_RPC_URL || "").trim()
+  ) {
+    errors.push(
+      `Aleph va en otra red (${alephChain}) que el 1v1 (${chainIdFromEnv(env)}) pero falta ALEPH_RPC_URL: ` +
+        "RPC_URL es el nodo del 1v1, y las lecturas y pagos de Aleph irían a la red equivocada.",
+    );
+  }
   if (alephOn && !ADDRESS_RE.test(alephRaw)) {
     errors.push(
       `ALEPH_ESCROW_ADDRESS mal formada ("${alephRaw}"): debe ser una dirección 0x + 40 hex. ` +
@@ -97,6 +126,18 @@ export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): st
       `ALEPH_STAKES ("${env.ALEPH_STAKES}") habilita una mesa de plata pero la persistencia es "${backend}" ` +
         "(faltan UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN): un deploy borraría las salas en fondeo " +
         "y las liquidaciones todavía sin presentar, dejando la plata trabada en el contrato.",
+    );
+  }
+  // Lo mismo para las mesas de plata del 1v1 (pre-auditoría F7): sin Redis, un
+  // deploy borra las decisiones firmadas que el árbitro todavía no liquidó, los
+  // reembolsos sin confirmar y las partidas en fondeo. La plata no se pierde
+  // (los reembolsos del contrato son permissionless), pero el ganador no cobra
+  // y cada jugador tiene que ir a /recover por su cuenta.
+  if (onchain && backend !== "redis") {
+    errors.push(
+      `ESCROW_ADDRESS habilita las mesas de plata del 1v1 pero la persistencia es "${backend}" ` +
+        "(faltan UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN): un deploy borraría las decisiones " +
+        "firmadas sin liquidar y los reembolsos pendientes, dejando la plata trabada en el contrato.",
     );
   }
   if (!onchain && !alephOn) return errors; // sin ningún escrow no hay dinero on-chain

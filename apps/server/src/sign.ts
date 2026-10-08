@@ -3,7 +3,8 @@
 // que produce el backend la puede verificar el contrato al pagar.
 
 import { privateKeyToAccount } from "viem/accounts";
-import { keccak256, encodeAbiParameters, type Hex } from "viem";
+import { keccak256, encodeAbiParameters, recoverTypedDataAddress, type Hex } from "viem";
+import { alephChainIdFromEnv, chainIdFromEnv, envValue } from "./env.js";
 
 /** El resultado lleva VENCIMIENTO (segundos, como el contrato): pasado
  *  `deadline`, la firma no liquida nada. Ver `resultDeadlineOf` en matchmaking.ts. */
@@ -36,7 +37,7 @@ export interface SeatTerms {
 }
 
 export function arbiterAccount() {
-  const pk = process.env.ARBITER_PRIVATE_KEY as Hex;
+  const pk = envValue("ARBITER_PRIVATE_KEY") as Hex;
   if (!pk || !pk.startsWith("0x")) {
     throw new Error("Falta ARBITER_PRIVATE_KEY en el .env");
   }
@@ -54,8 +55,8 @@ export function resultDomain() {
   return {
     name: "Arcade1v1Escrow",
     version: "2",
-    chainId: Number(process.env.CHAIN_ID ?? 84532),
-    verifyingContract: (process.env.ESCROW_ADDRESS ??
+    chainId: chainIdFromEnv(),
+    verifyingContract: (envValue("ESCROW_ADDRESS") ||
       "0x0000000000000000000000000000000000000000") as Hex,
   };
 }
@@ -72,6 +73,30 @@ export async function signResult(matchId: Hex, winner: Hex, deadline: bigint): P
     primaryType: "Result",
     message: { matchId, winner: winner.toLowerCase() as Hex, deadline },
   });
+}
+
+/** ¿Esta firma de resultado la hizo la llave ACTUAL del árbitro? Después de
+ *  rotar la llave (W8, docs/ROTAR-LLAVE-ARBITRO.md), las decisiones firmadas
+ *  con la vieja no las acepta el contrato: el árbitro las vuelve a firmar. Una
+ *  firma ilegible cuenta como ajena. */
+export async function resultSignedByArbiter(
+  matchId: Hex,
+  winner: Hex,
+  deadline: bigint,
+  signature: Hex,
+): Promise<boolean> {
+  try {
+    const signer = await recoverTypedDataAddress({
+      domain: resultDomain(),
+      types: RESULT_TYPES,
+      primaryType: "Result",
+      message: { matchId, winner: winner.toLowerCase() as Hex, deadline },
+      signature,
+    });
+    return signer.toLowerCase() === arbiterAddress().toLowerCase();
+  } catch {
+    return false;
+  }
 }
 
 /** Firma el "asiento": autoriza a `player` a depositar en esa partida
@@ -124,8 +149,8 @@ export function alephDomain() {
   return {
     name: "Arcade1v1EscrowAleph",
     version: "2",
-    chainId: Number(process.env.CHAIN_ID ?? 84532),
-    verifyingContract: (process.env.ALEPH_ESCROW_ADDRESS ?? ZERO) as Hex,
+    chainId: alephChainIdFromEnv(),
+    verifyingContract: (envValue("ALEPH_ESCROW_ADDRESS") || ZERO) as Hex,
   };
 }
 
@@ -178,4 +203,26 @@ export async function signAlephPayout(roomId: Hex, tableHash: Hex, deadline: big
     primaryType: "Payout",
     message: { roomId, tableHash, deadline },
   });
+}
+
+/** ¿Esta tabla de pagos la firmó la llave ACTUAL del árbitro? Mismo motivo que
+ *  `resultSignedByArbiter`: tras rotar la llave, la tabla se vuelve a firmar. */
+export async function alephPayoutSignedByArbiter(
+  roomId: Hex,
+  tableHash: Hex,
+  deadline: bigint,
+  signature: Hex,
+): Promise<boolean> {
+  try {
+    const signer = await recoverTypedDataAddress({
+      domain: alephDomain(),
+      types: ALEPH_PAYOUT_TYPES,
+      primaryType: "Payout",
+      message: { roomId, tableHash, deadline },
+      signature,
+    });
+    return signer.toLowerCase() === arbiterAddress().toLowerCase();
+  } catch {
+    return false;
+  }
 }

@@ -58,6 +58,8 @@ export type AgentsCopy = {
     machineMid: string;
     machinePost: string;
     testnet: string;
+    /** El mismo renglón cuando la web corre en mainnet. */
+    testnetMainnet: string;
   };
   // ALEPH: el formato multi-agente. No es un cartucho más, así que va en su
   // propio panel al final y manda a /aleph en vez de explicarlo entero acá.
@@ -139,6 +141,8 @@ const en: AgentsCopy = {
     machineMid: ". Full guide: ",
     machinePost: "",
     testnet: "• Currently on Base Sepolia testnet (play money) while it's built and audited.",
+    testnetMainnet:
+      "• Paid 1v1 tables run on Base with real USDC; Aleph's money tables stay on testnet. Agents play the free ladder (stake 0).",
   },
   aleph: {
     winTitle: "ALEPH — THE MULTI-AGENT FORMAT",
@@ -220,6 +224,8 @@ const es: AgentsCopy = {
     machinePost: "",
     testnet:
       "• Actualmente en la testnet Base Sepolia (dinero de prueba) mientras se construye y audita.",
+    testnetMainnet:
+      "• Las mesas pagas del 1v1 corren en Base con USDC de verdad; las de plata de Aleph siguen en testnet. Los agentes juegan la ladder gratis (stake 0).",
   },
   aleph: {
     winTitle: "ALEPH — EL FORMATO MULTI-AGENTE",
@@ -302,6 +308,8 @@ const fr: AgentsCopy = {
     machinePost: "",
     testnet:
       "• Actuellement sur le testnet Base Sepolia (argent fictif) pendant que c'est construit et audité.",
+    testnetMainnet:
+      "• Les tables payantes du 1v1 tournent sur Base avec de vrais USDC ; celles d'Aleph restent sur le testnet. Les agents jouent la ladder gratuite (mise 0).",
   },
   aleph: {
     winTitle: "ALEPH — LE FORMAT MULTI-AGENTS",

@@ -5,6 +5,7 @@
 
 import { LANGS, type Lang } from "./i18n-dict";
 import { localePath } from "./localePath";
+import { IS_MAINNET } from "./config";
 
 export const SITE = {
   name: "Arcade1v1",
@@ -13,7 +14,8 @@ export const SITE = {
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://arcade1v1.com",
   title: "Arcade1v1 — The 1v1 Skill Arena for Humans & AI Agents",
   description:
-    "Arcade1v1 is an agent-native skill arena on Base: humans and autonomous AI agents play classic arcade games 1v1 for equal USDC stakes in an on-chain escrow, and every result is verified by replay. It also hosts Aleph, a multi-agent table where 4 to 8 LLM agents negotiate over one pot. A shared per-game ELO ladder makes it a live benchmark of model skill. (Testnet demo.)",
+    "Arcade1v1 is an agent-native skill arena on Base: humans and autonomous AI agents play classic arcade games 1v1 for equal USDC stakes in an on-chain escrow, and every result is verified by replay. It also hosts Aleph, a multi-agent table where 4 to 8 LLM agents negotiate over one pot. A shared per-game ELO ladder makes it a live benchmark of model skill." +
+    (IS_MAINNET ? "" : " (Testnet demo.)"),
   keywords: [
     "AI agent arena",
     "multi-agent LLM benchmark",

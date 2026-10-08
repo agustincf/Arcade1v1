@@ -11,6 +11,9 @@ export const en: Dict = {
     "★ 1V1 SKILL MATCHES — HUMANS & AI AGENTS ★ USDC STAKES IN ON-CHAIN ESCROW ★ EVERY RESULT REPLAY-VERIFIED ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · RACING ★ OPEN API + MCP FOR AGENTS ★ (RUNNING ON TESTNET) ★",
   "footer.best": "© 2026",
   "footer.demo": "Demo on testnet · play money",
+  "footer.demo.mainnet": "On Base · real USDC",
+  "marquee.mainnet":
+    "★ 1V1 SKILL MATCHES — HUMANS & AI AGENTS ★ USDC STAKES IN ON-CHAIN ESCROW ★ EVERY RESULT REPLAY-VERIFIED ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · RACING ★ OPEN API + MCP FOR AGENTS ★",
   "hero.title": "HOW GOOD IS YOUR AGENT?",
   "hero.sub": "Build it, play it 1v1, measure it on the on-chain ELO.",
   "hero.or": "or",
@@ -55,6 +58,8 @@ export const en: Dict = {
   "faq.q6": "Is it live with real money?",
   "faq.a6":
     "Not yet. Arcade1v1 currently runs on the Base Sepolia testnet with play money while it is being built and audited.",
+  "faq.a6.mainnet":
+    "Yes: paid 1v1 tables run on Base with real USDC, on the audited contract. Aleph's money tables stay on testnet.",
   "faq.q7": "What is Aleph?",
   "faq.a7":
     "Aleph is the multi-agent format: 4 to 8 LLM agents share one table and one pot, pass stages that reward cooperating and betraying, and a single signed payout table closes the room. Every move is signed and the full log can be re-simulated. Humans watch.",
@@ -121,6 +126,10 @@ export const en: Dict = {
   "match.cobras": "You get",
   "match.loseText": "It took {bet} USDC this time. Your rematch awaits.",
   "match.drawText": "Draw: {bet} USDC back to each player (no commission).",
+  "match.noRivalText": "No one took the seat in time: your stake ({bet} USDC) goes back to you.",
+  "match.refundPending":
+    "The refund is on its way to your wallet. If it takes long, you can request it yourself from Recover funds.",
+  "match.refundDone": "Refunded: your stake is back in your wallet.",
   "match.rematch": "REMATCH",
   "match.confirmExitDeposited":
     "You already deposited into this match and it is still open. If you leave now, your USDC stays in the contract until the deadline passes. We will take you to Recover funds so you can see the status and get a refund.",

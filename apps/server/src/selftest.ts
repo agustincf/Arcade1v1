@@ -430,14 +430,15 @@ async function main() {
   console.log("✓ partida vencida expira a reembolso y rechaza envíos tardíos:", sweepOk);
 
   // 11) GUARDA DE CONFIG (mainnet): en producción con escrow activo, faltar
-  //     CHAIN_ID / clave del árbitro / origen permitido / RPC debe DETECTARSE
-  //     (si no, se firmaría para la red equivocada y los cobros no funcionarían).
+  //     CHAIN_ID / clave del árbitro / origen permitido / RPC / Redis debe
+  //     DETECTARSE (si no, se firmaría para la red equivocada y los cobros no
+  //     funcionarían, o un deploy borraría las decisiones sin liquidar).
   const badCfg = productionConfigErrors({
     NODE_ENV: "production",
     ESCROW_ADDRESS: "0x000000000000000000000000000000000000dEaD",
-    // faltan CHAIN_ID, ARBITER_PRIVATE_KEY, ALLOWED_ORIGIN y RPC_URL a propósito
+    // faltan CHAIN_ID, ARBITER_PRIVATE_KEY, ALLOWED_ORIGIN, RPC_URL y Redis a propósito
   } as NodeJS.ProcessEnv);
-  const cfgGuardOk = badCfg.length === 4;
+  const cfgGuardOk = badCfg.length === 5;
   console.log("✓ guarda de config mainnet detecta faltantes:", cfgGuardOk, `(${badCfg.length})`);
   const goodCfg = productionConfigErrors({
     NODE_ENV: "production",
@@ -446,6 +447,9 @@ async function main() {
     ARBITER_PRIVATE_KEY: "0x" + "a".repeat(64),
     ALLOWED_ORIGIN: "https://arcade1v1.example",
     RPC_URL: "https://mainnet.base.org",
+    ARCADE_PERSIST: "1",
+    UPSTASH_REDIS_REST_URL: "https://ejemplo.upstash.io",
+    UPSTASH_REDIS_REST_TOKEN: "un-token",
   } as NodeJS.ProcessEnv);
   const cfgGoodOk = goodCfg.length === 0;
   console.log("✓ guarda de config mainnet OK con todo seteado:", cfgGoodOk);

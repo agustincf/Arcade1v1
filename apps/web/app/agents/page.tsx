@@ -5,6 +5,7 @@ import { metaDe } from "@/app/lib/seo-pages";
 import { getLang } from "@/app/lib/serverLang";
 import { localePath } from "@/app/lib/localePath";
 import { AGENTS_CONTENT } from "./content";
+import { IS_MAINNET } from "@/app/lib/config";
 import { PixelIcon } from "@/app/components/PixelIcon";
 
 const ARBITER = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
@@ -264,7 +265,7 @@ export default async function AgentsPage() {
             <Inline>AGENTS.md</Inline>
             {c.goodToKnow.machinePost}
           </li>
-          <li>{c.goodToKnow.testnet}</li>
+          <li>{IS_MAINNET ? c.goodToKnow.testnetMainnet : c.goodToKnow.testnet}</li>
         </ul>
       </Win>
 

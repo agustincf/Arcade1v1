@@ -18,11 +18,12 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import {
   AUTH_REQUIRED,
   MAX_REPLAY_TICKS,
-  SUBMIT_WINDOW_MS,
+  submitDeadlineOf,
   assertDepositOnchain,
   finishLiveAttempt,
   matchRecord,
   persistMatches,
+  reclaimSeat,
   setExpiredLiveCloser,
   type LiveAttempt,
   type Match,
@@ -127,7 +128,7 @@ function liveMatchFor(id: string, address: string): Match {
 
 function assertOpen(m: Match): void {
   if (m.status === "settled" || m.status === "draw") throw new LiveError("match already decided");
-  if (Date.now() - m.createdAt > SUBMIT_WINDOW_MS) throw new LiveError("match expired");
+  if (Date.now() > submitDeadlineOf(m)) throw new LiveError("match expired");
 }
 
 /** El replay de un intento cerrado, tal como lo guarda la partida. */
@@ -173,6 +174,9 @@ export async function liveStart(
   auth?: { signature: string; ts: number },
 ): Promise<LiveStartView> {
   address = address.toLowerCase();
+  // Un p2 que perdió el lugar por no unirse a tiempo y se unió igual (W3): si
+  // la cadena lo confirma, vuelve a ser el p2. Lo dice la cadena, no el pedido.
+  await reclaimSeat(id, address);
   const m = liveMatchFor(id, address);
   if (auth?.signature) {
     const ts = Number(auth.ts);

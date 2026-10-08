@@ -86,6 +86,101 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   el contrato real (otro árbitro, otra red, otra comisión, mesa sin habilitar).
 - **El árbitro no arranca si `SUBMIT_WINDOW_MS` pasa la duración máxima de una
   partida del contrato** (2 días): con esa ventana, todo depósito revertiría.
+- **Sin rivales fantasma en las mesas de plata** (W3 de `docs/MAINNET.md`;
+  pre-auditoría F1). Firmar el emparejamiento es gratis, y el árbitro sentaba
+  a cualquiera:
+  - **Solo se empareja con quien ya depositó.** Antes, una wallet que nunca
+    abría en la cadena quedaba primera en la fila y el que llegaba se sentaba
+    con ella: su `join` revertía ("not open") y perdía el gas. Ahora el árbitro
+    lee la cadena y sienta al que llega con el primero que ya abrió; los que no
+    abrieron esperan atrás sin trabar a nadie, y el que no abre en 10 minutos
+    sale de la fila (si abre tarde, se reembolsa al vencer la espera, como
+    siempre). La web vuelve a preguntar justo antes de depositar: si otro llegó
+    casi a la vez y ya abrió, te sienta con él en vez de dejar dos partidas
+    esperando a un tercero.
+  - **Un p2 que no se une a tiempo libera al que abrió.** Antes, uno que se
+    sentaba y nunca depositaba trababa el stake del que abrió hasta el
+    reembolso (70 min) o la cancelación (2 h 15 m), con su intento ya jugado.
+    Ahora tiene 10 minutos para unirse en la cadena; si no, pierde el lugar y la
+    partida vuelve a la fila para el próximo. Su asiento firmado no se puede
+    revocar en el contrato: si se une igual antes del plazo de fondeo, la cadena
+    manda y vuelve a ser el p2 (el que se había sentado en su lugar todavía no
+    depositó: su `join` revierte).
+
+  La ladder gratis empareja igual que antes, sin leer la cadena. Una espera
+  vencida ya no se borra al emparejar: queda para que el barrendero la cancele
+  en la cadena si hubo depósito.
+
+- **Los reembolsos se reintentan hasta que la cadena los confirma** (W4 de
+  `docs/MAINNET.md`; pre-auditoría F2). Antes el reembolso de un empate, una
+  partida vencida o una sin rival era un solo intento: si el RPC fallaba unos
+  segundos, nadie lo volvía a intentar y la web igual decía "reembolsado" (la
+  plata no se perdía, pero había que descubrir /recover). Ahora la partida
+  guarda `refund: "pending"` y el barrendero lo reintenta con el mismo backoff
+  que los pagos hasta que la cadena diga Refunded (`"done"`); si nadie había
+  depositado, `"none"`. La web muestra "el reembolso está en camino" (con el
+  atajo a Recuperar fondos) y "reembolsado" recién cuando se confirmó. Una
+  mesa de plata en la que nadie se sentó ya no desaparece (antes la pantalla
+  quedaba esperando un 404): termina como "nadie se sentó a tiempo" con su
+  reembolso. Las partidas gratis ya no mandan un `cancelMatch` a la cola de
+  escrituras on-chain (F11). El tipo `MatchView` del SDK suma `refund`.
+- **Una firma del resultado que falla ya no deja la partida sin firma para
+  siempre** (W5 de `docs/MAINNET.md`; pre-auditoría INT-1). La partida se
+  marca decidida antes de firmar (es el candado contra una doble decisión):
+  si la firma fallaba una vez —con un firmante KMS que tarda, es seguro que
+  pase—, nadie la volvía a pedir, el árbitro no podía liquidar y al vencer el
+  ganador terminaba reembolsado. Ahora el envío que la decidió no revienta, y el
+  barrendero vuelve a firmar con el mismo backoff que los pagos; con la firma,
+  la guarda y liquida como siempre. Si ya no llegaría a cobrarse antes de que
+  se abra el reembolso, se reembolsa.
+- **Rotar la llave del árbitro ya no deja ganadores sin cobrar** (W8 de
+  `docs/MAINNET.md`; pre-auditoría F5 / RT3-04). Después de `setArbiter`, el
+  contrato rechaza todo lo firmado con la llave vieja. Ahora, antes de liquidar,
+  el árbitro mira si la firma del resultado es de su llave actual y si no,
+  vuelve a firmar el mismo ganador con el mismo plazo (la guarda antes de
+  mostrarla, como siempre); Aleph hace lo mismo con su tabla de pagos. La web
+  vuelve a pedir el asiento justo antes de depositar (el que abre y el que se
+  une), y el p2 que vuelve a preguntar recibe su misma partida con un asiento
+  recién firmado (antes lo sentaba en otra). El atajo "¿ya deposité?" de la web
+  mira la dirección y no el rol (F4): con W3 el p2 de una partida puede cambiar.
+  Runbook paso a paso: [`docs/ROTAR-LLAVE-ARBITRO.md`](docs/ROTAR-LLAVE-ARBITRO.md).
+- **Lo demás de la pre-auditoría para el árbitro** (W9 de `docs/MAINNET.md`):
+  - **Redis obligatorio con las mesas de plata del 1v1** (F7): en
+    `NODE_ENV=production`, con `ESCROW_ADDRESS` y sin Redis, el árbitro no
+    arranca (ya pasaba con las de Aleph). Un deploy con persistencia en archivo
+    borraba las decisiones firmadas sin liquidar y los reembolsos pendientes.
+  - **Un asiento que todavía sirve no queda huérfano** (F8, F9): la espera
+    vencida no se borra (W3) y su reembolso sigue mirando la cadena hasta que
+    vence el fondeo, por si el que abrió deposita tarde.
+  - **La ventana de envío queda congelada al crear la partida** (F10): si
+    después cambia `SUBMIT_WINDOW_MS`, la partida sigue con el plazo con el que
+    nació (el que ató su `playDeadline` en la cadena).
+  - **"¿Venció la firma?" lo dice la hora de la cadena** (RT3-05): con el reloj
+    del servidor adelantado, el árbitro reembolsaba una partida que el contrato
+    todavía dejaba cobrar.
+  - **Los firmantes leen las variables igual que la guarda de arranque**
+    (INT-3): recortadas, y un `CHAIN_ID` vacío o inválido cae en testnet en el
+    dominio EIP-712 igual que en la cadena (antes quedaba en 0 en las firmas).
+  - **El bot de prueba nunca se sienta en una mesa de plata** (F12): el pedido no
+    está autenticado y le arruinaba la partida a quien ya había depositado.
+  - **Las pruebas contra anvil levantan cada una su propio anvil** en un puerto
+    libre y matan solo ese (DOC-1): antes hacían `pkill -f anvil` y se llevaban
+    puesto el de cualquiera. `DEPLOY.md` al día (contratos v2 desplegados,
+    Redis obligatorio, cómo rotar la llave).
+- **Aleph en su propia red** (decisión 6 de `docs/MAINNET.md`): mainnet arranca
+  solo con el 1v1 y las mesas de plata de Aleph siguen en testnet, así que el
+  mismo árbitro ahora firma y paga en dos redes. `ALEPH_CHAIN_ID` y
+  `ALEPH_RPC_URL` (si faltan, las del 1v1) fijan la de Aleph: el dominio
+  EIP-712 de sus pases y tablas, sus clientes de cadena y el `chainId` que viaja
+  en el depósito y ahora también en la vista de la sala (los links al
+  explorador de una sala de Aleph van a su red). La guarda de arranque no deja
+  poner mesas de plata de Aleph en Base mainnet (`EscrowAleph` no está
+  auditado), ni una red de Aleph distinta sin su nodo.
+- **La web en mainnet no dice "testnet"**: la cinta de la portada, el pie y la
+  pregunta frecuente sobre dinero real tienen su versión para cuando la web
+  corre en Base (`NEXT_PUBLIC_CHAIN_ID=8453`), igual que la guía de agentes y
+  la descripción para buscadores. Los términos (`/terms`) quedan como están:
+  los reescribe el trabajo legal.
 
 ### Agregado
 

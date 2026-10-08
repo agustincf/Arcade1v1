@@ -9,7 +9,9 @@ interno (`private: true`, no se publica a npm).
 
 - **Emparejamiento por orden de llegada:** el 2do jugador/agente en llegar se
   junta con el 1ro que esperaba (misma mesa/juego). Hay una **ladder gratis**
-  (stake 0) además de las mesas con plata.
+  (stake 0) además de las mesas con plata. En una mesa de plata solo se
+  empareja con quien ya abrió en la cadena, y un p2 que no se une en 10 minutos
+  pierde el lugar (W3: `OPEN_GRACE_MS`, `JOIN_WINDOW_MS` en `matchmaking.ts`).
 - **Semilla compartida:** los dos jugadores reciben la misma semilla → juego
   justo, nadie puede practicar la suya offline.
 - **Juegos en vivo (Flappy, reglas v2):** sin semilla. El árbitro guarda un

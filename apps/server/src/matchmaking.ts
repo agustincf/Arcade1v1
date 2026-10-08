@@ -4,7 +4,7 @@
 
 import { randomBytes, randomInt } from "node:crypto";
 import { recoverMessageAddress, type Hex } from "viem";
-import { arbiterAddress, signResult, signSeat } from "./sign.js";
+import { arbiterAddress, resultSignedByArbiter, signResult, signSeat } from "./sign.js";
 import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
 import { verifyTetris, type ReplayTetris } from "@arcade1v1/game-sdk/tetris";
 import { verifyFlappy, type ReplayFlappy } from "@arcade1v1/game-sdk/flappy";
@@ -26,6 +26,7 @@ import {
   razonRechazoDeposito,
   ONCHAIN_STATUS,
   ESCROW_REFUND_GRACE_S,
+  type OnchainMatch,
 } from "./onchain.js";
 import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
 import { jsonStore } from "./persist.js";
@@ -171,13 +172,26 @@ export interface Match {
    *  juego entero (~95 ms de JS sincrónico, en el único hilo de Node) y moría en
    *  "score mismatch" sin dejar rastro ni consumir el intento. */
   failedAttempts?: Record<string, number>;
-  refundPromise?: Promise<void>; // cancelacion/reembolso on-chain en empate
+  refundPromise?: Promise<void>; // el reembolso on-chain en curso (transitorio)
+  /** Mesa de plata que se reembolsa (empate, vencida, sin rival): "pending"
+   *  mientras la cadena no lo confirme, "done" cuando dice Refunded, "none" si
+   *  no había nada que devolver (nadie depositó). El árbitro reintenta con
+   *  backoff hasta confirmarlo (W4). */
+  refund?: "pending" | "done" | "none";
+  refundAttempts?: number;
+  nextRefundAt?: number;
   /** Mesa de plata: las condiciones que su asiento ata on-chain (segundos,
    *  epoch). Las fija el árbitro al crear la partida: el que abre deposita con
    *  ESTAS, y el asiento del que se une verifica contra las mismas. Una partida
    *  guardada antes de la v2 no las trae: salen de `createdAt` (`termsOf`). */
   fundDeadline?: number;
   playDeadline?: number;
+  /** Hasta cuándo se aceptan puntajes (epoch ms), congelado al crear la
+   *  partida (pre-auditoría F10): si después cambia `SUBMIT_WINDOW_MS`, esta
+   *  partida sigue con el plazo con el que nació, el mismo que ató su
+   *  `playDeadline` en la cadena. Sin el campo (partidas viejas), sale de
+   *  `createdAt` y la variable actual. */
+  submitDeadline?: number;
   /** Hasta cuándo vale `signature` (segundos): `playDeadline + REFUND_GRACE`,
    *  justo cuando se abre el reembolso permissionless. */
   signatureDeadline?: number;
@@ -190,6 +204,20 @@ export interface Match {
   /** Intentos fallidos del `settle` y cuándo toca el próximo (backoff). */
   settleAttempts?: number;
   nextSettleAt?: number;
+  /** Intentos fallidos de FIRMAR el resultado y cuándo toca el próximo (W5). */
+  signAttempts?: number;
+  nextSignAt?: number;
+  /** Mesa de plata: cuándo se sentó el p2 actual. Desde ahí corre su plazo
+   *  para unirse en la cadena (`JOIN_WINDOW_MS`, W3). */
+  pairedAt?: number;
+  /** Mesa de plata: la cadena ya mostró el `open` de p1 (se puede emparejar)
+   *  o el `join` de p2 (la partida está fondeada). Evitan releer la cadena. */
+  openConfirmed?: boolean;
+  joinConfirmed?: boolean;
+  /** Mesa de plata: los p2 que se sentaron y no se unieron a tiempo (W3). Su
+   *  asiento firmado no se puede revocar en el contrato: si uno se une igual
+   *  antes de `fundDeadline`, la cadena manda y vuelve a ser el p2. */
+  revokedSeats?: string[];
   eloUpdate?: { p1: RatingUpdate; p2: RatingUpdate }; // cambio de rating al liquidar
   /** Intentos EN VIVO por jugador (juegos en vivo; ver live.ts). */
   live?: Record<string, LiveAttempt>;
@@ -235,9 +263,36 @@ export function escrowExpect(): EscrowExpect {
 const normAddr = (a: string) => String(a).toLowerCase();
 
 const matches = new Map<string, Match>();
-const queue = new Map<string, Hex>(); // "game:stake" -> id de la partida esperando rival
+/** "game:stake" -> las partidas esperando rival, la más vieja primero. En la
+ *  ladder gratis hay a lo sumo una: el que llega se empareja siempre con la
+ *  primera. En una mesa de plata puede haber varias, porque solo se empareja
+ *  con quien ya depositó (W3): las que todavía no abrieron en la cadena esperan
+ *  atrás sin trabar a nadie. */
+const queue = new Map<string, Hex[]>();
 
 const qkey = (game: string, stake: number) => `${game}:${stake}`;
+
+/** Las partidas en espera de una mesa, en orden de llegada. */
+function queued(k: string): Match[] {
+  return (queue.get(k) ?? []).flatMap((id) => matches.get(id) ?? []);
+}
+
+/** Pone una partida en la fila de su mesa, por orden de nacimiento. */
+function enqueue(k: string, m: Match): void {
+  const ids = (queue.get(k) ?? []).filter((id) => id !== m.id);
+  const at = ids.findIndex((id) => (matches.get(id)?.createdAt ?? 0) > m.createdAt);
+  ids.splice(at === -1 ? ids.length : at, 0, m.id);
+  queue.set(k, ids);
+}
+
+/** Saca una partida de la fila de su mesa (si estaba). */
+function unqueue(k: string, id: string): void {
+  const ids = queue.get(k);
+  if (!ids) return;
+  const rest = ids.filter((x) => x !== id);
+  if (rest.length) queue.set(k, rest);
+  else queue.delete(k);
+}
 const randomId = () => ("0x" + randomBytes(32).toString("hex")) as Hex;
 // Semilla con CSPRNG: Math.random es predecible (xorshift128+); un observador
 // podría anticipar semillas futuras y practicarlas offline antes de emparejar.
@@ -278,6 +333,11 @@ function termsOf(m: Match): { fundDeadline: number; playDeadline: number } {
     fundDeadline: m.fundDeadline ?? t0 + Math.floor(FUND_WINDOW_MS / 1000),
     playDeadline: m.playDeadline ?? t0 + Math.floor(PLAY_WINDOW_MS / 1000),
   };
+}
+
+/** Hasta cuándo se aceptan puntajes en esta partida (epoch ms). */
+export function submitDeadlineOf(m: { createdAt: number; submitDeadline?: number }): number {
+  return m.submitDeadline ?? m.createdAt + SUBMIT_WINDOW_MS;
 }
 
 /** Hasta cuándo vale la firma del ganador (segundos): hasta que se abre el
@@ -325,7 +385,7 @@ export async function restoreMatches(): Promise<void> {
   const raw = await store$.load();
   if (!raw) return;
   try {
-    const arr = JSON.parse(raw) as Match[];
+    const arr = (JSON.parse(raw) as Match[]).sort((a, b) => a.createdAt - b.createdAt);
     for (const m of arr) {
       matches.set(m.id, m);
       // Lo que vuelve del store ya estaba guardado: su firma puede mostrarse.
@@ -334,7 +394,7 @@ export async function restoreMatches(): Promise<void> {
       // Un DESAFÍO (target) NUNCA va a la cola general: solo su target lo acepta
       // (lo descubre el runner con pendingChallengesFor). Sin este guard, tras un
       // redeploy un desafío quedaba en la cola gratis y un tercero lo robaba.
-      if (m.status === "waiting" && !m.p2 && !m.target) queue.set(qkey(m.game, m.stake), m.id);
+      if (m.status === "waiting" && !m.p2 && !m.target) enqueue(qkey(m.game, m.stake), m);
     }
     console.log(`Partidas recuperadas: ${arr.length}`);
   } catch (e) {
@@ -357,9 +417,10 @@ function createWaiting(k: string, game: string, stake: number, address: string) 
     createdAt: Date.now(),
     status: "waiting",
   };
+  m.submitDeadline = m.createdAt + SUBMIT_WINDOW_MS;
   if (stake > 0) Object.assign(m, termsOf(m)); // congeladas desde el nacimiento
   matches.set(m.id, m);
-  queue.set(k, m.id);
+  enqueue(k, m);
   recordMatchCreated(); // métrica: una partida nueva (unirse a una existente no crea otra)
   persist();
   return view(m, address);
@@ -392,6 +453,7 @@ export function createChallenge(game: string, challenger: string, target: string
     createdAt: Date.now(),
     status: "waiting",
   };
+  m.submitDeadline = m.createdAt + SUBMIT_WINDOW_MS;
   matches.set(m.id, m);
   recordMatchCreated();
   persist();
@@ -503,40 +565,207 @@ export async function matchmake(
   }
 
   const k = qkey(game, stake);
-  const waitingId = queue.get(k);
-  let waiter = waitingId ? matches.get(waitingId) : undefined;
+  pruneQueue(k);
 
-  // Limpieza: un waiter ya emparejado o abandonado (viejo) no debe trabar la cola.
-  if (waiter && (waiter.p2 || Date.now() - waiter.createdAt > WAIT_TTL)) {
-    queue.delete(k);
-    if (!waiter.p2) dropMatch(waiter);
-    waiter = undefined;
+  // El p2 de una mesa de plata vuelve a preguntar antes de unirse (la web lo
+  // hace justo antes de depositar): recibe su misma partida, con el asiento
+  // firmado de nuevo. Si la llave del árbitro se rotó (W8), el asiento viejo ya
+  // no lo acepta el contrato. Antes, preguntar de nuevo lo sentaba en otra.
+  if (stake !== 0 && onchainEnabled()) {
+    const nowS = Math.floor(Date.now() / 1000);
+    for (const m of matches.values()) {
+      if (
+        m.game === game &&
+        m.stake === stake &&
+        m.p2 === address &&
+        m.status === "ready" &&
+        !m.joinConfirmed &&
+        m.scores[address] === undefined &&
+        nowS <= termsOf(m).fundDeadline
+      ) {
+        return attachSeat(view(m, address), address);
+      }
+    }
   }
-  // Un waiter nacido con OTRAS reglas (el deploy que subió la versión del juego
-  // lo restauró en la cola) ya no puede terminarse: el envío exige las reglas
-  // vigentes. Emparejarlo haría jugar una partida entera a quien llega para que
-  // le rechacen el puntaje. Sale de la cola pero NO se borra: el barrendero lo
-  // vence al WAIT_TTL y, si hubo depósito, lo reembolsa on-chain.
-  if (waiter && (waiter.rulesV ?? 1) !== (RULES_V[game] ?? 1)) {
-    queue.delete(k);
-    waiter = undefined;
+
+  // El mismo jugador re-consulta su espera: devolvemos su partida
+  // (idempotente). En una mesa de plata, si todavía no abrió en la cadena y
+  // otro ya depositó, mejor sentarlo con ese (abajo): la web vuelve a
+  // preguntar justo antes de depositar, así dos que llegan casi a la vez no
+  // terminan cada uno en su partida esperando un tercero.
+  const mine = queued(k).find((w) => w.p1 === address);
+  if (mine) {
+    const own = await waiterState(mine);
+    if (own === "pairable" || own === "gone") return attachSeat(view(mine, address), address);
   }
 
-  // El mismo jugador re-consulta su espera: devolvemos su partida (idempotente).
-  if (waiter && waiter.p1 === address) return attachSeat(view(waiter, address), address);
-
-  // Hay un rival esperando: emparejamos (orden de llegada). Cada jugador abre/se
-  // une on-chain por su cuenta -> el arbitro no crea la partida ni paga gas.
-  if (waiter) {
-    waiter.p2 = address;
-    waiter.status = "ready";
-    queue.delete(k);
+  // Hay rivales esperando: emparejamos con el primero (orden de llegada) que
+  // se pueda. Cada jugador abre/se une on-chain por su cuenta -> el árbitro no
+  // crea la partida ni paga gas.
+  const rivals = queued(k)
+    .filter((w) => w.p1 !== address)
+    .slice(0, MAX_WAITERS_CHECKED);
+  for (const w of rivals) {
+    const state = await waiterState(w);
+    // Mientras se leía la cadena, otro pudo sentarse en esta misma partida.
+    if (w.p2 || w.status !== "waiting" || !matches.has(w.id)) continue;
+    if (state === "ghost") {
+      // Nunca abrió: sale de la fila (y no traba a nadie más). No se borra:
+      // si abre tarde, el barrendero la reembolsa al vencer la espera.
+      unqueue(k, w.id);
+      continue;
+    }
+    if (state !== "pairable") continue;
+    if (mine) unqueue(k, mine.id); // ídem: si abre tarde, el barrendero la reembolsa
+    w.p2 = address;
+    w.status = "ready";
+    w.pairedAt = Date.now();
+    unqueue(k, w.id);
     persist();
-    return attachSeat(view(waiter, address), address);
+    return attachSeat(view(w, address), address);
   }
 
-  // Nadie esperando: creamos la partida y quedamos a la espera.
+  if (mine) return attachSeat(view(mine, address), address);
+  // Nadie con quien sentarse: creamos la partida y quedamos a la espera.
   return attachSeat(createWaiting(k, game, stake, address), address);
+}
+
+/** Cuántas esperas mira la cadena por cada pedido de emparejamiento: la fila
+ *  de una mesa de plata puede juntar varias sin abrir (W3), y cada una es una
+ *  lectura. */
+const MAX_WAITERS_CHECKED = 5;
+
+/** RIVAL FANTASMA (W3, pre-auditoría F1): cuánto puede tardar en abrir en la
+ *  cadena el que crea una partida en una mesa de plata. Firmar el
+ *  emparejamiento es gratis: sin esto, una wallet que nunca depositaba quedaba
+ *  primera en la fila, el que llegaba se emparejaba con ella y su `join`
+ *  revertía ("not open"). Ahora solo se empareja con quien ya abrió; el que
+ *  no abrió en este plazo sale de la fila. */
+export const OPEN_GRACE_MS = 10 * 60_000;
+
+/** RIVAL FANTASMA (W3, pre-auditoría F1): cuánto tiene el p2 de una mesa de
+ *  plata para unirse en la cadena desde que se sentó. Antes, uno que se sentaba
+ *  y no depositaba trababa el stake del que abrió hasta el reembolso (70 min) o
+ *  la cancelación (2 h 15 m), con su intento ya jugado. Ahora, pasado este
+ *  plazo, se libera su lugar y la partida vuelve a la fila. Cabe en el margen
+ *  de `FUND_WINDOW_MS` sobre `WAIT_TTL`: el último p2 posible tiene el mismo
+ *  tiempo antes de que venza el fondeo. */
+export const JOIN_WINDOW_MS = 10 * 60_000;
+
+/** Limpia la fila de una mesa: lo que ya no puede emparejarse sale. */
+function pruneQueue(k: string, now = Date.now()): void {
+  for (const w of queued(k)) {
+    // Ya emparejada, o la espera venció (WAIT_TTL). Una vencida no se borra
+    // acá: el barrendero la cancela en la cadena si hubo depósito (F8).
+    if (w.p2 || w.status !== "waiting" || now - w.createdAt > WAIT_TTL) unqueue(k, w.id);
+    // Una espera nacida con OTRAS reglas (el deploy que subió la versión del
+    // juego la restauró en la fila) ya no puede terminarse: el envío exige las
+    // reglas vigentes. Emparejarla haría jugar una partida entera a quien llega
+    // para que le rechacen el puntaje. Sale de la fila pero NO se borra: el
+    // barrendero la vence al WAIT_TTL y, si hubo depósito, la reembolsa.
+    else if ((w.rulesV ?? 1) !== (RULES_V[w.game] ?? 1)) unqueue(k, w.id);
+  }
+  // Las ids que ya no están en memoria.
+  const ids = queue.get(k);
+  if (ids?.some((id) => !matches.has(id))) {
+    const rest = ids.filter((id) => matches.has(id));
+    if (rest.length) queue.set(k, rest);
+    else queue.delete(k);
+  }
+}
+
+/** ¿Se puede emparejar con esta espera? Sin plata, siempre. En una mesa de
+ *  plata, solo si su `open` ya está en la cadena:
+ *   - "pairable": abrió (o no hay escrow de por medio);
+ *   - "pending": todavía no abrió y está a tiempo, o la cadena no contestó;
+ *   - "ghost": no abrió en `OPEN_GRACE_MS`, o la partida ya cerró en la cadena;
+ *   - "gone": se unió un p2 cuyo lugar se había liberado (W3): vuelve a ser suyo. */
+async function waiterState(
+  w: Match,
+  now = Date.now(),
+): Promise<"pairable" | "pending" | "ghost" | "gone"> {
+  if (!paidOnchain(w)) return "pairable";
+  if (w.openConfirmed && !w.revokedSeats?.length) return "pairable";
+  let c: OnchainMatch | null;
+  try {
+    c = await escrowChain().read(w.id);
+  } catch (e) {
+    console.error(`[fila] ${w.id}: no se pudo leer la partida:`, (e as Error).message);
+    return "pending";
+  }
+  if (reclaimFromChain(w, c)) return "gone";
+  const p1 = (c?.p1 ?? "").toLowerCase();
+  if (p1 === w.p1 && (c!.status === ONCHAIN_STATUS.Open || c!.status === ONCHAIN_STATUS.Funded)) {
+    w.openConfirmed = true;
+    return "pairable";
+  }
+  if (!c || c.status === ONCHAIN_STATUS.None) {
+    return now - w.createdAt < OPEN_GRACE_MS ? "pending" : "ghost";
+  }
+  return "ghost"; // Settled, Refunded o un p1 que no es el nuestro
+}
+
+/** Si en la cadena se unió un p2 cuyo lugar el árbitro había liberado (W3), la
+ *  cadena manda: vuelve a ser el p2, aunque ya hubiera otro sentado (ese no
+ *  llegó a depositar: su `join` revierte). Devuelve si cambió algo. */
+function reclaimFromChain(m: Match, c: OnchainMatch | null): boolean {
+  if (!c || c.status !== ONCHAIN_STATUS.Funded) return false;
+  const p2 = (c.p2 ?? "").toLowerCase();
+  if (p2 === m.p2 || !m.revokedSeats?.includes(p2)) return false;
+  console.log(`[fila] ${m.id}: se unió ${p2}, que había perdido su lugar; vuelve a ser el p2`);
+  m.p2 = p2;
+  m.revokedSeats = m.revokedSeats.filter((a) => a !== p2);
+  m.joinConfirmed = true;
+  m.pairedAt ??= Date.now();
+  if (m.status === "waiting") m.status = "ready";
+  unqueue(qkey(m.game, m.stake), m.id);
+  persist();
+  return true;
+}
+
+/** Un p2 al que se le liberó el lugar (W3) y que se unió igual en la cadena
+ *  pide jugar: si la cadena lo confirma, vuelve a ser el p2. Lo usan el envío
+ *  de puntaje y la apertura de un intento en vivo, antes de "not a player". */
+export async function reclaimSeat(id: string, address: string): Promise<void> {
+  const m = matches.get(id);
+  address = normAddr(address);
+  if (!m || !paidOnchain(m) || !m.revokedSeats?.includes(address)) return;
+  const c = await escrowChain()
+    .read(m.id)
+    .catch(() => null);
+  reclaimFromChain(m, c);
+}
+
+/** LIBERAR AL QUE ABRIÓ (W3): el p2 de una mesa de plata que no se unió en la
+ *  cadena en `JOIN_WINDOW_MS` pierde el lugar, y la partida vuelve a la fila
+ *  para el próximo. Si la cadena ya la muestra fondeada, queda confirmada. Lo
+ *  corre el barrendero; si la cadena no contesta, el próximo barrido reintenta. */
+async function checkJoin(m: Match, now: number): Promise<void> {
+  const c = await escrowChain().read(m.id);
+  if (reclaimFromChain(m, c) || isDecided(m)) return;
+  const k = qkey(m.game, m.stake);
+  if (m.status === "waiting" && !m.p2) {
+    // Ya liberada: solo se miraba si se unió alguno de los que la perdieron.
+    return;
+  }
+  if (!m.p2 || m.status !== "ready") return;
+  if (c?.status === ONCHAIN_STATUS.Funded) {
+    m.joinConfirmed = true;
+    persist();
+    return;
+  }
+  if (c?.status !== ONCHAIN_STATUS.Open || (m.pairedAt ?? now) + JOIN_WINDOW_MS > now) return;
+  // Sigue abierta y el p2 no se unió: pierde el lugar. Sin depósito no pudo
+  // presentar puntaje ni abrir un intento en vivo (los dos lo exigen).
+  if (m.scores[m.p2] !== undefined || m.live?.[m.p2]) return;
+  console.log(`[fila] ${m.id}: ${m.p2} no se unió a tiempo; la partida vuelve a la fila`);
+  m.revokedSeats = [...(m.revokedSeats ?? []), m.p2];
+  m.p2 = undefined;
+  m.pairedAt = undefined;
+  m.status = "waiting";
+  m.openConfirmed = true;
+  if (now - m.createdAt <= WAIT_TTL) enqueue(k, m);
+  persist();
 }
 
 /** ¿Ya se decidió? En función aparte a propósito: después de un `await`, TS
@@ -553,6 +782,7 @@ export async function submitScore(
   address = normAddr(address);
   const m = matches.get(id);
   if (!m) throw new Error("match not found");
+  if (address !== m.p1 && address !== m.p2) await reclaimSeat(id, address);
   if (address !== m.p1 && address !== m.p2) throw new Error("not a player");
 
   // Una partida ya decidida (pagada, empatada o expirada) no acepta más envíos.
@@ -560,7 +790,7 @@ export async function submitScore(
 
   // VENTANA DE ENVÍO: pasado el plazo de juego, la partida se reembolsa (igual
   // que on-chain con refundExpired); no se aceptan puntajes tardíos.
-  if (Date.now() - m.createdAt > SUBMIT_WINDOW_MS) throw new Error("match expired");
+  if (Date.now() > submitDeadlineOf(m)) throw new Error("match expired");
 
   // AUTENTICACION: el jugador firma su envio con la wallet -> probamos que
   // controla su direccion. Si se exige (REQUIRE_AUTH) y no hay firma, se rechaza.
@@ -797,11 +1027,7 @@ async function decide(m: Match, winner: string | null) {
   if (winner === null) {
     m.status = "draw";
     m.outcome = "draw"; // empate -> reembolso (el arbitro cancela en el contrato)
-    if (onchainEnabled()) {
-      m.refundPromise = escrowChain()
-        .cancel(m.id)
-        .catch((e) => console.error("cancelMatch onchain:", (e as Error).message));
-    }
+    requestRefund(m);
   } else {
     m.winner = winner;
     m.outcome = winner === m.p1 ? "p1" : "p2";
@@ -809,7 +1035,7 @@ async function decide(m: Match, winner: string | null) {
     // invocación concurrente pasaría el guard de arriba y liquidaría dos veces.
     m.status = "settled";
     m.signatureDeadline = resultDeadlineOf(m);
-    m.signature = await signResult(m.id, winner as Hex, BigInt(m.signatureDeadline));
+    await signDecision(m);
   }
 
   // Rating ELO + métrica de partidas decididas (las de bot de prueba no cuentan,
@@ -830,6 +1056,78 @@ async function decide(m: Match, winner: string | null) {
     await saveDecision(m);
     void kickSettle(m);
   }
+}
+
+// ------------------------------------------------------------------------- //
+// UNA FIRMA QUE FALLA SE REINTENTA (W5; pre-auditoría INT-1). La partida se
+// marca decidida antes de firmar (es el candado contra una doble decisión), así
+// que si la firma fallaba una vez —con un firmante KMS que tarda, es seguro que
+// pase— quedaba decidida y sin firma para siempre: nadie la volvía a pedir, el
+// árbitro no podía liquidar, y al vencer el ganador terminaba reembolsado. Ahora
+// la decisión no se pierde: el barrendero vuelve a firmar con backoff, y recién
+// con la firma la guarda y liquida, como siempre. Si la firma ya no llegaría a
+// cobrarse, se reembolsa (closeExpired).
+// ------------------------------------------------------------------------- //
+
+/** El firmante del resultado. Los tests lo cambian por uno que falla. */
+let resultSigner: typeof signResult = signResult;
+export function setResultSignerForTest(fn: typeof signResult | undefined): void {
+  resultSigner = fn ?? signResult;
+}
+
+/** Firma la decisión ya tomada. Nunca tira: si falla, queda para el barrendero. */
+async function signDecision(m: Match, now = Date.now()): Promise<boolean> {
+  try {
+    m.signature = await resultSigner(m.id, m.winner as Hex, BigInt(m.signatureDeadline!));
+    m.signAttempts = undefined;
+    m.nextSignAt = undefined;
+    return true;
+  } catch (e) {
+    m.signAttempts = (m.signAttempts ?? 0) + 1;
+    m.nextSignAt = now + settleBackoffMs(m.signAttempts);
+    console.error(
+      `[firma] ${m.id}: la firma del resultado falló (intento ${m.signAttempts}), se reintenta:`,
+      (e as Error).message,
+    );
+    persist();
+    return false;
+  }
+}
+
+/** Firmas en vuelo, una por partida. */
+const signing = new Map<string, Promise<void>>();
+
+/** ¿Una partida decidida con ganador y sin firma? Solo las de este código
+ *  (llevan `signatureDeadline`). */
+const needsSignature = (m: Match) =>
+  m.status === "settled" &&
+  !!m.winner &&
+  !m.signature &&
+  m.signatureDeadline !== undefined &&
+  !m.settleOutcome;
+
+/** Reintenta la firma de una partida decidida que se quedó sin ella. */
+function kickSign(m: Match, now = Date.now()): Promise<void> {
+  if (!needsSignature(m) || signing.has(m.id) || (m.nextSignAt ?? 0) > now) {
+    return signing.get(m.id) ?? Promise.resolve();
+  }
+  const p = (async () => {
+    if (paidOnchain(m) && Math.floor(now / 1000) > m.signatureDeadline! - FORFEIT_MARGIN_S) {
+      // Ya no llega a cobrarse: el contrato solo reembolsa desde ahí.
+      if (!m.settleOutcome) {
+        m.settleOutcome = "expired";
+        console.error(`[firma] ${m.id}: sin firma a tiempo para cobrar; se reembolsa`);
+        requestRefund(m);
+        persist();
+      }
+      return;
+    }
+    if (!(await signDecision(m, now))) return;
+    persist();
+    if (needsSettle(m) && (await saveDecision(m))) await kickSettle(m);
+  })().finally(() => signing.delete(m.id));
+  signing.set(m.id, p);
+  return p;
 }
 
 // Checker de "¿esta address es un agente de la casa?" — inyectado desde
@@ -928,7 +1226,24 @@ async function settleOnchain(m: Match, now: number): Promise<void> {
   const deadline = m.signatureDeadline!; // needsSettle lo exige
   try {
     if (!(await saveDecision(m))) throw new Error("the decision is not saved yet");
-    if (Math.floor(now / 1000) > deadline) {
+    // ROTACIÓN DE LA LLAVE (W8): una decisión firmada con la llave anterior no
+    // la acepta el contrato (su `arbiter()` es la nueva). Se vuelve a firmar el
+    // MISMO ganador con el MISMO plazo —no hay forma de que salga otro
+    // resultado— y se guarda antes de mostrarla o mandarla, como siempre.
+    if (
+      !(await resultSignedByArbiter(m.id, m.winner as Hex, BigInt(deadline), m.signature as Hex))
+    ) {
+      console.log(`[settle] ${m.id}: firmada con otra llave del árbitro; se vuelve a firmar`);
+      if (!(await signDecision(m, now))) throw new Error("could not re-sign with the current key");
+      decisionSaved.delete(m.id);
+      if (!(await saveDecision(m))) throw new Error("the new signature is not saved yet");
+    }
+    // ¿Venció la firma? La que manda es la hora de la CADENA (RT3-05): con el
+    // reloj del servidor adelantado, el árbitro daba por vencida una firma que
+    // el contrato todavía aceptaba, y el ganador terminaba reembolsado.
+    const expired =
+      Math.floor(now / 1000) > deadline && (chain.time ? (await chain.time()) > deadline : true);
+    if (expired) {
       await closeExpired(m);
     } else {
       m.settleTx = await chain.settle(m.id, m.winner as Hex, BigInt(deadline), m.signature as Hex);
@@ -942,8 +1257,10 @@ async function settleOnchain(m: Match, now: number): Promise<void> {
     // hacer. Si sigue Funded (RPC caído, árbitro sin gas), se reintenta.
     const c = await chain.read(m.id).catch(() => null);
     if (c?.status === ONCHAIN_STATUS.Settled) m.settleOutcome = "external";
-    else if (c?.status === ONCHAIN_STATUS.Refunded) m.settleOutcome = "refunded";
-    else {
+    else if (c?.status === ONCHAIN_STATUS.Refunded) {
+      m.settleOutcome = "refunded";
+      m.refund = "done";
+    } else {
       m.settleAttempts = (m.settleAttempts ?? 0) + 1;
       m.nextSettleAt = now + settleBackoffMs(m.settleAttempts);
       console.error(
@@ -966,23 +1283,103 @@ async function closeExpired(m: Match): Promise<void> {
   else {
     m.settleOutcome = "expired";
     console.error(`[settle] ${m.id}: la firma venció sin presentarse; se reembolsa`);
-    m.refundPromise = escrowChain()
-      .cancel(m.id)
-      .catch((e) => console.error("cancelMatch (firma vencida) onchain:", (e as Error).message));
+    requestRefund(m);
   }
+}
+
+// ------------------------------------------------------------------------- //
+// REEMBOLSOS QUE SE CONFIRMAN (W4; pre-auditoría F2). Antes el reembolso era un
+// solo intento (el cancel con sus 3 reintentos de 2 s): si el RPC fallaba unos
+// segundos, nadie lo volvía a intentar y la web igual decía "reembolsado". La
+// plata no se perdía —`refundUnfunded`/`refundExpired` son permissionless—,
+// pero quedaba trabada hasta que alguien descubriera /recover. Ahora se
+// reintenta con el mismo backoff que el `settle` hasta que la cadena diga
+// Refunded, y la vista dice "done" recién entonces. Solo con plata: una
+// partida gratis no tiene nada que cancelar (antes igual simulaba un cancel en
+// la cola de los pagos, F11).
+// ------------------------------------------------------------------------- //
+
+/** Reembolsos en vuelo, uno por partida (`onchainSettled` los espera). */
+const refunding = new Map<string, Promise<void>>();
+
+/** Pide el reembolso de una mesa de plata (una sola vez por partida). */
+function requestRefund(m: Match): void {
+  if (!paidOnchain(m) || m.refund) return;
+  m.refund = "pending";
+  m.refundPromise = kickRefund(m);
+}
+
+/** Manda (o reintenta) el reembolso: uno a la vez por partida, respetando el
+ *  backoff. */
+function kickRefund(m: Match, now = Date.now()): Promise<void> {
+  if (m.refund !== "pending") return Promise.resolve();
+  const running = refunding.get(m.id);
+  if (running) return running;
+  if ((m.nextRefundAt ?? 0) > now) return Promise.resolve();
+  const p = refundOnchain(m, now).finally(() => refunding.delete(m.id));
+  refunding.set(m.id, p);
+  m.refundPromise = p;
+  return p;
+}
+
+async function refundOnchain(m: Match, now: number): Promise<void> {
+  const chain = escrowChain();
+  try {
+    await chain.cancel(m.id);
+    m.refund = "done";
+  } catch (e) {
+    // Qué pasó lo dice la cadena, no el error: si ya se reembolsó (otro pidió
+    // refundUnfunded/refundExpired, o un cancel anterior que se minó tarde),
+    // está hecho; si nadie depositó, no hay nada que devolver; si sigue Open o
+    // Funded (RPC caído, árbitro sin gas), se reintenta.
+    const c = await chain.read(m.id).catch(() => null);
+    if (c?.status === ONCHAIN_STATUS.Refunded) m.refund = "done";
+    else if (c?.status === ONCHAIN_STATUS.None) {
+      // Nadie depositó... todavía (F9): mientras el asiento del que abre siga
+      // valiendo (hasta `fundDeadline`), puede abrir igual. Se vuelve a mirar
+      // apenas vence; recién ahí no hay nada que devolver.
+      const fundDeadline = termsOf(m).fundDeadline;
+      if (Math.floor(now / 1000) <= fundDeadline) {
+        m.nextRefundAt = (fundDeadline + 1) * 1000;
+        persist();
+        return;
+      }
+      m.refund = "none";
+    } else if (c?.status === ONCHAIN_STATUS.Settled) {
+      // La firma de un ganador entró antes de vencer: la cobró él.
+      m.refund = "none";
+      if (m.settleOutcome === "expired") m.settleOutcome = "external";
+    } else {
+      m.refundAttempts = (m.refundAttempts ?? 0) + 1;
+      m.nextRefundAt = now + settleBackoffMs(m.refundAttempts);
+      console.error(
+        `[reembolso] ${m.id}: intento ${m.refundAttempts} falló, se reintenta:`,
+        (e as Error).message,
+      );
+      persist();
+      return;
+    }
+  }
+  m.refundAttempts = undefined;
+  m.nextRefundAt = undefined;
+  persist();
 }
 
 /** Pruebas en solitario: completa la partida con un "bot" y la liquida. */
 export async function addBot(id: string) {
   const m = matches.get(id);
   if (!m) throw new Error("match not found");
+  // Nunca en una mesa de plata con escrow (pre-auditoría F12): el pedido no
+  // está autenticado, así que cualquiera sentaba un bot en la partida de otro
+  // que ya había depositado y se la arruinaba (el bot no deposita: la partida
+  // nunca se fondea y termina en reembolso).
+  if (paidOnchain(m)) throw new Error("test bot not allowed on a paid table");
   if (m.p2) return view(m, m.p1); // ya tiene rival real
   m.p2 = BOT;
   m.isBot = true;
   // Sacarla de la cola SOLO si la cola apunta a esta partida (otra podría estar
   // esperando con la misma clave juego:mesa; no hay que desencolarla a ella).
-  const k = qkey(m.game, m.stake);
-  if (queue.get(k) === m.id) queue.delete(k);
+  unqueue(qkey(m.game, m.stake), m.id);
   const p1score = m.scores[m.p1];
   m.scores[BOT] =
     p1score !== undefined
@@ -998,7 +1395,8 @@ export async function addBot(id: string) {
  *  empate o la liquidación que manda el árbitro (si aplica). */
 export async function onchainSettled(id: string): Promise<void> {
   await expiring.get(id);
-  await Promise.all([matches.get(id)?.refundPromise, settling.get(id)]);
+  await signing.get(id);
+  await Promise.all([matches.get(id)?.refundPromise, settling.get(id), refunding.get(id)]);
 }
 
 export function getMatch(id: string, address?: string) {
@@ -1011,10 +1409,10 @@ export function getMatch(id: string, address?: string) {
  *  runner de agentes hosteados para NO emparejar dos agentes del mismo dueño
  *  (anti inflado de ELO con un "gemelo sacrificable"). */
 export function peekWaiterAddress(game: string, stake: number): string | null {
-  const waitingId = queue.get(qkey(game, stake));
-  const waiter = waitingId ? matches.get(waitingId) : undefined;
-  if (!waiter || waiter.p2 || Date.now() - waiter.createdAt > WAIT_TTL) return null;
-  return waiter.p1;
+  const waiter = queued(qkey(game, stake)).find(
+    (w) => !w.p2 && Date.now() - w.createdAt <= WAIT_TTL,
+  );
+  return waiter?.p1 ?? null;
 }
 
 /** Descarta una partida EN ESPERA (sin rival). Se usa al pausar/borrar un
@@ -1023,8 +1421,7 @@ export function peekWaiterAddress(game: string, stake: number): string | null {
 export function dropWaitingMatch(id: string) {
   const m = matches.get(id);
   if (!m || m.p2 || m.status !== "waiting") return;
-  const k = qkey(m.game, m.stake);
-  if (queue.get(k) === m.id) queue.delete(k);
+  unqueue(qkey(m.game, m.stake), m.id);
   dropMatch(m);
   persist();
 }
@@ -1086,6 +1483,10 @@ export interface MatchView {
   settleTx?: Hex;
   /** Mesa de plata cerrada sin `settle` propio (ver `Match.settleOutcome`). */
   settleOutcome?: "external" | "refunded" | "expired";
+  /** Mesa de plata que se reembolsa: "pending" hasta que la cadena lo
+   *  confirme, "done" cuando la plata volvió, "none" si no había nada que
+   *  devolver. */
+  refund?: "pending" | "done" | "none";
   isBot?: boolean;
   // Feedback rico (presente solo cuando la partida ya termino):
   yourScore?: number;
@@ -1145,6 +1546,7 @@ function view(m: Match, address?: string, opts?: { revealOwnScore?: boolean }): 
     Object.assign(v, termsOf(m));
     v.settleTx = m.settleTx;
     v.settleOutcome = m.settleOutcome;
+    v.refund = m.refund;
   }
 
   // FEEDBACK RICO para jugadores/agentes: solo cuando la partida YA termino,
@@ -1268,6 +1670,7 @@ function healUnfinishedLiveAttempts(m: Match): void {
 export function sweepMatches(now = Date.now()): Promise<void> {
   let dirty = false;
   const expirations: Promise<void>[] = [];
+  const checks: Promise<void>[] = [];
   for (const m of [...matches.values()]) {
     const finished = m.status === "settled" || m.status === "draw";
     if (!finished) healUnfinishedLiveAttempts(m);
@@ -1275,19 +1678,26 @@ export function sweepMatches(now = Date.now()): Promise<void> {
       if (now - m.createdAt > FINISHED_TTL) {
         dropMatch(m);
       } else {
-        // Mesa de plata decidida que el árbitro todavía no pudo liquidar: el
-        // reintento, con su backoff (ver `kickSettle`).
+        // Mesa de plata decidida que el árbitro todavía no pudo liquidar, o
+        // un reembolso que la cadena todavía no confirmó: el reintento, con su
+        // backoff (ver `kickSettle` y `kickRefund`).
+        void kickSign(m, now);
         void kickSettle(m, now);
+        void kickRefund(m, now);
       }
       continue;
     }
+    // Mesa de plata: ¿el p2 se unió a tiempo, o se unió uno de los que habían
+    // perdido el lugar? (W3, ver `checkJoin`.)
+    if (needsJoinCheck(m, now)) checks.push(runJoinCheck(m, now));
     if (!m.p2) {
       // Esperando rival: vencido, se descarta. Un desafío dirigido usa su propio
       // TTL (más corto); una espera de cola normal, el WAIT_TTL de siempre.
       const ttl = m.target ? CHALLENGE_TTL : WAIT_TTL;
-      if (now - m.createdAt > ttl) {
-        const k = qkey(m.game, m.stake);
-        if (queue.get(k) === m.id) queue.delete(k);
+      // Si alguno de los que perdieron el lugar se unió en la cadena, primero
+      // se mira eso (arriba): la partida es suya, no se cancela.
+      if (now - m.createdAt > ttl && !joinChecks.has(m.id)) {
+        unqueue(qkey(m.game, m.stake), m.id);
         // ABRISTE LA MESA Y NADIE APARECIÓ. Antes esto solo borraba la partida
         // de la memoria del árbitro: el USDC quedaba en el contrato y el
         // reembolso pasaba a ser manual, desde /recover —un link perdido entre
@@ -1299,18 +1709,23 @@ export function sweepMatches(now = Date.now()): Promise<void> {
         // El contrato acepta cancelar en estado Open (Escrow1v1.sol) y el
         // árbitro ya paga ese gas en el caso del empate: no hay motivo para no
         // hacerlo también acá.
-        if (m.stake > 0 && onchainEnabled()) {
-          m.refundPromise = escrowChain()
-            .cancel(m.id)
-            .catch((e) => console.error("cancelMatch (sin rival) onchain:", (e as Error).message));
+        //
+        // Con plata, la partida queda (como un empate sin rival) hasta que la
+        // cadena confirme el reembolso: si el primer intento falla, se reintenta
+        // (W4). Sin plata, no hay nada que devolver y se borra como siempre.
+        if (paidOnchain(m)) {
+          m.status = "draw";
+          m.outcome = "draw";
+          requestRefund(m);
+        } else {
+          dropMatch(m);
         }
-        dropMatch(m);
         dirty = true;
       }
       continue;
     }
     // Emparejada pero sin resultado al vencer la ventana (ver expireMatch).
-    if (now - m.createdAt > SUBMIT_WINDOW_MS + EXPIRE_GRACE_MS && !expiring.has(m.id)) {
+    if (now > submitDeadlineOf(m) + EXPIRE_GRACE_MS && !expiring.has(m.id)) {
       const p = expireMatch(m, now)
         .catch((e) =>
           console.error(
@@ -1324,7 +1739,37 @@ export function sweepMatches(now = Date.now()): Promise<void> {
     }
   }
   if (dirty) persist();
-  return Promise.all(expirations).then(() => undefined);
+  return Promise.all([...expirations, ...checks]).then(() => undefined);
+}
+
+/** Chequeos de unión en curso (uno por partida: la lectura es async). */
+const joinChecks = new Map<string, Promise<void>>();
+
+/** ¿Hay que mirar en la cadena si el p2 se unió? Una mesa de plata emparejada
+ *  cuyo p2 no se confirmó y ya se pasó de `JOIN_WINDOW_MS`, o una liberada que
+ *  todavía puede recuperar alguno de los que perdieron el lugar (antes de que
+ *  venza el fondeo). */
+function needsJoinCheck(m: Match, now: number): boolean {
+  if (!paidOnchain(m) || isDecided(m) || joinChecks.has(m.id)) return false;
+  if (m.p2) {
+    return (
+      m.status === "ready" &&
+      !m.joinConfirmed &&
+      m.pairedAt !== undefined &&
+      now - m.pairedAt > JOIN_WINDOW_MS
+    );
+  }
+  return !!m.revokedSeats?.length && Math.floor(now / 1000) <= termsOf(m).fundDeadline;
+}
+
+function runJoinCheck(m: Match, now: number): Promise<void> {
+  const p = checkJoin(m, now)
+    .catch((e) =>
+      console.error(`[fila] ${m.id}: se reintenta en el próximo barrido:`, (e as Error).message),
+    )
+    .finally(() => joinChecks.delete(m.id));
+  joinChecks.set(m.id, p);
+  return p;
 }
 
 /** Vencimientos en curso (uno por partida: la lectura de la cadena es async). */
@@ -1381,12 +1826,10 @@ async function expireMatch(m: Match, now: number): Promise<void> {
 
   m.status = "draw";
   m.outcome = "draw";
-  if (refunded) m.settleOutcome = "refunded";
-  else if (onchainEnabled()) {
-    m.refundPromise = escrowChain()
-      .cancel(m.id)
-      .catch((e) => console.error("cancelMatch (expirada) onchain:", (e as Error).message));
-  }
+  if (refunded) {
+    m.settleOutcome = "refunded";
+    m.refund = "done";
+  } else requestRefund(m);
   persist();
 }
 

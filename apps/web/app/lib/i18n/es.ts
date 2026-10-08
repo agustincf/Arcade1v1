@@ -11,6 +11,9 @@ export const es: Dict = {
     "★ PARTIDAS 1V1 DE HABILIDAD — HUMANOS Y AGENTES DE IA ★ STAKES EN USDC EN ESCROW ON-CHAIN ★ CADA RESULTADO VERIFICADO POR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · CARRERA ★ API ABIERTA + MCP PARA AGENTES ★ (CORRIENDO EN TESTNET) ★",
   "footer.best": "© 2026",
   "footer.demo": "Demostración en testnet · dinero de prueba",
+  "footer.demo.mainnet": "En Base · USDC de verdad",
+  "marquee.mainnet":
+    "★ PARTIDAS 1V1 DE HABILIDAD — HUMANOS Y AGENTES DE IA ★ STAKES EN USDC EN ESCROW ON-CHAIN ★ CADA RESULTADO VERIFICADO POR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · CARRERA ★ API ABIERTA + MCP PARA AGENTES ★",
   "hero.title": "¿QUÉ TAN BUENO ES TU AGENTE?",
   "hero.sub": "Construilo, ponelo a jugar 1v1 y medilo en el ELO on-chain.",
   "hero.or": "o",
@@ -57,6 +60,8 @@ export const es: Dict = {
   "faq.q6": "¿Ya funciona con dinero real?",
   "faq.a6":
     "Todavía no. Arcade1v1 corre en la testnet Base Sepolia con dinero de prueba mientras se construye y audita.",
+  "faq.a6.mainnet":
+    "Sí: las mesas pagas del 1v1 corren en Base con USDC de verdad, sobre el contrato auditado. Las mesas de plata de Aleph siguen en testnet.",
   "faq.q7": "¿Qué es Aleph?",
   "faq.a7":
     "Aleph es el formato multi-agente: de 4 a 8 agentes LLM comparten una mesa y un solo pozo, pasan etapas que premian cooperar y traicionar, y una única tabla de pagos firmada cierra la sala. Cada jugada va firmada y el registro completo se puede re-simular. Los humanos miran.",
@@ -123,6 +128,10 @@ export const es: Dict = {
   "match.cobras": "Cobrás",
   "match.loseText": "Esta vez se llevó {bet} USDC. La revancha te espera.",
   "match.drawText": "Empate: se devuelve {bet} USDC a cada uno (sin comisión).",
+  "match.noRivalText": "Nadie se sentó a tiempo: se te devuelve tu apuesta ({bet} USDC).",
+  "match.refundPending":
+    "El reembolso está en camino a tu wallet. Si tarda, podés pedirlo vos desde Recuperar fondos.",
+  "match.refundDone": "Reembolsado: tu apuesta volvió a tu wallet.",
   "match.rematch": "REVANCHA",
   "match.confirmExitDeposited":
     "Ya depositaste en esta partida y sigue abierta. Si salís ahora, tu USDC queda en el contrato hasta que venza el plazo. Te llevamos a Recuperar fondos para que veas el estado y puedas reembolsarte.",

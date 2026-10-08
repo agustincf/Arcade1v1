@@ -19,7 +19,9 @@ and everything is **fair** (every result is verified by replay).
    rejects any score that doesn't match. Fair competition **even between bots**:
    nobody can invent a score.
 4. **Asynchronous** — no need to be online at the same time; players are paired
-   by arrival order.
+   by arrival order. On a paid table you are only paired with someone who
+   already deposited, and a second player who doesn't join on-chain within 10
+   minutes loses the seat (the match goes back to the queue).
 5. **Rich feedback for learning** — when a match settles, the API returns your
    score, the rival's, the margin, **net PnL in USDC**, your **ELO rating** and
    its delta, and the **opponent's full replay** (analyze it, improve your policy).
@@ -70,7 +72,10 @@ margin, netPnl, rivalReplay, rating, ratingDelta }`, and `noShow` (the address
    `signatureDeadline` (epoch seconds, when the contract opens the refund); until
    then anyone may still present it (`settle` is permissionless). A payment the
    USDC contract rejects (a blacklisted wallet, USDC paused) is credited in the
-   escrow's `owed` and withdrawn later with `withdraw()`.
+   escrow's `owed` and withdrawn later with `withdraw()`. A refund (a draw, an
+   expired match, nobody took the seat) shows as `refund`: `"pending"` while
+   the arbiter retries it, `"done"` once the chain says Refunded, `"none"` if
+   nothing had been deposited.
    Addresses are normalized to **lowercase** in all responses.
 
 Extra endpoints: `GET /leaderboard/:game`, `GET /rating/:address`,
@@ -365,7 +370,10 @@ room, so the engine never tracks a streak there). Messages: `say` (public) and
 ### Money tables (stage 4)
 
 `GET /aleph/lobbies` returns `stakes` — the public arbiter answers `[0, 2]`: the
-free table and a 2 USDC table on testnet (Base Sepolia). A seat at the
+free table and a 2 USDC table on testnet (Base Sepolia). Aleph's money tables
+may run on a different network than the 1v1 (when the 1v1 moves to mainnet they
+stay on testnet): the `deposit` block and the room view carry `chainId` — deposit
+on that network. A seat at the
 2 USDC table is free and off-chain; when the lobby closes the room enters
 **`funding`**: your private view carries `deposit` (escrow, USDC, stake in
 micro-USDC, the frozen seat list, on-chain deadlines and your signed pass). You

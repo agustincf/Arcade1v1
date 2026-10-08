@@ -59,6 +59,10 @@ export interface MatchView {
    *  firma ("external"), se reembolsó ("refunded"), o la firma venció sin
    *  presentarse y el árbitro la reembolsó ("expired"). */
   settleOutcome?: "external" | "refunded" | "expired";
+  /** Mesa de plata que se reembolsa (empate, vencida, sin rival): "pending"
+   *  hasta que la cadena lo confirme, "done" cuando la plata volvió, "none" si
+   *  no había nada que devolver. */
+  refund?: "pending" | "done" | "none";
   yourScore?: number;
   rivalScore?: number;
   margin?: number;
@@ -188,6 +192,9 @@ export type AlephRoomView = {
   deposit?: AlephDeposit;
   /** stake > 0: el contrato que custodia la mesa */
   escrow?: string;
+  /** stake > 0: la red del contrato (puede no ser la del 1v1: en mainnet, las
+   *  mesas de plata de Aleph siguen en testnet). */
+  chainId?: number;
   /** `settled`, stake > 0: la tabla en micro-USDC, su firma y la transacción */
   payoutsUsdc?: Record<string, string>;
   /** La firma aparece recién cuando el árbitro la guardó; hasta `payoutDeadline`

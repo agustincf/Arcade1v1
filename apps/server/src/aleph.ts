@@ -48,7 +48,13 @@ import { jsonStore } from "./persist.js";
 import { recordMatchCreated, recordMatchSettled } from "./stats.js";
 import { recordAlephRoom } from "./aleph-models.js";
 import { isAlephHouseAddress } from "./aleph-house-seats.js";
-import { signAlephSeat, signAlephPayout, alephSeatsHash, alephTableHash } from "./sign.js";
+import {
+  signAlephSeat,
+  signAlephPayout,
+  alephSeatsHash,
+  alephTableHash,
+  alephPayoutSignedByArbiter,
+} from "./sign.js";
 import {
   alephChain,
   alephOnchainEnabled,
@@ -233,6 +239,7 @@ export type AlephRoomView = {
   deposited?: string[]; // `funding`: quién ya depositó
   deposit?: AlephDeposit; // `funding`, SOLO en la vista privada del asiento
   escrow?: Hex; // stake > 0: el contrato
+  chainId?: number; // stake > 0: su red (puede no ser la del 1v1)
   payoutsUsdc?: Record<string, string>; // `settled`, stake > 0
   payoutSig?: Hex; // `settled`, stake > 0: cualquiera puede presentar la tabla
   payoutDeadline?: number; // `settled`, stake > 0: hasta cuándo vale (segundos)
@@ -979,17 +986,22 @@ async function settleOnchain(room: AlephRoom, now: number): Promise<boolean> {
     // mandarla antes del plazo (RPC caído, backoff largo), se firma de nuevo la
     // MISMA tabla con otro plazo: dos firmas de la misma tabla pagan lo mismo, y
     // `settle` paga una sola vez.
+    // Y si la firmó una llave que ya no es la del árbitro (se rotó, W8), el
+    // contrato no la acepta: también se vuelve a firmar.
+    const tableHash = alephTableHash(seats, amounts);
     if (
       !rec.payoutSig ||
       rec.payoutDeadline === undefined ||
-      rec.payoutDeadline * 1000 - now < PAYOUT_RESIGN_MARGIN_MS
+      rec.payoutDeadline * 1000 - now < PAYOUT_RESIGN_MARGIN_MS ||
+      !(await alephPayoutSignedByArbiter(
+        room.id,
+        tableHash,
+        BigInt(rec.payoutDeadline),
+        rec.payoutSig,
+      ))
     ) {
       const deadline = Math.floor((now + ALEPH_PAYOUT_TTL_MS) / 1000);
-      rec.payoutSig = await signAlephPayout(
-        room.id,
-        alephTableHash(seats, amounts),
-        BigInt(deadline),
-      );
+      rec.payoutSig = await signAlephPayout(room.id, tableHash, BigInt(deadline));
       rec.payoutDeadline = deadline;
     }
     // LA FIRMA SE GUARDA ANTES DE PUBLICARSE, y hasta entonces ni la vista ni
@@ -1144,6 +1156,7 @@ export function roomView(room: AlephRoom, address?: string): AlephRoomView {
     settledAt: room.settledAt,
     commit: room.commit,
     escrow: room.stake > 0 ? alephEscrowAddress() : undefined,
+    chainId: room.stake > 0 ? alephChainId() : undefined,
   };
   if (room.status === "lobby" || room.status === "funding" || room.status === "dissolved") {
     const funding =
