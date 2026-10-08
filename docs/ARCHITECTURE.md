@@ -290,6 +290,13 @@ the winner from the web) → `settleOutcome: "external"`; `Refunded` →
 arbiter cancels (refund) instead. `settle` stays permissionless: the web keeps
 a claim button as a fallback.
 
+**A failed result signature is retried (W5).** The match is marked decided
+before signing (the guard against a double decision), so a signer that fails
+once — a KMS that times out — used to leave it decided and unsigned forever.
+Now the sweeper asks for the signature again with backoff and, once signed,
+saves the decision and settles; if it could no longer be cashed before the
+refund opens, the match is refunded.
+
 **Refunds are retried until the chain confirms them (W4).** A draw, an expired
 match or a paid match nobody joined is refunded with `cancelMatch`, and the
 match keeps `refund: "pending"` (persisted) until the chain says `Refunded`:

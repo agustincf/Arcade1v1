@@ -198,6 +198,9 @@ export interface Match {
   /** Intentos fallidos del `settle` y cuándo toca el próximo (backoff). */
   settleAttempts?: number;
   nextSettleAt?: number;
+  /** Intentos fallidos de FIRMAR el resultado y cuándo toca el próximo (W5). */
+  signAttempts?: number;
+  nextSignAt?: number;
   /** Mesa de plata: cuándo se sentó el p2 actual. Desde ahí corre su plazo
    *  para unirse en la cadena (`JOIN_WINDOW_MS`, W3). */
   pairedAt?: number;
@@ -998,7 +1001,7 @@ async function decide(m: Match, winner: string | null) {
     // invocación concurrente pasaría el guard de arriba y liquidaría dos veces.
     m.status = "settled";
     m.signatureDeadline = resultDeadlineOf(m);
-    m.signature = await signResult(m.id, winner as Hex, BigInt(m.signatureDeadline));
+    await signDecision(m);
   }
 
   // Rating ELO + métrica de partidas decididas (las de bot de prueba no cuentan,
@@ -1019,6 +1022,78 @@ async function decide(m: Match, winner: string | null) {
     await saveDecision(m);
     void kickSettle(m);
   }
+}
+
+// ------------------------------------------------------------------------- //
+// UNA FIRMA QUE FALLA SE REINTENTA (W5; pre-auditoría INT-1). La partida se
+// marca decidida antes de firmar (es el candado contra una doble decisión), así
+// que si la firma fallaba una vez —con un firmante KMS que tarda, es seguro que
+// pase— quedaba decidida y sin firma para siempre: nadie la volvía a pedir, el
+// árbitro no podía liquidar, y al vencer el ganador terminaba reembolsado. Ahora
+// la decisión no se pierde: el barrendero vuelve a firmar con backoff, y recién
+// con la firma la guarda y liquida, como siempre. Si la firma ya no llegaría a
+// cobrarse, se reembolsa (closeExpired).
+// ------------------------------------------------------------------------- //
+
+/** El firmante del resultado. Los tests lo cambian por uno que falla. */
+let resultSigner: typeof signResult = signResult;
+export function setResultSignerForTest(fn: typeof signResult | undefined): void {
+  resultSigner = fn ?? signResult;
+}
+
+/** Firma la decisión ya tomada. Nunca tira: si falla, queda para el barrendero. */
+async function signDecision(m: Match, now = Date.now()): Promise<boolean> {
+  try {
+    m.signature = await resultSigner(m.id, m.winner as Hex, BigInt(m.signatureDeadline!));
+    m.signAttempts = undefined;
+    m.nextSignAt = undefined;
+    return true;
+  } catch (e) {
+    m.signAttempts = (m.signAttempts ?? 0) + 1;
+    m.nextSignAt = now + settleBackoffMs(m.signAttempts);
+    console.error(
+      `[firma] ${m.id}: la firma del resultado falló (intento ${m.signAttempts}), se reintenta:`,
+      (e as Error).message,
+    );
+    persist();
+    return false;
+  }
+}
+
+/** Firmas en vuelo, una por partida. */
+const signing = new Map<string, Promise<void>>();
+
+/** ¿Una partida decidida con ganador y sin firma? Solo las de este código
+ *  (llevan `signatureDeadline`). */
+const needsSignature = (m: Match) =>
+  m.status === "settled" &&
+  !!m.winner &&
+  !m.signature &&
+  m.signatureDeadline !== undefined &&
+  !m.settleOutcome;
+
+/** Reintenta la firma de una partida decidida que se quedó sin ella. */
+function kickSign(m: Match, now = Date.now()): Promise<void> {
+  if (!needsSignature(m) || signing.has(m.id) || (m.nextSignAt ?? 0) > now) {
+    return signing.get(m.id) ?? Promise.resolve();
+  }
+  const p = (async () => {
+    if (paidOnchain(m) && Math.floor(now / 1000) > m.signatureDeadline! - FORFEIT_MARGIN_S) {
+      // Ya no llega a cobrarse: el contrato solo reembolsa desde ahí.
+      if (!m.settleOutcome) {
+        m.settleOutcome = "expired";
+        console.error(`[firma] ${m.id}: sin firma a tiempo para cobrar; se reembolsa`);
+        requestRefund(m);
+        persist();
+      }
+      return;
+    }
+    if (!(await signDecision(m, now))) return;
+    persist();
+    if (needsSettle(m) && (await saveDecision(m))) await kickSettle(m);
+  })().finally(() => signing.delete(m.id));
+  signing.set(m.id, p);
+  return p;
 }
 
 // Checker de "¿esta address es un agente de la casa?" — inyectado desde
@@ -1254,6 +1329,7 @@ export async function addBot(id: string) {
  *  empate o la liquidación que manda el árbitro (si aplica). */
 export async function onchainSettled(id: string): Promise<void> {
   await expiring.get(id);
+  await signing.get(id);
   await Promise.all([matches.get(id)?.refundPromise, settling.get(id), refunding.get(id)]);
 }
 
@@ -1539,6 +1615,7 @@ export function sweepMatches(now = Date.now()): Promise<void> {
         // Mesa de plata decidida que el árbitro todavía no pudo liquidar, o
         // un reembolso que la cadena todavía no confirmó: el reintento, con su
         // backoff (ver `kickSettle` y `kickRefund`).
+        void kickSign(m, now);
         void kickSettle(m, now);
         void kickRefund(m, now);
       }

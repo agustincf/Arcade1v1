@@ -124,6 +124,15 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   quedaba esperando un 404): termina como "nadie se sentó a tiempo" con su
   reembolso. Las partidas gratis ya no mandan un `cancelMatch` a la cola de
   escrituras on-chain (F11). El tipo `MatchView` del SDK suma `refund`.
+- **Una firma del resultado que falla ya no deja la partida sin firma para
+  siempre** (W5 de `docs/MAINNET.md`; pre-auditoría INT-1). La partida se
+  marca decidida antes de firmar (es el candado contra una doble decisión):
+  si la firma fallaba una vez —con un firmante KMS que tarda, es seguro que
+  pase—, nadie la volvía a pedir, el árbitro no podía liquidar y al vencer el
+  ganador terminaba reembolsado. Ahora el envío que la decidió no revienta, y el
+  barrendero vuelve a firmar con el mismo backoff que los pagos; con la firma,
+  la guarda y liquida como siempre. Si ya no llegaría a cobrarse antes de que
+  se abra el reembolso, se reembolsa.
 
 ### Agregado
 
