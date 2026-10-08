@@ -11,11 +11,8 @@ set -e
 export PATH="$HOME/.foundry/bin:$PATH"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
-pkill -f anvil 2>/dev/null || true
-sleep 1
-anvil >/tmp/anvil.log 2>&1 &
-ANVIL_PID=$!
-sleep 2
+source "$ROOT/packages/contracts/anvil-propio.sh"
+anvil_propio
 
 KEY0=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ACCT1=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
@@ -25,7 +22,7 @@ cd "$ROOT/packages/contracts"
 # Solo se comparan digests: el "USDC" puede ser cualquier dirección. La wallet de
 # la plataforma va aparte: el constructor rechaza que sea el token mismo.
 ESCROW=$(forge create src/Escrow1v1.sol:Escrow1v1 \
-  --rpc-url http://localhost:8545 --private-key "$KEY0" --broadcast \
+  --rpc-url $RPC --private-key "$KEY0" --broadcast \
   --constructor-args "$ACCT1" "$ACCT1" "$ACCT2" 1500 "$ACCT1" 2>/dev/null \
   | grep "Deployed to:" | awk '{print $3}')
 if [ -z "$ESCROW" ]; then
@@ -42,9 +39,9 @@ FUND_DEADLINE=1800000000
 PLAY_DEADLINE=1800003600
 
 RESULT_C=$(cast call "$ESCROW" "resultDigest(bytes32,address,uint64)(bytes32)" \
-  "$MATCHID" "$WINNER" "$DEADLINE" --rpc-url http://localhost:8545)
+  "$MATCHID" "$WINNER" "$DEADLINE" --rpc-url $RPC)
 SEAT_C=$(cast call "$ESCROW" "seatDigest(bytes32,address,uint256,uint64,uint64)(bytes32)" \
-  "$MATCHID" "$WINNER" "$STAKE" "$FUND_DEADLINE" "$PLAY_DEADLINE" --rpc-url http://localhost:8545)
+  "$MATCHID" "$WINNER" "$STAKE" "$FUND_DEADLINE" "$PLAY_DEADLINE" --rpc-url $RPC)
 ARBITER=$(CHAIN_ID=31337 ESCROW_ADDRESS="$ESCROW" MATCHID="$MATCHID" WINNER="$WINNER" \
   DEADLINE="$DEADLINE" PLAYER="$WINNER" STAKE="$STAKE" FUND_DEADLINE="$FUND_DEADLINE" \
   PLAY_DEADLINE="$PLAY_DEADLINE" "$ROOT/node_modules/.bin/tsx" "$ROOT/apps/server/src/digestcheck.ts")

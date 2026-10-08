@@ -99,6 +99,18 @@ export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): st
         "y las liquidaciones todavía sin presentar, dejando la plata trabada en el contrato.",
     );
   }
+  // Lo mismo para las mesas de plata del 1v1 (pre-auditoría F7): sin Redis, un
+  // deploy borra las decisiones firmadas que el árbitro todavía no liquidó, los
+  // reembolsos sin confirmar y las partidas en fondeo. La plata no se pierde
+  // (los reembolsos del contrato son permissionless), pero el ganador no cobra
+  // y cada jugador tiene que ir a /recover por su cuenta.
+  if (onchain && backend !== "redis") {
+    errors.push(
+      `ESCROW_ADDRESS habilita las mesas de plata del 1v1 pero la persistencia es "${backend}" ` +
+        "(faltan UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN): un deploy borraría las decisiones " +
+        "firmadas sin liquidar y los reembolsos pendientes, dejando la plata trabada en el contrato.",
+    );
+  }
   if (!onchain && !alephOn) return errors; // sin ningún escrow no hay dinero on-chain
 
   // No basta con que las variables EXISTAN: si están mal FORMADAS (un CHAIN_ID no

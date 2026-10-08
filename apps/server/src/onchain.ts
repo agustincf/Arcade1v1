@@ -9,9 +9,10 @@ import { createWalletClient, createPublicClient, http, type Hex, type Chain } fr
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry, base, baseSepolia } from "viem/chains";
 import { escrowAbi } from "./abi.js";
+import { chainIdFromEnv, envValue } from "./env.js";
 
-const RPC = process.env.RPC_URL || "http://localhost:8545";
-const ESCROW = (process.env.ESCROW_ADDRESS || "") as Hex;
+const RPC = envValue("RPC_URL") || "http://localhost:8545";
+const ESCROW = envValue("ESCROW_ADDRESS") as Hex;
 const ZERO = "0x0000000000000000000000000000000000000000";
 
 export function onchainEnabled(): boolean {
@@ -25,7 +26,7 @@ export function escrowAddress(): Hex {
 
 /** Red segun CHAIN_ID: 31337 anvil, 8453 Base mainnet, si no Base Sepolia. */
 export function chain(): Chain {
-  const id = Number(process.env.CHAIN_ID ?? 84532);
+  const id = chainIdFromEnv();
   if (id === 31337) return foundry;
   if (id === 8453) return base;
   return baseSepolia;
@@ -44,7 +45,7 @@ export function readClient() {
 
 export function writeClients() {
   if (!wallet) {
-    const account = privateKeyToAccount(process.env.ARBITER_PRIVATE_KEY as Hex);
+    const account = privateKeyToAccount(envValue("ARBITER_PRIVATE_KEY") as Hex);
     wallet = createWalletClient({ account, chain: chain(), transport: http(RPC) });
   }
   return { wallet: wallet!, pub: readClient() };
@@ -303,12 +304,24 @@ export interface EscrowChain {
   read(matchId: Hex): Promise<OnchainMatch | null>;
   cancel(matchId: Hex): Promise<void>;
   settle(matchId: Hex, winner: Hex, deadline: bigint, signature: Hex): Promise<Hex>;
+  /** La hora de la cadena (segundos): el `timestamp` del último bloque. Con
+   *  ella decide el contrato si una firma venció, no con el reloj del
+   *  servidor (pre-auditoría RT3-05). Opcional para las cadenas falsas de los
+   *  tests: sin ella, manda el reloj del servidor. */
+  time?(): Promise<number>;
+}
+
+/** El `timestamp` del último bloque, en segundos. */
+export async function chainTimeOnchain(): Promise<number> {
+  const b = await readClient().getBlock({ blockTag: "latest" });
+  return Number(b.timestamp);
 }
 
 const realEscrowChain: EscrowChain = {
   read: readMatchOnchain,
   cancel: cancelMatchOnchain,
   settle: settleMatchOnchain,
+  time: chainTimeOnchain,
 };
 let escrowImpl: EscrowChain = realEscrowChain;
 

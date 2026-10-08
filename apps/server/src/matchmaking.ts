@@ -186,6 +186,12 @@ export interface Match {
    *  guardada antes de la v2 no las trae: salen de `createdAt` (`termsOf`). */
   fundDeadline?: number;
   playDeadline?: number;
+  /** Hasta cuándo se aceptan puntajes (epoch ms), congelado al crear la
+   *  partida (pre-auditoría F10): si después cambia `SUBMIT_WINDOW_MS`, esta
+   *  partida sigue con el plazo con el que nació, el mismo que ató su
+   *  `playDeadline` en la cadena. Sin el campo (partidas viejas), sale de
+   *  `createdAt` y la variable actual. */
+  submitDeadline?: number;
   /** Hasta cuándo vale `signature` (segundos): `playDeadline + REFUND_GRACE`,
    *  justo cuando se abre el reembolso permissionless. */
   signatureDeadline?: number;
@@ -329,6 +335,11 @@ function termsOf(m: Match): { fundDeadline: number; playDeadline: number } {
   };
 }
 
+/** Hasta cuándo se aceptan puntajes en esta partida (epoch ms). */
+export function submitDeadlineOf(m: { createdAt: number; submitDeadline?: number }): number {
+  return m.submitDeadline ?? m.createdAt + SUBMIT_WINDOW_MS;
+}
+
 /** Hasta cuándo vale la firma del ganador (segundos): hasta que se abre el
  *  reembolso permissionless, ni un segundo más. Así en ningún momento valen a
  *  la vez el cobro y el reembolso, y la firma guardada en /recover sirve
@@ -406,6 +417,7 @@ function createWaiting(k: string, game: string, stake: number, address: string) 
     createdAt: Date.now(),
     status: "waiting",
   };
+  m.submitDeadline = m.createdAt + SUBMIT_WINDOW_MS;
   if (stake > 0) Object.assign(m, termsOf(m)); // congeladas desde el nacimiento
   matches.set(m.id, m);
   enqueue(k, m);
@@ -441,6 +453,7 @@ export function createChallenge(game: string, challenger: string, target: string
     createdAt: Date.now(),
     status: "waiting",
   };
+  m.submitDeadline = m.createdAt + SUBMIT_WINDOW_MS;
   matches.set(m.id, m);
   recordMatchCreated();
   persist();
@@ -777,7 +790,7 @@ export async function submitScore(
 
   // VENTANA DE ENVÍO: pasado el plazo de juego, la partida se reembolsa (igual
   // que on-chain con refundExpired); no se aceptan puntajes tardíos.
-  if (Date.now() - m.createdAt > SUBMIT_WINDOW_MS) throw new Error("match expired");
+  if (Date.now() > submitDeadlineOf(m)) throw new Error("match expired");
 
   // AUTENTICACION: el jugador firma su envio con la wallet -> probamos que
   // controla su direccion. Si se exige (REQUIRE_AUTH) y no hay firma, se rechaza.
@@ -1225,7 +1238,12 @@ async function settleOnchain(m: Match, now: number): Promise<void> {
       decisionSaved.delete(m.id);
       if (!(await saveDecision(m))) throw new Error("the new signature is not saved yet");
     }
-    if (Math.floor(now / 1000) > deadline) {
+    // ¿Venció la firma? La que manda es la hora de la CADENA (RT3-05): con el
+    // reloj del servidor adelantado, el árbitro daba por vencida una firma que
+    // el contrato todavía aceptaba, y el ganador terminaba reembolsado.
+    const expired =
+      Math.floor(now / 1000) > deadline && (chain.time ? (await chain.time()) > deadline : true);
+    if (expired) {
       await closeExpired(m);
     } else {
       m.settleTx = await chain.settle(m.id, m.winner as Hex, BigInt(deadline), m.signature as Hex);
@@ -1316,8 +1334,18 @@ async function refundOnchain(m: Match, now: number): Promise<void> {
     // Funded (RPC caído, árbitro sin gas), se reintenta.
     const c = await chain.read(m.id).catch(() => null);
     if (c?.status === ONCHAIN_STATUS.Refunded) m.refund = "done";
-    else if (c?.status === ONCHAIN_STATUS.None) m.refund = "none";
-    else if (c?.status === ONCHAIN_STATUS.Settled) {
+    else if (c?.status === ONCHAIN_STATUS.None) {
+      // Nadie depositó... todavía (F9): mientras el asiento del que abre siga
+      // valiendo (hasta `fundDeadline`), puede abrir igual. Se vuelve a mirar
+      // apenas vence; recién ahí no hay nada que devolver.
+      const fundDeadline = termsOf(m).fundDeadline;
+      if (Math.floor(now / 1000) <= fundDeadline) {
+        m.nextRefundAt = (fundDeadline + 1) * 1000;
+        persist();
+        return;
+      }
+      m.refund = "none";
+    } else if (c?.status === ONCHAIN_STATUS.Settled) {
       // La firma de un ganador entró antes de vencer: la cobró él.
       m.refund = "none";
       if (m.settleOutcome === "expired") m.settleOutcome = "external";
@@ -1341,6 +1369,11 @@ async function refundOnchain(m: Match, now: number): Promise<void> {
 export async function addBot(id: string) {
   const m = matches.get(id);
   if (!m) throw new Error("match not found");
+  // Nunca en una mesa de plata con escrow (pre-auditoría F12): el pedido no
+  // está autenticado, así que cualquiera sentaba un bot en la partida de otro
+  // que ya había depositado y se la arruinaba (el bot no deposita: la partida
+  // nunca se fondea y termina en reembolso).
+  if (paidOnchain(m)) throw new Error("test bot not allowed on a paid table");
   if (m.p2) return view(m, m.p1); // ya tiene rival real
   m.p2 = BOT;
   m.isBot = true;
@@ -1692,7 +1725,7 @@ export function sweepMatches(now = Date.now()): Promise<void> {
       continue;
     }
     // Emparejada pero sin resultado al vencer la ventana (ver expireMatch).
-    if (now - m.createdAt > SUBMIT_WINDOW_MS + EXPIRE_GRACE_MS && !expiring.has(m.id)) {
+    if (now > submitDeadlineOf(m) + EXPIRE_GRACE_MS && !expiring.has(m.id)) {
       const p = expireMatch(m, now)
         .catch((e) =>
           console.error(

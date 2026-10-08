@@ -13,15 +13,6 @@ import {
   parseTrustProxy,
 } from "../src/config-guard.js";
 
-const OK = {
-  NODE_ENV: "production",
-  ESCROW_ADDRESS: "0x" + "a".repeat(40),
-  CHAIN_ID: "8453",
-  ARBITER_PRIVATE_KEY: "0x" + "b".repeat(64),
-  ALLOWED_ORIGIN: "https://arcade1v1.com",
-  RPC_URL: "https://mainnet.base.org",
-} as unknown as NodeJS.ProcessEnv;
-
 /** Persistencia DURABLE (Redis), como la que exige una mesa de plata. En el
  *  servidor real `ARCADE_PERSIST` lo pone persist-on.ts al importarse. */
 const REDIS = {
@@ -29,6 +20,16 @@ const REDIS = {
   UPSTASH_REDIS_REST_URL: "https://ejemplo.upstash.io",
   UPSTASH_REDIS_REST_TOKEN: "un-token",
 };
+
+const OK = {
+  NODE_ENV: "production",
+  ESCROW_ADDRESS: "0x" + "a".repeat(40),
+  CHAIN_ID: "8453",
+  ARBITER_PRIVATE_KEY: "0x" + "b".repeat(64),
+  ALLOWED_ORIGIN: "https://arcade1v1.com",
+  RPC_URL: "https://mainnet.base.org",
+  ...REDIS,
+} as unknown as NodeJS.ProcessEnv;
 
 /** Una mesa de plata bien configurada de punta a punta. */
 const MONEY = {
@@ -148,6 +149,8 @@ test("una mesa de plata sin Redis no arranca: la persistencia en archivo se borr
   const sinRedis = {
     ...OK,
     ARCADE_PERSIST: "1", // como lo deja persist-on.ts en el servidor real
+    UPSTASH_REDIS_REST_URL: undefined,
+    UPSTASH_REDIS_REST_TOKEN: undefined,
     ALEPH_STAKES: "0,2",
     ALEPH_ESCROW_ADDRESS: "0x" + "c".repeat(40),
   } as unknown as NodeJS.ProcessEnv;
@@ -260,4 +263,17 @@ test("sin escrow (o con la dirección cero) no hay plata: la firma puede ser opc
   assert.deepEqual(moneyAuthErrors({} as NodeJS.ProcessEnv), []);
   const zero = { ESCROW_ADDRESS: "0x" + "0".repeat(40), REQUIRE_AUTH: "false" };
   assert.deepEqual(moneyAuthErrors(zero as unknown as NodeJS.ProcessEnv), []);
+});
+
+test("mesas de plata del 1v1 sin Redis: no arranca (F7)", () => {
+  for (const backend of [{}, { ARCADE_PERSIST: "1" }]) {
+    const env = { ...OK, ARCADE_PERSIST: undefined, ...backend } as unknown as NodeJS.ProcessEnv;
+    delete env.UPSTASH_REDIS_REST_URL;
+    delete env.UPSTASH_REDIS_REST_TOKEN;
+    const errs = productionConfigErrors(env);
+    assert.ok(
+      errs.some((e) => /ESCROW_ADDRESS habilita las mesas de plata del 1v1/.test(e)),
+      `sin Redis (${JSON.stringify(backend)}): ${errs.join(" | ")}`,
+    );
+  }
 });

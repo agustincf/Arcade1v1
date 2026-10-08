@@ -18,22 +18,10 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # El RPC va PINCHADO en cada llamada (forge, cast y el script): así ninguna
 # variable heredada del entorno (RPC_URL, ETH_RPC_URL, FOUNDRY_ETH_RPC_URL)
 # puede desviar esta prueba a una red de verdad.
-RPC=http://localhost:8545
-
-pkill -f anvil 2>/dev/null || true
-sleep 1
-anvil >/tmp/anvil-aleph-e2e.log 2>&1 &
-ANVIL_PID=$!
-# Matar anvil en TODA salida, también si una comprobación falla: con `set -e` un
-# `kill` al final del archivo no se ejecuta nunca cuando algo revienta antes.
-cleanup() { kill "$ANVIL_PID" 2>/dev/null || true; }
-trap cleanup EXIT
-for i in $(seq 1 15); do
-  cast block-number --rpc-url "$RPC" >/dev/null 2>&1 && break
-  sleep 1
-done
-cast block-number --rpc-url "$RPC" >/dev/null 2>&1 ||
-  { echo "❌ anvil no levantó"; cat /tmp/anvil-aleph-e2e.log; exit 1; }
+# Un anvil propio en un puerto libre (anvil-propio.sh), que se mata en TODA
+# salida, también si una comprobación falla.
+source "$ROOT/packages/contracts/anvil-propio.sh"
+anvil_propio
 
 KEY0=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 OWNER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266

@@ -157,11 +157,34 @@ test("sin rival: la partida queda (no 404) hasta que la cadena confirme el reemb
   assert.equal(MM.getMatch(a.matchId, A)!.refund, "done");
 });
 
-test("sin rival y sin depósito: no hay nada que devolver", async () => {
+test("sin rival y sin depósito: se espera al fondeo (puede abrir tarde) y recién ahí no hay nada que devolver", async () => {
   const A = addr();
-  const a = await MM.matchmake("2048", 10, A); // nunca abre
-  await MM.sweepMatches(MM.matchRecord(a.matchId)!.createdAt + 60 * 60_000 + 1);
+  const a = await MM.matchmake("2048", 10, A); // todavía no abrió
+  const m = MM.matchRecord(a.matchId)!;
+  await MM.sweepMatches(m.createdAt + 60 * 60_000 + 1);
+  await MM.onchainSettled(a.matchId);
+  assert.equal(MM.getMatch(a.matchId, A)!.refund, "pending", "su asiento todavía sirve (F9)");
+  assert.equal(
+    m.nextRefundAt,
+    (m.fundDeadline! + 1) * 1000,
+    "se vuelve a mirar al vencer el fondeo",
+  );
+
+  // Abre tarde, con el asiento que todavía vale: el árbitro lo reembolsa igual.
+  chain.set(a.matchId, { p1: A, p2: ZERO, status: ST.Open });
+  await MM.sweepMatches(m.nextRefundAt!);
+  await MM.onchainSettled(a.matchId);
+  assert.equal(MM.getMatch(a.matchId, A)!.refund, "done");
+});
+
+test("sin rival y sin depósito al vencer el fondeo: no hay nada que devolver", async () => {
+  const A = addr();
+  const a = await MM.matchmake("2048", 5, A); // nunca abre
+  const m = MM.matchRecord(a.matchId)!;
+  await MM.sweepMatches(m.createdAt + 60 * 60_000 + 1);
+  await MM.onchainSettled(a.matchId);
+  await MM.sweepMatches(m.nextRefundAt!);
   await MM.onchainSettled(a.matchId);
   assert.equal(MM.getMatch(a.matchId, A)!.refund, "none");
-  assert.equal(MM.matchRecord(a.matchId)!.refundAttempts, undefined, "no se reintenta");
+  assert.equal(m.refundAttempts, undefined, "no se reintenta");
 });

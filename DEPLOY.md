@@ -74,13 +74,14 @@ Los agentes tampoco juegan esa mesa sin esa misma dirección: en el servidor MCP
 El árbitro necesita gas para `settle`/`cancelRoom` en esta mesa también — la
 misma cuenta y el mismo `ARBITER_PRIVATE_KEY` del Paso 2, no una wallet nueva.
 
-> **Contratos v2 (pendientes de redesplegar en testnet).** El código de este
+> **Contratos v2 (desplegados en testnet el 2026-09-24).** El código de este
 > repo habla con la v2 de los dos contratos (`Escrow1v1` y `EscrowAleph`): el
 > resultado o la tabla firmada vence, un pago que el USDC rechaza queda
 > acreditado en vez de trabar la partida, y el asiento del 1v1 ata el stake y los
-> plazos. Contra un contrato v1 los depósitos y las liquidaciones revierten, así
-> que el merge que los trae va junto con su redespliegue:
-> [`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md).
+> plazos. Contra un contrato v1 los depósitos y las liquidaciones revierten
+> ([`docs/REDEPLOY-contratos-v2.md`](docs/REDEPLOY-contratos-v2.md), con las
+> direcciones). El `Escrow1v1` revisado en la pre-auditoría todavía no está en
+> testnet: [`docs/REDEPLOY-escrow1v1-preauditoria.md`](docs/REDEPLOY-escrow1v1-preauditoria.md).
 
 ## Paso 2 — Publicar el árbitro (backend)
 
@@ -89,7 +90,8 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
 - Build/Start: `npm install` y `npm run start -w @arcade1v1/server`.
 - Variables de entorno (en los "secrets" del hosting, **no** en el código):
   - `ARBITER_PRIVATE_KEY` — la llave del árbitro (guardar como secreto). Debe ser
-    la cuenta que figura como **arbiter** en el contrato (Paso 1).
+    la cuenta que figura como **arbiter** en el contrato (Paso 1). Para
+    cambiarla: [`docs/ROTAR-LLAVE-ARBITRO.md`](docs/ROTAR-LLAVE-ARBITRO.md).
   - `CHAIN_ID=84532` y `ESCROW_ADDRESS=` (las del Paso 1).
   - `RPC_URL=https://sepolia.base.org` — **obligatoria en producción con escrow**:
     el árbitro liquida on-chain cada partida de plata decidida (`settle`, desde
@@ -111,7 +113,10 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     gratis en [upstash.com](https://upstash.com) (base Redis → pestaña "REST");
     con las dos variables seteadas el árbitro guarda ahí en lugar del disco.
     Si al arrancar Redis no responde, el server **no arranca** (mejor eso que
-    arrancar vacío y pisar los datos buenos).
+    arrancar vacío y pisar los datos buenos). **Con mesas de plata (cualquiera
+    de los dos escrows) en `NODE_ENV=production`, sin Redis tampoco arranca**:
+    un deploy borraría las decisiones firmadas sin liquidar y los reembolsos
+    pendientes.
   - Opcionales: `STAKES_ALLOWED=1,2,5,10` (mesas que acepta el árbitro; deben
     coincidir con el contrato, y el árbitro lo comprueba: una mesa que el
     contrato no permite queda cerrada; **vacía, `STAKES_ALLOWED=`, cierra todas las
@@ -363,15 +368,17 @@ La red la elige `NEXT_PUBLIC_CHAIN_ID`: sin setear queda en **testnet** (seguro)
 ## ✅ Checklist de producción (seguridad)
 
 - [x] Firma obligatoria en el árbitro (envíos **y emparejamiento**) — **por defecto en producción** (`NODE_ENV=production`); no desactivar con `REQUIRE_AUTH=false`.
-- [ ] `NODE_ENV=production` (apaga el bot de prueba `/bot`).
+- [ ] `NODE_ENV=production` (apaga el bot de prueba `/bot`, que de todos modos
+      nunca se sienta en una mesa de plata).
 - [ ] La web en producción **no** muestra rival simulado (ya gateado por `NODE_ENV`).
 - [ ] Llave del árbitro en los **secrets** del hosting (nunca en el repo).
 - [ ] HTTPS en la web y en el árbitro.
 - [ ] CORS del árbitro restringido con `ALLOWED_ORIGIN` (el código ya lo soporta).
 - [x] Rate limiting en el árbitro (120 pedidos/10s por IP → 429, con limpieza,
       y límite estricto aparte para los endpoints CPU-caros).
-- [ ] Persistencia durable configurada (Upstash Redis) — sin esto, cada deploy
-      borra agentes hosteados, ELO y partidas en curso.
+- [x] Persistencia durable configurada (Upstash Redis) — sin esto, cada deploy
+      borra agentes hosteados, ELO y partidas en curso. Con mesas de plata, el
+      árbitro no arranca sin ella.
 - [x] **Puntaje del rival oculto** hasta que la partida se decide (anti-espionaje).
 - [x] **Depósitos protegidos:** approve por el monto exacto + verificación
       on-chain antes de unirse + reembolso automático de partidas vencidas.

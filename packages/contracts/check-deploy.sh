@@ -10,17 +10,8 @@ set -euo pipefail
 export PATH="$HOME/.foundry/bin:$PATH"
 cd "$(dirname "$0")"
 
-pkill -f anvil 2>/dev/null || true
-sleep 1
-anvil >/tmp/anvil-deploy.log 2>&1 &
-ANVIL_PID=$!
-for i in $(seq 1 15); do
-  cast block-number --rpc-url http://localhost:8545 >/dev/null 2>&1 && break
-  sleep 1
-done
-
-cleanup() { kill "$ANVIL_PID" 2>/dev/null || true; }
-trap cleanup EXIT
+source ./anvil-propio.sh
+anvil_propio
 
 # Cuentas estándar de anvil (sin plata real). Sin USDC_ADDRESS -> el script
 # despliega un TestUSDC con mint abierto, igual que en testnet.
@@ -28,7 +19,7 @@ OUT=$(PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2
   ARBITER_ADDRESS=0x70997970C51812dc3A010C7d01b50e0d17dc79C8 \
   PLATFORM_WALLET=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
   FEE_BPS=1500 \
-  forge script script/Deploy.s.sol:Deploy --rpc-url http://localhost:8545 --broadcast 2>&1)
+  forge script script/Deploy.s.sol:Deploy --rpc-url $RPC --broadcast 2>&1)
 
 echo "$OUT" | grep -E "TestUSDC|Escrow1v1 desplegado|NEXT_PUBLIC|CHAIN_ID" || true
 
@@ -41,7 +32,7 @@ fi
 # Verificar que las 4 mesas del producto quedaron habilitadas en el contrato.
 ok=1
 for amt in 1000000 2000000 5000000 10000000; do
-  allowed=$(cast call "$ESCROW" "allowedStake(uint256)(bool)" "$amt" --rpc-url http://localhost:8545)
+  allowed=$(cast call "$ESCROW" "allowedStake(uint256)(bool)" "$amt" --rpc-url $RPC)
   echo "  mesa $((amt / 1000000)) USDC -> allowedStake = $allowed"
   [ "$allowed" = "true" ] || ok=0
 done

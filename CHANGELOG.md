@@ -144,6 +144,29 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   recién firmado (antes lo sentaba en otra). El atajo "¿ya deposité?" de la web
   mira la dirección y no el rol (F4): con W3 el p2 de una partida puede cambiar.
   Runbook paso a paso: [`docs/ROTAR-LLAVE-ARBITRO.md`](docs/ROTAR-LLAVE-ARBITRO.md).
+- **Lo demás de la pre-auditoría para el árbitro** (W9 de `docs/MAINNET.md`):
+  - **Redis obligatorio con las mesas de plata del 1v1** (F7): en
+    `NODE_ENV=production`, con `ESCROW_ADDRESS` y sin Redis, el árbitro no
+    arranca (ya pasaba con las de Aleph). Un deploy con persistencia en archivo
+    borraba las decisiones firmadas sin liquidar y los reembolsos pendientes.
+  - **Un asiento que todavía sirve no queda huérfano** (F8, F9): la espera
+    vencida no se borra (W3) y su reembolso sigue mirando la cadena hasta que
+    vence el fondeo, por si el que abrió deposita tarde.
+  - **La ventana de envío queda congelada al crear la partida** (F10): si
+    después cambia `SUBMIT_WINDOW_MS`, la partida sigue con el plazo con el que
+    nació (el que ató su `playDeadline` en la cadena).
+  - **"¿Venció la firma?" lo dice la hora de la cadena** (RT3-05): con el reloj
+    del servidor adelantado, el árbitro reembolsaba una partida que el contrato
+    todavía dejaba cobrar.
+  - **Los firmantes leen las variables igual que la guarda de arranque**
+    (INT-3): recortadas, y un `CHAIN_ID` vacío o inválido cae en testnet en el
+    dominio EIP-712 igual que en la cadena (antes quedaba en 0 en las firmas).
+  - **El bot de prueba nunca se sienta en una mesa de plata** (F12): el pedido no
+    está autenticado y le arruinaba la partida a quien ya había depositado.
+  - **Las pruebas contra anvil levantan cada una su propio anvil** en un puerto
+    libre y matan solo ese (DOC-1): antes hacían `pkill -f anvil` y se llevaban
+    puesto el de cualquiera. `DEPLOY.md` al día (contratos v2 desplegados,
+    Redis obligatorio, cómo rotar la llave).
 
 ### Agregado
 

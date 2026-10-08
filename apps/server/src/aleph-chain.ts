@@ -10,8 +10,9 @@
 import { BaseError, ContractFunctionRevertedError, type Hex } from "viem";
 import { escrowAlephAbi } from "@arcade1v1/game-sdk/aleph";
 import { chain, readClient, writeClients, enCola } from "./onchain.js";
+import { chainIdFromEnv, envValue } from "./env.js";
 
-const ESCROW = (process.env.ALEPH_ESCROW_ADDRESS || "") as Hex;
+const ESCROW = envValue("ALEPH_ESCROW_ADDRESS") as Hex;
 const ZERO = "0x0000000000000000000000000000000000000000";
 
 export function alephOnchainEnabled(): boolean {
@@ -26,8 +27,7 @@ export function alephEscrowAddress(): Hex {
  *  y en `alephLog().usdc.chainId`, y el SDK del agente lo usa para elegir la red
  *  del depósito: con `NaN` ahí, el agente no sabe a qué cadena mandar la plata. */
 export function alephChainId(): number {
-  const n = Number(process.env.CHAIN_ID);
-  return Number.isFinite(n) && n > 0 ? n : 84532;
+  return chainIdFromEnv();
 }
 
 export interface AlephOnchainRoom {
