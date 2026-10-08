@@ -121,6 +121,10 @@ export const en: Dict = {
   "match.cobras": "You get",
   "match.loseText": "It took {bet} USDC this time. Your rematch awaits.",
   "match.drawText": "Draw: {bet} USDC back to each player (no commission).",
+  "match.noRivalText": "No one took the seat in time: your stake ({bet} USDC) goes back to you.",
+  "match.refundPending":
+    "The refund is on its way to your wallet. If it takes long, you can request it yourself from Recover funds.",
+  "match.refundDone": "Refunded: your stake is back in your wallet.",
   "match.rematch": "REMATCH",
   "match.confirmExitDeposited":
     "You already deposited into this match and it is still open. If you leave now, your USDC stays in the contract until the deadline passes. We will take you to Recover funds so you can see the status and get a refund.",

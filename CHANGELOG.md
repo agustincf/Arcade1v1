@@ -111,6 +111,20 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   vencida ya no se borra al emparejar: queda para que el barrendero la cancele
   en la cadena si hubo depósito.
 
+- **Los reembolsos se reintentan hasta que la cadena los confirma** (W4 de
+  `docs/MAINNET.md`; pre-auditoría F2). Antes el reembolso de un empate, una
+  partida vencida o una sin rival era un solo intento: si el RPC fallaba unos
+  segundos, nadie lo volvía a intentar y la web igual decía "reembolsado" (la
+  plata no se perdía, pero había que descubrir /recover). Ahora la partida
+  guarda `refund: "pending"` y el barrendero lo reintenta con el mismo backoff
+  que los pagos hasta que la cadena diga Refunded (`"done"`); si nadie había
+  depositado, `"none"`. La web muestra "el reembolso está en camino" (con el
+  atajo a Recuperar fondos) y "reembolsado" recién cuando se confirmó. Una
+  mesa de plata en la que nadie se sentó ya no desaparece (antes la pantalla
+  quedaba esperando un 404): termina como "nadie se sentó a tiempo" con su
+  reembolso. Las partidas gratis ya no mandan un `cancelMatch` a la cola de
+  escrituras on-chain (F11). El tipo `MatchView` del SDK suma `refund`.
+
 ### Agregado
 
 - **Invariantes con fuzzer de `Escrow1v1`** (`packages/contracts/test/invariant/`):

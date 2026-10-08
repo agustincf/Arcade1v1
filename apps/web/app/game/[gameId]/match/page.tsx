@@ -132,6 +132,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [forfeit, setForfeit] = useState(false);
   // Alguien no presentó su intento a tiempo: ganó el que sí (W2).
   const [noShow, setNoShow] = useState<"rival" | "you" | null>(null);
+  // Mesa de plata que se reembolsa: "pending" hasta que la cadena lo confirme
+  // (el árbitro reintenta, W4), "done" cuando la plata volvió. Y si terminó
+  // sin que nadie se sentara.
+  const [refund, setRefund] = useState<"pending" | "done" | "none" | null>(null);
+  const [noRival, setNoRival] = useState(false);
   // Estado on-chain. El depósito es UNA sola acción: aprueba el USDC (solo la
   // primera vez) y enseguida abre/se une a la partida.
   const [role, setRole] = useState<"p1" | "p2" | null>(null);
@@ -408,6 +413,32 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [awaitingPayment, matchId, address, role]);
 
+  // REEMBOLSO EN CAMINO (W4): la vista dice "done" recién cuando la cadena lo
+  // confirma; mientras, se consulta cada 5 s (en pausa con la pestaña oculta).
+  useEffect(() => {
+    if (refund !== "pending" || !matchId) return;
+    let vivo = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const consultar = async () => {
+      if (!vivo) return;
+      if (document.visibilityState !== "hidden") {
+        try {
+          const v = await getMatch(matchId, pidRef.current);
+          if (!vivo) return;
+          setRefund(v.refund ?? null);
+        } catch {
+          /* reintenta en la próxima vuelta */
+        }
+      }
+      if (vivo) timer = setTimeout(consultar, 5000);
+    };
+    timer = setTimeout(consultar, 5000);
+    return () => {
+      vivo = false;
+      clearTimeout(timer);
+    };
+  }, [refund, matchId]);
+
   // Pagado: ¿llegó a la wallet o quedó ACREDITADO en el contrato? Pasa si el
   // USDC rechazó el envío (la wallet en la blacklist de Circle, el token en
   // pausa); entonces el premio se retira desde /recover.
@@ -455,6 +486,8 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     const opp = v.opponent;
     const missed = noShowSide(v);
     setNoShow(missed);
+    setRefund(v.refund ?? null);
+    setNoRival(v.outcome === "draw" && !opp);
     setRivalScore(missed === "rival" ? null : opp ? (v.scores[opp] ?? 0) : 0);
     if (v.outcome === "draw") setOutcome("draw");
     else if (v.outcome && v.role === v.outcome) {
@@ -506,6 +539,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     } else if (v.settleOutcome === "refunded" || v.settleOutcome === "expired") {
       setClaimState("refunded");
     }
+    setRefund(v.refund ?? null);
   }
 
   // UNA sola acción para entrar a la partida: aprueba el USDC (solo la 1ra vez;
@@ -1226,8 +1260,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                       <p className="text-(--color-muted)">{t("match.loseText", { bet })}</p>
                     )}
                     {outcome === "draw" && (
-                      <p className="text-(--color-muted)">{t("match.drawText", { bet })}</p>
+                      <p className="text-(--color-muted)">
+                        {t(noRival ? "match.noRivalText" : "match.drawText", { bet })}
+                      </p>
                     )}
+                    {outcome === "draw" && <RefundStatus refund={refund} t={t} />}
                   </div>
                 </div>
               )}
@@ -1258,7 +1295,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                       )}
                     </>
                   ) : claimState === "refunded" ? (
-                    <p className="text-base text-(--color-muted)">{t("match.claimRefunded")}</p>
+                    refund === "pending" ? (
+                      <RefundStatus refund={refund} t={t} />
+                    ) : (
+                      <p className="text-base text-(--color-muted)">{t("match.claimRefunded")}</p>
+                    )
                   ) : (
                     <>
                       <p className="mb-3 text-sm text-(--color-muted)">{t("match.claimAuto")}</p>
@@ -1403,4 +1444,29 @@ function Money({ label, value }: { label: string; value: string }) {
       <span className="text-(--color-text)">{value}</span>
     </div>
   );
+}
+
+/** Dónde está el reembolso de una mesa de plata (W4): en camino, con el
+ *  atajo a /recover por si tarda, o ya de vuelta en la wallet. */
+function RefundStatus({
+  refund,
+  t,
+}: {
+  refund: "pending" | "done" | "none" | null;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  if (refund === "pending") {
+    return (
+      <p className="mt-2 text-sm text-(--color-muted)">
+        {t("match.refundPending")}{" "}
+        <Link href="/recover" className="text-(--color-accent-2) underline">
+          {t("nav.recover")}
+        </Link>
+      </p>
+    );
+  }
+  if (refund === "done") {
+    return <p className="mt-2 text-sm text-(--color-win)">{t("match.refundDone")}</p>;
+  }
+  return null;
 }

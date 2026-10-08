@@ -59,6 +59,10 @@ export interface MatchView {
    *  firma ("external"), se reembolsó ("refunded"), o la firma venció sin
    *  presentarse y el árbitro la reembolsó ("expired"). */
   settleOutcome?: "external" | "refunded" | "expired";
+  /** Mesa de plata que se reembolsa (empate, vencida, sin rival): "pending"
+   *  hasta que la cadena lo confirme, "done" cuando la plata volvió, "none" si
+   *  no había nada que devolver. */
+  refund?: "pending" | "done" | "none";
   yourScore?: number;
   rivalScore?: number;
   margin?: number;

@@ -246,5 +246,5 @@ test("una partida liberada que nadie retoma se reembolsa al vencer el fondeo", a
   await MM.sweepMatches(fundDeadline * 1000 + 1_000);
   await MM.onchainSettled(id);
   assert.ok(cancels.includes(id), "el árbitro la cancela: A recupera su stake");
-  assert.equal(MM.matchRecord(id), undefined);
+  assert.equal(MM.getMatch(id, MM.matchRecord(id)!.p1)!.refund, "done");
 });

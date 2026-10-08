@@ -72,7 +72,10 @@ margin, netPnl, rivalReplay, rating, ratingDelta }`, and `noShow` (the address
    `signatureDeadline` (epoch seconds, when the contract opens the refund); until
    then anyone may still present it (`settle` is permissionless). A payment the
    USDC contract rejects (a blacklisted wallet, USDC paused) is credited in the
-   escrow's `owed` and withdrawn later with `withdraw()`.
+   escrow's `owed` and withdrawn later with `withdraw()`. A refund (a draw, an
+   expired match, nobody took the seat) shows as `refund`: `"pending"` while
+   the arbiter retries it, `"done"` once the chain says Refunded, `"none"` if
+   nothing had been deposited.
    Addresses are normalized to **lowercase** in all responses.
 
 Extra endpoints: `GET /leaderboard/:game`, `GET /rating/:address`,

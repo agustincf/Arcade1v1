@@ -123,6 +123,10 @@ export const es: Dict = {
   "match.cobras": "Cobrás",
   "match.loseText": "Esta vez se llevó {bet} USDC. La revancha te espera.",
   "match.drawText": "Empate: se devuelve {bet} USDC a cada uno (sin comisión).",
+  "match.noRivalText": "Nadie se sentó a tiempo: se te devuelve tu apuesta ({bet} USDC).",
+  "match.refundPending":
+    "El reembolso está en camino a tu wallet. Si tarda, podés pedirlo vos desde Recuperar fondos.",
+  "match.refundDone": "Reembolsado: tu apuesta volvió a tu wallet.",
   "match.rematch": "REVANCHA",
   "match.confirmExitDeposited":
     "Ya depositaste en esta partida y sigue abierta. Si salís ahora, tu USDC queda en el contrato hasta que venza el plazo. Te llevamos a Recuperar fondos para que veas el estado y puedas reembolsarte.",

@@ -172,7 +172,14 @@ export interface Match {
    *  juego entero (~95 ms de JS sincrónico, en el único hilo de Node) y moría en
    *  "score mismatch" sin dejar rastro ni consumir el intento. */
   failedAttempts?: Record<string, number>;
-  refundPromise?: Promise<void>; // cancelacion/reembolso on-chain en empate
+  refundPromise?: Promise<void>; // el reembolso on-chain en curso (transitorio)
+  /** Mesa de plata que se reembolsa (empate, vencida, sin rival): "pending"
+   *  mientras la cadena no lo confirme, "done" cuando dice Refunded, "none" si
+   *  no había nada que devolver (nadie depositó). El árbitro reintenta con
+   *  backoff hasta confirmarlo (W4). */
+  refund?: "pending" | "done" | "none";
+  refundAttempts?: number;
+  nextRefundAt?: number;
   /** Mesa de plata: las condiciones que su asiento ata on-chain (segundos,
    *  epoch). Las fija el árbitro al crear la partida: el que abre deposita con
    *  ESTAS, y el asiento del que se une verifica contra las mismas. Una partida
@@ -983,11 +990,7 @@ async function decide(m: Match, winner: string | null) {
   if (winner === null) {
     m.status = "draw";
     m.outcome = "draw"; // empate -> reembolso (el arbitro cancela en el contrato)
-    if (onchainEnabled()) {
-      m.refundPromise = escrowChain()
-        .cancel(m.id)
-        .catch((e) => console.error("cancelMatch onchain:", (e as Error).message));
-    }
+    requestRefund(m);
   } else {
     m.winner = winner;
     m.outcome = winner === m.p1 ? "p1" : "p2";
@@ -1128,8 +1131,10 @@ async function settleOnchain(m: Match, now: number): Promise<void> {
     // hacer. Si sigue Funded (RPC caído, árbitro sin gas), se reintenta.
     const c = await chain.read(m.id).catch(() => null);
     if (c?.status === ONCHAIN_STATUS.Settled) m.settleOutcome = "external";
-    else if (c?.status === ONCHAIN_STATUS.Refunded) m.settleOutcome = "refunded";
-    else {
+    else if (c?.status === ONCHAIN_STATUS.Refunded) {
+      m.settleOutcome = "refunded";
+      m.refund = "done";
+    } else {
       m.settleAttempts = (m.settleAttempts ?? 0) + 1;
       m.nextSettleAt = now + settleBackoffMs(m.settleAttempts);
       console.error(
@@ -1152,10 +1157,76 @@ async function closeExpired(m: Match): Promise<void> {
   else {
     m.settleOutcome = "expired";
     console.error(`[settle] ${m.id}: la firma venció sin presentarse; se reembolsa`);
-    m.refundPromise = escrowChain()
-      .cancel(m.id)
-      .catch((e) => console.error("cancelMatch (firma vencida) onchain:", (e as Error).message));
+    requestRefund(m);
   }
+}
+
+// ------------------------------------------------------------------------- //
+// REEMBOLSOS QUE SE CONFIRMAN (W4; pre-auditoría F2). Antes el reembolso era un
+// solo intento (el cancel con sus 3 reintentos de 2 s): si el RPC fallaba unos
+// segundos, nadie lo volvía a intentar y la web igual decía "reembolsado". La
+// plata no se perdía —`refundUnfunded`/`refundExpired` son permissionless—,
+// pero quedaba trabada hasta que alguien descubriera /recover. Ahora se
+// reintenta con el mismo backoff que el `settle` hasta que la cadena diga
+// Refunded, y la vista dice "done" recién entonces. Solo con plata: una
+// partida gratis no tiene nada que cancelar (antes igual simulaba un cancel en
+// la cola de los pagos, F11).
+// ------------------------------------------------------------------------- //
+
+/** Reembolsos en vuelo, uno por partida (`onchainSettled` los espera). */
+const refunding = new Map<string, Promise<void>>();
+
+/** Pide el reembolso de una mesa de plata (una sola vez por partida). */
+function requestRefund(m: Match): void {
+  if (!paidOnchain(m) || m.refund) return;
+  m.refund = "pending";
+  m.refundPromise = kickRefund(m);
+}
+
+/** Manda (o reintenta) el reembolso: uno a la vez por partida, respetando el
+ *  backoff. */
+function kickRefund(m: Match, now = Date.now()): Promise<void> {
+  if (m.refund !== "pending") return Promise.resolve();
+  const running = refunding.get(m.id);
+  if (running) return running;
+  if ((m.nextRefundAt ?? 0) > now) return Promise.resolve();
+  const p = refundOnchain(m, now).finally(() => refunding.delete(m.id));
+  refunding.set(m.id, p);
+  m.refundPromise = p;
+  return p;
+}
+
+async function refundOnchain(m: Match, now: number): Promise<void> {
+  const chain = escrowChain();
+  try {
+    await chain.cancel(m.id);
+    m.refund = "done";
+  } catch (e) {
+    // Qué pasó lo dice la cadena, no el error: si ya se reembolsó (otro pidió
+    // refundUnfunded/refundExpired, o un cancel anterior que se minó tarde),
+    // está hecho; si nadie depositó, no hay nada que devolver; si sigue Open o
+    // Funded (RPC caído, árbitro sin gas), se reintenta.
+    const c = await chain.read(m.id).catch(() => null);
+    if (c?.status === ONCHAIN_STATUS.Refunded) m.refund = "done";
+    else if (c?.status === ONCHAIN_STATUS.None) m.refund = "none";
+    else if (c?.status === ONCHAIN_STATUS.Settled) {
+      // La firma de un ganador entró antes de vencer: la cobró él.
+      m.refund = "none";
+      if (m.settleOutcome === "expired") m.settleOutcome = "external";
+    } else {
+      m.refundAttempts = (m.refundAttempts ?? 0) + 1;
+      m.nextRefundAt = now + settleBackoffMs(m.refundAttempts);
+      console.error(
+        `[reembolso] ${m.id}: intento ${m.refundAttempts} falló, se reintenta:`,
+        (e as Error).message,
+      );
+      persist();
+      return;
+    }
+  }
+  m.refundAttempts = undefined;
+  m.nextRefundAt = undefined;
+  persist();
 }
 
 /** Pruebas en solitario: completa la partida con un "bot" y la liquida. */
@@ -1183,7 +1254,7 @@ export async function addBot(id: string) {
  *  empate o la liquidación que manda el árbitro (si aplica). */
 export async function onchainSettled(id: string): Promise<void> {
   await expiring.get(id);
-  await Promise.all([matches.get(id)?.refundPromise, settling.get(id)]);
+  await Promise.all([matches.get(id)?.refundPromise, settling.get(id), refunding.get(id)]);
 }
 
 export function getMatch(id: string, address?: string) {
@@ -1270,6 +1341,10 @@ export interface MatchView {
   settleTx?: Hex;
   /** Mesa de plata cerrada sin `settle` propio (ver `Match.settleOutcome`). */
   settleOutcome?: "external" | "refunded" | "expired";
+  /** Mesa de plata que se reembolsa: "pending" hasta que la cadena lo
+   *  confirme, "done" cuando la plata volvió, "none" si no había nada que
+   *  devolver. */
+  refund?: "pending" | "done" | "none";
   isBot?: boolean;
   // Feedback rico (presente solo cuando la partida ya termino):
   yourScore?: number;
@@ -1329,6 +1404,7 @@ function view(m: Match, address?: string, opts?: { revealOwnScore?: boolean }): 
     Object.assign(v, termsOf(m));
     v.settleTx = m.settleTx;
     v.settleOutcome = m.settleOutcome;
+    v.refund = m.refund;
   }
 
   // FEEDBACK RICO para jugadores/agentes: solo cuando la partida YA termino,
@@ -1460,9 +1536,11 @@ export function sweepMatches(now = Date.now()): Promise<void> {
       if (now - m.createdAt > FINISHED_TTL) {
         dropMatch(m);
       } else {
-        // Mesa de plata decidida que el árbitro todavía no pudo liquidar: el
-        // reintento, con su backoff (ver `kickSettle`).
+        // Mesa de plata decidida que el árbitro todavía no pudo liquidar, o
+        // un reembolso que la cadena todavía no confirmó: el reintento, con su
+        // backoff (ver `kickSettle` y `kickRefund`).
         void kickSettle(m, now);
+        void kickRefund(m, now);
       }
       continue;
     }
@@ -1488,12 +1566,17 @@ export function sweepMatches(now = Date.now()): Promise<void> {
         // El contrato acepta cancelar en estado Open (Escrow1v1.sol) y el
         // árbitro ya paga ese gas en el caso del empate: no hay motivo para no
         // hacerlo también acá.
-        if (m.stake > 0 && onchainEnabled()) {
-          m.refundPromise = escrowChain()
-            .cancel(m.id)
-            .catch((e) => console.error("cancelMatch (sin rival) onchain:", (e as Error).message));
+        //
+        // Con plata, la partida queda (como un empate sin rival) hasta que la
+        // cadena confirme el reembolso: si el primer intento falla, se reintenta
+        // (W4). Sin plata, no hay nada que devolver y se borra como siempre.
+        if (paidOnchain(m)) {
+          m.status = "draw";
+          m.outcome = "draw";
+          requestRefund(m);
+        } else {
+          dropMatch(m);
         }
-        dropMatch(m);
         dirty = true;
       }
       continue;
@@ -1600,12 +1683,10 @@ async function expireMatch(m: Match, now: number): Promise<void> {
 
   m.status = "draw";
   m.outcome = "draw";
-  if (refunded) m.settleOutcome = "refunded";
-  else if (onchainEnabled()) {
-    m.refundPromise = escrowChain()
-      .cancel(m.id)
-      .catch((e) => console.error("cancelMatch (expirada) onchain:", (e as Error).message));
-  }
+  if (refunded) {
+    m.settleOutcome = "refunded";
+    m.refund = "done";
+  } else requestRefund(m);
   persist();
 }
 
