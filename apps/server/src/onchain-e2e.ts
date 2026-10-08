@@ -19,6 +19,7 @@ import {
   createTestClient,
   createWalletClient,
   http,
+  parseAbi,
   parseEther,
   parseGwei,
   type Hex,
@@ -32,6 +33,8 @@ import {
   onchainSettled,
   getMatch,
   escrowExpect,
+  matchRecord,
+  sweepMatches,
   type MatchView,
 } from "./matchmaking.js";
 import { verifyEscrow, paidTableClosed } from "./escrow-check.js";
@@ -238,6 +241,57 @@ async function main() {
   await blacklistedWinner();
   await rivalJoinsWhileCancelTravels();
   await refundedWhileCancelTravels();
+  await arbiterKeyRotation();
+}
+
+/** W8: ROTAR LA LLAVE DEL ÁRBITRO. El dueño cambia el `arbiter()` del contrato
+ *  justo antes de que se decida una partida: la firma que sale con la llave
+ *  del servidor (la vieja) ya no la acepta el contrato, y la partida queda
+ *  esperando. Cuando el servidor recibe la llave nueva, el reintento del
+ *  barrendero vuelve a firmar el MISMO resultado con ella y el contrato paga.
+ *  Al final deja todo como estaba (árbitro y llave originales). */
+const setArbiterAbi = parseAbi(["function setArbiter(address a)"]);
+
+async function arbiterKeyRotation() {
+  console.log("\n--- Rotar la llave del árbitro (W8) ---");
+  const stake = 5_000_000n;
+  await fundBoth(stake);
+  const [m1, m2] = await pairFunded(5, stake);
+  const oldKey = process.env.ARBITER_PRIVATE_KEY as Hex;
+  const newKey = ("0x" + randomBytes(32).toString("hex")) as Hex;
+  const oldArbiter = privateKeyToAccount(oldKey).address;
+  await send(owner, ESCROW, setArbiterAbi, "setArbiter", [privateKeyToAccount(newKey).address]);
+
+  const b1 = await bal(P1);
+  const sA = play2048(m1.seed, 500);
+  await submitScore(m1.matchId, P1, sA.score, sA.replay);
+  const sB = play2048(m2.seed, 12);
+  await submitScore(m2.matchId, P2, sB.score, sB.replay);
+  await onchainSettled(m1.matchId);
+  const m = matchRecord(m1.matchId)!;
+  if (m.settleTx) fail("liquidó con una firma que el contrato ya no acepta");
+  if ((await readMatchOnchain(m1.matchId as Hex))?.status !== ONCHAIN_STATUS.Funded) {
+    fail("la partida tenía que seguir Funded, esperando el pago");
+  }
+  const oldSig = m.signature;
+  console.log("✓ con la llave vieja el pago no pasa: la partida espera, Funded");
+
+  // El servidor recibe la llave nueva (en Render: cambiar ARBITER_PRIVATE_KEY).
+  process.env.ARBITER_PRIVATE_KEY = newKey;
+  try {
+    await sweepMatches(m.nextSettleAt!);
+    await onchainSettled(m1.matchId);
+    const v = getMatch(m1.matchId, P1)!;
+    if (!v.settleTx) fail("con la llave nueva el árbitro no liquidó");
+    if (v.signature === oldSig) fail("la firma tenía que ser nueva");
+    if (v.winner?.toLowerCase() !== P1.toLowerCase()) fail("cambió el ganador");
+    if ((await bal(P1)) - b1 !== 8_500_000n) fail("el ganador no cobró el premio");
+    console.log("✓ con la llave nueva vuelve a firmar el mismo resultado y el contrato paga");
+  } finally {
+    process.env.ARBITER_PRIVATE_KEY = oldKey;
+    await send(owner, ESCROW, setArbiterAbi, "setArbiter", [oldArbiter]);
+  }
+  console.log("\nROTACIÓN DE LA LLAVE DEL ÁRBITRO VERIFICADA ✅");
 }
 
 /** Empate: los dos juegan IGUAL -> el arbitro cancela on-chain y se reembolsa. */

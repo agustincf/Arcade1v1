@@ -15,7 +15,7 @@ import { txUrl } from "@/app/lib/explorer";
 import { moneyTableBlocked } from "@/app/lib/config-guard";
 import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
 import { failureText, isPaidTableClosed } from "@/app/lib/errors";
-import { noShowSide } from "@/app/lib/result";
+import { depositedBy, noShowSide } from "@/app/lib/result";
 import { useSignMessage } from "wagmi";
 import {
   scoreAuthMessage,
@@ -558,33 +558,48 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     let myRole = role;
     let seat = seatSig as `0x${string}`;
     let terms = seatTerms;
+    // ¿Ya deposité? Pasa en un reintento tras un fallo de red DESPUÉS de minar
+    // el depósito: sin este chequeo, open()/join() revertirían ("match exists"
+    // / "not open") y el botón quedaría fallando para siempre. Si ya pagué, no
+    // re-cobro: sigo directo a jugar. Mira mi dirección, no mi rol (F4).
+    async function alreadyDeposited(id: `0x${string}`): Promise<boolean> {
+      try {
+        return depositedBy(await escrow.readMatch(id), address!);
+      } catch {
+        return false; // si no se puede leer el estado, seguimos con el depósito normal
+      }
+    }
     try {
-      // ANTES DE ABRIR, una última pregunta al árbitro. Solo se empareja con quien
-      // ya depositó: si otro llegó casi a la vez y ya abrió, nos sienta con él en
-      // vez de dejar dos partidas abiertas esperando a un tercero. Si falla, se
-      // sigue con la partida que ya teníamos.
       setFunding("approving"); // el botón queda ocupado mientras pregunta
+      if (await alreadyDeposited(mid)) {
+        setDeposited(true);
+        return;
+      }
+      // ANTES DE DEPOSITAR, una última pregunta al árbitro:
+      //  - Solo se empareja con quien ya depositó (W3): si otro llegó casi a la
+      //    vez y ya abrió, nos sienta con él en vez de dejar dos partidas
+      //    abiertas esperando a un tercero.
+      //  - El asiento llega firmado de nuevo: si se rotó la llave del árbitro
+      //    (W8), el que teníamos ya no lo acepta el contrato.
+      // Si falla, se sigue con la partida y el asiento que ya teníamos.
       const auth = mmAuthRef.current;
-      if (myRole !== "p2" && auth && Date.now() - auth.ts < MATCHMAKE_AUTH_TTL_MS - 60_000) {
+      if (auth && Date.now() - auth.ts < MATCHMAKE_AUTH_TTL_MS - 60_000) {
         try {
           const v = await matchmake(game!.id, bet, pidRef.current, auth);
-          if (
-            v.matchId !== mid &&
-            v.seatSig &&
-            v.fundDeadline !== undefined &&
-            v.playDeadline !== undefined
-          ) {
-            mid = v.matchId as `0x${string}`;
-            myRole = v.role ?? null;
+          if (v.role && v.seatSig && v.fundDeadline !== undefined && v.playDeadline !== undefined) {
             seat = v.seatSig as `0x${string}`;
             terms = { fundDeadline: v.fundDeadline, playDeadline: v.playDeadline };
-            setMatchId(v.matchId);
-            setSeed(v.seed ?? null);
-            setLive(v.live === true);
-            setSecretHash(v.secretHash ?? null);
-            setRole(myRole);
             setSeatSig(v.seatSig);
             setSeatTerms(terms);
+            if (v.matchId !== mid) {
+              mid = v.matchId as `0x${string}`;
+              myRole = v.role;
+              setMatchId(v.matchId);
+              setSeed(v.seed ?? null);
+              setLive(v.live === true);
+              setSecretHash(v.secretHash ?? null);
+              setRole(myRole);
+            }
           }
         } catch {
           /* se sigue con la partida que ya teníamos */
@@ -604,19 +619,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
         ts: Date.now(),
       });
 
-      // ¿Mi lado YA está pagado? Pasa en un reintento tras un fallo de red DESPUÉS
-      // de minar el depósito: sin este chequeo, open()/join() revertirían
-      // ("match exists" / "not open") y el botón quedaría fallando para siempre.
-      // Si ya pagué, no re-cobro: sigo directo a jugar.
-      try {
-        const onchain = await escrow.readMatch(mid);
-        const alreadyPaid = myRole === "p2" ? onchain.p2Paid : onchain.p1Paid;
-        if (alreadyPaid) {
-          setDeposited(true);
-          return;
-        }
-      } catch {
-        /* si no se puede leer el estado, seguimos con el depósito normal */
+      // ¿Ya deposité en ESTA partida (la nueva, si cambió)?
+      if (await alreadyDeposited(mid)) {
+        setDeposited(true);
+        return;
       }
 
       // 1) Allowance (gratis salvo la primera vez de la wallet).

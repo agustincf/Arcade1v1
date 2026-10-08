@@ -4,7 +4,7 @@
 
 import { randomBytes, randomInt } from "node:crypto";
 import { recoverMessageAddress, type Hex } from "viem";
-import { arbiterAddress, signResult, signSeat } from "./sign.js";
+import { arbiterAddress, resultSignedByArbiter, signResult, signSeat } from "./sign.js";
 import { verify2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
 import { verifyTetris, type ReplayTetris } from "@arcade1v1/game-sdk/tetris";
 import { verifyFlappy, type ReplayFlappy } from "@arcade1v1/game-sdk/flappy";
@@ -553,6 +553,27 @@ export async function matchmake(
 
   const k = qkey(game, stake);
   pruneQueue(k);
+
+  // El p2 de una mesa de plata vuelve a preguntar antes de unirse (la web lo
+  // hace justo antes de depositar): recibe su misma partida, con el asiento
+  // firmado de nuevo. Si la llave del árbitro se rotó (W8), el asiento viejo ya
+  // no lo acepta el contrato. Antes, preguntar de nuevo lo sentaba en otra.
+  if (stake !== 0 && onchainEnabled()) {
+    const nowS = Math.floor(Date.now() / 1000);
+    for (const m of matches.values()) {
+      if (
+        m.game === game &&
+        m.stake === stake &&
+        m.p2 === address &&
+        m.status === "ready" &&
+        !m.joinConfirmed &&
+        m.scores[address] === undefined &&
+        nowS <= termsOf(m).fundDeadline
+      ) {
+        return attachSeat(view(m, address), address);
+      }
+    }
+  }
 
   // El mismo jugador re-consulta su espera: devolvemos su partida
   // (idempotente). En una mesa de plata, si todavía no abrió en la cadena y
@@ -1192,6 +1213,18 @@ async function settleOnchain(m: Match, now: number): Promise<void> {
   const deadline = m.signatureDeadline!; // needsSettle lo exige
   try {
     if (!(await saveDecision(m))) throw new Error("the decision is not saved yet");
+    // ROTACIÓN DE LA LLAVE (W8): una decisión firmada con la llave anterior no
+    // la acepta el contrato (su `arbiter()` es la nueva). Se vuelve a firmar el
+    // MISMO ganador con el MISMO plazo —no hay forma de que salga otro
+    // resultado— y se guarda antes de mostrarla o mandarla, como siempre.
+    if (
+      !(await resultSignedByArbiter(m.id, m.winner as Hex, BigInt(deadline), m.signature as Hex))
+    ) {
+      console.log(`[settle] ${m.id}: firmada con otra llave del árbitro; se vuelve a firmar`);
+      if (!(await signDecision(m, now))) throw new Error("could not re-sign with the current key");
+      decisionSaved.delete(m.id);
+      if (!(await saveDecision(m))) throw new Error("the new signature is not saved yet");
+    }
     if (Math.floor(now / 1000) > deadline) {
       await closeExpired(m);
     } else {

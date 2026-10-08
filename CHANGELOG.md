@@ -133,6 +133,17 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   barrendero vuelve a firmar con el mismo backoff que los pagos; con la firma,
   la guarda y liquida como siempre. Si ya no llegaría a cobrarse antes de que
   se abra el reembolso, se reembolsa.
+- **Rotar la llave del árbitro ya no deja ganadores sin cobrar** (W8 de
+  `docs/MAINNET.md`; pre-auditoría F5 / RT3-04). Después de `setArbiter`, el
+  contrato rechaza todo lo firmado con la llave vieja. Ahora, antes de liquidar,
+  el árbitro mira si la firma del resultado es de su llave actual y si no,
+  vuelve a firmar el mismo ganador con el mismo plazo (la guarda antes de
+  mostrarla, como siempre); Aleph hace lo mismo con su tabla de pagos. La web
+  vuelve a pedir el asiento justo antes de depositar (el que abre y el que se
+  une), y el p2 que vuelve a preguntar recibe su misma partida con un asiento
+  recién firmado (antes lo sentaba en otra). El atajo "¿ya deposité?" de la web
+  mira la dirección y no el rol (F4): con W3 el p2 de una partida puede cambiar.
+  Runbook paso a paso: [`docs/ROTAR-LLAVE-ARBITRO.md`](docs/ROTAR-LLAVE-ARBITRO.md).
 
 ### Agregado
 
