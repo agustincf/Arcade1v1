@@ -261,6 +261,14 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Corregido
 
+- **El árbitro se comía el ancho de banda del plan Free de Upstash** (9 de los
+  10 GB del mes en la primera semana de octubre). Las partidas se guardaban
+  como un solo blob con dos días de historial y sus replays adentro (~9 MB), y
+  cada guardado lo subía entero: con la casa jugando ~200 partidas por día
+  eran más de 1 GB diario. Ahora cada partida es un campo de un hash de Redis
+  (`arcade:matches:byid`) y cada guardado sube solo las que cambiaron (~20 KB
+  por partida terminada) y borra las purgadas. El primer arranque con este
+  código migra el blob viejo (`arcade:matches`) al hash y después lo borra.
 - **`docs/MAINNET.md` daba por pendiente el redespliegue de los contratos v2**
   (C1, C2, C4 y O7, y los pasos de "Cómo seguir"): se ejecutó el 2026-09-24.
   `DEPLOY.md` arrastraba el mismo atraso en su checklist de mainnet.

@@ -29,7 +29,7 @@ import {
   type OnchainMatch,
 } from "./onchain.js";
 import { applyResult as applyElo, type RatingUpdate } from "./ratings.js";
-import { jsonStore } from "./persist.js";
+import { jsonMapStore } from "./persist.js";
 import { authRequiredFor } from "./config-guard.js";
 import { paidTableClosed, type EscrowExpect } from "./escrow-check.js";
 import { forgetLiveAttempts, saveLiveAttempt, withLiveLock } from "./live-store.js";
@@ -355,8 +355,9 @@ const stakeUnits = (stake: number) => BigInt(Math.round(stake * 1_000_000));
 // Sobrevive a un reinicio del servidor: las partidas en curso vuelven y un
 // ganador puede recuperar su firma para cobrar. El debounce y el guardado
 // final al entregar la posta (por timbre o por SIGTERM, ver handover.ts) los
-// maneja el adaptador.
-const store$ = jsonStore("matches");
+// maneja el adaptador. Cada partida es su propio registro (`jsonMapStore`): un
+// guardado sube solo las que cambiaron, no el historial entero con sus replays.
+const store$ = jsonMapStore("matches");
 const FINISHED_TTL = 2 * 24 * 60 * 60 * 1000; // 2 días: purga partidas terminadas viejas
 
 /** Saca una partida de memoria, y con ella los registros de sus intentos en
@@ -366,14 +367,19 @@ function dropMatch(m: Match): void {
   if (m.live) forgetLiveAttempts(m.id, Object.keys(m.live));
 }
 
-function serializeMatches(): string {
+function serializeMatches(): Map<string, string> {
   const now = Date.now();
-  const arr = [...matches.values()].filter((m) => {
+  const out = new Map<string, string>();
+  for (const m of matches.values()) {
     const finished = m.status === "settled" || m.status === "draw";
-    return !finished || now - m.createdAt < FINISHED_TTL; // mantené lo vivo y lo reciente
-  });
-  // El replacer descarta `refundPromise` (no es serializable; es transitorio).
-  return JSON.stringify(arr, (k, v) => (k === "refundPromise" ? undefined : v));
+    if (finished && now - m.createdAt >= FINISHED_TTL) continue; // mantené lo vivo y lo reciente
+    // El replacer descarta `refundPromise` (no es serializable; es transitorio).
+    out.set(
+      m.id,
+      JSON.stringify(m, (k, v) => (k === "refundPromise" ? undefined : v)),
+    );
+  }
+  return out;
 }
 
 function persist() {
@@ -384,22 +390,29 @@ function persist() {
 export async function restoreMatches(): Promise<void> {
   const raw = await store$.load();
   if (!raw) return;
-  try {
-    const arr = (JSON.parse(raw) as Match[]).sort((a, b) => a.createdAt - b.createdAt);
-    for (const m of arr) {
-      matches.set(m.id, m);
-      // Lo que vuelve del store ya estaba guardado: su firma puede mostrarse.
-      if (m.signature) decisionSaved.add(m.id);
-      // Reconstruimos la cola: una partida en espera (sin rival) vuelve a la fila.
-      // Un DESAFÍO (target) NUNCA va a la cola general: solo su target lo acepta
-      // (lo descubre el runner con pendingChallengesFor). Sin este guard, tras un
-      // redeploy un desafío quedaba en la cola gratis y un tercero lo robaba.
-      if (m.status === "waiting" && !m.p2 && !m.target) enqueue(qkey(m.game, m.stake), m);
+  const arr: Match[] = [];
+  for (const [id, json] of raw) {
+    try {
+      arr.push(JSON.parse(json) as Match);
+    } catch (e) {
+      console.error(`matches restore: partida ${id} ilegible, se descarta:`, (e as Error).message);
     }
-    console.log(`Partidas recuperadas: ${arr.length}`);
-  } catch (e) {
-    console.error("matches restore (dato corrupto, arrancamos limpio):", (e as Error).message);
   }
+  arr.sort((a, b) => a.createdAt - b.createdAt);
+  for (const m of arr) {
+    matches.set(m.id, m);
+    // Lo que vuelve del store ya estaba guardado: su firma puede mostrarse.
+    if (m.signature) decisionSaved.add(m.id);
+    // Reconstruimos la cola: una partida en espera (sin rival) vuelve a la fila.
+    // Un DESAFÍO (target) NUNCA va a la cola general: solo su target lo acepta
+    // (lo descubre el runner con pendingChallengesFor). Sin este guard, tras un
+    // redeploy un desafío quedaba en la cola gratis y un tercero lo robaba.
+    if (m.status === "waiting" && !m.p2 && !m.target) enqueue(qkey(m.game, m.stake), m);
+  }
+  console.log(`Partidas recuperadas: ${arr.length}`);
+  // Si vinieron del blob viejo, esto las sube al hash (ver persist.ts); si no,
+  // no hay nada distinto de lo guardado y no escribe.
+  persist();
 }
 
 /** Crea una partida en espera para `address` y la deja en la cola. */
