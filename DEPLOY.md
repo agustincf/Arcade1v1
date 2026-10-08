@@ -284,6 +284,14 @@ Dos fuentes, ambas honestas y sin cookies invasivas:
 > ⚠️ Irreversible y público. Hacelo solo después de validar bien en testnet.
 > Maneja **USDC real**: cualquier bug cuesta plata de verdad.
 
+**Aleph sigue en testnet** (decisión 6 de `docs/MAINNET.md`): en el árbitro de
+mainnet, `ALEPH_CHAIN_ID=84532` y `ALEPH_RPC_URL` de Base Sepolia (con el
+`ALEPH_ESCROW_ADDRESS` de testnet; la llave del árbitro necesita ETH de prueba
+también ahí, y el monitor de gas mira solo la red del 1v1), o `ALEPH_STAKES=0`
+para dejar solo la mesa
+gratis. Con las mesas de plata de Aleph apuntando a mainnet, el árbitro no
+arranca.
+
 A diferencia de testnet, mainnet usa el **USDC real de Base**
 (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, verificado on-chain) y exige
 **llaves seguras**. Antes de desplegar, cerrá estos puntos:

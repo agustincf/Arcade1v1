@@ -192,6 +192,9 @@ export type AlephRoomView = {
   deposit?: AlephDeposit;
   /** stake > 0: el contrato que custodia la mesa */
   escrow?: string;
+  /** stake > 0: la red del contrato (puede no ser la del 1v1: en mainnet, las
+   *  mesas de plata de Aleph siguen en testnet). */
+  chainId?: number;
   /** `settled`, stake > 0: la tabla en micro-USDC, su firma y la transacción */
   payoutsUsdc?: Record<string, string>;
   /** La firma aparece recién cuando el árbitro la guardó; hasta `payoutDeadline`

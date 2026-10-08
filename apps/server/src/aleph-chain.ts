@@ -5,14 +5,53 @@
 // (aleph-onchain-e2e.ts) prueba la implementación real.
 //
 // Se activa con ALEPH_ESCROW_ADDRESS (contrato aparte del 1v1: ESCROW_ADDRESS).
-// Reusa los clientes viem y la COLA de escrituras de onchain.ts: todas las
-// transacciones del árbitro salen de la misma wallet y comparten el nonce.
-import { BaseError, ContractFunctionRevertedError, type Hex } from "viem";
+// Su red puede ser OTRA que la del 1v1 (ALEPH_CHAIN_ID y ALEPH_RPC_URL; si
+// faltan, las del 1v1): mainnet arranca solo con el 1v1 y las mesas de plata de
+// Aleph siguen en testnet (decisión 6 de docs/MAINNET.md). Misma wallet del
+// árbitro en las dos redes, y la misma COLA de escrituras de onchain.ts: con
+// una red sola comparten el nonce, y con dos solo se ordenan de a una.
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  createPublicClient,
+  createWalletClient,
+  http,
+  type Hex,
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { escrowAlephAbi } from "@arcade1v1/game-sdk/aleph";
-import { chain, readClient, writeClients, enCola } from "./onchain.js";
-import { chainIdFromEnv, envValue } from "./env.js";
+import { chainFor, readClient, writeClients, enCola } from "./onchain.js";
+import { alephChainIdFromEnv, chainIdFromEnv, envValue } from "./env.js";
 
 const ESCROW = envValue("ALEPH_ESCROW_ADDRESS") as Hex;
+
+/** ¿Aleph va en su propia red? Si no, usa los clientes del 1v1 (los mismos de
+ *  siempre). */
+const ownNetwork = () => alephChainIdFromEnv() !== chainIdFromEnv();
+
+let alephPub: ReturnType<typeof readClient> | null = null;
+let alephWallet: ReturnType<typeof writeClients>["wallet"] | null = null;
+
+/** El cliente de lectura de la red de Aleph. */
+function alephReadClient(): ReturnType<typeof readClient> {
+  if (!ownNetwork()) return readClient();
+  alephPub ??= createPublicClient({
+    chain: chainFor(alephChainIdFromEnv()),
+    transport: http(envValue("ALEPH_RPC_URL") || envValue("RPC_URL") || "http://localhost:8545"),
+  }) as ReturnType<typeof readClient>;
+  return alephPub;
+}
+
+/** Los clientes de escritura de la red de Aleph (la llave del árbitro). */
+function alephWriteClients(): ReturnType<typeof writeClients> {
+  if (!ownNetwork()) return writeClients();
+  alephWallet ??= createWalletClient({
+    account: privateKeyToAccount(envValue("ARBITER_PRIVATE_KEY") as Hex),
+    chain: chainFor(alephChainIdFromEnv()),
+    transport: http(envValue("ALEPH_RPC_URL") || envValue("RPC_URL") || "http://localhost:8545"),
+  });
+  return { wallet: alephWallet!, pub: alephReadClient() };
+}
 const ZERO = "0x0000000000000000000000000000000000000000";
 
 export function alephOnchainEnabled(): boolean {
@@ -27,7 +66,7 @@ export function alephEscrowAddress(): Hex {
  *  y en `alephLog().usdc.chainId`, y el SDK del agente lo usa para elegir la red
  *  del depósito: con `NaN` ahí, el agente no sabe a qué cadena mandar la plata. */
 export function alephChainId(): number {
-  return chainIdFromEnv();
+  return alephChainIdFromEnv();
 }
 
 export interface AlephOnchainRoom {
@@ -86,7 +125,7 @@ export async function sendAlephWrite(
     functionName,
     args: args as never,
     account: wallet.account!,
-    chain: chain(),
+    chain: chainFor(alephChainIdFromEnv()),
   };
   const { request } = await pub.simulateContract(call);
   const hash = await wallet.writeContract(request);
@@ -123,13 +162,13 @@ function realAlephChain(): AlephChain {
   // lo lleva aleph.ts, que sabe si vale la pena volver a intentar.
   const write = (functionName: "cancelRoom" | "settle", args: readonly unknown[]) =>
     enCola(() => {
-      const { wallet, pub } = writeClients();
+      const { wallet, pub } = alephWriteClients();
       return sendAlephWrite(pub, wallet, functionName, args);
     });
 
   return {
     async readRoom(roomId) {
-      const p = readClient();
+      const p = alephReadClient();
       const [r, dep] = await Promise.all([
         p.readContract({
           address: ESCROW,
@@ -152,7 +191,7 @@ function realAlephChain(): AlephChain {
     },
     async feeBps() {
       return Number(
-        await readClient().readContract({
+        await alephReadClient().readContract({
           address: ESCROW,
           abi: escrowAlephAbi,
           functionName: "feeBps",
@@ -160,7 +199,7 @@ function realAlephChain(): AlephChain {
       );
     },
     async usdcAddress() {
-      usdc ??= (await readClient().readContract({
+      usdc ??= (await alephReadClient().readContract({
         address: ESCROW,
         abi: escrowAlephAbi,
         functionName: "usdc",

@@ -7,6 +7,7 @@
 // (recibe el env) para poder testearla sin tocar process.env real.
 
 import { persistenceBackendFor } from "./persist.js";
+import { alephChainIdFromEnv, chainIdFromEnv } from "./env.js";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
@@ -76,6 +77,34 @@ export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): st
     errors.push(
       `ALEPH_STAKES ("${env.ALEPH_STAKES}") habilita una mesa de plata pero falta ALEPH_ESCROW_ADDRESS: ` +
         "sin el contrato de Aleph, toda mesa de plata se rechaza.",
+    );
+  }
+  // LA RED DE ALEPH (decisión 6 de docs/MAINNET.md): mainnet arranca solo con
+  // el 1v1, y las mesas de plata de Aleph siguen en testnet con su propia red.
+  const alephChainRaw = (env.ALEPH_CHAIN_ID || "").trim();
+  if (alephChainRaw && !(/^[0-9]+$/.test(alephChainRaw) && Number(alephChainRaw) > 0)) {
+    errors.push(
+      `ALEPH_CHAIN_ID inválido ("${alephChainRaw}"): debe ser un entero positivo (ej. 84532 testnet). ` +
+        "Con un valor raro, las mesas de plata de Aleph firmarían para la red del 1v1.",
+    );
+  }
+  const alephChain = alephChainIdFromEnv(env);
+  if (moneyStakes && alephOn && alephChain === 8453) {
+    errors.push(
+      "Las mesas de plata de Aleph irían a Base mainnet (ALEPH_CHAIN_ID, o CHAIN_ID si falta, es 8453): " +
+        "EscrowAleph no está auditado y mainnet arranca solo con el 1v1 (decisión 6 de docs/MAINNET.md). " +
+        "Poné ALEPH_CHAIN_ID=84532 y ALEPH_RPC_URL de Base Sepolia, o dejá ALEPH_STAKES=0.",
+    );
+  }
+  if (
+    moneyStakes &&
+    alephOn &&
+    alephChain !== chainIdFromEnv(env) &&
+    !(env.ALEPH_RPC_URL || "").trim()
+  ) {
+    errors.push(
+      `Aleph va en otra red (${alephChain}) que el 1v1 (${chainIdFromEnv(env)}) pero falta ALEPH_RPC_URL: ` +
+        "RPC_URL es el nodo del 1v1, y las lecturas y pagos de Aleph irían a la red equivocada.",
     );
   }
   if (alephOn && !ADDRESS_RE.test(alephRaw)) {

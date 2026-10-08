@@ -151,7 +151,11 @@ El orden acordado el 2026-09-29, en tres tandas de código más lo del dueño:
 3. **Tanda 3 — el árbitro y la web en modo mainnet** (W1 a W9, más los textos
    de testnet que quedarían en mainnet y la mesa de plata de Aleph, que hoy
    comparte la red con el 1v1: la decisión 6 pide que el árbitro maneje dos
-   redes o apagarla al lanzar).
+   redes o apagarla al lanzar). **Hecha en código:** W1 a W9; el árbitro firma
+   y paga Aleph en su propia red (`ALEPH_CHAIN_ID`, `ALEPH_RPC_URL`) y no
+   arranca con mesas de plata de Aleph en mainnet; la web cambia los textos de
+   testnet por los de mainnet cuando corre en Base. Los términos legales
+   (`/terms`) siguen diciendo testnet a propósito: los reescribe lo legal (L1).
 4. **Del dueño, en paralelo:** prueba con usuarios reales (O6) sobre el
    contrato revisado, lo legal (L1), la Safe y el Ledger (O1), la custodia de
    la llave del árbitro (C12, O2), RPC propio y ETH real (O3).

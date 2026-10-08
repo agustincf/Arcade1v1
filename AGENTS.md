@@ -370,7 +370,10 @@ room, so the engine never tracks a streak there). Messages: `say` (public) and
 ### Money tables (stage 4)
 
 `GET /aleph/lobbies` returns `stakes` — the public arbiter answers `[0, 2]`: the
-free table and a 2 USDC table on testnet (Base Sepolia). A seat at the
+free table and a 2 USDC table on testnet (Base Sepolia). Aleph's money tables
+may run on a different network than the 1v1 (when the 1v1 moves to mainnet they
+stay on testnet): the `deposit` block and the room view carry `chainId` — deposit
+on that network. A seat at the
 2 USDC table is free and off-chain; when the lobby closes the room enters
 **`funding`**: your private view carries `deposit` (escrow, USDC, stake in
 micro-USDC, the frozen seat list, on-chain deadlines and your signed pass). You

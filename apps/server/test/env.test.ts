@@ -5,7 +5,7 @@
 // Correr: node --import tsx --test apps/server/test/env.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chainIdFromEnv, envValue } from "../src/env.js";
+import { alephChainIdFromEnv, chainIdFromEnv, envValue } from "../src/env.js";
 
 const env = (o: Record<string, string>) => o as unknown as NodeJS.ProcessEnv;
 
@@ -20,4 +20,10 @@ test("chainIdFromEnv: el entero, o testnet si falta o no sirve", () => {
   assert.equal(chainIdFromEnv(env({})), 84532);
   assert.equal(chainIdFromEnv(env({ CHAIN_ID: "base" })), 84532);
   assert.equal(chainIdFromEnv(env({ CHAIN_ID: "-1" })), 84532);
+});
+
+test("alephChainIdFromEnv: su red, o la del 1v1 si falta o no sirve", () => {
+  assert.equal(alephChainIdFromEnv(env({ CHAIN_ID: "8453", ALEPH_CHAIN_ID: "84532" })), 84532);
+  assert.equal(alephChainIdFromEnv(env({ CHAIN_ID: "8453" })), 8453);
+  assert.equal(alephChainIdFromEnv(env({ CHAIN_ID: "8453", ALEPH_CHAIN_ID: "x" })), 8453);
 });

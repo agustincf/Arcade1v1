@@ -4,7 +4,7 @@
 
 import { privateKeyToAccount } from "viem/accounts";
 import { keccak256, encodeAbiParameters, recoverTypedDataAddress, type Hex } from "viem";
-import { chainIdFromEnv, envValue } from "./env.js";
+import { alephChainIdFromEnv, chainIdFromEnv, envValue } from "./env.js";
 
 /** El resultado lleva VENCIMIENTO (segundos, como el contrato): pasado
  *  `deadline`, la firma no liquida nada. Ver `resultDeadlineOf` en matchmaking.ts. */
@@ -149,7 +149,7 @@ export function alephDomain() {
   return {
     name: "Arcade1v1EscrowAleph",
     version: "2",
-    chainId: chainIdFromEnv(),
+    chainId: alephChainIdFromEnv(),
     verifyingContract: (envValue("ALEPH_ESCROW_ADDRESS") || ZERO) as Hex,
   };
 }

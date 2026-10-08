@@ -37,6 +37,9 @@ const MONEY = {
   ...REDIS,
   ALEPH_STAKES: "0,2",
   ALEPH_ESCROW_ADDRESS: "0x" + "c".repeat(40),
+  // El 1v1 va en mainnet (OK); Aleph, en testnet con su nodo (decisión 6).
+  ALEPH_CHAIN_ID: "84532",
+  ALEPH_RPC_URL: "https://sepolia.base.org",
 } as unknown as NodeJS.ProcessEnv;
 
 test("fuera de producción no valida nada", () => {
@@ -122,10 +125,9 @@ test("ESCROW_ADDRESS mal formada se rechaza", () => {
 
 test("ALEPH_STAKES con una mesa de plata exige ALEPH_ESCROW_ADDRESS bien formada", () => {
   const sinEscrow = {
-    ...OK,
-    ...REDIS,
+    ...MONEY,
     ESCROW_ADDRESS: undefined,
-    ALEPH_STAKES: "0,2",
+    ALEPH_ESCROW_ADDRESS: undefined,
   } as unknown as NodeJS.ProcessEnv;
   const errs = productionConfigErrors(sinEscrow);
   assert.ok(
@@ -147,12 +149,10 @@ test("ALEPH_STAKES con una mesa de plata exige ALEPH_ESCROW_ADDRESS bien formada
 // todavía no se presentaron (la tabla firmada se pierde: partida pagada, anulada).
 test("una mesa de plata sin Redis no arranca: la persistencia en archivo se borra en cada deploy", () => {
   const sinRedis = {
-    ...OK,
+    ...MONEY,
     ARCADE_PERSIST: "1", // como lo deja persist-on.ts en el servidor real
     UPSTASH_REDIS_REST_URL: undefined,
     UPSTASH_REDIS_REST_TOKEN: undefined,
-    ALEPH_STAKES: "0,2",
-    ALEPH_ESCROW_ADDRESS: "0x" + "c".repeat(40),
   } as unknown as NodeJS.ProcessEnv;
   const errs = productionConfigErrors(sinRedis);
   assert.ok(
@@ -276,4 +276,38 @@ test("mesas de plata del 1v1 sin Redis: no arranca (F7)", () => {
       `sin Redis (${JSON.stringify(backend)}): ${errs.join(" | ")}`,
     );
   }
+});
+
+test("Aleph en su propia red (decisión 6): mainnet solo con el 1v1", () => {
+  // 1v1 en mainnet y Aleph sin red propia: Aleph caería en mainnet.
+  const onMainnet = {
+    ...MONEY,
+    ALEPH_CHAIN_ID: undefined,
+    ALEPH_RPC_URL: undefined,
+  } as unknown as NodeJS.ProcessEnv;
+  assert.ok(productionConfigErrors(onMainnet).some((e) => /EscrowAleph no está auditado/.test(e)));
+
+  // Aleph en testnet, pero sin su nodo: leería y pagaría en la red del 1v1.
+  const sinNodo = { ...onMainnet, ALEPH_CHAIN_ID: "84532" } as unknown as NodeJS.ProcessEnv;
+  assert.ok(productionConfigErrors(sinNodo).some((e) => /falta ALEPH_RPC_URL/.test(e)));
+
+  // Con su red y su nodo: bien.
+  const bien = {
+    ...sinNodo,
+    ALEPH_RPC_URL: "https://sepolia.base.org",
+  } as unknown as NodeJS.ProcessEnv;
+  assert.deepEqual(productionConfigErrors(bien), []);
+
+  // Sin mesas de plata de Aleph no hace falta nada de esto.
+  assert.deepEqual(
+    productionConfigErrors({ ...onMainnet, ALEPH_STAKES: "0" } as unknown as NodeJS.ProcessEnv),
+    [],
+  );
+  // Un ALEPH_CHAIN_ID raro se avisa.
+  assert.ok(
+    productionConfigErrors({
+      ...bien,
+      ALEPH_CHAIN_ID: "sepolia",
+    } as unknown as NodeJS.ProcessEnv).some((e) => /ALEPH_CHAIN_ID inválido/.test(e)),
+  );
 });

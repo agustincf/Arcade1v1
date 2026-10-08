@@ -18,3 +18,12 @@ export function chainIdFromEnv(env: NodeJS.ProcessEnv = process.env): number {
   const n = Number(envValue("CHAIN_ID", env));
   return Number.isInteger(n) && n > 0 ? n : 84532;
 }
+
+/** La red de las mesas de plata de Aleph: `ALEPH_CHAIN_ID`, o la del 1v1 si
+ *  falta. Puede ser otra: mainnet arranca solo con el 1v1 y las mesas de plata
+ *  de Aleph siguen en testnet (decisión 6 de docs/MAINNET.md), así que el mismo
+ *  árbitro firma en dos redes. Un valor inválido cae en la del 1v1. */
+export function alephChainIdFromEnv(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(envValue("ALEPH_CHAIN_ID", env));
+  return Number.isInteger(n) && n > 0 ? n : chainIdFromEnv(env);
+}

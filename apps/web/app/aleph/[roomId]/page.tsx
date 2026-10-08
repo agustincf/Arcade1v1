@@ -256,7 +256,7 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
               <p className="mt-3">
                 {room.refundTx && /^0x[0-9a-f]{64}$/i.test(room.refundTx) ? (
                   <a
-                    href={txUrl(room.refundTx)}
+                    href={txUrl(room.refundTx, room.chainId)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm font-medium text-(--color-accent-2) hover:underline"
@@ -405,7 +405,7 @@ export default function AlephRoomPage({ params }: { params: Promise<{ roomId: st
               <p className="mt-3">
                 {room.settleTx && /^0x[0-9a-f]{64}$/i.test(room.settleTx) ? (
                   <a
-                    href={txUrl(room.settleTx)}
+                    href={txUrl(room.settleTx, room.chainId)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm font-medium text-(--color-accent-2) hover:underline"

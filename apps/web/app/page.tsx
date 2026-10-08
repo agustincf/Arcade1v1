@@ -6,7 +6,7 @@ import { BetQuickPlay } from "@/app/components/BetQuickPlay";
 import { GameIcon } from "@/app/components/GameIcon";
 import { PixelIcon, type PixelIconName } from "@/app/components/PixelIcon";
 import { useT } from "@/app/lib/i18n";
-import { BET_AMOUNTS } from "@/app/lib/config";
+import { BET_AMOUNTS, netKey } from "@/app/lib/config";
 
 /** Preguntas del FAQ (claves faq.q1..faq.a8 en los tres diccionarios). */
 const FAQ_N = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -142,7 +142,7 @@ export default function HomePage() {
             >
               <h2 className="text-base font-bold text-(--color-paper-ink)">{t(`faq.q${n}`)}</h2>
               <p className="mt-2 leading-relaxed text-(--color-paper-muted)">
-                {t(`faq.a${n}`)}
+                {t(netKey(`faq.a${n}`))}
                 {n === 2 && (
                   <>
                     {" "}
@@ -169,7 +169,7 @@ export default function HomePage() {
             mainEntity: FAQ_N.map((n) => ({
               "@type": "Question",
               name: t(`faq.q${n}`),
-              acceptedAnswer: { "@type": "Answer", text: t(`faq.a${n}`) },
+              acceptedAnswer: { "@type": "Answer", text: t(netKey(`faq.a${n}`)) },
             })),
           }),
         }}

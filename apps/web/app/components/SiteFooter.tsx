@@ -3,7 +3,7 @@
 import { LocaleLink as Link } from "@/app/components/LocaleLink";
 import { useState } from "react";
 import { useT } from "@/app/lib/i18n";
-import { IS_MAINNET } from "@/app/lib/config";
+import { IS_MAINNET, netKey } from "@/app/lib/config";
 import { PixelIcon } from "@/app/components/PixelIcon";
 
 // Dirección de propinas (BTC, on-chain nativo). Va como constante para copiarla
@@ -67,7 +67,7 @@ export function SiteFooter() {
         </nav>
         {/* Aviso legal + estado de la red en UNA línea: mismo tono, misma voz */}
         <p className="mt-4 text-sm text-(--color-muted-3)">
-          {t("footer.responsible")} · {t("footer.demo")}
+          {t("footer.responsible")} · {t(netKey("footer.demo"))}
         </p>
         {/* Agradecimiento y propina en renglones separados: juntos en una línea
             se empastaban con el aviso legal de arriba. */}

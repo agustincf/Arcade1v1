@@ -239,6 +239,7 @@ export type AlephRoomView = {
   deposited?: string[]; // `funding`: quién ya depositó
   deposit?: AlephDeposit; // `funding`, SOLO en la vista privada del asiento
   escrow?: Hex; // stake > 0: el contrato
+  chainId?: number; // stake > 0: su red (puede no ser la del 1v1)
   payoutsUsdc?: Record<string, string>; // `settled`, stake > 0
   payoutSig?: Hex; // `settled`, stake > 0: cualquiera puede presentar la tabla
   payoutDeadline?: number; // `settled`, stake > 0: hasta cuándo vale (segundos)
@@ -1155,6 +1156,7 @@ export function roomView(room: AlephRoom, address?: string): AlephRoomView {
     settledAt: room.settledAt,
     commit: room.commit,
     escrow: room.stake > 0 ? alephEscrowAddress() : undefined,
+    chainId: room.stake > 0 ? alephChainId() : undefined,
   };
   if (room.status === "lobby" || room.status === "funding" || room.status === "dissolved") {
     const funding =

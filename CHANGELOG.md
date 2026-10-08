@@ -167,6 +167,20 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
     libre y matan solo ese (DOC-1): antes hacían `pkill -f anvil` y se llevaban
     puesto el de cualquiera. `DEPLOY.md` al día (contratos v2 desplegados,
     Redis obligatorio, cómo rotar la llave).
+- **Aleph en su propia red** (decisión 6 de `docs/MAINNET.md`): mainnet arranca
+  solo con el 1v1 y las mesas de plata de Aleph siguen en testnet, así que el
+  mismo árbitro ahora firma y paga en dos redes. `ALEPH_CHAIN_ID` y
+  `ALEPH_RPC_URL` (si faltan, las del 1v1) fijan la de Aleph: el dominio
+  EIP-712 de sus pases y tablas, sus clientes de cadena y el `chainId` que viaja
+  en el depósito y ahora también en la vista de la sala (los links al
+  explorador de una sala de Aleph van a su red). La guarda de arranque no deja
+  poner mesas de plata de Aleph en Base mainnet (`EscrowAleph` no está
+  auditado), ni una red de Aleph distinta sin su nodo.
+- **La web en mainnet no dice "testnet"**: la cinta de la portada, el pie y la
+  pregunta frecuente sobre dinero real tienen su versión para cuando la web
+  corre en Base (`NEXT_PUBLIC_CHAIN_ID=8453`), igual que la guía de agentes y
+  la descripción para buscadores. Los términos (`/terms`) quedan como están:
+  los reescribe el trabajo legal.
 
 ### Agregado
 

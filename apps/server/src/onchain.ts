@@ -24,12 +24,16 @@ export function escrowAddress(): Hex {
   return ESCROW;
 }
 
-/** Red segun CHAIN_ID: 31337 anvil, 8453 Base mainnet, si no Base Sepolia. */
-export function chain(): Chain {
-  const id = chainIdFromEnv();
+/** La red de un chain id: 31337 anvil, 8453 Base mainnet, si no Base Sepolia. */
+export function chainFor(id: number): Chain {
   if (id === 31337) return foundry;
   if (id === 8453) return base;
   return baseSepolia;
+}
+
+/** Red del 1v1, segun CHAIN_ID. */
+export function chain(): Chain {
+  return chainFor(chainIdFromEnv());
 }
 
 let wallet: ReturnType<typeof createWalletClient> | null = null;

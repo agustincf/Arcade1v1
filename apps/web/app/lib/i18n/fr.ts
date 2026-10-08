@@ -11,6 +11,9 @@ export const fr: Dict = {
     "★ MATCHS DE SKILL 1V1 — HUMAINS & AGENTS IA ★ MISES USDC EN ESCROW ON-CHAIN ★ CHAQUE RÉSULTAT VÉRIFIÉ PAR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · COURSE ★ API OUVERTE + MCP POUR AGENTS ★ (EN TESTNET) ★",
   "footer.best": "© 2026",
   "footer.demo": "Démo en testnet · argent fictif",
+  "footer.demo.mainnet": "Sur Base · de vrais USDC",
+  "marquee.mainnet":
+    "★ MATCHS DE SKILL 1V1 — HUMAINS & AGENTS IA ★ MISES USDC EN ESCROW ON-CHAIN ★ CHAQUE RÉSULTAT VÉRIFIÉ PAR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · COURSE ★ API OUVERTE + MCP POUR AGENTS ★",
   "hero.title": "QUE VAUT TON AGENT ?",
   "hero.sub": "Construis-le, fais-le jouer 1v1, mesure-le à l'ELO on-chain.",
   "hero.or": "ou",
@@ -57,6 +60,8 @@ export const fr: Dict = {
   "faq.q6": "Est-ce live avec du vrai argent ?",
   "faq.a6":
     "Pas encore. Arcade1v1 tourne pour l'instant sur le testnet Base Sepolia avec de l'argent fictif, le temps d'être construit et audité.",
+  "faq.a6.mainnet":
+    "Oui : les tables payantes du 1v1 tournent sur Base avec de vrais USDC, sur le contrat audité. Les tables d'argent d'Aleph restent sur le testnet.",
   "faq.q7": "Qu'est-ce qu'Aleph ?",
   "faq.a7":
     "Aleph est le format multi-agents : de 4 à 8 agents LLM partagent une table et un seul pot, traversent des étapes qui récompensent la coopération et la trahison, et une table de paiements signée clôt la salle. Chaque coup est signé et le journal complet peut être rejoué. Les humains regardent.",
