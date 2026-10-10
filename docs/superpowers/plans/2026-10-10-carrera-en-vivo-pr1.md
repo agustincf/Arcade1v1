@@ -57,7 +57,7 @@ Flappy no cambia en el cable.
 
 ---
 
-### Tarea 1: el motor de Carrera en vivo
+### Task 1: el motor de Carrera en vivo
 
 **Archivos:**
 - Modificar: `packages/game-sdk/src/racing.ts`
@@ -146,7 +146,7 @@ if (spawnDue(this.elapsedMs, this.spawnTimer)) {
   nuevos, en verde (el de caracterización prueba que v2 no cambió).
 - [ ] **Paso 5: commit** `game-sdk: el motor de Carrera juega en vivo (un valor por fila)`.
 
-### Tarea 2: el núcleo genérico del modo en vivo
+### Task 2: el núcleo genérico del modo en vivo
 
 **Archivos:**
 - Modificar: `packages/game-sdk/src/live.ts` (tipos y codec)
@@ -250,7 +250,7 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 - [ ] **Paso 4:** `npm test` → todos los de Flappy sin tocar + los nuevos, en verde.
 - [ ] **Paso 5: commit** `game-sdk: núcleo genérico del modo en vivo (Flappy y Carrera)`.
 
-### Tarea 3: las estrategias de Carrera juegan en vivo
+### Task 3: las estrategias de Carrera juegan en vivo
 
 **Archivos:**
 - Modificar: `packages/strategies/src/types.ts` (`LiveStep.decide` devuelve `LiveDecision`)
@@ -272,7 +272,7 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 - [ ] **Paso 4:** test en verde; `npm test` en verde.
 - [ ] **Paso 5: commit** `strategies: Carrera decide tick a tick (step) para jugar en vivo`.
 
-### Tarea 4: el árbitro juega cualquier juego en vivo
+### Task 4: el árbitro juega cualquier juego en vivo
 
 **Archivos:**
 - Modificar: `apps/server/src/matchmaking.ts` (`LiveAttempt.inputs`,
@@ -316,7 +316,7 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 - [ ] **Paso 4:** `npm test` en verde (Flappy sin tocar).
 - [ ] **Paso 5: commit** `árbitro: el modo en vivo sirve para cualquier juego (Carrera, apagada)`.
 
-### Tarea 5: el SDK juega Carrera en vivo
+### Task 5: el SDK juega Carrera en vivo
 
 **Archivos:**
 - Modificar: `packages/agent-sdk/src/strategies.ts` (`LiveStrategy.decide` como
@@ -334,7 +334,7 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 - [ ] **Paso 4:** `npm test` y `npm run typecheck:packages` en verde.
 - [ ] **Paso 5: commit** `agent-sdk: playAndSubmit juega Carrera en vivo`.
 
-### Tarea 6: el ejemplo de Claude decide en vivo
+### Task 6: el ejemplo de Claude decide en vivo
 
 **Archivos:**
 - Modificar: `packages/agent-sdk/examples/play-racing-llm.ts`
@@ -351,7 +351,7 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 - [ ] **Paso 4:** test en verde.
 - [ ] **Paso 5: commit** `ejemplo: Claude juega Carrera en vivo`.
 
-### Tarea 7: la web juega Carrera en vivo
+### Task 7: la web juega Carrera en vivo
 
 **Archivos:**
 - Modificar: `apps/web/app/lib/live.ts` (`racingReplaySource`, tipo `LiveController`)
@@ -375,7 +375,7 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 - [ ] **Paso 4:** `npm test`, `npm run typecheck:web` y `npm run lint` en verde.
 - [ ] **Paso 5: commit** `web: Carrera se puede jugar en vivo (apagada)`.
 
-### Tarea 8: cierre del PR 1
+### Task 8: cierre del PR 1
 
 - [ ] CHANGELOG `[Sin publicar]`: "Agregado (apagado)" con lo de este PR.
 - [ ] `npm run check` entero en verde; `npm run build --workspace apps/web` si
