@@ -31,13 +31,15 @@ function reference(secret: string, i: number): number {
 
 const SECRET = "7f".repeat(32);
 
-test("el interruptor: Flappy se juega en vivo desde las reglas v2, y nada más", () => {
+test("el interruptor: Flappy se juega en vivo desde las reglas v2, Carrera desde las v3, y nada más", () => {
   assert.equal(isLiveMatch("flappy", 1), false);
   assert.equal(isLiveMatch("flappy", undefined), false, "sin versión es v1");
   assert.equal(isLiveMatch("flappy", 2), true);
   assert.equal(isLiveMatch("flappy", 3), true);
+  assert.equal(isLiveMatch("racing", 2), false, "Carrera v2 (la de hoy) sigue con semilla");
+  assert.equal(isLiveMatch("racing", 3), true);
   assert.equal(isLiveMatch("2048", 9), false);
-  assert.deepEqual(LIVE_SINCE_RULES_V, { flappy: 2 });
+  assert.deepEqual(LIVE_SINCE_RULES_V, { flappy: 2, racing: 3 });
 });
 
 test("constantes del protocolo", () => {

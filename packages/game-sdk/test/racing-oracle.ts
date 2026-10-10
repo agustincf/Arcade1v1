@@ -3,7 +3,7 @@
 // racing-fairness.test.ts). Lo comparten esa prueba y las de Carrera en vivo,
 // que lo usan para que el auto llegue lejos y se ejerciten todas las filas.
 
-import { RacingEngine, RACING_CONST } from "@arcade1v1/game-sdk/racing";
+import { RacingEngine, RACING_CONST, type RaceAction } from "@arcade1v1/game-sdk/racing";
 
 const CAR_Y = RACING_CONST.HEIGHT - 80;
 
@@ -39,14 +39,15 @@ const CAR_Y = RACING_CONST.HEIGHT - 80;
 const REACT = 70; // "¿este carril es peligroso?" — una sola distancia para reaccionar, elegir destino y volver al centro.
 const JUMP_TRIGGER = 60; // dispara el salto dentro de la ventana real (ver arriba), no a 120px como el plan original.
 
-/** Un paso del oráculo: decide a lo sumo una acción (mover o saltar) con visión
- * perfecta de `g.obstacles`. Compartido por los dos tests: el primero lo usa
- * para que el auto sobreviva lo bastante como para que el escaneo de filas
- * alcance a ver paredes-salto (solo aparecen desde el nivel 2, ~16s) — un
+/** La acción del oráculo en este tick: a lo sumo una (mover o saltar), con
+ * visión perfecta de `g.obstacles` y sin tocar el motor. La prueba de equidad
+ * lo usa para que el auto sobreviva lo bastante como para que el escaneo de
+ * filas alcance a ver paredes-salto (solo aparecen desde el nivel 2, ~16s) — un
  * auto quieto muere en la primera fila (~3-4 filas, siempre nivel 0) y esa
  * mitad del invariante nunca se ejercita (confirmado con mutation testing,
- * ver reporte). El segundo lo usa como oráculo de supervivencia en sí mismo. */
-export function oracleStep(g: RacingEngine): void {
+ * ver reporte) — y como oráculo de supervivencia en sí mismo. Las pruebas en
+ * vivo lo usan como decisión por tick. */
+export function oracleAction(g: RacingEngine): RaceAction | null {
   const near = (lane: number, solidOnly: boolean) =>
     g.obstacles.some(
       (o) =>
@@ -60,14 +61,14 @@ export function oracleStep(g: RacingEngine): void {
       (l) => l >= 0 && l < RACING_CONST.LANES && !near(l, false),
     );
     if (options.length > 0) {
-      if (options[0] < g.carLane) g.moveLeft();
-      else g.moveRight();
+      if (options[0] < g.carLane) return "l";
+      else return "r";
     } else {
       // Sin carril limpio: si lo que viene en el mío es valla, saltar a tiempo.
       const threat = g.obstacles
         .filter((o) => o.lane === g.carLane && o.y < CAR_Y && o.y > CAR_Y - REACT)
         .sort((a, b) => b.y - a.y)[0];
-      if (threat?.jumpable && CAR_Y - threat.y < JUMP_TRIGGER) g.jump();
+      if (threat?.jumpable && CAR_Y - threat.y < JUMP_TRIGGER) return "j";
       else {
         // Valla en un vecino es mejor que sólido en el mío — pero solo si
         // todavía da tiempo de saltarla en un tick futuro. Si ya está a
@@ -81,8 +82,8 @@ export function oracleStep(g: RacingEngine): void {
           return !tooLate;
         });
         if (jumpableSide.length > 0) {
-          if (jumpableSide[0] < g.carLane) g.moveLeft();
-          else g.moveRight();
+          if (jumpableSide[0] < g.carLane) return "l";
+          else return "r";
         }
       }
     }
@@ -93,9 +94,18 @@ export function oracleStep(g: RacingEngine): void {
     if (g.carLane !== center) {
       const step = g.carLane < center ? g.carLane + 1 : g.carLane - 1;
       if (!near(step, false)) {
-        if (g.carLane < center) g.moveRight();
-        else g.moveLeft();
+        if (g.carLane < center) return "r";
+        else return "l";
       }
     }
   }
+  return null;
+}
+
+/** El oráculo manejando el motor: aplica su acción del tick. */
+export function oracleStep(g: RacingEngine): void {
+  const a = oracleAction(g);
+  if (a === "l") g.moveLeft();
+  else if (a === "r") g.moveRight();
+  else if (a === "j") g.jump();
 }

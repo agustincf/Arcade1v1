@@ -1,9 +1,22 @@
-// Piezas compartidas por los tests en vivo de Flappy: un secreto por número, una
-// política de aleteo, un árbitro de referencia en memoria (las mismas reglas que
+// Piezas compartidas por los tests en vivo: un secreto por número, una política
+// de aleteo, un árbitro de referencia en memoria (las mismas reglas que
 // apps/server/src/live.ts, sin HTTP ni firmas) y la partida jugada de corrido.
+// Primero las de Flappy; al final, las de cualquier juego en vivo.
 
 import { FlappyEngine, FLAPPY_DT, FLAPPY_CONST } from "@arcade1v1/game-sdk/flappy";
-import { SecretSource, LIVE_LEAD_TICKS } from "@arcade1v1/game-sdk/live";
+import {
+  SecretSource,
+  LIVE_LEAD_TICKS,
+  capLiveActions,
+  decodeLiveInputs,
+  encodeLiveInputs,
+  liveActions,
+  liveInputsByTick,
+  type LiveDecision,
+  type LiveGame,
+  type LiveInput,
+} from "@arcade1v1/game-sdk/live";
+import type { LiveCommit, LiveReply, LiveStart } from "@arcade1v1/game-sdk/live-play";
 import type { FlappyLiveCommit, FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
 
 /** Un secreto de prueba por número (el árbitro sortea 32 bytes al azar). */
@@ -78,4 +91,84 @@ export function batch(secret: string, maxTicks: number) {
     g.update(FLAPPY_DT);
   }
   return { score: g.score, ticks: t };
+}
+
+// ---- Cualquier juego en vivo (Carrera, y Flappy por el mismo camino) ----------
+
+/** Árbitro de referencia GENÉRICO: las reglas de apps/server/src/live.ts para
+ *  cualquier `LiveGame`, con sus topes de jugadas. Un tramo que los pasa se
+ *  rechaza como lo haría el árbitro (un 400: no se reintenta). */
+export function referenceLiveArbiter<E>(
+  game: LiveGame<E>,
+  secret: string,
+  rollbackOnCommit?: number,
+) {
+  let src = new SecretSource(secret);
+  let eng = game.create(src);
+  let tick = 0;
+  let revealed = 0;
+  let over = false;
+  let seen = 0;
+  let inputs: LiveInput[] = [];
+  const log: { to: number; revealed: number }[] = [];
+  const reject = (msg: string) => Object.assign(new Error(msg), { status: 400 });
+  const reveal = (have: number) => {
+    revealed = Math.max(revealed, src.consumed + game.drawsWithin(eng, LIVE_LEAD_TICKS));
+    return { reveal: src.slice(Math.min(Math.max(0, have), revealed), revealed), revealed };
+  };
+  const start: LiveStart = { tick: 0, ...encodeLiveInputs(game, []), ...reveal(0) };
+  log.push({ to: 0, revealed });
+  const commit = async (c: LiveCommit): Promise<LiveReply> => {
+    seen += 1;
+    if (seen === rollbackOnCommit && tick > 0) {
+      const back = Math.max(0, tick - 40);
+      inputs = inputs.filter((i) => i.t < back);
+      src = new SecretSource(secret);
+      eng = game.create(src);
+      const done = liveInputsByTick(inputs);
+      for (let t = 0; t < back; t++) game.step(eng, done.get(t) ?? []);
+      tick = back;
+    }
+    if (over) return { tick, over: true, score: game.score(eng), reveal: [], revealed };
+    if (c.from !== tick) return { conflict: true, tick, ...reveal(c.have) };
+    const tranche = decodeLiveInputs(game, c);
+    const byTick = liveInputsByTick(tranche);
+    for (const [t, acts] of byTick) {
+      if (t < c.from || t >= c.to || acts.length > game.maxActionsPerTick) {
+        throw reject(`invalid inputs at tick ${t}`);
+      }
+    }
+    if (inputs.length + tranche.length > game.inputBudget(c.to)) throw reject("too many inputs");
+    let t = c.from;
+    for (; t < c.to && !game.over(eng); t++) game.step(eng, byTick.get(t) ?? []);
+    for (const i of tranche) if (i.t < t) inputs.push(i);
+    tick = t;
+    const r = reveal(c.have);
+    log.push({ to: tick, revealed });
+    if (game.over(eng) || c.final) {
+      over = true;
+      return { tick, over: true, score: game.score(eng), ...r };
+    }
+    return { tick, over: false, ...r };
+  };
+  return { start, commit, log, inputs: () => inputs };
+}
+
+/** La misma partida jugada de corrido con la fuente completa, con los mismos
+ *  topes de jugadas que aplica quien juega en vivo. */
+export function batchLive<E>(
+  game: LiveGame<E>,
+  secret: string,
+  decide: (engine: E, tick: number) => LiveDecision,
+  maxTicks: number,
+) {
+  const g = game.create(new SecretSource(secret));
+  let t = 0;
+  let played = 0;
+  for (; t < maxTicks && !game.over(g); t++) {
+    const acts = capLiveActions(game, liveActions(game, decide(g, t)), played, t);
+    played += acts.length;
+    game.step(g, acts);
+  }
+  return { score: game.score(g), ticks: t };
 }

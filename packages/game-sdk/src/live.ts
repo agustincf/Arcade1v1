@@ -4,7 +4,7 @@
 // jugadas hasta un tick y recibe los valores al azar que el juego va a consumir
 // en los próximos LIVE_LEAD_TICKS; con esos valores el motor corre igual que
 // siempre. Al decidirse la partida se publica el secreto y cualquiera
-// re-verifica (verifyFlappyLive).
+// re-verifica (verifyFlappyLive, verifyRacingLive).
 // Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md
 
 import { sha256, sha256Hex, hexToBytes } from "./sha256";
@@ -20,8 +20,9 @@ export const LIVE_LEAD_TICKS = 15;
 export const MAX_COMMIT_TICKS = 3_600;
 
 /** Desde qué versión de reglas se juega en vivo cada juego. El interruptor de
- *  Flappy es `RULES_V.flappy = 2` (rules.ts). */
-export const LIVE_SINCE_RULES_V: Record<string, number> = { flappy: 2 };
+ *  cada uno es su `RULES_V` (rules.ts): Flappy está en vivo desde la v2;
+ *  Carrera, desde la v3 (mientras `RULES_V.racing` siga en 2, con semilla). */
+export const LIVE_SINCE_RULES_V: Record<string, number> = { flappy: 2, racing: 3 };
 
 /** ¿Una partida de `game` nacida con las reglas `rulesV` se juega en vivo? */
 export function isLiveMatch(game: string, rulesV: number | undefined): boolean {
@@ -141,4 +142,117 @@ export function checkLiveReveals(
   } catch {
     return false;
   }
+}
+
+// ---- Cualquier juego en vivo ----------------------------------------------------
+// El driver, la sesión de la web, el árbitro y la re-verificación no saben de
+// aleteos ni de carriles: trabajan con la DEFINICIÓN de cada juego en vivo
+// (flappy-live.ts, racing-live.ts) y con sus jugadas como `{ t, a }`.
+
+/** Una jugada: la acción `a` en el tick `t` (absoluto). En Flappy, `a` es "f". */
+export interface LiveInput {
+  t: number;
+  a: string;
+}
+
+/** Lo que devuelve una decisión por tick: `true`/`false` en un juego de una
+ *  sola acción (Flappy: aletear o no), una acción, varias, o nada. */
+export type LiveDecision = boolean | string | readonly string[] | null | undefined;
+
+/** Un juego que se juega EN VIVO: cómo se arma su motor con la fuente de azar,
+ *  cómo avanza un tick y cuánto azar va a consumir. */
+export interface LiveGame<E> {
+  id: string;
+  create(src: RandomSource): E;
+  /** Aplica las acciones de este tick, en orden, y avanza un tick. */
+  step(engine: E, actions: readonly string[]): void;
+  over(engine: E): boolean;
+  score(engine: E): number;
+  /** Cuántos valores al azar consumirían los próximos `ticks` ticks, sin
+   *  tocar el motor. Exacto mientras se juega: no depende de las jugadas. */
+  drawsWithin(engine: E, ticks: number): number;
+  /** Ticks que no cuentan (Flappy: sin aletear, antes del primer aleteo). */
+  idle?(engine: E, actions: readonly string[]): boolean;
+  /** Cómo viajan las jugadas: Flappy manda `flaps` (los ticks de sus
+   *  aleteos); los demás, `inputs`. */
+  wire: "flaps" | "inputs";
+  actions: readonly string[];
+  maxActionsPerTick: number;
+  /** Cuántas jugadas puede tener un intento con `ticks` ticks jugados. */
+  inputBudget(ticks: number): number;
+}
+
+/** Las jugadas como viajan en `game`. */
+export function encodeLiveInputs(
+  game: LiveGame<unknown>,
+  inputs: readonly LiveInput[],
+): { flaps: number[] } | { inputs: LiveInput[] } {
+  return game.wire === "flaps"
+    ? { flaps: inputs.map((i) => i.t) }
+    : { inputs: inputs.map((i) => ({ t: i.t, a: i.a })) };
+}
+
+/** Las jugadas que llegaron por el cable, como `{ t, a }`. No valida: el
+ *  árbitro valida aparte, con sus mensajes. Sin la lista del juego, ninguna. */
+export function decodeLiveInputs(
+  game: LiveGame<unknown>,
+  wire: { flaps?: unknown; inputs?: unknown },
+): LiveInput[] {
+  if (game.wire === "flaps") {
+    return Array.isArray(wire.flaps)
+      ? wire.flaps.map((t) => ({ t: Number(t), a: game.actions[0] }))
+      : [];
+  }
+  return Array.isArray(wire.inputs)
+    ? wire.inputs.map((i: { t?: unknown; a?: unknown } | null) => ({
+        t: Number(i?.t),
+        a: String(i?.a),
+      }))
+    : [];
+}
+
+/** Las jugadas agrupadas por tick, en orden. */
+export function liveInputsByTick(inputs: readonly LiveInput[]): Map<number, string[]> {
+  const byTick = new Map<number, string[]>();
+  for (const i of inputs) {
+    const acts = byTick.get(i.t);
+    if (acts) acts.push(i.a);
+    else byTick.set(i.t, [i.a]);
+  }
+  return byTick;
+}
+
+/** Las acciones de una decisión. `true` vale solo en un juego de una acción
+ *  (Flappy); una acción que el juego no tiene es un error de quien decide. */
+export function liveActions(game: LiveGame<unknown>, decision: LiveDecision): string[] {
+  if (decision === null || decision === undefined || decision === false) return [];
+  if (decision === true) {
+    if (game.actions.length !== 1) {
+      throw new Error(
+        `live ${game.id}: decide must return actions (${game.actions.join(", ")}), not true`,
+      );
+    }
+    return [game.actions[0]];
+  }
+  const list = typeof decision === "string" ? [decision] : [...decision];
+  for (const a of list) {
+    if (!game.actions.includes(a)) {
+      throw new Error(`live ${game.id}: unknown action "${a}" (use ${game.actions.join(", ")})`);
+    }
+  }
+  return list;
+}
+
+/** Recorta las acciones de un tick a los topes del juego: a lo sumo
+ *  `maxActionsPerTick`, y sin que el intento pase `inputBudget(tick + 1)` con
+ *  `played` jugadas hechas. Lo hacen el driver y la sesión ANTES de jugar el
+ *  tick, así un cliente honesto nunca manda algo que el árbitro rechace. */
+export function capLiveActions(
+  game: LiveGame<unknown>,
+  actions: readonly string[],
+  played: number,
+  tick: number,
+): string[] {
+  const room = Math.max(0, game.inputBudget(tick + 1) - played);
+  return actions.slice(0, Math.min(game.maxActionsPerTick, room));
 }
