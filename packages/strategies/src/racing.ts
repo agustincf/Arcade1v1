@@ -13,8 +13,15 @@ import {
   LANES,
   type RaceAction,
 } from "@arcade1v1/game-sdk/racing";
-import type { StrategyDef, PlayResult } from "./types";
+import type { LiveStep, StrategyDef, PlayResult } from "./types";
 import { num, choice } from "./params";
+
+/** Aplica una acción de la Carrera al motor (antes de avanzar el tick). */
+export function applyRaceAction(g: RacingEngine, a: RaceAction): void {
+  if (a === "l") g.moveLeft();
+  else if (a === "r") g.moveRight();
+  else g.jump();
+}
 
 const MAX_TICKS = 36_000;
 const CAR_Y = RACING_CONST.HEIGHT - 80; // igual que el motor (CAR_Y privado)
@@ -52,19 +59,17 @@ const PARAMS = [
 
 const LANE_INDEX: Record<string, number> = { left: 0, center: 1, right: 2 };
 
-export const strategyRacingDodger: StrategyDef = {
-  id: "racing.dodger",
-  game: "racing",
-  labelKey: "strat.racing.dodger.name",
-  params: PARAMS,
-  play(seed: number, params: Record<string, unknown>): PlayResult {
-    const lookahead = num(params, PARAMS[0]);
-    const homeLane = LANE_INDEX[choice(params, PARAMS[1])] ?? 1;
-    const coinGreed = num(params, PARAMS[2]);
-    const g = new RacingEngine(seed);
-    const inputs: { t: number; a: RaceAction }[] = [];
-    let cooldown = 0;
+/** La decisión de la estrategia, la misma para `play` (con semilla) y `step`
+ *  (en vivo): mira solo el motor en el tick actual, nunca el futuro, y devuelve
+ *  las acciones del tick sin tocarlo. Guarda su cooldown entre ticks: se crea
+ *  una por partida. */
+function dodgerDecider(params: Record<string, unknown>) {
+  const lookahead = num(params, PARAMS[0]);
+  const homeLane = LANE_INDEX[choice(params, PARAMS[1])] ?? 1;
+  const coinGreed = num(params, PARAMS[2]);
+  let cooldown = 0;
 
+  return (g: RacingEngine): RaceAction[] => {
     /** ¿Hay peligro en `lane` dentro de `dist` px? (una valla también lo es:
      *  solo deja de serlo en el instante del salto). */
     const danger = (lane: number, dist: number, solidOnly = false): boolean =>
@@ -86,82 +91,89 @@ export const strategyRacingDodger: StrategyDef = {
     const coinsAhead = (lane: number): boolean =>
       g.coins.some((c) => !c.taken && c.lane === lane && c.y < CAR_Y && c.y > CAR_Y - COIN_SIGHT);
 
+    if (cooldown > 0) cooldown--;
+    if (cooldown !== 0 || g.airborne) return [];
+    let target = g.carLane;
+    if (danger(g.carLane, lookahead)) {
+      // Elegir el carril vecino seguro; si hay dos, el más cercano al
+      // preferido (con margen extra para no esquivar hacia otro peligro).
+      const candidates = [g.carLane - 1, g.carLane + 1].filter(
+        (l) => l >= 0 && l < LANES && !danger(l, lookahead + 40),
+      );
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => Math.abs(a - homeLane) - Math.abs(b - homeLane));
+        target = candidates[0];
+      } else {
+        // Sin carril limpio: si lo mío es valla, saltarla con timing.
+        const b = nextBarrier(g.carLane);
+        if (b && CAR_Y - b.y < JUMP_LEAD) return ["j"];
+        // Sólido en el mío y vecinos con valla: mejor pararse en la valla
+        // (saltable, la salto después) que en el sólido.
+        const softSide = [g.carLane - 1, g.carLane + 1].filter(
+          (l) => l >= 0 && l < LANES && !danger(l, lookahead + 40, true),
+        );
+        if (softSide.length > 0) target = softSide[0];
+      }
+    } else {
+      // Sin peligro: primero el desvío por monedas (solo si hay codicia);
+      // si no hubo desvío —coinGreed=0, o codicia sin jugada segura—,
+      // recentrar al preferido COMO EN v1, sin condicionarlo a la codicia
+      // (si el recentrado dependiera de coinGreed>0, coinGreed=0 perdía
+      // el recentrado de v1 y el efecto medido de la codicia se inflaba
+      // con algo que no era "puntos por moneda").
+      let coinDrift = false;
+      if (coinGreed > 0) {
+        // Codicia: derivar hacia un carril vecino con monedas si está limpio.
+        const sides = [g.carLane - 1, g.carLane + 1].filter(
+          (l) => l >= 0 && l < LANES && coinsAhead(l) && !danger(l, lookahead * (2 - coinGreed)),
+        );
+        if (sides.length > 0) {
+          target = sides[0];
+          coinDrift = true;
+        }
+      }
+      if (
+        !coinDrift &&
+        g.carLane !== homeLane &&
+        !danger(homeLane, lookahead * 1.5) &&
+        !danger(g.carLane + Math.sign(homeLane - g.carLane), lookahead * 1.5)
+      ) {
+        // Volver de a un carril al preferido cuando el camino está despejado.
+        target = g.carLane + Math.sign(homeLane - g.carLane);
+      }
+    }
+    if (target === g.carLane) return [];
+    cooldown = CHANGE_COOLDOWN;
+    return [target < g.carLane ? "l" : "r"];
+  };
+}
+
+export const strategyRacingDodger: StrategyDef = {
+  id: "racing.dodger",
+  game: "racing",
+  labelKey: "strat.racing.dodger.name",
+  params: PARAMS,
+  play(seed: number, params: Record<string, unknown>): PlayResult {
+    const decide = dodgerDecider(params);
+    const g = new RacingEngine(seed);
+    const inputs: { t: number; a: RaceAction }[] = [];
+    // OJO determinismo: este loop hace SIEMPRE un g.update() por tick (nunca
+    // `continue` antes del update) — si no, el replay que graba no coincide con
+    // la re-simulación del árbitro.
     for (let t = 0; t < MAX_TICKS && !g.over; t++) {
-      if (cooldown > 0) cooldown--;
-      if (cooldown === 0 && !g.airborne) {
-        // OJO determinismo: este loop hace SIEMPRE un g.update() por tick
-        // (nunca `continue` antes del update) — si no, el replay que graba no
-        // coincide con la re-simulación del árbitro.
-        let target = g.carLane;
-        let jumped = false;
-        if (danger(g.carLane, lookahead)) {
-          // Elegir el carril vecino seguro; si hay dos, el más cercano al
-          // preferido (con margen extra para no esquivar hacia otro peligro).
-          const candidates = [g.carLane - 1, g.carLane + 1].filter(
-            (l) => l >= 0 && l < LANES && !danger(l, lookahead + 40),
-          );
-          if (candidates.length > 0) {
-            candidates.sort((a, b) => Math.abs(a - homeLane) - Math.abs(b - homeLane));
-            target = candidates[0];
-          } else {
-            // Sin carril limpio: si lo mío es valla, saltarla con timing.
-            const b = nextBarrier(g.carLane);
-            if (b && CAR_Y - b.y < JUMP_LEAD) {
-              g.jump();
-              inputs.push({ t, a: "j" });
-              jumped = true;
-            } else {
-              // Sólido en el mío y vecinos con valla: mejor pararse en la valla
-              // (saltable, la salto después) que en el sólido.
-              const softSide = [g.carLane - 1, g.carLane + 1].filter(
-                (l) => l >= 0 && l < LANES && !danger(l, lookahead + 40, true),
-              );
-              if (softSide.length > 0) target = softSide[0];
-            }
-          }
-        } else {
-          // Sin peligro: primero el desvío por monedas (solo si hay codicia);
-          // si no hubo desvío —coinGreed=0, o codicia sin jugada segura—,
-          // recentrar al preferido COMO EN v1, sin condicionarlo a la codicia
-          // (si el recentrado dependiera de coinGreed>0, coinGreed=0 perdía
-          // el recentrado de v1 y el efecto medido de la codicia se inflaba
-          // con algo que no era "puntos por moneda").
-          let coinDrift = false;
-          if (coinGreed > 0) {
-            // Codicia: derivar hacia un carril vecino con monedas si está limpio.
-            const sides = [g.carLane - 1, g.carLane + 1].filter(
-              (l) =>
-                l >= 0 && l < LANES && coinsAhead(l) && !danger(l, lookahead * (2 - coinGreed)),
-            );
-            if (sides.length > 0) {
-              target = sides[0];
-              coinDrift = true;
-            }
-          }
-          if (
-            !coinDrift &&
-            g.carLane !== homeLane &&
-            !danger(homeLane, lookahead * 1.5) &&
-            !danger(g.carLane + Math.sign(homeLane - g.carLane), lookahead * 1.5)
-          ) {
-            // Volver de a un carril al preferido cuando el camino está despejado.
-            target = g.carLane + Math.sign(homeLane - g.carLane);
-          }
-        }
-        if (!jumped && target !== g.carLane) {
-          const a: RaceAction = target < g.carLane ? "l" : "r";
-          if (a === "l") g.moveLeft();
-          else g.moveRight();
-          inputs.push({ t, a });
-          cooldown = CHANGE_COOLDOWN;
-        }
+      for (const a of decide(g)) {
+        applyRaceAction(g, a);
+        inputs.push({ t, a });
       }
       g.update(RACING_DT);
     }
-
     return {
       score: g.score,
       replay: { seed, ticks: MAX_TICKS, inputs, v: RACING_RULES_V },
     };
+  },
+  step(params: Record<string, unknown>): LiveStep {
+    const decide = dodgerDecider(params);
+    return { decide: (engine) => decide(engine as RacingEngine), maxTicks: MAX_TICKS };
   },
 };
