@@ -19,7 +19,8 @@ import { liveStart, liveCommit } from "./live.js";
 import { arbiterAddress, RESULT_TYPES, resultDomain } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { TetrisEngine, type TetrisAction } from "@arcade1v1/game-sdk/tetris";
-import { playFlappyLive, verifyFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
+import { flappyLive, verifyFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
+import { playLive } from "@arcade1v1/game-sdk/live-play";
 import { liveSecretHash } from "@arcade1v1/game-sdk/live";
 import { defaultParams, strategiesFor } from "@arcade1v1/strategies";
 import {
@@ -265,7 +266,7 @@ async function main() {
     const start = await liveStart(lm.matchId, who);
     if (start.over) continue;
     const step = flappyDef.step!(defaultParams(flappyDef));
-    await playFlappyLive({
+    await playLive(flappyLive, {
       start,
       decide: step.decide,
       maxTicks: cap ?? step.maxTicks,

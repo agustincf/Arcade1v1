@@ -251,11 +251,11 @@ app.get("/", (_req, res) =>
         "{ address, score, replay, signature } -> verifies & settles (replay shape per game; " +
         "the replay must declare the match's rules version, e.g. v: 2 for snake/racing — " +
         "stale-rules submissions are rejected with 'rules version mismatch'). " +
-        "In a live game it only takes the surrender: score 0, replay { ticks: 0, flaps: [], v: 2 }",
+        "In a live game it only takes the surrender: score 0 and the game's empty replay ({ ticks: 0, flaps: [], v: 2 } in Flappy)",
       "POST /match/:id/live/start":
-        "{ address, signature, ts } -> open or resume your live attempt (live games only; matchmake says live: true). Sign liveStartAuthMessage(matchId, address, ts). Returns { token, tick, flaps, reveal, revealed }",
+        "{ address, signature, ts } -> open or resume your live attempt (live games only; matchmake says live: true). Sign liveStartAuthMessage(matchId, address, ts). Returns { token, tick, reveal, revealed } and what you already committed: flaps (Flappy) or inputs ({ t, a }, the other live games)",
       "POST /match/:id/live/commit":
-        "{ address, token, from, to, flaps, have, final? } -> commit your flaps in [from, to) and get the random values the game uses in the next 15 ticks. 409 { tick, reveal } = resend from tick",
+        "{ address, token, from, to, flaps | inputs, have, final? } -> commit your moves in [from, to) (flaps: Flappy's flap ticks; inputs: { t, a } for the other live games) and get the random values the game uses in the next 15 ticks. 409 { tick, reveal } = resend from tick",
       "GET /match/:id?address=":
         "match status; when settled returns rich feedback: { winner, signature, signatureDeadline, yourScore, rivalScore, margin, netPnl, rivalReplay, rating, ratingDelta, noShow (who did not submit in time, when the other won that way) }. Paid tables also carry the on-chain terms (fundDeadline, playDeadline) and the arbiter's own payout (settleTx, or settleOutcome)",
       "GET /leaderboard/:game?limit=": "ELO leaderboard for a game",

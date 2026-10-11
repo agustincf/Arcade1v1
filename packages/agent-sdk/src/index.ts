@@ -30,6 +30,7 @@ export type { AlephDepositResult, AlephWithdrawResult, LiveReceipt } from "./age
 // `playAndSubmit` volvió (jugaste primero): checkLiveReveals(secret, secretHash, reveals).
 export { checkLiveReveals } from "@arcade1v1/game-sdk/live";
 export { verifyFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
+export { verifyRacingLive } from "@arcade1v1/game-sdk/racing-live";
 // Aleph: cómo queda escrito el modelo que declarás al sentarte (el mismo string
 // que se firma y que se ve en público).
 export { normalizeModel } from "@arcade1v1/game-sdk/auth";

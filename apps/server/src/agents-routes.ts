@@ -29,6 +29,7 @@ import {
   type HostedAgent,
 } from "./agents.js";
 import { liveStart, liveCommit, LiveError, LiveUnavailableError } from "./live.js";
+import { commitBody } from "./live-routes.js";
 import { webhookAgentsEnabled } from "./webhook-fetch.js";
 import { resolveDisplay } from "./profiles.js";
 
@@ -299,17 +300,8 @@ agentsRouter.post("/agents/:id/live/start", async (req, res) => {
 agentsRouter.post("/agents/:id/live/commit", async (req, res) => {
   const who = webhookAgent(req, res);
   if (!who || !webhookReadyMatch(res, who.a, who.matchId, who.address)) return;
-  const { token, from, to, flaps, have, final } = req.body ?? {};
-  if (!Array.isArray(flaps)) return res.status(400).json({ error: "invalid flaps" });
   try {
-    const out = await liveCommit(who.matchId, who.address, {
-      token: String(token ?? ""),
-      from: Number(from),
-      to: Number(to),
-      flaps: flaps.map(Number),
-      have: Number(have ?? 0),
-      final: final === true,
-    });
+    const out = await liveCommit(who.matchId, who.address, commitBody(req.body));
     if (!out.conflict && out.over) {
       resetWebhookFailures(who.a);
       const after = getMatch(who.matchId, who.address);

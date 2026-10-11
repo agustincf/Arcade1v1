@@ -15,6 +15,7 @@ import { matchmake } from "../src/matchmaking.js";
 import { liveRouter } from "../src/live-routes.js";
 
 RULES_V.flappy = 2;
+RULES_V.racing = 3; // Carrera en vivo (en producción, recién con el PR 2)
 
 const hits = { start: 0, commit: 0 };
 const counting =
@@ -116,4 +117,34 @@ test("abrir pasa por el limitador estricto y comprometer por el de las partidas 
     have: 1,
   });
   assert.deepEqual(hits, { start: before.start + 1, commit: before.commit + 1 });
+});
+
+test("Carrera por HTTP: la apertura trae inputs, se compromete con inputs y una lista mal formada es 400", async () => {
+  const p1 = addr();
+  const { matchId } = await matchmake("racing", 0, p1);
+  await matchmake("racing", 0, addr());
+  const start = await post(`/match/${matchId}/live/start`, { address: p1 });
+  assert.equal(start.status, 200);
+  assert.deepEqual(start.body.inputs, []);
+  const token = String(start.body.token);
+  const ok = await post(`/match/${matchId}/live/commit`, {
+    address: p1,
+    token,
+    from: 0,
+    to: 20,
+    inputs: [{ t: 2, a: "r" }],
+    have: 0,
+  });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(ok.body.tick, 20);
+  const notArray = await post(`/match/${matchId}/live/commit`, {
+    address: p1,
+    token,
+    from: 20,
+    to: 30,
+    inputs: "r",
+    have: 0,
+  });
+  assert.equal(notArray.status, 400);
+  assert.match(String(notArray.body.error), /invalid inputs/);
 });

@@ -60,24 +60,26 @@ Flappy no cambia en el cable.
 ### Task 1: el motor de Carrera en vivo
 
 **Archivos:**
+
 - Modificar: `packages/game-sdk/src/racing.ts`
 - Crear: `packages/game-sdk/test/racing-live.test.ts`
 
 **Interfaces:**
+
 - Produce: `new RacingEngine(source: number | RandomSource)`;
   `RacingEngine.drawsWithin(ticks: number): number` (filas que nacen en los
   próximos `ticks`; 0 si terminó).
 
 - [ ] **Paso 1: test que falla** (`racing-live.test.ts`): caracterización con
-  semilla (hash del motor de arriba, con la política `dodge` del script de
-  caracterización, 50 semillas, 6000 ticks, foto cada 250); con una fuente que
-  cuenta, cada fila consume exactamente un valor; `drawsWithin(n)` igual al
-  consumo real de los próximos `n` ticks mientras el auto vive (30 secretos,
-  n = 1 y 15); `drawsWithin` no toca el motor y da 0 con la partida terminada;
-  una fila consume su valor aunque la fuente sea `BufferedRandom` con un solo
-  valor por fila.
+      semilla (hash del motor de arriba, con la política `dodge` del script de
+      caracterización, 50 semillas, 6000 ticks, foto cada 250); con una fuente que
+      cuenta, cada fila consume exactamente un valor; `drawsWithin(n)` igual al
+      consumo real de los próximos `n` ticks mientras el auto vive (30 secretos,
+      n = 1 y 15); `drawsWithin` no toca el motor y da 0 con la partida terminada;
+      una fila consume su valor aunque la fuente sea `BufferedRandom` con un solo
+      valor por fila.
 - [ ] **Paso 2:** correr `node --import tsx --test packages/game-sdk/test/racing-live.test.ts`
-  → falla (el constructor no acepta una fuente).
+      → falla (el constructor no acepta una fuente).
 - [ ] **Paso 3: implementar** en `racing.ts`:
 
 ```ts
@@ -140,15 +142,17 @@ if (spawnDue(this.elapsedMs, this.spawnTimer)) {
 }
 ```
 
-  `spawnInterval()` desaparece (lo reemplaza `spawnDue`). Comentario de
-  `drawsWithin`: en vivo un valor por fila; con semilla no se usa.
+`spawnInterval()` desaparece (lo reemplaza `spawnDue`). Comentario de
+`drawsWithin`: en vivo un valor por fila; con semilla no se usa.
+
 - [ ] **Paso 4:** correr el test → pasa. Correr `npm test` entero → 843 + los
-  nuevos, en verde (el de caracterización prueba que v2 no cambió).
+      nuevos, en verde (el de caracterización prueba que v2 no cambió).
 - [ ] **Paso 5: commit** `game-sdk: el motor de Carrera juega en vivo (un valor por fila)`.
 
 ### Task 2: el núcleo genérico del modo en vivo
 
 **Archivos:**
+
 - Modificar: `packages/game-sdk/src/live.ts` (tipos y codec)
 - Crear: `packages/game-sdk/src/live-play.ts` (driver, sesión, verificación)
 - Modificar: `packages/game-sdk/src/flappy-live.ts` (definición + envoltorios)
@@ -209,9 +213,9 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 ```
 
 - [ ] **Paso 1: tests que fallan** (`racing-live-play.test.ts`), con el árbitro
-  de referencia generalizado (`referenceArbiter(game, secret, rollbackOnCommit?)`
-  y `batch(game, secret, decide, maxTicks)` en `live-fixtures.ts`, que siguen
-  exportando las versiones de Flappy con la firma de hoy):
+      de referencia generalizado (`referenceArbiter(game, secret, rollbackOnCommit?)`
+      y `batch(game, secret, decide, maxTicks)` en `live-fixtures.ts`, que siguen
+      exportando las versiones de Flappy con la firma de hoy):
   - jugar en vivo da el mismo puntaje y ticks que de corrido (30 secretos);
   - si el árbitro pierde compromisos, termina igual;
   - propiedad central: la fila de cada valor revelado nace antes de
@@ -227,54 +231,56 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
     acción desconocida tira.
 - [ ] **Paso 2:** correrlos → fallan (no existe `live-play`).
 - [ ] **Paso 3: implementar.** `playLive` y `LiveSession` son `playFlappyLive`
-  y `FlappyLiveSession` de hoy con `game.step`, `game.over`, `game.score`,
-  `game.drawsWithin`, las jugadas como `LiveInput[]` (agrupadas por tick para
-  retomar) y el compromiso armado con `encodeLiveInputs`. Antes de jugar cada
-  tick: `capLiveActions` (corta en `maxActionsPerTick` y en
-  `inputBudget(tick + 1) - sofar`). La sesión: `step(actions)` chequea
-  `canStep()`, después `game.idle?.(engine, actions)` (Flappy: sin aletear y
-  sin arrancar no cuenta), después recorta y juega. `verifyLive` corre el motor
-  con `SecretSource` y corta al terminar.
-  Flappy: `flappyLive = { id: "flappy", create: (s) => new FlappyEngine(s),
-  step: (e, acts) => { if (acts.length) e.flap(); e.update(FLAPPY_DT); },
-  over: (e) => e.over, score: (e) => e.score, drawsWithin: (e, n) => e.drawsWithin(n),
-  idle: (e, acts) => !e.started && acts.length === 0, wire: "flaps",
-  actions: ["f"], maxActionsPerTick: 1, inputBudget: () => Infinity }`.
-  `playFlappyLive(opts)` = `playLive(flappyLive, opts)`; `FlappyLiveSession`
-  envuelve una `LiveSession` y traduce `step(flap)` a `step(flap ? ["f"] : [])`;
-  `verifyFlappyLive` = `verifyLive(flappyLive, …)`.
-  Carrera: `racingLive = { id: "racing", create: (s) => new RacingEngine(s),
-  step: (e, acts) => { for (const a of acts) a === "l" ? e.moveLeft() : a === "r"
-  ? e.moveRight() : e.jump(); e.update(RACING_DT); }, … wire: "inputs",
-  actions: ["l", "r", "j"], maxActionsPerTick: 3, inputBudget: racingInputBudget }`.
+      y `FlappyLiveSession` de hoy con `game.step`, `game.over`, `game.score`,
+      `game.drawsWithin`, las jugadas como `LiveInput[]` (agrupadas por tick para
+      retomar) y el compromiso armado con `encodeLiveInputs`. Antes de jugar cada
+      tick: `capLiveActions` (corta en `maxActionsPerTick` y en
+      `inputBudget(tick + 1) - sofar`). La sesión: `step(actions)` chequea
+      `canStep()`, después `game.idle?.(engine, actions)` (Flappy: sin aletear y
+      sin arrancar no cuenta), después recorta y juega. `verifyLive` corre el motor
+      con `SecretSource` y corta al terminar.
+      Flappy: `flappyLive = { id: "flappy", create: (s) => new FlappyEngine(s),
+step: (e, acts) => { if (acts.length) e.flap(); e.update(FLAPPY_DT); },
+over: (e) => e.over, score: (e) => e.score, drawsWithin: (e, n) => e.drawsWithin(n),
+idle: (e, acts) => !e.started && acts.length === 0, wire: "flaps",
+actions: ["f"], maxActionsPerTick: 1, inputBudget: () => Infinity }`.
+      `playFlappyLive(opts)` = `playLive(flappyLive, opts)`; `FlappyLiveSession`
+      envuelve una `LiveSession` y traduce `step(flap)` a `step(flap ? ["f"] : [])`;
+      `verifyFlappyLive` = `verifyLive(flappyLive, …)`.
+      Carrera: `racingLive = { id: "racing", create: (s) => new RacingEngine(s),
+step: (e, acts) => { for (const a of acts) a === "l" ? e.moveLeft() : a === "r"
+? e.moveRight() : e.jump(); e.update(RACING_DT); }, … wire: "inputs",
+actions: ["l", "r", "j"], maxActionsPerTick: 3, inputBudget: racingInputBudget }`.
 - [ ] **Paso 4:** `npm test` → todos los de Flappy sin tocar + los nuevos, en verde.
 - [ ] **Paso 5: commit** `game-sdk: núcleo genérico del modo en vivo (Flappy y Carrera)`.
 
 ### Task 3: las estrategias de Carrera juegan en vivo
 
 **Archivos:**
+
 - Modificar: `packages/strategies/src/types.ts` (`LiveStep.decide` devuelve `LiveDecision`)
 - Modificar: `packages/strategies/src/racing.ts`, `packages/strategies/src/racing-weaver.ts`
 - Crear: `packages/strategies/test/racing-live-step.test.ts`
 
 - [ ] **Paso 1: tests que fallan:** caracterización de `play` (hashes de
-  arriba, 40 semillas × 2 juegos de parámetros: los por defecto y
-  `{ lookahead: 240, preferredLane: "left", coinGreed: 0 }` /
-  `{ boldness: 0.9, coinGreed: 0 }`); `step` decide lo mismo que `play`
-  (mismas acciones por tick, mismo puntaje) jugando con `racingLive.step`.
+      arriba, 40 semillas × 2 juegos de parámetros: los por defecto y
+      `{ lookahead: 240, preferredLane: "left", coinGreed: 0 }` /
+      `{ boldness: 0.9, coinGreed: 0 }`); `step` decide lo mismo que `play`
+      (mismas acciones por tick, mismo puntaje) jugando con `racingLive.step`.
 - [ ] **Paso 2:** correr → falla (`step` no existe).
 - [ ] **Paso 3:** cada estrategia pasa a un `decider(params)` que devuelve
-  `(g, t) => RaceAction[]` sin tocar el motor (con su cooldown adentro); `play`
-  aplica esas acciones y graba los inputs; `step` devuelve
-  `{ decide: (e, t) => decider(e as RacingEngine, t), maxTicks: MAX_TICKS }`.
-  En el serpenteador, el salto se decide con el carril de DESPUÉS del cambio:
-  `lane = g.airborne ? g.carLane : g.carLane + (a === "l" ? -1 : 1)`.
+      `(g, t) => RaceAction[]` sin tocar el motor (con su cooldown adentro); `play`
+      aplica esas acciones y graba los inputs; `step` devuelve
+      `{ decide: (e, t) => decider(e as RacingEngine, t), maxTicks: MAX_TICKS }`.
+      En el serpenteador, el salto se decide con el carril de DESPUÉS del cambio:
+      `lane = g.airborne ? g.carLane : g.carLane + (a === "l" ? -1 : 1)`.
 - [ ] **Paso 4:** test en verde; `npm test` en verde.
 - [ ] **Paso 5: commit** `strategies: Carrera decide tick a tick (step) para jugar en vivo`.
 
 ### Task 4: el árbitro juega cualquier juego en vivo
 
 **Archivos:**
+
 - Modificar: `apps/server/src/matchmaking.ts` (`LiveAttempt.inputs`,
   `attemptInputs`, `recordLiveInputs`, `liveReplayOf`, rendición genérica,
   `healUnfinishedLiveAttempts`)
@@ -289,36 +295,38 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
   `apps/server/test/live-webhook-routes.test.ts` (un caso de Carrera cada uno)
 
 **Interfaces:**
+
 - Consume: `liveGameFor`, `encodeLiveInputs`, `decodeLiveInputs`, `LiveInput`.
 - Produce: `LiveCommitBody { token; from; to; have; final?; flaps?: number[]; inputs?: LiveInput[] }`;
   `LiveStartView` abierto con `flaps?` / `inputs?`.
 
 - [ ] **Paso 1: tests que fallan** (`live-racing.test.ts`, con
-  `RULES_V.racing = 3`): abrir sin nada revelado hasta que la primera fila esté
-  cerca (`inputs: []`); jugar con `playLive(racingLive, …)` da el puntaje que
-  verifica el secreto y liquida al terminar los dos; propiedad central; topes
-  (4 acciones en un tick, acción `x`, pasar el promedio, `flaps` en vez de
-  `inputs`) se rechazan sin avanzar; un segundo abrir devuelve las jugadas en
-  `inputs`; rendición con `{ ticks: 0, inputs: [], v: 3 }` cierra con 0 y la de
-  Flappy se rechaza; un replay con semilla se rechaza; sin caché de motores
-  sigue igual; nada del secreto antes de decidir. Más: `live-store` carga un
-  registro de Flappy (sin `inputs`) y uno de Carrera; el runner juega una
-  partida de Carrera en vivo con `racing.dodger`; el BYO compromete `inputs`.
+      `RULES_V.racing = 3`): abrir sin nada revelado hasta que la primera fila esté
+      cerca (`inputs: []`); jugar con `playLive(racingLive, …)` da el puntaje que
+      verifica el secreto y liquida al terminar los dos; propiedad central; topes
+      (4 acciones en un tick, acción `x`, pasar el promedio, `flaps` en vez de
+      `inputs`) se rechazan sin avanzar; un segundo abrir devuelve las jugadas en
+      `inputs`; rendición con `{ ticks: 0, inputs: [], v: 3 }` cierra con 0 y la de
+      Flappy se rechaza; un replay con semilla se rechaza; sin caché de motores
+      sigue igual; nada del secreto antes de decidir. Más: `live-store` carga un
+      registro de Flappy (sin `inputs`) y uno de Carrera; el runner juega una
+      partida de Carrera en vivo con `racing.dodger`; el BYO compromete `inputs`.
 - [ ] **Paso 2:** correr → fallan.
 - [ ] **Paso 3: implementar.** En `live.ts`, `engineFor` arma el motor con
-  `liveGameFor(m.game)` y rehace el registro; `reveal` usa
-  `game.drawsWithin(e.eng, LIVE_LEAD_TICKS)`; el compromiso valida el tramo:
-  Flappy con el mensaje de hoy (`invalid flaps: …`), el resto con
-  `invalid inputs: integer ticks inside [from, to), in order, actions <lista>,
-  at most <n> per tick` y `too many inputs: at most <budget> by tick <to>`;
-  aplica tick a tick con `game.step` y guarda solo lo jugado antes de terminar.
-  La apertura devuelve `encodeLiveInputs(game, attemptInputs(...))`.
+      `liveGameFor(m.game)` y rehace el registro; `reveal` usa
+      `game.drawsWithin(e.eng, LIVE_LEAD_TICKS)`; el compromiso valida el tramo:
+      Flappy con el mensaje de hoy (`invalid flaps: …`), el resto con
+      `invalid inputs: integer ticks inside [from, to), in order, actions <lista>,
+at most <n> per tick` y `too many inputs: at most <budget> by tick <to>`;
+      aplica tick a tick con `game.step` y guarda solo lo jugado antes de terminar.
+      La apertura devuelve `encodeLiveInputs(game, attemptInputs(...))`.
 - [ ] **Paso 4:** `npm test` en verde (Flappy sin tocar).
 - [ ] **Paso 5: commit** `árbitro: el modo en vivo sirve para cualquier juego (Carrera, apagada)`.
 
 ### Task 5: el SDK juega Carrera en vivo
 
 **Archivos:**
+
 - Modificar: `packages/agent-sdk/src/strategies.ts` (`LiveStrategy.decide` como
   método: `decide(engine: unknown, tick: number): LiveDecision | Promise<LiveDecision>`)
 - Modificar: `packages/agent-sdk/src/agent.ts` (`liveGameFor` en vez de `"flappy"`; `playLive`)
@@ -327,8 +335,8 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 - Modificar: `apps/server/test/live-sdk-e2e.test.ts` (caso de Carrera)
 
 - [ ] **Paso 1: test que falla:** `playAndSubmit({ game: "racing", stake: 0 })`
-  contra el árbitro en proceso juega en vivo, y el puntaje es el de la
-  estrategia jugada de corrido con el secreto publicado.
+      contra el árbitro en proceso juega en vivo, y el puntaje es el de la
+      estrategia jugada de corrido con el secreto publicado.
 - [ ] **Paso 2:** correr → falla ("this SDK cannot play racing live yet").
 - [ ] **Paso 3:** implementar.
 - [ ] **Paso 4:** `npm test` y `npm run typecheck:packages` en verde.
@@ -337,23 +345,25 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 ### Task 6: el ejemplo de Claude decide en vivo
 
 **Archivos:**
+
 - Modificar: `packages/agent-sdk/examples/play-racing-llm.ts`
 - Modificar: `packages/agent-sdk/test/racing-llm.test.ts`
 
 - [ ] **Paso 1: test que falla:** `brainLiveStrategy(brain)` (decide asíncrono
-  que consulta al cerebro solo en los puntos de decisión) contra el árbitro de
-  referencia da el mismo puntaje que `playRacingWithBrain` de corrido con la
-  misma fuente.
+      que consulta al cerebro solo en los puntos de decisión) contra el árbitro de
+      referencia da el mismo puntaje que `playRacingWithBrain` de corrido con la
+      misma fuente.
 - [ ] **Paso 2:** correr → falla.
 - [ ] **Paso 3:** `main()` empareja; si la partida vuelve `live`, abre el
-  intento y juega con `playLive(racingLive, { decide: brainLiveStrategy(...).decide, … })`;
-  si no, sigue como hoy (semilla + replay firmado).
+      intento y juega con `playLive(racingLive, { decide: brainLiveStrategy(...).decide, … })`;
+      si no, sigue como hoy (semilla + replay firmado).
 - [ ] **Paso 4:** test en verde.
 - [ ] **Paso 5: commit** `ejemplo: Claude juega Carrera en vivo`.
 
 ### Task 7: la web juega Carrera en vivo
 
 **Archivos:**
+
 - Modificar: `apps/web/app/lib/live.ts` (`racingReplaySource`, tipo `LiveController`)
 - Modificar: `apps/web/app/games/flappy/FlappyGame.tsx` (usa el tipo genérico)
 - Modificar: `apps/web/app/games/racing/RacingGame.tsx` (`seed?` o `live?`)
@@ -363,15 +373,15 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 - Modificar: `apps/web/test/live.test.ts`
 
 - [ ] **Paso 1: test que falla:** `racingReplaySource` (secreto → `SecretSource`;
-  sin secreto y sin semilla → error) y la rendición de Carrera sin semilla.
+      sin secreto y sin semilla → error) y la rendición de Carrera sin semilla.
 - [ ] **Paso 2:** correr → falla.
 - [ ] **Paso 3:** `RacingGame` en vivo: al apretar empezar abre el intento con
-  `live.open()` y crea `new LiveSession(racingLive, start, live.commit)`; en el
-  bucle, antes de cada tick `if (!session.canStep()) break`, las teclas van a
-  `session.step(acciones)`; `session.pump()` en cada cuadro; avisos
-  "conectando…"/"confirmando…"; al cerrar, `onFinish({ score, live: { reveals } })`.
-  La página le pasa el mismo controlador que a Flappy. `ReplayPlayer` usa
-  `racingReplaySource(r, secret)`.
+      `live.open()` y crea `new LiveSession(racingLive, start, live.commit)`; en el
+      bucle, antes de cada tick `if (!session.canStep()) break`, las teclas van a
+      `session.step(acciones)`; `session.pump()` en cada cuadro; avisos
+      "conectando…"/"confirmando…"; al cerrar, `onFinish({ score, live: { reveals } })`.
+      La página le pasa el mismo controlador que a Flappy. `ReplayPlayer` usa
+      `racingReplaySource(r, secret)`.
 - [ ] **Paso 4:** `npm test`, `npm run typecheck:web` y `npm run lint` en verde.
 - [ ] **Paso 5: commit** `web: Carrera se puede jugar en vivo (apagada)`.
 
@@ -379,6 +389,6 @@ export function verifyLive<E>(game: LiveGame<E>, secret: string,
 
 - [ ] CHANGELOG `[Sin publicar]`: "Agregado (apagado)" con lo de este PR.
 - [ ] `npm run check` entero en verde; `npm run build --workspace apps/web` si
-  el entorno lo permite (si no, lo corre CI).
+      el entorno lo permite (si no, lo corre CI).
 - [ ] Push y PR a `main` con el resumen, el spec y este plan; avisar al dueño
-  que es seguro mergearlo (no cambia nada en producción).
+      que es seguro mergearlo (no cambia nada en producción).

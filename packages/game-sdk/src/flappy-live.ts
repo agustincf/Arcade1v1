@@ -29,10 +29,11 @@ export const flappyLive: LiveGame<FlappyEngine> = {
   inputBudget: () => Infinity,
 };
 
-/** Lo que devolvió abrir el intento (sin el token, que es del transporte). */
+/** Lo que devolvió abrir el intento (sin el token, que es del transporte). El
+ *  árbitro de Flappy siempre manda `flaps`; sin ellos, se toma que no hay. */
 export interface FlappyLiveStart {
   tick: number;
-  flaps: number[];
+  flaps?: number[];
   reveal: number[];
 }
 
