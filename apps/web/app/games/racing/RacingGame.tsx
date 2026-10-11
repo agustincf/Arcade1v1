@@ -9,46 +9,76 @@ import {
   type RaceAction,
   type ReplayRacing,
 } from "@arcade1v1/game-sdk/racing";
+import { LiveSession } from "@arcade1v1/game-sdk/live-play";
+import { racingLive } from "@arcade1v1/game-sdk/racing-live";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { dtCap } from "@/app/games/_shared/strict";
+import { liveErrorReason, type LiveController } from "@/app/lib/live";
 
 const { WIDTH, HEIGHT } = RACING_CONST;
 const HORIZON = 150; // linea del horizonte (donde "nace" la ruta)
 const STEP = RACING_DT * 1000; // ms por tick
 
-export interface RacingResult {
-  score: number;
-  replay: ReplayRacing;
-}
+/** Con semilla: el replay para enviar. En vivo: el puntaje ya lo confirmó el
+ *  árbitro, y vuelve todo lo revelado para comprobar el secreto al decidirse. */
+export type RacingResult =
+  | { score: number; replay: ReplayRacing; live?: undefined }
+  | { score: number; replay?: undefined; live: { reveals: number[] } };
 
 const OBST_COLORS = ["#ff4d6d", "#ffd23d", "#27e8ff"];
 
 export function RacingGame({
   seed,
+  live,
   onFinish,
   onStarted,
+  onAttemptClosed,
   strict,
 }: {
-  seed: number;
+  /** Práctica o partida con semilla (reglas v2). */
+  seed?: number;
+  /** Partida EN VIVO: cada fila de obstáculos llega del árbitro (ver LiveSession). */
+  live?: LiveController;
   onFinish: (result: RacingResult) => void;
   onStarted?: () => void;
+  /** En vivo: el árbitro cerró el intento (el puntaje ya quedó anotado), antes
+   *  de que el jugador confirme el cartel de fin. */
+  onAttemptClosed?: () => void;
   /** Mesa de plata: sin pausa y con puesta al día tras un alt-tab. */
   strict?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<RacingEngine | null>(null);
-  if (engineRef.current === null) engineRef.current = new RacingEngine(seed);
+  // En vivo el motor nace con la sesión, al abrir el intento.
+  if (engineRef.current === null && !live) engineRef.current = new RacingEngine(seed ?? 0);
+  const sessionRef = useRef<LiveSession<RacingEngine> | null>(null);
 
   const { t } = useT();
   // El bucle lee el modo por ref: cambiar de prop no debe reiniciar la partida.
   const strictRef = useRef(!!strict);
   strictRef.current = !!strict;
+  // Avisos del modo en vivo, dibujados en el canvas (por ref: cambiar de idioma
+  // no debe reiniciar la partida).
+  const connectingRef = useRef(t("g.racing.liveConnecting"));
+  connectingRef.current = t("g.racing.liveConnecting");
+  const confirmingRef = useRef(t("g.racing.liveConfirming"));
+  confirmingRef.current = t("g.racing.liveConfirming");
+  const onAttemptClosedRef = useRef(onAttemptClosed);
+  onAttemptClosedRef.current = onAttemptClosed;
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
+  // En vivo: abriendo el intento (firma), por qué no se pudo abrir y si la
+  // sesión se desincronizó del árbitro.
+  const [opening, setOpening] = useState(false);
+  const [openError, setOpenError] = useState<{
+    key: string;
+    vars?: Record<string, string | number>;
+  } | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
   // Grabacion del replay (anti-trampa).
   const inputs = useRef<{ t: number; a: RaceAction }[]>([]);
@@ -57,7 +87,7 @@ export function RacingGame({
   const touch = useRef<{ x: number; y: number } | null>(null);
 
   function enqueue(a: RaceAction) {
-    if (engineRef.current!.over) return;
+    if (!engineRef.current || engineRef.current.over) return;
     pending.current.push(a);
     if (a !== "j") sfx.move(); // el salto suena recién al despegar de verdad
   }
@@ -93,6 +123,11 @@ export function RacingGame({
     let deathWait = -1;
     let speedLineOff = 0;
     let prevLvl = 0;
+    // En vivo: desde cuándo falta el azar del próximo tick, qué aviso mostrar y
+    // si ya se avisó que el árbitro cerró el intento.
+    let stalledSince: number | null = null;
+    let liveNotice: "connecting" | "confirming" | null = null;
+    let closedNotified = false;
 
     function burst(x: number, y: number, colors: string[], n: number, force = 1) {
       for (let i = 0; i < n; i++) {
@@ -435,29 +470,57 @@ export function RacingGame({
       ctx.font = "bold 30px ui-sans-serif, system-ui";
       ctx.strokeText(String(eng.score), 10, 50);
       ctx.fillText(String(eng.score), 10, 50);
+
+      if (liveNotice) {
+        ctx.fillStyle = "rgba(10,5,24,0.6)";
+        ctx.fillRect(0, HEIGHT / 2 - 24, WIDTH, 38);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 15px ui-sans-serif, system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          liveNotice === "connecting" ? connectingRef.current : confirmingRef.current,
+          WIDTH / 2,
+          HEIGHT / 2,
+        );
+      }
     };
 
     const loop = (t: number) => {
       const dt = Math.min(t - last, dtCap(strictRef.current));
       last = t;
       const eng = engineRef.current!;
+      const session = sessionRef.current;
       // Paso fijo determinístico: aplica los cambios de carril y avanza por ticks.
-      if (!eng.over) {
+      if (!eng.over && !session?.result && !session?.error) {
         acc += dt;
         while (acc >= STEP) {
+          // EN VIVO: sin el azar del próximo tick no se avanza. El juego se
+          // congela (y avisa) en vez de adelantarse de golpe cuando llega.
+          if (session && !session.canStep()) {
+            acc = Math.min(acc, STEP);
+            if (stalledSince === null) stalledSince = t;
+            break;
+          }
+          stalledSince = null;
           // Foto previa para detectar eventos del tick (despegue, aterrizaje,
           // monedas, subida de velocidad) sin tocar el motor.
           const prevAir = eng.airborne;
           const prevScore = eng.score;
           const prevPassed = eng.passedCount;
-          while (pending.current.length) {
-            const a = pending.current.shift()!;
-            if (a === "l") eng.moveLeft();
-            else if (a === "r") eng.moveRight();
-            else eng.jump();
-            inputs.current.push({ t: tickRef.current, a });
+          const actions = pending.current.splice(0);
+          if (session) {
+            // La sesión aplica las teclas del tick (con los topes del juego),
+            // las anota y compromete en segundo plano.
+            session.step(actions);
+          } else {
+            for (const a of actions) {
+              if (a === "l") eng.moveLeft();
+              else if (a === "r") eng.moveRight();
+              else eng.jump();
+              inputs.current.push({ t: tickRef.current, a });
+            }
+            eng.update(RACING_DT);
           }
-          eng.update(RACING_DT);
           tickRef.current += 1;
           acc -= STEP;
 
@@ -508,25 +571,50 @@ export function RacingGame({
         laneVel = 0;
       }
 
+      // En vivo: compromete en segundo plano; al chocar, pide el cierre.
+      session?.pump();
+      if (session?.result && !closedNotified) {
+        closedNotified = true;
+        onAttemptClosedRef.current?.();
+      }
+      liveNotice =
+        !session || session.error
+          ? null
+          : eng.over && !session.result
+            ? "confirming"
+            : stalledSince !== null && t - stalledSince > 300
+              ? "connecting"
+              : null;
+
       if (eng.score !== lastScore) {
         lastScore = eng.score;
         setScore(eng.score);
       }
       draw();
-      if (eng.over) {
+      if (eng.over || session?.result || session?.error) {
         // Choque: explosion, sacudida y un respiro antes del cartel de fin.
         if (deathWait < 0) {
-          const psy = projY(eng.carY);
-          const cxp = laneCenterAt(visualLane, psy);
-          burst(cxp, psy, ["#ff7a3d", "#ffd23d", "#ff4d6d"], 26, 1.6);
-          burst(cxp, psy, ["#ffffff", "#8a97a6"], 12, 1.1);
-          flash = 8;
-          shake = 14;
           deathWait = 45;
-          sfx.crash();
+          if (eng.over) {
+            const psy = projY(eng.carY);
+            const cxp = laneCenterAt(visualLane, psy);
+            burst(cxp, psy, ["#ff7a3d", "#ffd23d", "#ff4d6d"], 26, 1.6);
+            burst(cxp, psy, ["#ffffff", "#8a97a6"], 12, 1.1);
+            flash = 8;
+            shake = 14;
+            sfx.crash();
+          }
         }
         deathWait -= 1;
-        if (deathWait <= 0) {
+        // En vivo el cartel espera el cierre del árbitro: su puntaje manda. Si
+        // la sesión se cortó, no hay puntaje que confirmar: el intento sigue
+        // abierto en el árbitro y se retoma recargando (ver el aviso de abajo).
+        if (deathWait <= 0 && session?.error) {
+          setLiveError(liveErrorReason(session.error.message));
+          return;
+        }
+        if (deathWait <= 0 && (!session || session.result)) {
+          if (session?.result) setScore(session.result.score);
           setOver(true);
           return;
         }
@@ -537,6 +625,31 @@ export function RacingGame({
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [started]);
+
+  // EMPEZAR. En vivo primero se abre el intento (la página firma y llama al
+  // árbitro); recién con eso arranca la carrera.
+  async function begin() {
+    ensureAudio();
+    if (live) {
+      if (opening) return;
+      setOpening(true);
+      setOpenError(null);
+      try {
+        const start = await live.open();
+        const session = new LiveSession(racingLive, start, live.commit);
+        sessionRef.current = session;
+        engineRef.current = session.engine;
+        tickRef.current = session.tick;
+      } catch (e) {
+        setOpenError(live.describeError(e));
+        return;
+      } finally {
+        setOpening(false);
+      }
+    }
+    onStarted?.();
+    setStarted(true);
+  }
 
   // Teclado.
   useEffect(() => {
@@ -581,12 +694,14 @@ export function RacingGame({
           <StartScreen
             icon={<GameIcon id="racing" size={56} />}
             title={t("g.racing.title")}
-            instructions={t("g.racing.instr")}
-            onStart={() => {
-              ensureAudio();
-              onStarted?.();
-              setStarted(true);
-            }}
+            instructions={
+              opening
+                ? t("g.racing.liveSign")
+                : openError
+                  ? t(openError.key, openError.vars)
+                  : t("g.racing.instr")
+            }
+            onStart={() => void begin()}
           />
         )}
 
@@ -594,12 +709,21 @@ export function RacingGame({
           <GameOverScreen
             headline={t("g.racing.over")}
             score={score}
-            onConfirm={() =>
-              onFinish({
-                score,
-                replay: { seed, ticks: tickRef.current, inputs: inputs.current, v: RACING_RULES_V },
-              })
-            }
+            recorded={!!live}
+            onConfirm={() => {
+              const session = sessionRef.current;
+              if (session) onFinish({ score, live: { reveals: session.reveals } });
+              else
+                onFinish({
+                  score,
+                  replay: {
+                    seed: seed ?? 0,
+                    ticks: tickRef.current,
+                    inputs: inputs.current,
+                    v: RACING_RULES_V,
+                  },
+                });
+            }}
           />
         )}
       </div>
@@ -631,6 +755,16 @@ export function RacingGame({
         </div>
       )}
 
+      {liveError && (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-center text-sm wrap-anywhere text-(--color-lose)">
+            {t("g.racing.liveError", { reason: liveError })}
+          </p>
+          <button className="btn3d btn3d--cyan" onClick={() => window.location.reload()}>
+            {t("g.racing.liveReload")}
+          </button>
+        </div>
+      )}
       <p className="font-screen text-center text-base text-(--color-muted-3)">
         {t("g.racing.hint")}
       </p>

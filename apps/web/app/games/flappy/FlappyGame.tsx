@@ -7,17 +7,13 @@ import {
   FLAPPY_DT,
   type ReplayFlappy,
 } from "@arcade1v1/game-sdk/flappy";
-import {
-  FlappyLiveSession,
-  type FlappyLiveCommitFn,
-  type FlappyLiveStart,
-} from "@arcade1v1/game-sdk/flappy-live";
+import { FlappyLiveSession } from "@arcade1v1/game-sdk/flappy-live";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { dtCap } from "@/app/games/_shared/strict";
-import { liveErrorReason } from "@/app/lib/live";
+import { liveErrorReason, type LiveController } from "@/app/lib/live";
 
 const { WIDTH, HEIGHT, BIRD_X, BIRD_R, PIPE_W, GAP, GROUND_H } = FLAPPY_CONST;
 const GROUND_Y = HEIGHT - GROUND_H;
@@ -31,15 +27,8 @@ function easeInOutCubic(x: number) {
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 }
 
-/** Cómo juega la página una partida EN VIVO: abre el intento (firma incluida),
- *  compromete jugadas y traduce un error de apertura a texto. */
-export interface FlappyLiveController {
-  /** Firma y abre (o retoma) el intento. Tira si no se pudo. */
-  open(): Promise<FlappyLiveStart>;
-  commit: FlappyLiveCommitFn;
-  /** Clave i18n (y variables) de por qué falló `open`. */
-  describeError(e: unknown): { key: string; vars?: Record<string, string | number> };
-}
+/** Cómo juega la página una partida EN VIVO (ver `LiveController`). */
+export type FlappyLiveController = LiveController;
 
 /** Con semilla: el replay para enviar. En vivo: el puntaje ya lo confirmó el
  *  árbitro, y vuelve todo lo revelado para comprobar el secreto al decidirse. */
