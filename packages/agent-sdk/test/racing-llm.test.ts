@@ -7,8 +7,12 @@ import {
   RACING_RULES_V,
   type ReplayRacing,
 } from "@arcade1v1/game-sdk/racing";
+import { racingLive } from "@arcade1v1/game-sdk/racing-live";
+import { liveActions } from "@arcade1v1/game-sdk/live";
 import {
   playRacingWithBrain,
+  brainLiveStrategy,
+  claudeBrain,
   parseAction,
   describeState,
   type Action,
@@ -136,4 +140,84 @@ test("describeState: reporta monedas sueltas por delante en su carril", () => {
   const state = describeState(g);
   assert.match(state, /Monedas: carril 2 a 80px/, "reporta la moneda suelta más cercana");
   assert.doesNotMatch(state, /carril 0 a/, "una moneda ya tomada no se reporta");
+});
+
+test("brainLiveStrategy: en vivo el cerebro decide lo mismo que de corrido, con los mismos estados", async () => {
+  const seed = 987654;
+  const cycle: Action[] = ["L", "R", "S", "J"];
+  const brainFrom = (): Brain => {
+    let i = 0;
+    return async () => cycle[i++ % cycle.length];
+  };
+  const batch = await playRacingWithBrain(seed, brainFrom(), { maxTicks: 3000 });
+  const live = brainLiveStrategy(brainFrom(), { maxTicks: 3000 });
+  const g = new RacingEngine(seed);
+  const inputs: { t: number; a: string }[] = [];
+  for (let t = 0; t < live.maxTicks && !g.over; t++) {
+    const acts = liveActions(racingLive, await live.decide(g, t));
+    for (const a of acts) inputs.push({ t, a });
+    racingLive.step(g, acts);
+  }
+  assert.ok(inputs.length > 0, "el cerebro se mueve");
+  assert.deepEqual(inputs, batch.replay.inputs);
+  assert.equal(g.score, batch.score);
+});
+
+/** Un cliente de Anthropic de mentira: guarda cada pedido y contesta lo que se le dé. */
+function fakeAnthropic(reply: { stop_reason: string; content: unknown[] }) {
+  const calls: Record<string, unknown>[] = [];
+  const client = {
+    beta: {
+      messages: {
+        create: async (params: Record<string, unknown>) => {
+          calls.push(params);
+          return reply;
+        },
+      },
+    },
+  };
+  return { client: client as unknown as Parameters<typeof claudeBrain>[0], calls };
+}
+
+test("claudeBrain: le pide UNA letra a Claude Opus 5.5 con poco esfuerzo y respaldo ante un rechazo", async () => {
+  const { client, calls } = fakeAnthropic({
+    stop_reason: "end_turn",
+    content: [
+      { type: "thinking", thinking: "" },
+      { type: "text", text: "L" },
+    ],
+  });
+  assert.equal(await claudeBrain(client)("estado"), "L");
+  const p = calls[0];
+  assert.equal(p.model, "claude-opus-5-5", "el modelo por defecto es el vigente");
+  assert.deepEqual(p.output_config, { effort: "low" }, "decidir un carril no necesita más");
+  assert.equal(
+    p.thinking,
+    undefined,
+    "en Opus 5.5 el razonamiento no se apaga: se baja el esfuerzo",
+  );
+  assert.ok(Number(p.max_tokens) >= 1024, "el razonamiento cuenta dentro de max_tokens");
+  assert.deepEqual(p.betas, ["server-side-fallback-2026-06-01"]);
+  assert.deepEqual(p.fallbacks, [{ model: "claude-opus-4-8" }]);
+});
+
+test("claudeBrain: un rechazo o una respuesta sin texto es S (seguir)", async () => {
+  const refused = fakeAnthropic({ stop_reason: "refusal", content: [{ type: "text", text: "L" }] });
+  assert.equal(await claudeBrain(refused.client)("estado"), "S");
+  const empty = fakeAnthropic({
+    stop_reason: "max_tokens",
+    content: [{ type: "thinking", thinking: "" }],
+  });
+  assert.equal(await claudeBrain(empty.client)("estado"), "S");
+});
+
+test("claudeBrain: con un modelo sin respaldo del servidor (Haiku 5.5) no pide fallbacks", async () => {
+  const { client, calls } = fakeAnthropic({
+    stop_reason: "end_turn",
+    content: [{ type: "text", text: "R" }],
+  });
+  assert.equal(await claudeBrain(client, "claude-haiku-5-5")("estado"), "R");
+  assert.equal(calls[0].model, "claude-haiku-5-5");
+  assert.equal(calls[0].fallbacks, undefined);
+  assert.equal(calls[0].betas, undefined);
 });
