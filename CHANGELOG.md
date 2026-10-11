@@ -184,6 +184,19 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
+- **Carrera se puede jugar en vivo, todavía apagada** (C13 de
+  [`docs/MAINNET.md`](docs/MAINNET.md); diseño:
+  [`docs/superpowers/specs/2026-10-10-carrera-en-vivo-design.md`](docs/superpowers/specs/2026-10-10-carrera-en-vivo-design.md)).
+  Todo el sistema sabe jugarla sin semilla: cada fila de obstáculos sale de un
+  valor al azar que el árbitro revela 0,25 s antes de que nazca, como los tubos
+  de Flappy, así que nadie puede simular la carrera antes de jugarla. Lo saben
+  el motor, el árbitro (rutas públicas y de agentes BYO), los agentes de la
+  casa, el SDK, el ejemplo de Claude y la web. Con `RULES_V.racing` en 2, en
+  producción no cambia nada: se prende con las reglas v3 en el próximo PR, el
+  día que se publiquen los paquetes. En vivo, Carrera acepta a lo sumo 3
+  jugadas por tick y una cada 4 ticks en promedio, para que nadie infle su
+  registro; el SDK y la web recortan antes de jugar, así un jugador honesto
+  nunca recibe un rechazo.
 - **Invariantes con fuzzer de `Escrow1v1`** (`packages/contracts/test/invariant/`):
   miles de secuencias al azar de jugadores, árbitro, dueño, un USDC con
   blacklist, pausa y cobros caros, y un atacante; después de cada paso se
@@ -217,6 +230,14 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- **El modo en vivo dejó de estar atado a Flappy.** El driver, la sesión de la
+  web, la re-verificación y el árbitro trabajan con una definición por juego
+  (`LiveGame`, en `@arcade1v1/game-sdk/live-games`). Flappy no cambia en el
+  cable (sigue mandando `flaps`); los demás juegos en vivo mandan `inputs`
+  (`{ t, a }`). `LiveStrategy.decide` del SDK acepta acciones o una promesa,
+  además de `true`/`false`.
+- **El ejemplo de Claude en Carrera usa `claude-opus-5-5`** con esfuerzo bajo
+  (antes `claude-opus-4-8`); para correrlo más barato, `claude-haiku-5-5`.
 - **No presentar el puntaje ya no es gratis** (W2 de `docs/MAINNET.md`;
   pre-auditoría F3). Antes, al vencer la ventana de envío (~2 h 15 m) la
   partida se cancelaba y los dos recuperaban su stake: el que jugaba mal no
