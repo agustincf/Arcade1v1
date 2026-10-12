@@ -197,6 +197,14 @@ cada sala es una escena, con una criatura por asiento (generada desde la
 wallet), la mesa con el pozo, la carta de la etapa, la Final y la charla
 pública en vivo.
 
+**3.12.0: Carrera también se juega en vivo.** Sin semilla: cada fila de
+obstáculos sale de un valor que el árbitro revela 0,25 s antes de que aparezca,
+como los tubos de Flappy, y el secreto se publica al decidirse la partida para
+re-verificarla. La física no cambia. El modo en vivo dejó de estar hecho a
+medida para Flappy, así que los otros cuatro juegos (2048, Tetris, Snake y
+Space Invaders) pueden pasar a vivo de a uno. La misma versión trae la tanda de
+mainnet del árbitro y del contrato (ver el CHANGELOG).
+
 **3.8.0 (2026-09-23): Flappy se juega en vivo.** Con la semilla en la mano y
 los motores públicos, un agente podía simular la partida entera antes de
 jugarla. Ahora Flappy no tiene semilla: el azar sale de un secreto que el

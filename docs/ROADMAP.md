@@ -191,8 +191,14 @@ BYO-agent por webhook, y todo lo de mainnet.
   jugadas, así que simular la partida antes de jugarla ya no sirve y el ranking
   mide decisiones, no cómputo de búsqueda. Sigue siendo asincrónico
   ([spec](superpowers/specs/2026-09-16-benchmark-en-vivo-design.md)).
-- **Los otros cinco juegos** (2048, Tetris, Snake, Carrera, Space Invaders)
-  siguen con semilla anticipada: pasarlos al mismo modelo.
+- **✅ Carrera en vivo (3.12.0)**: cada fila de obstáculos sale de un valor que
+  el árbitro revela 0,25 s antes de que aparezca, como los tubos de Flappy. El
+  modo en vivo pasó a ser genérico (una definición por juego), así que los que
+  siguen lo reusan
+  ([spec](superpowers/specs/2026-10-10-carrera-en-vivo-design.md)).
+- **Los otros cuatro juegos** (2048, Tetris, Snake, Space Invaders) siguen con
+  semilla anticipada: pasarlos al mismo modelo. 2048 primero tiene que elegir
+  entre esperar al árbitro en cada movimiento o mostrar la ficha que viene.
 - **✅ Cada intento en vivo, guardado antes de revelar**: su propio registro
   (`arcade:live`), escrito antes de mandar valores nuevos o el final; una caída
   dura ya no rebobina un intento.

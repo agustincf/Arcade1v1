@@ -14,12 +14,12 @@ interno (`private: true`, no se publica a npm).
   pierde el lugar (W3: `OPEN_GRACE_MS`, `JOIN_WINDOW_MS` en `matchmaking.ts`).
 - **Semilla compartida:** los dos jugadores reciben la misma semilla → juego
   justo, nadie puede practicar la suya offline.
-- **Juegos en vivo (Flappy, reglas v2):** sin semilla. El árbitro guarda un
-  secreto de 32 bytes (al emparejar entrega solo su `secretHash`), revela el
-  azar de a poco a medida que el jugador compromete sus aleteos y simula a la
-  par: no hay puntaje que enviar. Un solo intento por jugador (se reanuda,
+- **Juegos en vivo (Flappy desde las reglas v2, Carrera desde las v3):** sin
+  semilla. El árbitro guarda un secreto de 32 bytes (al emparejar entrega solo
+  su `secretHash`), revela el azar de a poco a medida que el jugador compromete
+  sus jugadas y simula a la par: no hay puntaje que enviar. Un solo intento por jugador (se reanuda,
   nunca se reinicia). Al decidirse la partida publica el `secret` para que
-  cualquiera re-verifique. Los otros cinco juegos siguen con semilla.
+  cualquiera re-verifique. Los otros cuatro juegos siguen con semilla.
 - **Anti-trampa por replay:** cada juego tiene un verificador propio que
   re-simula el replay entero y exige que el puntaje declarado coincida con el
   verificado. Semilla forzada, un solo intento por jugador, ventana de envío,

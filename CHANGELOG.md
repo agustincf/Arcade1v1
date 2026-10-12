@@ -8,7 +8,22 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
-## [Sin publicar]
+## [3.12.0] — 2026-10-12
+
+**Carrera se juega en vivo, y el árbitro y el contrato quedan listos para la
+auditoría de mainnet.** Carrera pasa a sus reglas v3: sin semilla, cada fila de
+obstáculos sale de un valor que el árbitro revela 0,25 s antes de que aparezca,
+como los tubos de Flappy, y al decidirse la partida publica el secreto para que
+cualquiera la re-verifique; la física no cambia. El modo en vivo dejó de estar
+hecho a medida para Flappy, así que los otros cuatro juegos pueden pasar a vivo
+de a uno. Para mainnet: el `Escrow1v1` queda listo para la auditoría externa,
+el deploy despliega exactamente la build aprobada y el árbitro suma lo que
+encontró la pre-auditoría (sin rivales fantasma, reembolsos y firmas que se
+reintentan, rotar la llave sin dejar ganadores sin cobrar, no presentar el
+puntaje ya no es gratis, Aleph en su propia red). El MCP le muestra el
+resultado a la persona, con el link a la partida, y los agentes hosteados
+vuelven a jugar. Los paquetes de npm pasan a **0.6.0**, los cuatro juntos
+(game-sdk, strategies, agent-sdk y mcp), porque Carrera v3 los necesita.
 
 ### Seguridad
 
@@ -184,19 +199,6 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
-- **Carrera se puede jugar en vivo, todavía apagada** (C13 de
-  [`docs/MAINNET.md`](docs/MAINNET.md); diseño:
-  [`docs/superpowers/specs/2026-10-10-carrera-en-vivo-design.md`](docs/superpowers/specs/2026-10-10-carrera-en-vivo-design.md)).
-  Todo el sistema sabe jugarla sin semilla: cada fila de obstáculos sale de un
-  valor al azar que el árbitro revela 0,25 s antes de que nazca, como los tubos
-  de Flappy, así que nadie puede simular la carrera antes de jugarla. Lo saben
-  el motor, el árbitro (rutas públicas y de agentes BYO), los agentes de la
-  casa, el SDK, el ejemplo de Claude y la web. Con `RULES_V.racing` en 2, en
-  producción no cambia nada: se prende con las reglas v3 en el próximo PR, el
-  día que se publiquen los paquetes. En vivo, Carrera acepta a lo sumo 3
-  jugadas por tick y una cada 4 ticks en promedio, para que nadie infle su
-  registro; el SDK y la web recortan antes de jugar, así un jugador honesto
-  nunca recibe un rechazo.
 - **Invariantes con fuzzer de `Escrow1v1`** (`packages/contracts/test/invariant/`):
   miles de secuencias al azar de jugadores, árbitro, dueño, un USDC con
   blacklist, pausa y cobros caros, y un atacante; después de cada paso se
@@ -213,7 +215,8 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   con su test; y `test/Escrow1v1.presupuesto.t.sol`: el token recibe siempre
   exactamente su presupuesto de gas, mande quien llama el gas que mande.
 - **El MCP le muestra el resultado a la persona, no solo al modelo**
-  (`@arcade1v1/mcp` 0.5.3). Cada resultado de `play_and_submit`, `get_result`,
+  (`@arcade1v1/mcp` 0.6.0; iba a salir como 0.5.3, que no llegó a publicarse).
+  Cada resultado de `play_and_submit`, `get_result`,
   `matchmake` y de las herramientas de Aleph que devuelven una sala termina con
   un resumen de una línea ("You won the snake match …: 30 to 12. Rating now
   1216 (+16).") y el link a la página de la web que lo muestra: las dos
@@ -230,6 +233,29 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- **⚠️ Carrera se juega en vivo (reglas v3)** (C13 de
+  [`docs/MAINNET.md`](docs/MAINNET.md); diseño:
+  [`docs/superpowers/specs/2026-10-10-carrera-en-vivo-design.md`](docs/superpowers/specs/2026-10-10-carrera-en-vivo-design.md)).
+  Sin semilla: cada fila de obstáculos sale de un valor al azar que el árbitro
+  revela 0,25 s antes de que nazca, como los tubos de Flappy, así que nadie
+  puede simular la carrera antes de jugarla. Al decidirse la partida el árbitro
+  publica el secreto y `verifyRacingLive` la re-verifica. La física es la de
+  la v2 (salto, vallas y monedas). Lo saben el motor, el árbitro (rutas
+  públicas y de agentes BYO), los agentes de la casa, el SDK, el MCP, el
+  ejemplo de Claude y la web; el selftest del árbitro juega en vivo una partida
+  de Flappy y otra de Carrera. En vivo, Carrera acepta a lo sumo 3 jugadas por
+  tick y una cada 4 ticks en promedio, para que nadie infle su registro; el SDK
+  y la web recortan antes de jugar, así un jugador honesto nunca recibe un
+  rechazo. **Los clientes necesitan `@arcade1v1/*` 0.6.0:** con uno anterior,
+  Carrera da `rules version mismatch` (los otros juegos no cambian). Salió en
+  dos PRs: el #65 dejó todo listo con las reglas en 2 y el segundo las pasó a 3.
+- **Paquetes de npm 0.6.0, los cuatro juntos.** `@arcade1v1/game-sdk` (reglas
+  v3 de Carrera, `racingLive`, `verifyRacingLive` y el modo en vivo genérico:
+  `playLive`, `verifyLive`, `liveGameFor`), `@arcade1v1/strategies` (`step`
+  en `racing.dodger` y `racing.weaver`), `@arcade1v1/agent-sdk`
+  (`playAndSubmit` juega Carrera en vivo y re-exporta `verifyRacingLive`) y
+  `@arcade1v1/mcp` (Carrera en vivo, más lo que iba a ser su 0.5.3), y la
+  entrada del registro oficial de MCP.
 - **El modo en vivo dejó de estar atado a Flappy.** El driver, la sesión de la
   web, la re-verificación y el árbitro trabajan con una definición por juego
   (`LiveGame`, en `@arcade1v1/game-sdk/live-games`). Flappy no cambia en el
@@ -282,6 +308,12 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Corregido
 
+- **La repetición de una partida en vivo decía "la misma semilla"**: debajo de
+  las dos corridas, `/watch` explicaba que usaron la misma semilla, también en
+  Flappy desde 3.8.0 y ahora en Carrera, que no tienen. En una partida en vivo
+  dice que enfrentaron el mismo azar secreto, revelado de a poco y ya público
+  para re-verificarla. La pregunta frecuente "¿Por qué Flappy no tiene
+  semilla?" pasa a incluir a Carrera, en los tres idiomas.
 - **`docs/MAINNET.md` daba por pendiente el redespliegue de los contratos v2**
   (C1, C2, C4 y O7, y los pasos de "Cómo seguir"): se ejecutó el 2026-09-24.
   `DEPLOY.md` arrastraba el mismo atraso en su checklist de mainnet.

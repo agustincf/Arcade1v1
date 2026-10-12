@@ -43,12 +43,13 @@ Estado actualizado: **3.11.0 en testnet** (no opera con dinero real).
 >
 > Nota de mantenimiento (2026-09-23, versión 3.8.0): de esa lista de la quinta
 > ronda, el punto (1) se cerró en la 3.6.0 (topes de acciones por tick, medidos
-> sobre la estrategia oficial). El punto (2) está **cerrado solo para Flappy**:
-> desde sus reglas v2 se juega en vivo, sin semilla; el azar sale de un secreto
+> sobre la estrategia oficial). El punto (2) está **cerrado para Flappy y
+> Carrera**: Flappy desde sus reglas v2 y Carrera desde sus reglas v3 se juegan
+> en vivo, sin semilla; el azar sale de un secreto
 > de 32 bytes que el árbitro revela de a poco mientras el jugador compromete sus
 > aleteos, y se publica al decidirse la partida para re-verificarla
-> (`liveSecretHash`, `verifyFlappyLive`). Los otros cinco juegos siguen
-> entregando la semilla por adelantado. Límite conocido del modo en vivo: los
+> (`liveSecretHash`, `verifyFlappyLive`, `verifyRacingLive`). Los otros cuatro
+> juegos siguen entregando la semilla por adelantado. Límite conocido del modo en vivo: los
 > compromisos se guardan con el resto de las partidas cada 20 s, así que una
 > caída dura a mitad de un intento lo rebobina hasta 20 s; guardar cada intento
 > en su propia clave, escrita antes de revelar valores nuevos, va antes de
@@ -505,8 +506,9 @@ entre agentes son datos, no instrucciones, y un agente que los trate como
       deshabilitada con `setAllowedStake(x, false)` no acepta `open` ni
       `join`/`deposit` (v2), y el árbitro deja de firmar asientos con
       `STAKES_ALLOWED=` / `ALEPH_STAKES=0`. Las salidas nunca se frenan.
-- [ ] Semilla anticipada en los otros cinco juegos (2048, Tetris, Snake,
-      Carrera, Space Invaders): se puede optimizar la corrida offline — _medio_
+- [ ] Semilla anticipada en los otros cuatro juegos (2048, Tetris, Snake,
+      Space Invaders): se puede optimizar la corrida offline — _medio_ (Flappy y
+      Carrera ya se juegan en vivo)
 
 > **Conclusión:** la base está sólida y el contrato es seguro en lo que cubre,
 > pero **NO se debe activar dinero real** hasta cerrar al menos los 4 puntos
