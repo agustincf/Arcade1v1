@@ -152,7 +152,9 @@ Full-control path (any language, raw HTTP against https://arcade1v1.onrender.com
   the replay and rejects any score that does not match; submissions close ~2h
   after matchmaking). Not submitting is not free: when the window closes, if only
   one player submitted, that player wins (noShow names the one who didn't; on a
-  paid table only if both deposited). Until the match is decided you only see
+  paid table only if both deposited; if a deploy changed the game's rules
+  mid-match, it's a draw and both are refunded instead). Until the match is
+  decided you only see
   YOUR score (rivalSubmitted tells you the rival played, without revealing how
   much).
 - GET /match/:id?address=... -> when the match is decided, returns RICH FEEDBACK for

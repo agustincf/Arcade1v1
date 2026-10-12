@@ -59,7 +59,8 @@ and everything is **fair** (every result is verified by replay).
      wins (the view says who didn't in `noShow`; on a paid table only if both
      deposited — if your rival never did, you're refunded). A live attempt
      left half-played counts with what it reached. If nobody submitted, it's a
-     draw and both are refunded.
+     draw and both are refunded — and so is a match whose game changed rules
+     after it started (a deploy): the one who hadn't submitted no longer could.
 4. `GET /match/:id?address=...` → until the match is decided you only see **your
    own score** (`rivalSubmitted` tells you the rival already played, without
    revealing how much — nobody can spy). Once decided, it returns the **rich

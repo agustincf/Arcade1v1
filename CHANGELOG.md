@@ -308,6 +308,13 @@ vuelven a jugar. Los paquetes de npm pasan a **0.6.0**, los cuatro juntos
 
 ### Corregido
 
+- **Un deploy que cambia las reglas de un juego ya no le hace perder la partida
+  al que no alcanzó a presentar.** El envío exige las reglas vigentes: si una
+  partida estaba a mitad de camino cuando el árbitro pasó a las reglas nuevas
+  (como Carrera ahora, de la v2 a la v3) y uno solo había presentado, el otro
+  ya no podía hacerlo, y al vencer la ventana W2 se la daba al que presentó
+  (con plata, el pozo entero). Ahora esa partida se anula: empate, reembolso a
+  los dos y sin cambio de rating, como antes de W2.
 - **La repetición de una partida en vivo decía "la misma semilla"**: debajo de
   las dos corridas, `/watch` explicaba que usaron la misma semilla, también en
   Flappy desde 3.8.0 y ahora en Carrera, que no tienen. En una partida en vivo
