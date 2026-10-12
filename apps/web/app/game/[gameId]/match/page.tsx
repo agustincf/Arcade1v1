@@ -41,14 +41,11 @@ import {
   readLiveMatch,
   forgetLiveMatch,
   liveSecretHolds,
+  type LiveController,
 } from "@/app/lib/live";
 import { ReplayPlayer } from "@/app/components/replay/ReplayPlayer";
 import { TetrisGame, type TetrisResult } from "@/app/games/tetris/TetrisGame";
-import {
-  FlappyGame,
-  type FlappyResult,
-  type FlappyLiveController,
-} from "@/app/games/flappy/FlappyGame";
+import { FlappyGame, type FlappyResult } from "@/app/games/flappy/FlappyGame";
 import { RacingGame, type RacingResult } from "@/app/games/racing/RacingGame";
 import { Game2048Component, type Result2048 } from "@/app/games/g2048/Game2048";
 import { SnakeGame, type SnakeResult } from "@/app/games/snake/SnakeGame";
@@ -179,8 +176,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [claimState, setClaimState] = useState<"idle" | "claiming" | "done" | "error" | "refunded">(
     "idle",
   );
-  // PARTIDA EN VIVO (Flappy desde las reglas v2): no trae semilla. El intento se
-  // abre al empezar, con firma, y el puntaje lo confirma el árbitro.
+  // PARTIDA EN VIVO (Flappy desde las reglas v2, Carrera desde las v3): no trae
+  // semilla. El intento se abre al empezar, con firma, y el puntaje lo confirma
+  // el árbitro.
   const [live, setLive] = useState(false);
   const [secretHash, setSecretHash] = useState<string | null>(null);
   const [rivalSecret, setRivalSecret] = useState<string | null>(null);
@@ -829,10 +827,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // el cliente es siempre este navegador, nunca un agente headless.
   const gameProps = { onStarted: () => setPlaying(true), strict: needsDeposit };
 
-  // EN VIVO: FlappyGame abre el intento con su firma (la del puntaje final ya no
-  // hace falta: siguen siendo dos firmas por partida) y compromete jugadas con
-  // el token del intento.
-  const liveController: FlappyLiveController | undefined =
+  // EN VIVO: el juego (FlappyGame, RacingGame) abre el intento con su firma (la
+  // del puntaje final ya no hace falta: siguen siendo dos firmas por partida) y
+  // compromete jugadas con el token del intento.
+  const liveController: LiveController | undefined =
     live && matchId
       ? {
           async open() {
@@ -1048,9 +1046,14 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           ) : game.id === "racing" ? (
             <RacingGame
               key={round}
-              seed={seed!}
+              {...(live ? { live: liveController } : { seed: seed! })}
               {...gameProps}
-              onFinish={(r: RacingResult) => finishMatch(r.score, r.replay)}
+              // El árbitro cerró el intento: el puntaje ya está anotado, así que
+              // "Salir" deja de ser una rendición.
+              onAttemptClosed={() => setPlaying(false)}
+              onFinish={(r: RacingResult) =>
+                r.live ? void finishLive(r.score, r.live.reveals) : finishMatch(r.score, r.replay)
+              }
             />
           ) : game.id === "snake" ? (
             <SnakeGame

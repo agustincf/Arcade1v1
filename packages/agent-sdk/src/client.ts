@@ -8,7 +8,8 @@ import type {
   AlephEvent,
   AlephView,
 } from "@arcade1v1/game-sdk/aleph";
-import type { FlappyLiveCommit, FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
+import type { LiveInput } from "@arcade1v1/game-sdk/live";
+import type { LiveCommit, LiveReply } from "@arcade1v1/game-sdk/live-play";
 
 export interface MatchView {
   matchId: string;
@@ -84,17 +85,20 @@ export type LiveStartView =
       over: false;
       token: string;
       tick: number;
-      flaps: number[];
+      /** Lo ya comprometido, en el formato del juego: `flaps` (Flappy) o
+       *  `inputs` (Carrera). */
+      flaps?: number[];
+      inputs?: LiveInput[];
       reveal: number[];
       revealed: number;
     }
   | { over: true; score: number; tick: number };
 
 /** Un compromiso con su token (el token sale de `liveStart`). */
-export type LiveCommitBody = FlappyLiveCommit & { token: string };
+export type LiveCommitBody = LiveCommit & { token: string };
 
 /** La respuesta a un compromiso; con `conflict: true` hay que seguir desde `tick`. */
-export type LiveCommitView = FlappyLiveReply;
+export type LiveCommitView = LiveReply;
 
 /** Un error del árbitro con su código HTTP en `status`. Quien juega en vivo lo
  *  usa para separar lo pasajero (429, 5xx), que se reintenta, de un rechazo

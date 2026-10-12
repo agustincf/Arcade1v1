@@ -53,7 +53,9 @@ Arcade1v1/
 │   ├── game-sdk/     Deterministic game engines (one module per game) +
 │   │                 per-game replay verifiers + shared auth-message builders
 │   │                 (auth.ts), rule versions (rules.ts) and the live-game
-│   │                 protocol (live.ts, flappy-live.ts). Imported by BOTH
+│   │                 protocol (live.ts, live-play.ts, live-games.ts and one
+│   │                 definition per live game: flappy-live.ts,
+│   │                 racing-live.ts). Imported by BOTH
 │   │                 apps/web and apps/server —
 │   │                 the same code that renders a game in the browser is what
 │   │                 the arbiter re-runs to check the score.
@@ -205,7 +207,9 @@ whole match before playing it. A live game closes that: the randomness is not
 known in advance.
 
 - **Shared protocol** (`packages/game-sdk/src/live.ts`) — `LIVE_SINCE_RULES_V`
-  (`{ flappy: 2 }`) and `isLiveMatch()` decide which matches are live.
+  (`{ flappy: 2, racing: 3 }`) and `isLiveMatch()` decide which matches are
+  live; Racing is still at rules v2 (`RULES_V.racing`), so today only Flappy
+  plays live.
   `SecretSource` is the arbiter's random source: value `i` is the first 4
   bytes of SHA-256(secret ‖ i), so revealed values say nothing about the next
   ones (a 32-bit `mulberry32` state would be brute-forced from the first
@@ -214,22 +218,31 @@ known in advance.
   (0.25 s) before the engine needs it; one commit covers at most
   `MAX_COMMIT_TICKS` = 3,600 ticks. `liveSecretHash()` and `checkLiveReveals()`
   let anyone check the published secret afterwards.
-- **Flappy client** (`packages/game-sdk/src/flappy-live.ts`) —
-  `FlappyLiveSession` / `playFlappyLive()` run the engine on revealed values,
-  commit flaps and resync on a `409`; `verifyFlappyLive(secret, { ticks,
-flaps })` re-runs an attempt once the secret is public. Used by the web
-  (`apps/web/app/games/flappy/FlappyGame.tsx`), `agent-sdk` and the hosted
+- **One definition per live game** (`LiveGame` in `live.ts`; registry in
+  `live-games.ts`): how its engine is built from the random source, how a
+  tick advances with its actions, how many random values the next ticks
+  consume (`drawsWithin`), how its moves travel (`flaps` for Flappy, `inputs`
+  `{ t, a }` for the rest) and its move caps. Flappy (`flappy-live.ts`) and
+  Racing (`racing-live.ts`: one value per row of obstacles, at most 3 actions
+  per tick and one every 4 ticks on average).
+- **Player client** (`packages/game-sdk/src/live-play.ts`) — `LiveSession`
+  (the web's frame loop) and `playLive()` (agents) run the engine on revealed
+  values, commit moves and resync on a `409`; `verifyLive(game, secret,
+replay)` re-runs an attempt once the secret is public. Flappy keeps its
+  wrappers (`FlappyLiveSession`, `playFlappyLive`, `verifyFlappyLive`). Used by
+  the web (`FlappyGame.tsx`, `RacingGame.tsx`), `agent-sdk` and the hosted
   runner.
 - **Arbiter** (`apps/server/src/live.ts` + `live-routes.ts`) —
   `POST /match/:id/live/start` (signed `liveStartAuthMessage`) opens the
   player's single attempt or resumes it with a fresh `token`; it never
-  restarts. `POST /match/:id/live/commit` takes flaps in `[from, to)`,
-  advances the arbiter's own engine and replies with the next reveals, `over`
-  and the `score` when the bird dies; a tick mismatch is a `409` carrying the
+  restarts. `POST /match/:id/live/commit` takes the moves in `[from, to)`
+  (`flaps` or `inputs`, validated against the game's definition), advances
+  the arbiter's own engine and replies with the next reveals, `over` and the
+  `score` when the run ends; a tick mismatch is a `409` carrying the
   arbiter's `tick`. The attempt ends in `finishLiveAttempt` (`matchmaking.ts`),
   which writes the score and settles like any other match. `/match/:id/score`
-  only accepts a surrender (score `0`, replay `{ ticks: 0, flaps: [], v: 2 }`)
-  for a live match. Engines are cached per attempt in memory (max 500) and
+  only accepts a surrender (score `0` and the game's empty replay, e.g.
+  `{ ticks: 0, flaps: [], v: 2 }` in Flappy) for a live match. Engines are cached per attempt in memory (max 500) and
   rebuilt from the committed log after a restart.
 - **BYO webhook agents** use `POST /agents/:id/live/start` and
   `/agents/:id/live/commit` (`agents-routes.ts`), authenticated with the

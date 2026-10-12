@@ -12,7 +12,13 @@ import { verifyRacing, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { verifySnake, type ReplaySnake } from "@arcade1v1/game-sdk/snake";
 import { verifyInvaders, type ReplayInvaders } from "@arcade1v1/game-sdk/invaders";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
-import { isLiveMatch, liveSecretHash } from "@arcade1v1/game-sdk/live";
+import {
+  encodeLiveInputs,
+  isLiveMatch,
+  liveSecretHash,
+  type LiveInput,
+} from "@arcade1v1/game-sdk/live";
+import { liveGameFor } from "@arcade1v1/game-sdk/live-games";
 import {
   scoreAuthMessage,
   matchmakeAuthMessage,
@@ -138,12 +144,46 @@ export interface LiveAttempt {
   startedAt: number;
   /** Ticks comprometidos: el motor del árbitro va por acá. */
   tick: number;
-  /** Aleteos comprometidos, en ticks absolutos. */
-  flaps: number[];
+  /** Las jugadas comprometidas, en el formato de su juego: Flappy guarda los
+   *  ticks de sus aleteos (`flaps`); los demás, `{ t, a }` (`inputs`). Ver
+   *  `attemptInputs`. */
+  flaps?: number[];
+  inputs?: LiveInput[];
   /** Cuántos valores al azar se revelaron. */
   revealed: number;
   over?: boolean;
   score?: number;
+}
+
+/** Las jugadas comprometidas de un intento, como `{ t, a }`. */
+export function attemptInputs(game: string, a: LiveAttempt): LiveInput[] {
+  const def = liveGameFor(game);
+  if (def?.wire === "flaps") return (a.flaps ?? []).map((t) => ({ t, a: def.actions[0] }));
+  return (a.inputs ?? []).map((i) => ({ t: i.t, a: i.a }));
+}
+
+/** Suma jugadas al registro de un intento, en el formato de su juego. */
+export function recordLiveInputs(game: string, a: LiveAttempt, inputs: readonly LiveInput[]): void {
+  if (liveGameFor(game)?.wire === "flaps") (a.flaps ??= []).push(...inputs.map((i) => i.t));
+  else (a.inputs ??= []).push(...inputs.map((i) => ({ t: i.t, a: i.a })));
+}
+
+/** Las jugadas de un intento todavía sin jugadas, en el formato de su juego. */
+export function emptyLiveMoves(game: string): Pick<LiveAttempt, "flaps" | "inputs"> {
+  return liveGameFor(game)?.wire === "flaps" ? { flaps: [] } : { inputs: [] };
+}
+
+/** Las jugadas de un intento tal como están guardadas (sin campos vacíos). */
+function liveMovesOf(a: LiveAttempt): Pick<LiveAttempt, "flaps" | "inputs"> {
+  return { ...(a.flaps ? { flaps: a.flaps } : {}), ...(a.inputs ? { inputs: a.inputs } : {}) };
+}
+
+/** El replay de un intento cerrado, tal como lo guarda la partida (sin
+ *  semilla: un juego en vivo no la usa). */
+export function liveReplayOf(game: string, a: LiveAttempt, v: number) {
+  const def = liveGameFor(game);
+  const moves = def ? encodeLiveInputs(def, attemptInputs(game, a)) : { inputs: [] };
+  return { ticks: a.tick, ...moves, v };
 }
 
 export interface Match {
@@ -843,7 +883,8 @@ export async function submitScore(
   // (live.ts), nunca un replay armado afuera: con la semilla oculta no hay
   // replay honesto que mandar. Solo queda la RENDICIÓN (puntaje 0, sin jugadas y
   // sin semilla), que ya usan la web y el runner, y cierra el intento con 0.
-  // `flaps` es de Flappy, el único juego en vivo del piloto.
+  // Las jugadas vacías van en el formato del juego: `flaps` en Flappy, `inputs`
+  // en Carrera.
   if (isLiveMatch(m.game, m.rulesV)) {
     const currentV = RULES_V[m.game] ?? 1;
     if ((m.rulesV ?? 1) !== currentV) {
@@ -851,13 +892,20 @@ export async function submitScore(
         `rules version mismatch (match v${m.rulesV ?? 1}, arbiter v${currentV}) — update @arcade1v1/mcp`,
       );
     }
-    const r = (replay ?? {}) as { seed?: unknown; ticks?: unknown; flaps?: unknown; v?: unknown };
+    const r = (replay ?? {}) as {
+      seed?: unknown;
+      ticks?: unknown;
+      flaps?: unknown;
+      inputs?: unknown;
+      v?: unknown;
+    };
+    const moves = liveGameFor(m.game)?.wire === "flaps" ? r.flaps : r.inputs;
     const isForfeit =
       score === 0 &&
       r.seed === undefined &&
       r.ticks === 0 &&
-      Array.isArray(r.flaps) &&
-      r.flaps.length === 0 &&
+      Array.isArray(moves) &&
+      moves.length === 0 &&
       r.v === currentV;
     if (!isForfeit) {
       throw new Error(
@@ -874,25 +922,27 @@ export async function submitScore(
         // Ya lo había cerrado el juego y se cortó antes de anotar el puntaje
         // (no se pudo guardar): vale ese cierre, no la rendición.
         await saveLiveAttempt(m.id, address, prev);
-        await finishLiveAttempt(m, address, prev.score ?? 0, {
-          ticks: prev.tick,
-          flaps: [...prev.flaps],
-          v: currentV,
-        });
+        await finishLiveAttempt(m, address, prev.score ?? 0, liveReplayOf(m.game, prev, currentV));
         return view(m, address, { revealOwnScore: true });
       }
       const closed: LiveAttempt = {
         tokenHash: prev?.tokenHash ?? "",
         startedAt: prev?.startedAt ?? Date.now(),
         tick: prev?.tick ?? 0,
-        flaps: prev?.flaps ?? [],
+        ...(prev ? liveMovesOf(prev) : emptyLiveMoves(m.game)),
         revealed: prev?.revealed ?? 0,
         over: true,
         score: 0,
       };
       await saveLiveAttempt(m.id, address, closed);
       m.live[address] = closed;
-      await finishLiveAttempt(m, address, 0, { ticks: 0, flaps: [], v: currentV });
+      // La rendición presenta el replay vacío del juego, no lo que se jugó.
+      await finishLiveAttempt(
+        m,
+        address,
+        0,
+        liveReplayOf(m.game, { ...closed, tick: 0, flaps: [], inputs: [] }, currentV),
+      );
       return view(m, address, { revealOwnScore: true });
     });
   }
@@ -1658,11 +1708,12 @@ function healUnfinishedLiveAttempts(m: Match): void {
     void withLiveLock(m.id, address, async () => {
       if (m.scores[address] !== undefined || isDecided(m)) return;
       await saveLiveAttempt(m.id, address, a);
-      await finishLiveAttempt(m, address, a.score ?? 0, {
-        ticks: a.tick,
-        flaps: [...a.flaps],
-        v: RULES_V[m.game] ?? 1,
-      });
+      await finishLiveAttempt(
+        m,
+        address,
+        a.score ?? 0,
+        liveReplayOf(m.game, a, RULES_V[m.game] ?? 1),
+      );
     }).catch(() => {}); // saveLiveAttempt ya lo logueó; el próximo barrido reintenta
   }
 }

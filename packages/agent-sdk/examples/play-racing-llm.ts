@@ -1,11 +1,14 @@
 // Ejemplo: un agente con "cerebro LLM" juega Racing en Arcade1v1.
 //
-// Claude elige los movimientos EN VIVO en cada punto de decisión (cuando un
-// obstáculo entra en la zona de peligro del carril actual). El replay que sale
-// pasa la verificación anti-trampa del árbitro POR CONSTRUCCIÓN: el árbitro
-// re-simula la semilla + los inputs, nunca vuelve a llamar al LLM. El cerebro
-// solo decide QUÉ inputs se eligen; una vez elegidos, el replay es
-// determinístico y verificable como el de cualquier jugador.
+// Claude elige los movimientos en cada punto de decisión (cuando un obstáculo
+// entra en la zona de peligro del carril actual). Desde las reglas v3 la Carrera
+// se juega EN VIVO: no hay semilla, y cada fila de obstáculos llega recién un
+// cuarto de segundo antes de aparecer, así que Claude decide sin ver el futuro,
+// como cualquier jugador. El árbitro simula a la par con las jugadas
+// comprometidas y nunca vuelve a llamar al LLM: el cerebro solo decide QUÉ se
+// juega, y lo jugado se re-verifica con el secreto que se publica al decidir.
+// Con un árbitro de reglas v2 (con semilla), el ejemplo juega como antes: arma
+// el replay y lo envía firmado.
 //
 // Es el molde de "traé tu propio cerebro" para los 5 juegos que no traen
 // ejemplo: reemplazá la heurística por razonamiento real, sin perder la
@@ -18,8 +21,8 @@
 // HONESTO: una partida hace decenas de llamadas SECUENCIALES a Claude, así que
 // tarda del orden de minutos y consume tokens de quien la corre. Es una demo del
 // patrón, no una policy optimizada para escalar el ranking. Modelo por defecto:
-// claude-opus-4-8 (el más capaz); para correrla más barata/rápida (suficiente
-// para elegir carril) seteá ARCADE_LLM_MODEL=claude-haiku-4-5.
+// claude-opus-5-5 con esfuerzo bajo; para correrla más barata/rápida (suficiente
+// para elegir carril) seteá ARCADE_LLM_MODEL=claude-haiku-5-5.
 
 import Anthropic from "@anthropic-ai/sdk";
 import { pathToFileURL } from "node:url";
@@ -32,7 +35,16 @@ import {
   type ReplayRacing,
   type RaceAction,
 } from "@arcade1v1/game-sdk/racing";
-import { ArbiterClient, randomWallet, signMatchmake, signScore } from "../src/index.js";
+import { isLiveMatch } from "@arcade1v1/game-sdk/live";
+import { RULES_V } from "@arcade1v1/game-sdk/rules";
+import {
+  ArbiterClient,
+  createAgent,
+  randomWallet,
+  signMatchmake,
+  signScore,
+  type LiveStrategy,
+} from "../src/index.js";
 
 // --- Parámetros del loop (constantes nombradas) ---
 const MAX_TICKS = 36_000; // cap de seguridad (igual que las estrategias headless)
@@ -126,48 +138,63 @@ export function parseAction(raw: string): Action {
   return c === "L" || c === "R" || c === "J" || c === "S" ? c : "S";
 }
 
-/** Corre una partida de Racing dejando que `brain` decida en los puntos de
- *  decisión. Devuelve el puntaje real + el replay verificable. */
+/** El cerebro como estrategia EN VIVO: en cada tick mira el motor (lo que hay
+ *  en pantalla) y, solo en un punto de decisión, le pregunta a `brain`. Devuelve
+ *  la acción del tick sin tocar el motor; el driver en vivo la aplica y la
+ *  compromete. Guarda su cooldown entre ticks: se crea una por partida. */
+export function brainLiveStrategy(brain: Brain, opts: { maxTicks?: number } = {}): LiveStrategy {
+  let cooldown = 0;
+  return {
+    maxTicks: opts.maxTicks ?? MAX_TICKS,
+    async decide(g: RacingEngine): Promise<RaceAction | null> {
+      if (cooldown > 0) cooldown--;
+      if (cooldown !== 0 || !isDecisionPoint(g)) return null;
+      const action = parseAction(await brain(describeState(g)));
+      let a: RaceAction | null = null;
+      if (action === "L" && g.carLane > 0) a = "l";
+      else if (action === "R" && g.carLane < LANES - 1) a = "r";
+      else if (action === "J" && !g.airborne) a = "j";
+      // S (o un movimiento inválido contra el borde/en el aire): nada este tick.
+      if (a) cooldown = DECISION_COOLDOWN;
+      return a;
+    },
+  };
+}
+
+/** Corre una partida de Racing CON SEMILLA (reglas v2) dejando que `brain`
+ *  decida en los puntos de decisión, con la misma estrategia que en vivo.
+ *  Devuelve el puntaje real + el replay verificable. */
 export async function playRacingWithBrain(
   seed: number,
   brain: Brain,
   opts: { maxTicks?: number } = {},
 ): Promise<{ score: number; replay: ReplayRacing }> {
-  const maxTicks = opts.maxTicks ?? MAX_TICKS;
+  const strategy = brainLiveStrategy(brain, opts);
   const g = new RacingEngine(seed);
   const inputs: { t: number; a: RaceAction }[] = [];
-  let cooldown = 0;
-
-  for (let t = 0; t < maxTicks && !g.over; t++) {
-    if (cooldown > 0) cooldown--;
-    if (cooldown === 0 && isDecisionPoint(g)) {
-      const action = parseAction(await brain(describeState(g)));
-      if (action === "L" && g.carLane > 0) {
-        g.moveLeft();
-        inputs.push({ t, a: "l" });
-        cooldown = DECISION_COOLDOWN;
-      } else if (action === "R" && g.carLane < LANES - 1) {
-        g.moveRight();
-        inputs.push({ t, a: "r" });
-        cooldown = DECISION_COOLDOWN;
-      } else if (action === "J" && !g.airborne) {
-        g.jump();
-        inputs.push({ t, a: "j" });
-        cooldown = DECISION_COOLDOWN;
-      }
-      // S (o un movimiento inválido contra el borde/en el aire): no hace nada este tick.
-    }
+  for (let t = 0; t < strategy.maxTicks && !g.over; t++) {
+    const a = (await strategy.decide(g, t)) as RaceAction | null;
+    if (a === "l") g.moveLeft();
+    else if (a === "r") g.moveRight();
+    else if (a === "j") g.jump();
+    if (a) inputs.push({ t, a });
     g.update(RACING_DT);
   }
-
-  return { score: g.score, replay: { seed, ticks: maxTicks, inputs, v: RACING_RULES_V } };
+  return {
+    score: g.score,
+    replay: { seed, ticks: strategy.maxTicks, inputs, v: RACING_RULES_V },
+  };
 }
 
 // --- El cerebro real: Claude elige el movimiento ---
 
 // La guía oficial de la API de Claude manda usar el modelo más capaz por
 // defecto; bajar de modelo es decisión de quien corre el ejemplo (ver cabecera).
-const MODEL = process.env.ARCADE_LLM_MODEL ?? "claude-opus-4-8";
+const MODEL = process.env.ARCADE_LLM_MODEL ?? "claude-opus-5-5";
+
+/** Modelos que aceptan el respaldo del servidor ante un rechazo (la forma con
+ *  lista de modelos). Con otro modelo (Haiku, por ejemplo) no se pide. */
+const SERVER_FALLBACK = new Set(["claude-opus-5-5", "claude-opus-5", "claude-fable-5-1"]);
 
 const SYSTEM = [
   "Sos un agente jugando a un juego de carreras: esquivás obstáculos moviéndote entre carriles.",
@@ -179,17 +206,29 @@ const SYSTEM = [
   "Si tu carril está despejado, S.",
 ].join(" ");
 
-function claudeBrain(client: Anthropic): Brain {
+/** El cerebro con Claude. En Opus 5.5 el razonamiento no se puede apagar: se
+ *  baja el esfuerzo (la decisión es simple y hacemos decenas por partida, así
+ *  que priorizamos latencia y costo), y max_tokens deja lugar para pensar antes
+ *  de la letra. Ante un rechazo del modelo, el servidor reintenta con otro
+ *  (`fallbacks`); si igual se rechaza, o la respuesta no trae texto, se sigue
+ *  (S): es el default seguro. */
+export function claudeBrain(client: Pick<Anthropic, "beta">, model: string = MODEL): Brain {
+  const fallback = SERVER_FALLBACK.has(model)
+    ? {
+        betas: ["server-side-fallback-2026-06-01"],
+        fallbacks: [{ model: "claude-opus-4-8" }],
+      }
+    : {};
   return async (state) => {
-    // Sin extended thinking (en Opus 4.8 omitir `thinking` corre sin pensar):
-    // la decisión es simple y hacemos decenas por partida, así que priorizamos
-    // latencia y costo. max_tokens chico porque solo esperamos una letra.
-    const res = await client.messages.create({
-      model: MODEL,
-      max_tokens: 8,
+    const res = await client.beta.messages.create({
+      model,
+      max_tokens: 2048,
+      output_config: { effort: "low" },
+      ...fallback,
       system: SYSTEM,
       messages: [{ role: "user", content: state }],
     });
+    if (res.stop_reason === "refusal") return "S";
     const block = res.content.find((b) => b.type === "text");
     return parseAction(block && block.type === "text" ? block.text : "S");
   };
@@ -200,10 +239,40 @@ async function main(): Promise<void> {
   const game = "racing";
   const stake = 0; // ladder gratis / rankeada (sin depósito on-chain, Fase 1)
 
-  const client = new ArbiterClient(arbiterUrl);
-  const wallet = randomWallet();
   const anthropic = new Anthropic(); // lee ANTHROPIC_API_KEY del entorno
 
+  // EN VIVO (reglas v3): el SDK empareja, abre el intento firmado, juega tick a
+  // tick con el cerebro y compromete las jugadas; el árbitro confirma el puntaje.
+  if (isLiveMatch(game, RULES_V[game])) {
+    const agent = createAgent({ arbiterUrl });
+    console.log("Agente:", agent.address, "· modelo:", MODEL);
+    console.log("Jugando en vivo… (Claude decide en cada punto de decisión, sin ver el futuro)");
+    const res = await agent.playAndSubmit({
+      game,
+      stake,
+      liveStrategy: brainLiveStrategy(claudeBrain(anthropic)),
+    });
+    const me = agent.address.toLowerCase();
+    console.log("Terminó · puntaje:", res.scores[me], "· estado:", res.status);
+    if (res.status === "settled") {
+      const won = res.winner?.toLowerCase() === me;
+      console.log(
+        won ? "GANASTE" : "perdiste",
+        "· vos:",
+        res.yourScore,
+        "· rival:",
+        res.rivalScore,
+      );
+    } else {
+      console.log("Esperando rival. Volvé a consultar el match", res.matchId, "más tarde.");
+    }
+    return;
+  }
+
+  // CON SEMILLA (un árbitro de reglas v2): se juega de corrido y se envía el
+  // replay firmado.
+  const client = new ArbiterClient(arbiterUrl);
+  const wallet = randomWallet();
   console.log("Agente:", wallet.address, "· modelo:", MODEL);
 
   // 1) Emparejar (firmado: el árbitro lo exige en producción).
@@ -214,8 +283,9 @@ async function main(): Promise<void> {
     privateKey: wallet.privateKey,
   });
   const m = await client.matchmake(game, stake, wallet.address, auth);
-  // Racing no se juega en vivo: la partida siempre trae su semilla.
-  if (m.seed === undefined) throw new Error("this example needs a match with a seed");
+  if (m.seed === undefined) {
+    throw new Error("the arbiter plays racing live: update @arcade1v1 packages to play it");
+  }
   console.log("Match:", m.matchId, "· seed:", m.seed);
 
   // 2) Jugar con Claude como cerebro. Puede tardar minutos: decenas de llamadas

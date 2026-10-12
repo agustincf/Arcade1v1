@@ -1,9 +1,22 @@
 // Piezas puras del modo EN VIVO de la web (sin React ni navegador, para poder
-// testearlas): la rendición, retomar un intento al recargar y la fuente de azar
-// con que se re-juega un replay de Flappy.
-// Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md
+// testearlas): la rendición, retomar un intento al recargar, la fuente de azar
+// con que se re-juega un replay (Flappy, Carrera) y lo que la página le pasa a
+// un juego en vivo para jugarlo.
+// Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md y
+// docs/superpowers/specs/2026-10-10-carrera-en-vivo-design.md
 
 import { SecretSource, checkLiveReveals, type RandomSource } from "@arcade1v1/game-sdk/live";
+import type { LiveCommitFn, LiveStart } from "@arcade1v1/game-sdk/live-play";
+
+/** Cómo juega la página una partida EN VIVO (Flappy, Carrera): abre el intento
+ *  (firma incluida), compromete jugadas y traduce un error de apertura a texto. */
+export interface LiveController {
+  /** Firma y abre (o retoma) el intento. Tira si no se pudo. */
+  open(): Promise<LiveStart>;
+  commit: LiveCommitFn;
+  /** Clave i18n (y variables) de por qué falló `open`. */
+  describeError(e: unknown): { key: string; vars?: Record<string, string | number> };
+}
 
 /** Replay VACÍO de la rendición (puntaje 0 verificable). Espejo de
  *  `emptyReplay` del runner (apps/server/src/agent-runner.ts). Declara `v` desde
@@ -91,16 +104,30 @@ export function forgetLiveMatch(
   }
 }
 
-/** La fuente de azar para re-jugar un replay de Flappy: el secreto publicado en
- *  una partida en vivo; si no, la semilla del replay. Un replay en vivo sin su
+/** La fuente de azar para re-jugar un replay: el secreto publicado en una
+ *  partida en vivo; si no, la semilla del replay. Un replay en vivo sin su
  *  secreto no se puede re-jugar: se avisa en vez de inventar una partida. */
+function replaySource(replay: { seed?: number }, secret?: string): number | RandomSource {
+  if (secret) return new SecretSource(secret);
+  if (replay.seed === undefined) throw new Error("live replay without its secret");
+  return replay.seed;
+}
+
+/** La fuente de azar para re-jugar un replay de Flappy (ver `replaySource`). */
 export function flappyReplaySource(
   replay: { seed?: number; ticks: number; flaps: number[] },
   secret?: string,
 ): number | RandomSource {
-  if (secret) return new SecretSource(secret);
-  if (replay.seed === undefined) throw new Error("live replay without its secret");
-  return replay.seed;
+  return replaySource(replay, secret);
+}
+
+/** La fuente de azar para re-jugar un replay de Carrera (ver `replaySource`):
+ *  en vivo, cada fila sale de un valor del secreto. */
+export function racingReplaySource(
+  replay: { seed?: number; ticks: number; inputs: { t: number; a: string }[] },
+  secret?: string,
+): number | RandomSource {
+  return replaySource(replay, secret);
 }
 
 /** ¿Cumplió el árbitro lo que comprometió en una partida en vivo ya decidida?

@@ -226,6 +226,12 @@ export const en: Dict = {
   "match.liveAlreadyPlayed": "You already played this attempt: here's the result.",
   "match.liveSecretMismatch":
     "Heads up: the arbiter didn't publish the secret it committed to at the start, or it doesn't match what it showed you. Please tell us.",
+  "g.racing.liveSign": "Sign in your wallet to start your live attempt…",
+  "g.racing.liveConnecting": "connecting…",
+  "g.racing.liveConfirming": "confirming your score…",
+  "g.racing.liveError":
+    "The connection with the arbiter broke ({reason}). Your attempt is still open: reload to resume it.",
+  "g.racing.liveReload": "RELOAD AND RESUME",
   "g.racing.hint": "← → lanes · ↑ or Space to jump · on mobile: buttons or swipe up.",
   "g.2048.hint": "Arrow keys or swipe on the board.",
   "game.snake.name": "Snake",

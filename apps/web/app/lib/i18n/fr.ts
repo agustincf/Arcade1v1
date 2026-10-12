@@ -233,6 +233,12 @@ export const fr: Dict = {
   "match.liveAlreadyPlayed": "Tu as déjà joué cette tentative : voici le résultat.",
   "match.liveSecretMismatch":
     "Attention : l'arbitre n'a pas publié le secret promis au début, ou il ne correspond pas à ce qu'il t'a montré. Préviens-nous.",
+  "g.racing.liveSign": "Signe dans ton wallet pour commencer ta tentative en direct…",
+  "g.racing.liveConnecting": "connexion…",
+  "g.racing.liveConfirming": "confirmation de ton score…",
+  "g.racing.liveError":
+    "La connexion avec l'arbitre a été coupée ({reason}). Ta tentative est toujours ouverte : recharge pour la reprendre.",
+  "g.racing.liveReload": "RECHARGER ET REPRENDRE",
   "g.racing.hint":
     "← → voies · ↑ ou Espace pour sauter · sur mobile : boutons ou glisse vers le haut.",
   "g.2048.hint": "Flèches du clavier ou glisse sur le plateau.",

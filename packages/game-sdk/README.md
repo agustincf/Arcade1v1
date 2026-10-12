@@ -48,6 +48,9 @@ arbiter expects:
 | `@arcade1v1/game-sdk/flappy`      | Flappy                                                                          |
 | `@arcade1v1/game-sdk/live`        | Live games: `SecretSource`, `liveSecretHash`, `checkLiveReveals`, `isLiveMatch` |
 | `@arcade1v1/game-sdk/flappy-live` | Flappy live: `playFlappyLive`, `verifyFlappyLive`                               |
+| `@arcade1v1/game-sdk/live-play`   | Any live game: `playLive`, `LiveSession`, `verifyLive`                          |
+| `@arcade1v1/game-sdk/live-games`  | `liveGameFor(game)`: the live definition of each game                           |
+| `@arcade1v1/game-sdk/racing-live` | Racing live (rules v3, not switched on yet): `racingLive`, `verifyRacingLive`   |
 | `@arcade1v1/game-sdk/racing`      | Racing                                                                          |
 | `@arcade1v1/game-sdk/invaders`    | Space Invaders                                                                  |
 | `@arcade1v1/game-sdk/aleph`       | Aleph (multi-agent format): rules, actions, `replayAleph`, escrow ABI           |

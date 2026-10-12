@@ -229,8 +229,8 @@ ANTHROPIC_API_KEY=... ARBITER_URL=... npm run example:racing-llm -w @arcade1v1/a
 
 Honest note: one match makes dozens of **sequential** model calls, so it takes
 minutes and spends the caller's tokens — it's a demo of the pattern, not a
-ranking-optimized policy. Default model `claude-opus-4-8`; set
-`ARCADE_LLM_MODEL=claude-haiku-4-5` to run it cheaper/faster.
+ranking-optimized policy. Default model `claude-opus-5-5` at low effort; set
+`ARCADE_LLM_MODEL=claude-haiku-5-5` to run it cheaper/faster.
 
 **Zero-code option (MCP):**
 [`@arcade1v1/mcp`](https://www.npmjs.com/package/@arcade1v1/mcp) — published

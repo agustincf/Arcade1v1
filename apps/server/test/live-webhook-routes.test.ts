@@ -16,6 +16,7 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 process.env.REQUIRE_AUTH = "true";
 process.env.MAX_AGENTS_PER_OWNER = "100";
 RULES_V.flappy = 2;
+RULES_V.racing = 3; // Carrera en vivo (en producción, recién con el PR 2)
 const { agentsRouter, agentsPostLimit } = await import("../src/agents-routes.js");
 const { getAgent, setAgentPending } = await import("../src/agents.js");
 const { matchmake } = await import("../src/matchmaking.js");
@@ -40,15 +41,19 @@ async function post(path: string, body: unknown, headers: Record<string, string>
 }
 
 async function flappyWebhookAgentInMatch(name: string) {
+  return webhookAgentInMatch("flappy", name);
+}
+
+async function webhookAgentInMatch(game: string, name: string) {
   const ts = Date.now();
   const signature = await owner.signMessage({
-    message: agentAuthMessage("create", `flappy:webhook:${name}`, OWNER, ts),
+    message: agentAuthMessage("create", `${game}:webhook:${name}`, OWNER, ts),
   });
   const created = await post("/agents", {
     owner: OWNER,
     name,
     avatar: "🤖",
-    game: "flappy",
+    game,
     strategyId: "webhook",
     webhookUrl: "https://example.com/hook",
     signature,
@@ -61,16 +66,16 @@ async function flappyWebhookAgentInMatch(name: string) {
   const agentAddr = a.address.toLowerCase();
   let t = Date.now();
   const s1 = await privateKeyToAccount(a.privateKey).signMessage({
-    message: matchmakeAuthMessage("flappy", 0, agentAddr, t),
+    message: matchmakeAuthMessage(game, 0, agentAddr, t),
   });
-  const m = await matchmake("flappy", 0, agentAddr, { signature: s1, ts: t });
+  const m = await matchmake(game, 0, agentAddr, { signature: s1, ts: t });
   setAgentPending(a, m.matchId);
   const rival = privateKeyToAccount(generatePrivateKey());
   t = Date.now();
   const s2 = await rival.signMessage({
-    message: matchmakeAuthMessage("flappy", 0, rival.address.toLowerCase(), t),
+    message: matchmakeAuthMessage(game, 0, rival.address.toLowerCase(), t),
   });
-  await matchmake("flappy", 0, rival.address.toLowerCase(), { signature: s2, ts: t });
+  await matchmake(game, 0, rival.address.toLowerCase(), { signature: s2, ts: t });
   return { id, secret, matchId: m.matchId };
 }
 
@@ -141,4 +146,27 @@ test("límites de /agents: comprometer en vivo va por el limitador en vivo; los 
   } finally {
     srv.close();
   }
+});
+
+test("BYO en vivo con Carrera: compromete sus jugadas como inputs; flaps no sirve", async () => {
+  const { id, secret, matchId } = await webhookAgentInMatch("racing", "CarreraVivo");
+  const auth = { Authorization: `Bearer ${secret}` };
+  const start = await post(`/agents/${id}/live/start`, { matchId }, auth);
+  assert.equal(start.status, 200, JSON.stringify(start.body));
+  assert.deepEqual(start.body.inputs, []);
+  const token = String(start.body.token);
+  const commit = await post(
+    `/agents/${id}/live/commit`,
+    { matchId, token, from: 0, to: 30, inputs: [{ t: 4, a: "l" }], have: 0 },
+    auth,
+  );
+  assert.equal(commit.status, 200, JSON.stringify(commit.body));
+  assert.equal(commit.body.tick, 30);
+  const flaps = await post(
+    `/agents/${id}/live/commit`,
+    { matchId, token, from: 30, to: 40, flaps: [31], have: 0 },
+    auth,
+  );
+  assert.equal(flaps.status, 400);
+  assert.match(String(flaps.body.error), /invalid inputs/);
 });

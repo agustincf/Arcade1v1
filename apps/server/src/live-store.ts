@@ -1,4 +1,4 @@
-// EL REGISTRO DURABLE DE CADA INTENTO EN VIVO (Flappy, reglas v2).
+// EL REGISTRO DURABLE DE CADA INTENTO EN VIVO (Flappy y Carrera).
 //
 // El intento vive en su partida (`m.live[address]`), y las partidas se guardan
 // todas juntas en un blob cada 20 s (PERSIST_DEBOUNCE_MS). Para casi todo
@@ -165,6 +165,13 @@ export async function saveLiveAttempt(
   lastSaved.set(key, json);
 }
 
+/** Las jugadas de un registro: `flaps` (Flappy) o `inputs` (los demás), y
+ *  lo que haya tiene que ser una lista. */
+const movesOk = (a: LiveAttempt) =>
+  (a.flaps === undefined || Array.isArray(a.flaps)) &&
+  (a.inputs === undefined || Array.isArray(a.inputs)) &&
+  (Array.isArray(a.flaps) || Array.isArray(a.inputs));
+
 export interface StoredLiveAttempt {
   matchId: string;
   address: string;
@@ -184,7 +191,7 @@ export async function loadLiveAttempts(): Promise<StoredLiveAttempt[]> {
     } catch {
       attempt = undefined;
     }
-    if (cut <= 0 || !attempt || !Number.isInteger(attempt.tick) || !Array.isArray(attempt.flaps)) {
+    if (cut <= 0 || !attempt || !Number.isInteger(attempt.tick) || !movesOk(attempt)) {
       broken.push(key);
       continue;
     }

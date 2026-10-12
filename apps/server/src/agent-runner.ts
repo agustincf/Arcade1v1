@@ -13,7 +13,8 @@ import {
   scoreAuthMessage,
 } from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
-import { playFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
+import { playLive } from "@arcade1v1/game-sdk/live-play";
+import { liveGameFor } from "@arcade1v1/game-sdk/live-games";
 import {
   getMatch,
   hasSubmittedScore,
@@ -213,7 +214,8 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
       const step =
         def && def.game === m.game ? def.step?.(validateParams(def, agent.params)) : undefined;
       const account = privateKeyToAccount(agent.privateKey);
-      if (!step || m.game !== "flappy") {
+      const liveGame = liveGameFor(m.game);
+      if (!step || !liveGame) {
         // No sabe jugar este juego en vivo: rendirse para no colgar al rival.
         const signature = await account.signMessage({
           message: scoreAuthMessage(m.matchId, address, 0),
@@ -235,7 +237,7 @@ async function playPendingMatch(agent: HostedAgent): Promise<boolean> {
       const start = await liveStart(m.matchId, address, { signature, ts });
       if (!start.over) {
         const token = start.token;
-        await playFlappyLive({
+        await playLive(liveGame, {
           start,
           decide: step.decide,
           commit: (c) => liveCommit(m.matchId, address, { ...c, token }),

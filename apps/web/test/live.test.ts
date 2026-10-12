@@ -12,6 +12,7 @@ import {
   readLiveMatch,
   forgetLiveMatch,
   flappyReplaySource,
+  racingReplaySource,
   liveSecretHolds,
   liveErrorReason,
 } from "../app/lib/live.js";
@@ -88,6 +89,16 @@ test("el replay de Flappy se re-juega con el secreto publicado; sin secreto, con
   assert.ok(flappyReplaySource(liveReplay, secret) instanceof SecretSource);
   assert.equal(flappyReplaySource(seededReplay), 42);
   assert.throws(() => flappyReplaySource(liveReplay), /secret/);
+});
+
+test("el replay de Carrera se re-juega con el secreto publicado; sin secreto, con su semilla", () => {
+  const secret = "7f".repeat(32);
+  const liveReplay = { ticks: 10, inputs: [] as { t: number; a: "l" | "r" | "j" }[], v: 3 };
+  const seededReplay = { seed: 42, ticks: 10, inputs: [] as { t: number; a: "l" | "r" | "j" }[] };
+  assert.ok(racingReplaySource(liveReplay, secret) instanceof SecretSource);
+  assert.equal(racingReplaySource(seededReplay), 42);
+  assert.throws(() => racingReplaySource(liveReplay), /secret/);
+  assert.deepEqual(forfeitReplay("racing", null, 3), { ticks: 0, inputs: [], v: 3 });
 });
 
 test("el secreto de una partida en vivo decidida se comprueba cerrado: sin secreto o sin hash, no cumple", () => {

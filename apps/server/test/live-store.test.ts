@@ -142,3 +142,32 @@ test("el cerrojo atiende de a un pedido por intento, y no traba intentos distint
   await Promise.all([first, second]);
   assert.deepEqual(order, ["1 empieza", "otro intento", "1 termina", "2"]);
 });
+
+test("un intento de Carrera (sus jugadas en inputs, sin flaps) se guarda y se lee", async () => {
+  const racing: LiveAttempt = {
+    tokenHash: "e".repeat(64),
+    startedAt: 1,
+    tick: 90,
+    inputs: [
+      { t: 3, a: "l" },
+      { t: 40, a: "j" },
+    ],
+    revealed: 2,
+  };
+  await S.saveLiveAttempt(MATCH, ADDR, racing);
+  stored().set(`${MATCH}:0x${"9".repeat(40)}`, JSON.stringify({ ...racing, inputs: "l" }));
+  S.__resetLiveStoreForTest(); // un proceso nuevo: no sabe nada
+  const real = console.error;
+  console.error = () => {};
+  let got;
+  try {
+    got = await S.loadLiveAttempts();
+  } finally {
+    console.error = real;
+  }
+  assert.deepEqual(
+    got.map((g) => g.attempt),
+    [racing],
+    "el de Carrera se lee; uno con inputs que no son una lista es ilegible",
+  );
+});

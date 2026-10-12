@@ -25,7 +25,8 @@ import {
 } from "./strategies";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { checkLiveReveals, isLiveMatch } from "@arcade1v1/game-sdk/live";
-import { playFlappyLive, type FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
+import { playLive as playLiveGame, type LiveReply } from "@arcade1v1/game-sdk/live-play";
+import { liveGameFor } from "@arcade1v1/game-sdk/live-games";
 import { waitUntilSealed } from "@arcade1v1/game-sdk/chain";
 import { normalizeModel } from "@arcade1v1/game-sdk/auth";
 import {
@@ -288,7 +289,7 @@ export function createAgent(opts: {
           `pass liveStrategy (a per-tick decision) instead of strategy`,
       );
     }
-    if (args.game !== "flappy") {
+    if (!liveGameFor(args.game)) {
       throw new Error(`this SDK cannot play ${args.game} live yet — update @arcade1v1 packages`);
     }
     const live = args.liveStrategy ?? defaultLiveStrategy(args.game);
@@ -296,13 +297,15 @@ export function createAgent(opts: {
     return live;
   }
 
-  // EN VIVO: no hay semilla. Se abre el intento con una firma y se juega con
-  // playFlappyLive, que compromete las jugadas y consume el azar revelado.
+  // EN VIVO: no hay semilla. Se abre el intento con una firma y se juega con el
+  // driver en vivo del juego (live-play), que compromete las jugadas y consume
+  // el azar revelado.
   async function playLive(
     m: MatchView,
     args: { game: string; strategy?: Strategy; liveStrategy?: LiveStrategy },
   ): Promise<MatchView & { liveReceipt: LiveReceipt }> {
     const live = liveStrategyFor(args);
+    const game = liveGameFor(m.game)!;
     // Todo lo revelado, en orden: la apertura trae los valores desde el
     // primero y cada compromiso los que siguen al `have` que mandó el driver,
     // así que concatenarlos reconstruye la serie.
@@ -323,10 +326,10 @@ export function createAgent(opts: {
       reveals = [...start.reveal];
       const token = start.token;
       try {
-        const result = await playFlappyLive({
+        const result = await playLiveGame(game, {
           start,
-          decide: live.decide,
-          commit: async (c): Promise<FlappyLiveReply> => {
+          decide: (engine, tick) => live.decide(engine, tick),
+          commit: async (c): Promise<LiveReply> => {
             const reply = await client.liveCommit(m.matchId, wallet.address, { ...c, token });
             reveals.push(...reply.reveal);
             return reply;

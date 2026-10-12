@@ -3,7 +3,28 @@
 // intento que no se pudo guardar a 503 (el cliente reintenta; no se reveló nada).
 
 import { Router, type RequestHandler, type Response } from "express";
-import { liveStart, liveCommit, LiveError, LiveUnavailableError } from "./live.js";
+import {
+  liveStart,
+  liveCommit,
+  LiveError,
+  LiveUnavailableError,
+  type LiveCommitBody,
+} from "./live.js";
+
+/** El cuerpo de un compromiso, con los números como números. Las jugadas pasan
+ *  tal cual vinieron: live.ts las valida según el juego. */
+export function commitBody(body: Record<string, unknown> | undefined): LiveCommitBody {
+  const { token, from, to, flaps, inputs, have, final } = body ?? {};
+  return {
+    token: String(token ?? ""),
+    from: Number(from),
+    to: Number(to),
+    ...(Array.isArray(flaps) ? { flaps: flaps.map(Number) } : {}),
+    ...(inputs !== undefined ? { inputs: inputs as LiveCommitBody["inputs"] } : {}),
+    have: Number(have ?? 0),
+    final: final === true,
+  };
+}
 
 function fail(res: Response, e: unknown): void {
   if (e instanceof LiveError) {
@@ -37,20 +58,14 @@ export function liveRouter(limits: { start: RequestHandler; commit: RequestHandl
     }
   });
 
-  // Comprometer aleteos en [from, to) y recibir el azar de los próximos 15 ticks.
+  // Comprometer las jugadas de [from, to) y recibir el azar de los próximos 15
+  // ticks. Las jugadas van en el formato del juego (`flaps` o `inputs`): las
+  // valida live.ts, con un 400 que dice qué espera.
   router.post("/match/:id/live/commit", limits.commit, async (req, res) => {
-    const { address, token, from, to, flaps, have, final } = req.body ?? {};
+    const { address } = req.body ?? {};
     if (!address) return res.status(400).json({ error: "missing address" });
-    if (!Array.isArray(flaps)) return res.status(400).json({ error: "invalid flaps" });
     try {
-      const out = await liveCommit(String(req.params.id), String(address), {
-        token: String(token ?? ""),
-        from: Number(from),
-        to: Number(to),
-        flaps: flaps.map(Number),
-        have: Number(have ?? 0),
-        final: final === true,
-      });
+      const out = await liveCommit(String(req.params.id), String(address), commitBody(req.body));
       res.status(out.conflict ? 409 : 200).json(out);
     } catch (e) {
       fail(res, e);

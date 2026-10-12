@@ -13,12 +13,21 @@ import express from "express";
 import type { AddressInfo } from "node:net";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
-import { SecretSource, checkLiveReveals, liveSecretHash } from "@arcade1v1/game-sdk/live";
+import {
+  SecretSource,
+  capLiveActions,
+  checkLiveReveals,
+  liveActions,
+  liveSecretHash,
+} from "@arcade1v1/game-sdk/live";
+import { RacingEngine } from "@arcade1v1/game-sdk/racing";
+import { racingLive } from "@arcade1v1/game-sdk/racing-live";
 import { ArbiterClient, createAgent } from "@arcade1v1/agent-sdk";
-import { getStrategy, defaultParams } from "@arcade1v1/strategies";
+import { getStrategy, defaultParams, strategiesFor } from "@arcade1v1/strategies";
 
 process.env.REQUIRE_AUTH = "true"; // como en producción
 RULES_V.flappy = 2;
+RULES_V.racing = 3; // Carrera en vivo (en producción, recién con el PR 2)
 const { matchmake, getMatch } = await import("../src/matchmaking.js");
 const { liveRouter } = await import("../src/live-routes.js");
 
@@ -177,4 +186,35 @@ test("si la partida se decide y el árbitro no publica el secreto, el SDK lo dic
     victim.playAndSubmit({ game: "flappy", stake: 0 }),
     /did not publish its secret/,
   );
+});
+
+/** Carrera: la estrategia en vivo por defecto jugada de un tirón con el
+ *  secreto, con los mismos topes de jugadas que aplica quien juega en vivo. */
+function racingBatchWithSecret(secret: string): number {
+  const def = strategiesFor("racing").find((d) => d.step)!;
+  const step = def.step!(defaultParams(def));
+  const g = new RacingEngine(new SecretSource(secret));
+  let played = 0;
+  for (let t = 0; t < step.maxTicks && !g.over; t++) {
+    const acts = capLiveActions(racingLive, liveActions(racingLive, step.decide(g, t)), played, t);
+    played += acts.length;
+    racingLive.step(g, acts);
+  }
+  return g.score;
+}
+
+test("dos agentes del SDK juegan Carrera en vivo; cada puntaje es el de la estrategia de un tirón", async () => {
+  const a = createAgent({ arbiterUrl: BASE });
+  const b = createAgent({ arbiterUrl: BASE });
+  const va = await a.playAndSubmit({ game: "racing", stake: 0 });
+  assert.equal(va.live, true);
+  assert.equal(va.seed, undefined, "Carrera en vivo no trae semilla");
+  assert.ok(va.liveReceipt!.reveals.length > 0);
+  const vb = await b.playAndSubmit({ game: "racing", stake: 0 });
+  assert.ok(vb.status === "settled" || vb.status === "draw", `estado: ${vb.status}`);
+  assert.equal(liveSecretHash(vb.secret!), va.secretHash, "el secreto es el comprometido");
+  assert.ok(checkLiveReveals(vb.secret!, va.secretHash!, va.liveReceipt!.reveals));
+  const expected = racingBatchWithSecret(vb.secret!);
+  assert.equal(vb.scores[a.address.toLowerCase()], expected);
+  assert.equal(vb.scores[b.address.toLowerCase()], expected);
 });

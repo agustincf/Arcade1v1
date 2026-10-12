@@ -4,6 +4,8 @@
 // `play()` maneja el MOTOR REAL de game-sdk tick a tick, así el replay que
 // produce pasa la verificación del árbitro por construcción.
 
+import type { LiveDecision } from "@arcade1v1/game-sdk/live";
+
 /** Descripción de un parámetro ajustable. Mapea 1:1 a un control del builder:
  *  slider -> input range, priority -> lista reordenable, choice -> select. */
 export interface ParamSpec {
@@ -31,8 +33,9 @@ export interface PlayResult {
  *  `@arcade1v1/game-sdk/live`). El motor va sin tipar acá para no atar el
  *  contrato a un juego: cada estrategia sabe cuál es el suyo. */
 export interface LiveStep {
-  /** ¿Actuar en este tick? Recibe el motor ANTES de aplicar el tick. */
-  decide: (engine: unknown, tick: number) => boolean;
+  /** Qué jugar en este tick (Flappy: aletear o no; Carrera: las acciones).
+   *  Recibe el motor ANTES de aplicar el tick. */
+  decide: (engine: unknown, tick: number) => LiveDecision;
   /** Si el jugador llega vivo a este tick, el intento se cierra (el mismo tope
    *  que usa `play`). */
   maxTicks: number;
@@ -49,8 +52,9 @@ export interface StrategyDef {
   params: ParamSpec[];
   /** Juega una partida completa headless con el motor real y devuelve el replay. */
   play(seed: number, params: Record<string, unknown>): PlayResult;
-  /** Solo juegos EN VIVO (hoy Flappy): la decisión tick a tick. `play` se queda
-   *  para las vistas previas locales con semillas al azar, que no rankean. */
+  /** Solo juegos EN VIVO (Flappy y Carrera): la decisión tick a tick. `play`
+   *  se queda para las vistas previas locales con semillas al azar, que no
+   *  rankean (y para jugar con semilla mientras un juego no esté en vivo). */
   step?(params: Record<string, unknown>): LiveStep;
 }
 

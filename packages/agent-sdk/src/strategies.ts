@@ -4,7 +4,7 @@
 // y se cubren LOS 6 JUEGOS con sus parámetros por defecto.
 
 import type { Dir } from "@arcade1v1/game-sdk/g2048";
-import type { FlappyEngine } from "@arcade1v1/game-sdk/flappy";
+import type { LiveDecision } from "@arcade1v1/game-sdk/live";
 import {
   STRATEGIES,
   strategiesFor,
@@ -41,9 +41,12 @@ export const DEFAULT_STRATEGIES: Record<string, Strategy> = Object.fromEntries(
   ]),
 );
 
-/** Estrategia EN VIVO: decide tick a tick mirando el motor, sin azar futuro. */
+/** Estrategia EN VIVO: decide tick a tick mirando el motor, sin azar futuro.
+ *  Devuelve qué jugar en ese tick: en Flappy, `true` para aletear; en Carrera,
+ *  las acciones (`"l"`, `"r"`, `"j"`, una o varias) o nada. Puede pensar lo
+ *  que quiera (una promesa): en vivo no hay apuro entre tramos. */
 export interface LiveStrategy {
-  decide: (engine: FlappyEngine, tick: number) => boolean;
+  decide(engine: any, tick: number): LiveDecision | Promise<LiveDecision>;
   /** Si llega vivo a este tick, el intento se cierra con lo alcanzado. */
   maxTicks: number;
 }

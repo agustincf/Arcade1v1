@@ -1,8 +1,10 @@
 // Motor de la Carrera COMPARTIDO entre web y servidor. Determinístico con dt
 // fijo: misma semilla + mismos cambios de carril en los mismos ticks = mismo
 // resultado, así el servidor re-simula el replay y verifica el puntaje.
+// EN VIVO (reglas v3) no hay semilla: cada fila de obstáculos sale de UN valor
+// que revela el árbitro (ver `./racing-live` y `./live`).
 
-import { mulberry32, groupByTick } from "./replay";
+import { mulberry32, groupByTick, type RandomSource } from "./replay";
 
 export const WIDTH = 320;
 export const HEIGHT = 480;
@@ -29,6 +31,14 @@ export function laneX(lane: number): number {
   return WIDTH * ((lane * 2 + 1) / (LANES * 2));
 }
 
+// El RELOJ DE FILAS: el nivel sale del tiempo de carrera, y cada cuánto nace una
+// fila, del nivel. Lo usan el juego (`update`) y la predicción (`drawsWithin`)
+// con exactamente las mismas operaciones: si no, por redondeo podrían diferir
+// en un tick sobre cuándo nace una fila.
+const levelAt = (elapsedMs: number) => Math.floor(elapsedMs / 8000);
+const spawnDue = (elapsedMs: number, spawnTimer: number) =>
+  spawnTimer >= Math.max(0.5, 1.15 - levelAt(elapsedMs) * 0.07);
+
 export interface Obstacle {
   lane: number;
   y: number;
@@ -48,6 +58,8 @@ export class RacingEngine {
   passedCount = 0; // obstáculos superados: SOLO esto acelera el juego
 
   private rng: () => number;
+  /** En vivo: de dónde sale el valor de cada fila. */
+  private readonly rows?: RandomSource;
   private spawnTimer = 0;
   private lastLane = -1;
   private lastFree = -1;
@@ -55,8 +67,19 @@ export class RacingEngine {
   private jumpCooldown = 0;
   private lastWallJump = false;
 
-  constructor(seed: number) {
-    this.rng = mulberry32(seed);
+  /** Con una semilla, el azar de siempre (v2), valor por valor. Con una fuente
+   *  (en vivo), cada fila sale de UN valor: la fila lo expande con su propio
+   *  mulberry32 para sortear carriles, vallas y monedas con las mismas
+   *  probabilidades. Así cuánto azar consume el juego no depende del azar. */
+  constructor(source: number | RandomSource) {
+    if (typeof source === "number") {
+      this.rng = mulberry32(source);
+    } else {
+      this.rows = source;
+      this.rng = () => {
+        throw new Error("racing: in live play each row draws from its own value");
+      };
+    }
   }
 
   get carY() {
@@ -88,15 +111,33 @@ export class RacingEngine {
   }
 
   private level(): number {
-    return Math.floor(this.elapsedMs / 8000);
+    return levelAt(this.elapsedMs);
   }
 
   speed(): number {
     return Math.min(480, 190 + this.level() * 35 + this.passedCount * 2);
   }
 
-  private spawnInterval(): number {
-    return Math.max(0.5, 1.15 - this.level() * 0.07);
+  /** Cuántos valores al azar consumirían los próximos `ticks` pasos de
+   *  RACING_DT (en vivo, uno por fila): las filas que nacen en ese lapso.
+   *  Simula solo el reloj de filas, sin tocar el motor y sin mirar el auto: un
+   *  choque no cambia el reloj, así que mientras el auto viva es exacto, y no
+   *  depende de las jugadas. Con la partida terminada no se consume nada. Lo
+   *  usan el árbitro para revelar y el cliente para saber cuándo comprometer. */
+  drawsWithin(ticks: number): number {
+    if (this.over) return 0;
+    let elapsedMs = this.elapsedMs;
+    let spawnTimer = this.spawnTimer;
+    let rows = 0;
+    for (let i = 0; i < ticks; i++) {
+      elapsedMs += RACING_DT * 1000;
+      spawnTimer += RACING_DT;
+      if (spawnDue(elapsedMs, spawnTimer)) {
+        rows += 1;
+        spawnTimer = 0;
+      }
+    }
+    return rows;
   }
 
   private addObstacle(lane: number, jumpable: boolean) {
@@ -110,6 +151,8 @@ export class RacingEngine {
   }
 
   private spawn() {
+    // En vivo, la fila entera sale de UN valor de la fuente (ver constructor).
+    if (this.rows) this.rng = mulberry32(Math.floor(this.rows.next() * 4294967296));
     const lvl = this.level();
     // Proporción de vallas: sube con el nivel (25% -> 45%).
     const jumpChance = Math.min(0.45, 0.25 + lvl * 0.05);
@@ -160,7 +203,7 @@ export class RacingEngine {
     for (const c of this.coins) c.y += v * dt;
 
     this.spawnTimer += dt;
-    if (this.spawnTimer >= this.spawnInterval()) {
+    if (spawnDue(this.elapsedMs, this.spawnTimer)) {
       this.spawnTimer = 0;
       this.spawn();
     }

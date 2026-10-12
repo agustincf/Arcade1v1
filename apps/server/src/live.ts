@@ -1,18 +1,27 @@
-// PARTIDAS EN VIVO del 1v1 (piloto: Flappy). El jugador abre un intento con su
+// PARTIDAS EN VIVO del 1v1 (Flappy y Carrera). El jugador abre un intento con su
 // firma, compromete sus jugadas por tramos y recibe el azar que el juego va a
 // consumir en los próximos LIVE_LEAD_TICKS. El azar sale del secreto de la
 // partida (SecretSource), que no sale de acá hasta que la partida se decide.
-// Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md
+// Cada juego en vivo se describe con un `LiveGame` (@arcade1v1/game-sdk): su
+// motor, cuánto azar consume y cómo viajan sus jugadas (`flaps` en Flappy,
+// `inputs` en los demás).
+// Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md y
+// docs/superpowers/specs/2026-10-10-carrera-en-vivo-design.md
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { recoverMessageAddress, type Hex } from "viem";
-import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
 import {
   isLiveMatch,
   SecretSource,
   LIVE_LEAD_TICKS,
   MAX_COMMIT_TICKS,
+  decodeLiveInputs,
+  encodeLiveInputs,
+  liveInputsByTick,
+  type LiveGame,
+  type LiveInput,
 } from "@arcade1v1/game-sdk/live";
+import { liveGameFor } from "@arcade1v1/game-sdk/live-games";
 import { liveStartAuthMessage, MATCHMAKE_AUTH_TTL_MS } from "@arcade1v1/game-sdk/auth";
 import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import {
@@ -20,7 +29,11 @@ import {
   MAX_REPLAY_TICKS,
   submitDeadlineOf,
   assertDepositOnchain,
+  attemptInputs,
+  emptyLiveMoves,
   finishLiveAttempt,
+  liveReplayOf,
+  recordLiveInputs,
   matchRecord,
   persistMatches,
   reclaimSeat,
@@ -45,7 +58,9 @@ export type LiveStartView =
       over: false;
       token: string;
       tick: number;
-      flaps: number[];
+      /** Lo ya comprometido, en el formato del juego (`flaps` o `inputs`). */
+      flaps?: number[];
+      inputs?: LiveInput[];
       reveal: number[];
       revealed: number;
     }
@@ -62,11 +77,14 @@ export type LiveCommitView =
     }
   | { conflict: true; tick: number; reveal: number[]; revealed: number };
 
+/** Un compromiso. Las jugadas van en el formato del juego: `flaps` (los ticks
+ *  de los aleteos de Flappy) o `inputs` (`{ t, a }`, los demás). */
 export interface LiveCommitBody {
   token: string;
   from: number;
   to: number;
-  flaps: number[];
+  flaps?: number[];
+  inputs?: LiveInput[];
   have: number;
   final?: boolean;
 }
@@ -75,7 +93,13 @@ export interface LiveCommitBody {
 // registro (después de un reinicio, o si quedaron desfasados). El tope evita que
 // los intentos abandonados acumulen memoria.
 const MAX_CACHED_ENGINES = 500;
-const engines = new Map<string, { eng: FlappyEngine; src: SecretSource; tick: number }>();
+interface CachedEngine {
+  game: LiveGame<unknown>;
+  eng: unknown;
+  src: SecretSource;
+  tick: number;
+}
+const engines = new Map<string, CachedEngine>();
 
 /** Tests: simula un reinicio del árbitro (se pierde el caché, no el intento). */
 export function __clearLiveEnginesForTest(): void {
@@ -88,14 +112,12 @@ function engineFor(m: Match, address: string, a: LiveAttempt) {
   const key = `${m.id}:${address}`;
   const cached = engines.get(key);
   if (cached && cached.tick === a.tick) return cached;
+  const game = liveGameFor(m.game)!;
   const src = new SecretSource(m.liveSecret!);
-  const eng = new FlappyEngine(src);
-  const flapSet = new Set(a.flaps);
-  for (let t = 0; t < a.tick && !eng.over; t++) {
-    if (flapSet.has(t)) eng.flap();
-    eng.update(FLAPPY_DT);
-  }
-  const entry = { eng, src, tick: a.tick };
+  const eng = game.create(src);
+  const done = liveInputsByTick(attemptInputs(m.game, a));
+  for (let t = 0; t < a.tick && !game.over(eng); t++) game.step(eng, done.get(t) ?? []);
+  const entry: CachedEngine = { game, eng, src, tick: a.tick };
   engines.delete(key);
   engines.set(key, entry);
   if (engines.size > MAX_CACHED_ENGINES) {
@@ -112,7 +134,7 @@ function liveMatchFor(id: string, address: string): Match {
   if (address !== m.p1 && address !== m.p2) {
     throw new LiveError("not allowed: not a player in this match");
   }
-  if (!isLiveMatch(m.game, m.rulesV)) {
+  if (!isLiveMatch(m.game, m.rulesV) || !liveGameFor(m.game)) {
     throw new LiveError(`live play not allowed: ${m.game} is not a live game`);
   }
   // Una partida en vivo nace con su secreto (matchmaking.ts): sin él no hay azar.
@@ -132,11 +154,42 @@ function assertOpen(m: Match): void {
 }
 
 /** El replay de un intento cerrado, tal como lo guarda la partida. */
-const replayOf = (m: Match, a: LiveAttempt) => ({
-  ticks: a.tick,
-  flaps: [...a.flaps],
-  v: RULES_V[m.game] ?? 1,
-});
+const replayOf = (m: Match, a: LiveAttempt) => liveReplayOf(m.game, a, RULES_V[m.game] ?? 1);
+
+/** Las jugadas del tramo `[from, to)`, validadas. Flappy: ticks enteros,
+ *  estrictamente crecientes. Los demás: `{ t, a }` en orden, con acciones del
+ *  juego y a lo sumo `maxActionsPerTick` por tick. */
+function trancheOf(game: LiveGame<unknown>, body: LiveCommitBody, from: number, to: number) {
+  if (game.wire === "flaps") {
+    const flaps = body.flaps;
+    if (
+      !Array.isArray(flaps) ||
+      flaps.some(
+        (f, i) => !Number.isInteger(f) || f < from || f >= to || (i > 0 && f <= flaps[i - 1]),
+      )
+    ) {
+      throw new LiveError("invalid flaps: integer ticks, strictly increasing, inside [from, to)");
+    }
+    return decodeLiveInputs(game, { flaps });
+  }
+  const invalid = () =>
+    new LiveError(
+      `invalid inputs: { t, a } with integer ticks inside [from, to), in order, ` +
+        `actions ${game.actions.join("/")}, at most ${game.maxActionsPerTick} per tick`,
+    );
+  if (!Array.isArray(body.inputs)) throw invalid();
+  const inputs = decodeLiveInputs(game, { inputs: body.inputs });
+  let prev = -1;
+  let sameTick = 0;
+  for (const i of inputs) {
+    if (!Number.isInteger(i.t) || i.t < from || i.t >= to || i.t < prev) throw invalid();
+    if (!game.actions.includes(i.a)) throw invalid();
+    sameTick = i.t === prev ? sameTick + 1 : 1;
+    if (sameTick > game.maxActionsPerTick) throw invalid();
+    prev = i.t;
+  }
+  return inputs;
+}
 
 /** NADA SALE ANTES DE QUEDAR GUARDADO. Todo lo que una respuesta le muestra al
  *  jugador por primera vez (valores del azar, el final del intento, un token)
@@ -160,8 +213,8 @@ async function finishClosed(m: Match, address: string, a: LiveAttempt): Promise<
 
 /** Revela lo que el motor va a consumir en los próximos LIVE_LEAD_TICKS y
  *  devuelve los valores desde `have`. */
-function reveal(a: LiveAttempt, e: { eng: FlappyEngine; src: SecretSource }, have: number) {
-  a.revealed = Math.max(a.revealed, e.src.consumed + e.eng.drawsWithin(LIVE_LEAD_TICKS));
+function reveal(a: LiveAttempt, e: CachedEngine, have: number) {
+  a.revealed = Math.max(a.revealed, e.src.consumed + e.game.drawsWithin(e.eng, LIVE_LEAD_TICKS));
   const from = Math.min(Math.max(0, have), a.revealed);
   return { reveal: e.src.slice(from, a.revealed), revealed: a.revealed };
 }
@@ -215,7 +268,7 @@ export async function liveStart(
       tokenHash: "",
       startedAt: Date.now(),
       tick: 0,
-      flaps: [],
+      ...emptyLiveMoves(m.game),
       revealed: 0,
     };
     m.live[address] = a;
@@ -226,12 +279,13 @@ export async function liveStart(
     // caída no puede devolver a la vida el token anterior (que este invalida).
     await durable(m, address, a);
     persistMatches();
-    return { over: false, token, tick: a.tick, flaps: [...a.flaps], ...r };
+    const done = encodeLiveInputs(liveGameFor(m.game)!, attemptInputs(m.game, a));
+    return { over: false, token, tick: a.tick, ...done, ...r };
   });
 }
 
-/** Compromete los aleteos en `[from, to)` y devuelve el azar de los próximos
- *  LIVE_LEAD_TICKS. Con `final`, al morir o al tope, cierra el intento. */
+/** Compromete las jugadas en `[from, to)` y devuelve el azar de los próximos
+ *  LIVE_LEAD_TICKS. Con `final`, al terminar o al tope, cierra el intento. */
 export async function liveCommit(
   id: string,
   address: string,
@@ -253,7 +307,7 @@ export async function liveCommit(
     }
     assertOpen(m);
 
-    const { from, to, have, flaps } = body;
+    const { from, to, have } = body;
     const final = body.final === true;
     if (![from, to, have].every(Number.isInteger)) {
       throw new LiveError("invalid commit range: from, to and have must be integers");
@@ -271,31 +325,33 @@ export async function liveCommit(
     ) {
       throw new LiveError(`invalid commit range [${from}, ${to})`);
     }
-    if (
-      !Array.isArray(flaps) ||
-      flaps.some(
-        (f, i) => !Number.isInteger(f) || f < from || f >= to || (i > 0 && f <= flaps[i - 1]),
-      )
-    ) {
-      throw new LiveError("invalid flaps: integer ticks, strictly increasing, inside [from, to)");
+    const game = liveGameFor(m.game)!;
+    const tranche = trancheOf(game, body, from, to);
+    // Tope del intento (Carrera): sin él, quien sobrevive podría inflar su
+    // registro con jugadas que no cambian nada, y se reescribe entero en cada
+    // compromiso. Un cliente honesto recorta antes de jugar y nunca llega acá.
+    const budget = game.inputBudget(to);
+    if (attemptInputs(m.game, a).length + tranche.length > budget) {
+      throw new LiveError(`too many inputs: at most ${budget} by tick ${to}`);
     }
 
     const e = engineFor(m, address, a);
-    const flapSet = new Set(flaps);
+    const byTick = liveInputsByTick(tranche);
     let t = from;
-    for (; t < to && !e.eng.over; t++) {
-      if (flapSet.has(t)) e.eng.flap();
-      e.eng.update(FLAPPY_DT);
-    }
-    // Los aleteos después de morir no se aplicaron: no entran al registro.
-    for (const f of flaps) if (f < t) a.flaps.push(f);
+    for (; t < to && !game.over(e.eng); t++) game.step(e.eng, byTick.get(t) ?? []);
+    // Lo jugado después de terminar no se aplicó: no entra al registro.
+    recordLiveInputs(
+      m.game,
+      a,
+      tranche.filter((i) => i.t < t),
+    );
     a.tick = t;
     e.tick = t;
 
     const r = reveal(a, e, have);
-    if (e.eng.over || final || a.tick >= MAX_REPLAY_TICKS) {
+    if (game.over(e.eng) || final || a.tick >= MAX_REPLAY_TICKS) {
       a.over = true;
-      a.score = e.eng.score;
+      a.score = game.score(e.eng);
       engines.delete(`${m.id}:${address}`);
       // El final (y el puntaje) sale guardado: una caída no puede devolverle al
       // jugador un intento que ya vio terminar.
@@ -337,7 +393,7 @@ export async function closeLiveAttempt(id: string, address: string): Promise<boo
 async function closeAtLastTick(m: Match, address: string, a: LiveAttempt): Promise<void> {
   const e = engineFor(m, address, a);
   a.over = true;
-  a.score = e.eng.score;
+  a.score = e.game.score(e.eng);
   engines.delete(`${m.id}:${address}`);
   await finishClosed(m, address, a);
 }
