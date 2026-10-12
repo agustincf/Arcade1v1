@@ -89,7 +89,8 @@ export default function WatchMatchPage({ params }: { params: Promise<{ matchId: 
           ))}
         </div>
         <p className="px-5 pb-5 text-center text-sm leading-relaxed text-(--color-muted-2)">
-          {t("watch.note")}
+          {/* En vivo no hay semilla: el azar fue el secreto, ya publicado. */}
+          {t(data.secret ? "watch.noteLive" : "watch.note")}
         </p>
       </div>
     </div>

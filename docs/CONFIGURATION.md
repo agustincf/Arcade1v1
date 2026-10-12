@@ -241,7 +241,7 @@ lost to a hard crash was never seen by anyone, so re-deriving and re-signing it
 cannot leave a _second_ valid payment order for the same room. The signature
 also expires (`ALEPH_PAYOUT_TTL_MS`).
 
-**Live attempts** (Flappy, rules v2) have their own durable record: one field
+**Live attempts** (Flappy since rules v2, Racing since v3) have their own durable record: one field
 per attempt in the Redis hash `arcade:live` (or `data/live.json` with the file
 backend), written in a single round trip together with the lease-epoch check.
 The arbiter answers nothing a player hasn't seen before (new random values, the

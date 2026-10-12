@@ -23,7 +23,8 @@ export interface MatchView {
   /** En vivo: el SHA-256 del secreto del azar, público desde que se empareja. */
   secretHash?: string;
   /** En vivo y con la partida decidida: el secreto, para re-verificar con
-   *  `verifyFlappyLive` y comprobar que su hash es `secretHash`. */
+   *  `verifyFlappyLive` o `verifyRacingLive` y comprobar que su hash es
+   *  `secretHash`. */
   secret?: string;
   /** Versión de reglas del juego en esta partida (el SDK nuevo la valida). */
   rulesV?: number;
@@ -102,7 +103,7 @@ export type LiveCommitView = LiveReply;
 
 /** Un error del árbitro con su código HTTP en `status`. Quien juega en vivo lo
  *  usa para separar lo pasajero (429, 5xx), que se reintenta, de un rechazo
- *  (ver `isRetriableLiveError` en `@arcade1v1/game-sdk/flappy-live`). */
+ *  (ver `isRetriableLiveError` en `@arcade1v1/game-sdk/live-play`). */
 function arbiterError(message: string, status: number): Error {
   return Object.assign(new Error(message), { status });
 }

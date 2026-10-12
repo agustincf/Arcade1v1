@@ -300,8 +300,8 @@ test("snake v2: la fruta nunca reaparece sobre la moneda viva", () => {
 // (RACING_RULES_V y JUMP_TICKS se agregan al import de racing ya existente al
 // tope del archivo; RACING_DT ya está importado — usarlo directo.)
 
-test("racing v2: exporta la versión de reglas 2 y acepta la acción j", () => {
-  assert.equal(RACING_RULES_V, 2);
+test("racing: exporta la versión de reglas 3 (en vivo) y acepta la acción j", () => {
+  assert.equal(RACING_RULES_V, 3);
   const g = new RacingEngine(SEED);
   g.jump();
   assert.ok(g.airborne, "tras jump() el auto está en el aire");

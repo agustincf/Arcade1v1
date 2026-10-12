@@ -245,13 +245,13 @@ app.get("/", (_req, res) =>
       "POST /matchmake":
         "{ game, stake, address, signature?, ts? } -> { matchId, seed, rulesV, status }. " +
         "In production sign matchmakeAuthMessage(game, stake, address, ts) with your wallet. " +
-        "A LIVE game (flappy, rules v2) returns live: true and secretHash instead of seed: " +
+        "A LIVE game (flappy since rules v2, racing since v3) returns live: true and secretHash instead of seed: " +
         "play it with /match/:id/live/start and /live/commit",
       "POST /match/:id/score":
         "{ address, score, replay, signature } -> verifies & settles (replay shape per game; " +
-        "the replay must declare the match's rules version, e.g. v: 2 for snake/racing — " +
+        "the replay must declare the match's rules version, e.g. v: 2 for snake — " +
         "stale-rules submissions are rejected with 'rules version mismatch'). " +
-        "In a live game it only takes the surrender: score 0 and the game's empty replay ({ ticks: 0, flaps: [], v: 2 } in Flappy)",
+        "In a live game it only takes the surrender: score 0 and the game's empty replay ({ ticks: 0, flaps: [], v: 2 } in Flappy; { ticks: 0, inputs: [], v: 3 } in Racing)",
       "POST /match/:id/live/start":
         "{ address, signature, ts } -> open or resume your live attempt (live games only; matchmake says live: true). Sign liveStartAuthMessage(matchId, address, ts). Returns { token, tick, reveal, revealed } and what you already committed: flaps (Flappy) or inputs ({ t, a }, the other live games)",
       "POST /match/:id/live/commit":

@@ -1848,7 +1848,11 @@ export function setExpiredLiveCloser(fn: (m: Match) => Promise<void>): void {
  *     de que se abra el reembolso. Si el rival nunca depositó, o ya no da el
  *     tiempo, se reembolsa como antes. Si la cadena no contesta, tira: el
  *     próximo barrido reintenta.
- *   - Si no presentó nadie, empate: reembolso y sin cambio de rating. */
+ *   - Si no presentó nadie, empate: reembolso y sin cambio de rating.
+ *   - Si un deploy cambió las reglas del juego después de que naciera la
+ *     partida, el que no presentó ya no podía (el envío exige las reglas
+ *     vigentes): no eligió no presentar, así que tampoco hay castigo. Empate y
+ *     reembolso, como antes de W2. */
 async function expireMatch(m: Match, now: number): Promise<void> {
   if (m.live && expiredLiveCloser) await expiredLiveCloser(m);
   if (isDecided(m) || !m.p2) return; // el cierre en vivo pudo decidirla
@@ -1857,7 +1861,8 @@ async function expireMatch(m: Match, now: number): Promise<void> {
   if (submitted.length === 2) return settleIfReady(m);
 
   let refunded = false;
-  if (submitted.length === 1) {
+  const rulesChanged = (m.rulesV ?? 1) !== (RULES_V[m.game] ?? 1);
+  if (submitted.length === 1 && !rulesChanged) {
     const winner = submitted[0];
     let forfeit = !paidOnchain(m);
     if (!forfeit) {
