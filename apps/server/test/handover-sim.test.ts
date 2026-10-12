@@ -136,6 +136,7 @@ test(
   { timeout: 90_000 },
   async () => {
     fake.kv.clear();
+    fake.hashes.clear();
     const a = await startArbiter("A");
     let b: Arbiter | undefined;
     try {
@@ -151,7 +152,7 @@ test(
       assert.equal(mm.status, 200, await mm.clone().text());
       const { matchId } = (await mm.json()) as { matchId: string };
       assert.ok(
-        !(fake.kv.get("arcade:matches") ?? "").includes(matchId),
+        !fake.hashes.get("arcade:matches:byid")?.has(matchId),
         "la partida todavía vive solo en la memoria de A",
       );
 
@@ -198,6 +199,7 @@ test(
   { timeout: 90_000 },
   async () => {
     fake.kv.clear();
+    fake.hashes.clear();
     fake.kv.set(
       "arcade:lease",
       JSON.stringify({ id: "vieja-33", at: Date.now(), released: false }),
@@ -228,6 +230,7 @@ test(
   { timeout: 90_000 },
   async () => {
     fake.kv.clear();
+    fake.hashes.clear();
     const a = await startArbiter("A", { HANDOVER_RESUME_MS: "1500" });
     let b: Arbiter | undefined;
     try {
@@ -253,7 +256,8 @@ test(
   { timeout: 60_000 },
   async () => {
     fake.kv.clear();
-    fake.failKeys.add("arcade:matches");
+    fake.hashes.clear();
+    fake.failKeys.add("arcade:matches:byid");
     const b = await startArbiter("B");
     try {
       assert.equal(await b.exited, 1, b.out.join("\n"));

@@ -126,12 +126,13 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     endpoints caros / de los compromisos de las partidas en vivo, default 60
     cada 10 s).
   - `PERSIST_DEBOUNCE_MS` — cada cuánto, como mucho, se sube el estado a Redis
-    (default 20 s). **Ojo con bajarlo:** cada escritura manda el blob entero
-    (~1,3 MB con los replays adentro), así que la frecuencia se paga en ancho de
-    banda de SALIDA del hosting — con 500 ms nos comimos los 5 GB incluidos de
-    Render en una semana. Subirlo ahorra más; a cambio, un crash sin `SIGTERM`
-    pierde hasta ese tiempo de cambios en las partidas en curso (el dinero no:
-    está en el escrow on-chain; los intentos en vivo tampoco: cada uno tiene su
+    (default 20 s). **Ojo con bajarlo:** cada escritura se paga en ancho de
+    banda, del hosting y de Upstash (el plan Free trae 10 GB por mes). Las
+    partidas ya suben solo las que cambiaron (un campo de hash por partida),
+    pero los otros stores (ratings, agentes, stats, Aleph) siguen subiendo su
+    blob entero. Subirlo ahorra más; a cambio, un crash sin `SIGTERM` pierde
+    hasta ese tiempo de cambios en las partidas en curso (el dinero no: está en
+    el escrow on-chain; los intentos en vivo tampoco: cada uno tiene su
     registro, guardado antes de revelar).
   - `AGENTS_ENABLED=false` — apaga el runner de los agentes de la casa. También
     es una palanca de ancho de banda: cada partida que juegan dispara escrituras.

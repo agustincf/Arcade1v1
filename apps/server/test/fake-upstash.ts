@@ -46,7 +46,10 @@ export async function startFakeUpstash(): Promise<FakeUpstash> {
         result = "OK";
         break;
       case "DEL":
-        result = kv.delete(args[0]) ? 1 : 0;
+        result = (kv.delete(args[0]) ? 1 : 0) + (hashes.delete(args[0]) ? 1 : 0);
+        break;
+      case "EXISTS":
+        result = kv.has(args[0]) || hashes.has(args[0]) ? 1 : 0;
         break;
       case "INCR": {
         const n = Number(kv.get(args[0]) ?? "0") + 1;
