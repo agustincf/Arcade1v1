@@ -12,6 +12,19 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Seguridad
 
+- **El árbitro corre siempre el último Node 24, con los parches de seguridad.**
+  El proyecto no le decía a Render qué Node usar, y Render deja en cada
+  servicio la versión por defecto del día en que se creó, sin actualizarla
+  nunca: un servicio creado en junio de 2026 queda en Node 24.14.1, sin los
+  parches del 21 de octubre de 2026 (24.22.1). El más grave, CVE-2026-111497
+  (escritura fuera de rango al descomprimir Brotli, con posible ejecución de
+  código), se alcanzaba desde internet, porque el árbitro acepta cuerpos con
+  `Content-Encoding: br` (los descomprime `express.json()`). Ahora el
+  `package.json` raíz y el de `apps/server` piden `"node": "24.x"`: Render
+  toma el último 24 en cada deploy, y el CI pasa de Node 22 a 24 para probar
+  lo mismo que corre en producción. La web no cambia: Vercel aplica por su
+  cuenta los parches de la versión mayor elegida.
+
 - **`Escrow1v1` listo para la auditoría externa (pre-auditoría, tanda 1 de
   mainnet).** El contrato se revisó con todo lo que se usa antes de pagar una
   auditoría y se arreglaron seis cosas antes de mandarlo, porque después sería

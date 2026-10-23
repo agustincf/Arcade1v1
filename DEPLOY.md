@@ -88,6 +88,13 @@ misma cuenta y el mismo `ARBITER_PRIVATE_KEY` del Paso 2, no una wallet nueva.
 En un hosting de Node (ej. Render), apuntando a `apps/server`:
 
 - Build/Start: `npm install` y `npm run start -w @arcade1v1/server`.
+- Versión de Node: la fija `"engines": { "node": "24.x" }` en el `package.json`
+  raíz y en el de `apps/server`. Render toma el último 24 en cada deploy, con
+  los parches de seguridad incluidos. **No cargues `NODE_VERSION`** en el
+  panel: le gana al `package.json` y congela la versión. Sin ninguna de las
+  dos cosas, Render deja para siempre la versión por defecto del día en que se
+  creó el servicio. La que tomó figura en el log del deploy
+  (`Using Node.js version …`).
 - Variables de entorno (en los "secrets" del hosting, **no** en el código):
   - `ARBITER_PRIVATE_KEY` — la llave del árbitro (guardar como secreto). Debe ser
     la cuenta que figura como **arbiter** en el contrato (Paso 1). Para
@@ -172,7 +179,9 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
 
 ## Paso 3 — Publicar la web (Vercel)
 
-Importá el repo en Vercel, raíz `apps/web`. Variables de entorno:
+Importá el repo en Vercel, raíz `apps/web`. De Node se elige solo la versión
+mayor (24.x o 22.x, en la configuración del proyecto); los parches de
+seguridad los aplica Vercel. Variables de entorno:
 
 - `NEXT_PUBLIC_SITE_URL` — tu dominio (para SEO / sitemap / Open Graph).
 - `NEXT_PUBLIC_ARBITER_URL` — la URL del árbitro (Paso 2).

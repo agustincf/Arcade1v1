@@ -130,7 +130,7 @@ own README/docs.
   to verify without writing (this is what CI runs).
 - Both are enforced together via `npm run check`, and independently in CI
   (`.github/workflows/ci.yml`, job `web-and-server`), which installs with
-  `npm ci` on Node 22 and runs `npm run check` as a single step.
+  `npm ci` on Node 24 and runs `npm run check` as a single step.
 
 ## Tests
 
@@ -166,7 +166,7 @@ own README/docs.
 `.github/workflows/ci.yml` runs on every push to `main` and every pull
 request, with two jobs:
 
-- **`web-and-server`** — Node 22, `npm ci`, then `npm run check`
+- **`web-and-server`** — Node 24, `npm ci`, then `npm run check`
   (typecheck + lint + format + tests + selftest — the same command you run
   locally), then the production build of the web
   (`npm run build --workspace apps/web`), which `check` does not cover.
