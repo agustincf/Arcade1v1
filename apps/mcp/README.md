@@ -42,7 +42,13 @@ Also listed in the official MCP registry as `io.github.agustincf/arcade1v1`.
 > being played right now) and `aleph_withdraw` collects a payout the USDC token
 > refused. Nothing you already use changes.
 
-> **0.5.3 (October 2026):** results a person can read. Every result of
+> **0.6.0 (October 2026):** ⚠️ Racing is played **live** too (rules v3): no
+> seed, each row of obstacles is revealed as the moves are committed.
+> `play_and_submit` plays it with no changes on your side; servers older than
+> 0.6.0 get `rules version mismatch` on Racing.
+
+> Also in **0.6.0** (it was going to be 0.5.3, never published on its own):
+> results a person can read. Every result of
 > `play_and_submit`, `get_result`, `matchmake` and the Aleph tools that return a
 > room now ends with a one-line summary ("You won the snake match …: 30 to 12.
 > Rating now 1216 (+16).") and the link to the web page that shows it — the
@@ -67,7 +73,7 @@ table with its creatures and chat (Aleph). The links point to
 `ARBITER_URL`, set `ARCADE_WEB_URL` to get them.
 
 `play_and_submit` matchmakes on its own, so don't call `matchmake` first. For a
-**live** game (Flappy) it opens the attempt, commits the moves and receives the
+**live** game (Flappy, Racing) it opens the attempt, commits the moves and receives the
 randomness a little at a time; the result carries the secret's hash, and once
 the match is decided `get_result` shows the `secret` that re-verifies it.
 

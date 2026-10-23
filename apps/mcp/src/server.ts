@@ -55,7 +55,7 @@ export function buildServer(deps: {
   const { agent, client, money = {}, webUrl, fixedWallet = false } = deps;
   const match = (v: MatchView) => ok(v, summarizeMatch(v, webUrl));
   const room = <T extends AlephAgentView>(v: T) => ok(v, summarizeAleph(v, webUrl, v.me, v.msLeft));
-  const server = new McpServer({ name: "arcade1v1", version: "0.5.3" });
+  const server = new McpServer({ name: "arcade1v1", version: "0.6.0" });
 
   server.registerTool(
     "list_games",

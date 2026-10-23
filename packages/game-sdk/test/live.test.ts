@@ -9,6 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import {
   BufferedRandom,
   SecretSource,
@@ -40,6 +41,9 @@ test("el interruptor: Flappy se juega en vivo desde las reglas v2, Carrera desde
   assert.equal(isLiveMatch("racing", 3), true);
   assert.equal(isLiveMatch("2048", 9), false);
   assert.deepEqual(LIVE_SINCE_RULES_V, { flappy: 2, racing: 3 });
+  // El interruptor está prendido: las reglas vigentes de los dos se juegan en vivo.
+  assert.equal(isLiveMatch("flappy", RULES_V.flappy), true);
+  assert.equal(isLiveMatch("racing", RULES_V.racing), true);
 });
 
 test("constantes del protocolo", () => {
