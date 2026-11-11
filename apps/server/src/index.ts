@@ -4,6 +4,7 @@
 import "dotenv/config";
 import "./persist-on.js"; // enciende la persistencia de partidas (antes de matchmaking)
 import express from "express";
+import { cuerpoJson } from "./cuerpo-json.js";
 import {
   matchmake,
   submitScore,
@@ -124,7 +125,7 @@ const tp = parseTrustProxy(
 );
 if (tp !== undefined) app.set("trust proxy", tp);
 
-app.use(express.json({ limit: "256kb" }));
+app.use(cuerpoJson());
 
 // CORS: en produccion restringir a tu(s) dominio(s) con ALLOWED_ORIGIN. Acepta
 // UNO o VARIOS orígenes separados por coma (ej. dominio propio + el de Vercel
