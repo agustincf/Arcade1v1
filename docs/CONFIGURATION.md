@@ -221,7 +221,7 @@ run without touching disk or network.
 | `UPSTASH_REDIS_REST_TOKEN`                  | Required for durable persistence (paired with the URL above)                     | none           | Upstash Redis REST API bearer token. Treat as a secret.                                                                                                                                                           |
 | `ARCADE_PERSIST` / `ARCADE_PERSIST_MATCHES` | Internal — not meant to be set manually in normal operation                      | unset          | Either flag set to `"1"` enables persistence. Set automatically for the real server process by `src/persist-on.ts`; test suites leave both unset so tests don't touch real data.                                  |
 | `ARCADE_PERSIST_HANDOVER`                   | Internal — set by `src/persist-on.ts`                                            | unset          | `"1"` turns on the deploy handoff (see below) when the backend is Redis: only the instance holding the lease writes. Tests that exercise persistence alone leave it unset.                                        |
-| `PERSIST_DEBOUNCE_MS`                       | Optional                                                                         | `20000` (20 s) | Debounce of every store's write. Also the most a hard crash can lose of the matches blob — but not of a live attempt (see below). Aleph's signed payout table bypasses it (`flush()`). Read in `src/persist.ts`.  |
+| `PERSIST_DEBOUNCE_MS`                       | Optional                                                                         | `20000` (20 s) | Debounce of every store's write. Also the most a hard crash can lose of the saved matches — but not of a live attempt (see below). Aleph's signed payout table bypasses it (`flush()`). Read in `src/persist.ts`. |
 
 Without Redis configured, persistence falls back to local JSON files under
 `apps/server/data/` (atomic write via temp-file + rename). On hosts with an
@@ -230,6 +230,14 @@ ratings, and in-progress matches are lost on every deploy/restart unless the
 two Upstash variables are set. If Redis is configured but unreachable at
 startup, the server intentionally fails to load (rather than silently
 starting empty and overwriting good data on the next save).
+
+Most stores are one JSON blob per key (`arcade:<name>`), uploaded whole on
+every save. Matches are the exception, because they carry the replays: each
+match is one field of the hash `arcade:matches:byid`, and a save uploads only
+the matches that changed and deletes the purged ones (`jsonMapStore` in
+`src/persist.ts`). Uploading the whole two-day history (~9 MB) on every save
+used up Upstash's free 10 GB/month in a week. The first start on this layout
+migrates the old `arcade:matches` blob into the hash and then deletes it.
 
 With an Aleph money table enabled (`ALEPH_STAKES` listing a stake `> 0`) the
 file backend is not merely lossy, it strands money — so the fail-fast guard
@@ -247,7 +255,7 @@ backend), written in a single round trip together with the lease-epoch check.
 The arbiter answers nothing a player hasn't seen before (new random values, the
 end of the attempt, a new token) until that record is saved; if the save fails,
 the commit gets a 503 and reveals nothing. On startup the records are merged
-over the matches blob (`restoreLiveAttempts` in `src/live.ts`), and records of
+over the saved matches (`restoreLiveAttempts` in `src/live.ts`), and records of
 purged matches are deleted. Keep Upstash in the same region as the arbiter:
 this save sits on the path of every commit that reveals a new pipe.
 
