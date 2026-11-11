@@ -98,6 +98,17 @@ async function livePair() {
   return { id: m1.matchId, p1, p2 };
 }
 
+/** Un secreto FIJO para los tests que necesitan el intento vivo durante varios
+ *  compromisos. Con el azar de cada partida, `flapPolicy` choca temprano en ~1
+ *  de cada 200 secretos, el intento se cierra y el árbitro contesta el intento
+ *  terminado en vez del conflicto (falló así una vez en CI, en el PR #57). Con
+ *  este secreto la política llega a ~3.180 ticks. Se fija antes de abrir: el
+ *  motor se arma desde `liveSecret` en el `liveStart`. */
+const STEADY_SECRET = "11".repeat(32);
+function steadySecret(id: string) {
+  matchRecord(id)!.liveSecret = STEADY_SECRET;
+}
+
 function opened(s: LiveStartView) {
   assert.equal(s.over, false);
   return s as Extract<LiveStartView, { over: false }>;
@@ -168,6 +179,7 @@ test("abrir no devuelve ni el token ni el primer tubo hasta que el intento qued�
 
 test("cada compromiso que revela valores nuevos los guarda ANTES de contestar", async () => {
   const { id, p1 } = await livePair();
+  steadySecret(id);
   const s = opened(await liveStart(id, p1));
   let checked = 0;
   // Las violaciones se juntan y se afirman al final: una aserción que tirara
@@ -224,6 +236,7 @@ test("si guardar falla, no revela nada (503); el reintento se resincroniza y rec
 
 test("tras una caída dura, el intento vuelve desde su registro, no desde el blob atrasado", async () => {
   const { id, p1 } = await livePair();
+  steadySecret(id);
   const s = opened(await liveStart(id, p1));
   const m = matchRecord(id)!;
   // Lo que tenía el blob de partidas: el intento recién abierto (el blob se
@@ -231,6 +244,9 @@ test("tras una caída dura, el intento vuelve desde su registro, no desde el blo
   const blobCopy = structuredClone(m.live![p1]);
   const reached = await playSome(id, p1, 4, s);
   assert.ok(reached > s.tick);
+  // El conflicto de abajo solo existe con el intento ABIERTO: uno terminado
+  // contesta su final (es lo correcto, tampoco deja rehacer nada).
+  assert.notEqual(m.live![p1].over, true, "el intento sigue abierto antes de la caída");
 
   // LA CAÍDA: la memoria vuelve a lo que tenía el blob, se pierde el caché de
   // motores y lo que el proceso sabía que había guardado.
