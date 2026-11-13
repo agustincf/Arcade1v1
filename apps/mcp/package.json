@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@arcade1v1/agent-sdk": "*",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "esbuild": "^0.28.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",

@@ -89,6 +89,12 @@ no Redis) can still fire.
 | `RL_MAX_LIVE`      | Optional | `60`                                       | Rate limit (same 10s window) for live-game commits: `POST /match/:id/live/commit` and `POST /agents/:id/live/commit`. A live match commits about once per pipe, so the strict limit is too tight with several players behind one IP. `live/start` stays on `RL_MAX_EXPENSIVE`. Read in `src/index.ts`.                                                                                                                                                           |
 | `ENABLE_TEST_BOT`  | Optional | `false`                                    | When `NODE_ENV=production`, the `/match/:id/bot` test endpoint (completes a match against a practice bot) is disabled unless this is explicitly set to `"true"`. Read in `src/index.ts`.                                                                                                                                                                                                                                                                         |
 
+Not configurable: request bodies are JSON up to 256 kB (`TOPE_DEL_CUERPO` in
+`src/cuerpo-json.ts`) and are **never decompressed** — a request with
+`Content-Encoding` gets `415`. No client compresses what it sends, and
+decompressing a stranger's input was twice the way to crash the process with a
+single request (a Brotli bug in Node, then one in `body-parser`).
+
 ### Matchmaking / economics
 
 | Variable           | Required | Default                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                        |

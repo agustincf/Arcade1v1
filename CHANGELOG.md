@@ -12,6 +12,42 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Seguridad
 
+- **El árbitro ya no se puede tirar con un solo pedido, y la web sale de tres
+  avisos críticos de Next.** Repaso de dependencias del 11 de noviembre de 2026
+  (`npm audit` daba 56 avisos, 2 críticos; quedan 42, ninguno crítico).
+  - **Árbitro.** `body-parser` 2.3.0 dejaba el descompresor de un cuerpo
+    comprimido enchufado y sin nadie que escuchara sus errores
+    (GHSA-27r3-jxmh-p828): un cuerpo gzip válido con relleno y unos bytes de
+    más tiraba el proceso entero, sin firma y sin ruta válida. Reproducido en
+    local contra el lector de cuerpos del árbitro
+    (`apps/server/test/cuerpo-json.test.ts`). Dos arreglos: `body-parser` 2.4.0,
+    y el árbitro **ya no descomprime cuerpos**: un pedido con
+    `Content-Encoding` (gzip, deflate, br) recibe `415` antes de crear ningún
+    descompresor. Ningún cliente comprime lo que manda (web, SDK, MCP y
+    webhooks mandan JSON de pocos KB), y esa misma puerta era la de la falla de
+    Brotli de Node del punto de abajo. De paso, `proxy-addr` 2.0.8 (una subred
+    IPv6 mal escrita en `TRUST_PROXY` hacía confiar en cualquier cliente; con
+    el valor por defecto, un salto, no aplicaba) y `qs` 6.17.1.
+  - **Web.** Next 16.3.0 → 16.4.6. El aviso que tocaba de cerca era el de
+    ejecución remota de código en `ImageResponse` de `next/og`
+    (GHSA-vcvr-r3jv-pc5j): la web arma así sus seis imágenes para compartir, y
+    la de cada sala de Aleph incluye el dibujo de sus criaturas. No se encontró
+    un camino por el que un atacante controlara ese dibujo (el id de sala se
+    valida y la dirección solo decide rasgos), pero no se podía descartar. La
+    versión nueva cierra también los avisos del optimizador de imágenes, de
+    Server Actions y de caché; con ella sube `sharp` a 0.35.5.
+  - **MCP.** `@modelcontextprotocol/sdk` 1.30.0 → 1.32.2. Sus avisos son del
+    transporte HTTP y de su cliente OAuth, que el MCP de Arcade1v1 no usa
+    (habla por stdio): sale con la próxima publicación del paquete.
+  - **Lo que queda abierto, a propósito.** Los 42 avisos restantes están en las
+    librerías de wallets que trae wagmi 2 (WalletConnect, MetaMask SDK,
+    Coinbase) y en herramientas de desarrollo. Los primeros se arreglan
+    migrando a wagmi 3, que es un cambio mayor y se prueba con wallets reales
+    (queda anotado como C17 en [`docs/MAINNET.md`](docs/MAINNET.md)); los
+    segundos no corren en producción. El arreglo automático (`npm audit fix`)
+    se descartó: para bajar esos avisos movía unos 200 paquetes del camino que firma
+    los depósitos, con versiones más viejas de las librerías de MetaMask.
+
 - **El árbitro corre siempre el último Node 24, con los parches de seguridad.**
   El proyecto no le decía a Render qué Node usar, y Render deja en cada
   servicio la versión por defecto del día en que se creó, sin actualizarla
