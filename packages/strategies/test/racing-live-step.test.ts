@@ -1,28 +1,28 @@
 // Las estrategias de la Carrera deciden igual jugando con la semilla (`play`,
 // las vistas previas del builder y la Carrera v2) que tick a tick EN VIVO
-// (`step`, sin azar futuro). La caracterización fija que el refactor no cambió
-// ni una partida.
+// (`step`, sin azar futuro). La caracterización fija que ni el refactor ni el
+// cambio de reglas (v3, en vivo) cambiaron una partida con semilla.
 //
 // Correr: node --import tsx --test packages/strategies/test/racing-live-step.test.ts
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { RacingEngine, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
+import { RacingEngine, RACING_RULES_V, type ReplayRacing } from "@arcade1v1/game-sdk/racing";
 import { racingLive } from "@arcade1v1/game-sdk/racing-live";
 import { liveActions } from "@arcade1v1/game-sdk/live";
 import { getStrategy, defaultParams } from "../src/index.js";
 
 const CASES: Record<string, { hash: string; params: Record<string, unknown>[] }> = {
   "racing.dodger": {
-    hash: "c1391f97ceb6c552d91f029711e8d20a952a8f9ee730d2ce4c48c6a34c9c5b92",
+    hash: "d09d6134ecc78ca790b983657263e1ef7f8c1500b8f6ef4afbc3ab51b91692c0",
     params: [
       defaultParams(getStrategy("racing.dodger")!),
       { lookahead: 240, preferredLane: "left", coinGreed: 0 },
     ],
   },
   "racing.weaver": {
-    hash: "87e9f285d8f55029bebe9caee47f9916a929012664bdd30394b3af3aa90dc4d3",
+    hash: "b13bb6128cb9c14565e1f9018c45437bb684176934d8cd9de21062060db3c13f",
     params: [defaultParams(getStrategy("racing.weaver")!), { boldness: 0.9, coinGreed: 0 }],
   },
 };
@@ -35,7 +35,11 @@ for (const [id, c] of Object.entries(CASES)) {
     for (let seed = 1; seed <= 40; seed++) {
       for (const params of c.params) {
         const r = def.play(seed, params);
-        h.update(JSON.stringify([r.score, r.replay]));
+        // El juego, sin la etiqueta de versión: subir las reglas (Carrera en
+        // vivo es v3) no cambia ni una partida con semilla.
+        const { v, ...game } = r.replay as ReplayRacing;
+        assert.equal(v, RACING_RULES_V, "el replay declara la versión de reglas vigente");
+        h.update(JSON.stringify([r.score, game]));
       }
     }
     assert.equal(h.digest("hex"), c.hash);

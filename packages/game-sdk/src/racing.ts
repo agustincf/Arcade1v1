@@ -21,7 +21,10 @@ const OBST_H = 44;
 // Saltar COMPROMETE: en el aire no se cambia de carril, y al aterrizar hay un
 // cooldown. Las vallas (jumpable) se esquivan O se saltan; los sólidos, solo
 // esquivar. Las monedas suman puntaje pero NO velocidad (passedCount manda).
-export const RACING_RULES_V = 2;
+// ---- Reglas v3: se juega EN VIVO --------------------------------------------
+// Sin semilla: cada fila sale de un valor que el árbitro revela 0,25 s antes de
+// que nazca (ver el constructor y ./racing-live). La física no cambia.
+export const RACING_RULES_V = 3;
 export const JUMP_TICKS = 30; // ~0,5 s en el aire a 60 ticks/s
 export const JUMP_COOLDOWN = 10; // ticks tras aterrizar antes de re-saltar
 const COIN_ROW_CHANCE = 0.35; // prob. de fila de monedas por spawn simple

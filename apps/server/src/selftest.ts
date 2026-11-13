@@ -20,15 +20,10 @@ import { arbiterAddress, RESULT_TYPES, resultDomain } from "./sign.js";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { TetrisEngine, type TetrisAction } from "@arcade1v1/game-sdk/tetris";
 import { flappyLive, verifyFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
+import { racingLive, verifyRacingLive } from "@arcade1v1/game-sdk/racing-live";
 import { playLive } from "@arcade1v1/game-sdk/live-play";
-import { liveSecretHash } from "@arcade1v1/game-sdk/live";
+import { liveSecretHash, type LiveGame, type LiveInput } from "@arcade1v1/game-sdk/live";
 import { defaultParams, strategiesFor } from "@arcade1v1/strategies";
-import {
-  RacingEngine,
-  RACING_DT,
-  RACING_RULES_V,
-  type RaceAction,
-} from "@arcade1v1/game-sdk/racing";
 import { SnakeEngine, SNAKE_RULES_V } from "@arcade1v1/game-sdk/snake";
 import { InvadersEngine, type InvaderAction } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
@@ -67,25 +62,6 @@ function playTetris(seedOrUndefined: number | undefined) {
     t++;
   }
   return { score: g.score, replay: { seed, ticks: t, inputs } };
-}
-
-function playRacing(seedOrUndefined: number | undefined) {
-  const seed = need(seedOrUndefined);
-  const g = new RacingEngine(seed);
-  const inputs: { t: number; a: RaceAction }[] = [];
-  let t = 0;
-  while (!g.over && t < 1200) {
-    if (t % 40 === 0) {
-      g.moveRight();
-      inputs.push({ t, a: "r" });
-    } else if (t % 40 === 20) {
-      g.moveLeft();
-      inputs.push({ t, a: "l" });
-    }
-    g.update(RACING_DT);
-    t++;
-  }
-  return { score: g.score, replay: { seed, ticks: t, inputs, v: RACING_RULES_V } };
 }
 
 function playSnake(seedOrUndefined: number | undefined) {
@@ -212,13 +188,12 @@ async function main() {
   console.log("✓ firma que no corresponde RECHAZADA:", badRejected);
 
   // 7) ANTI-TRAMPA en los juegos de TIEMPO REAL con semilla (paso fijo
-  //    determinístico). Flappy no va acá: se juega en vivo (ver 7b).
+  //    determinístico). Flappy y Carrera no van acá: se juegan en vivo (ver 7b).
   const games: {
-    name: "tetris" | "racing" | "snake" | "invaders";
+    name: "tetris" | "snake" | "invaders";
     play: (s: number | undefined) => { score: number; replay: unknown };
   }[] = [
     { name: "tetris", play: playTetris },
-    { name: "racing", play: playRacing },
     { name: "snake", play: playSnake },
     { name: "invaders", play: playInvaders },
   ];
@@ -247,65 +222,84 @@ async function main() {
     realtimeOk = realtimeOk && legitOk && cheatOk;
   }
 
-  // 7b) FLAPPY EN VIVO (reglas v2): la partida no tiene semilla. Cada jugador
-  //     abre su intento y compromete sus aleteos; el azar le llega de a poco.
-  //     Al decidirse se publica el secreto, y con él cualquiera re-verifica los
-  //     dos intentos. L1 juega con la estrategia por defecto; L2 se planta en
-  //     el tick 100, antes del primer tubo (puntaje 0), así hay un ganador.
+  // 7b) JUEGOS EN VIVO (Flappy desde las reglas v2, Carrera desde las v3): la
+  //     partida no tiene semilla. Cada jugador abre su intento y compromete sus
+  //     jugadas; el azar le llega de a poco. Al decidirse se publica el secreto,
+  //     y con él cualquiera re-verifica los dos intentos. L1 juega con la
+  //     estrategia en vivo por defecto; L2 se planta en el tick 100, antes del
+  //     primer tubo o de la primera fila que llega al auto (puntaje 0), así hay
+  //     un ganador. Y un replay armado afuera no entra, aunque sea verosímil: en
+  //     vivo solo cuenta lo que se comprometió tick a tick.
   const L1 = "0x8888888888888888888888888888888888888888";
   const L2 = "0x9999999999999999999999999999999999999999";
-  const lm = await matchmake("flappy", 1, L1);
-  await matchmake("flappy", 1, L2);
-  const liveNoSeedOk =
-    lm.live === true && lm.seed === undefined && typeof lm.secretHash === "string";
-  const flappyDef = strategiesFor("flappy").find((d) => d.step)!;
-  for (const [who, cap] of [
-    [L1, undefined],
-    [L2, 100],
-  ] as const) {
-    const start = await liveStart(lm.matchId, who);
-    if (start.over) continue;
-    const step = flappyDef.step!(defaultParams(flappyDef));
-    await playLive(flappyLive, {
-      start,
-      decide: step.decide,
-      maxTicks: cap ?? step.maxTicks,
-      commit: (c) => liveCommit(lm.matchId, who, { ...c, token: start.token }),
-    });
-  }
-  const lv = publicReplay(lm.matchId);
-  const lvSecret = lv?.secret;
-  // Gana L1, salvo que también haga 0: en 5000 secretos al azar nunca pasó, pero
-  // el secreto es aleatorio, así que en ese caso tiene que dar empate (y no un
-  // falso rojo en CI).
-  const [s1, s2] = [L1, L2].map((a) => lv?.players.find((p) => p.address === a)?.score ?? -1);
-  const liveDecidedOk =
-    lv !== null && (s1 > s2 ? lv.winner === L1 : s1 === s2 && lv.outcome === "draw");
-  const liveSecretOk = !!lvSecret && liveSecretHash(lvSecret) === lm.secretHash;
-  const liveReverifyOk =
-    !!lvSecret &&
-    !!lv &&
-    lv.players.every(
-      (p) => verifyFlappyLive(lvSecret, p.replay as { ticks: number; flaps: number[] }) === p.score,
-    );
-  console.log(
-    `✓ flappy EN VIVO: sin semilla = ${liveNoSeedOk} · decidida bien = ${liveDecidedOk}` +
-      ` · secreto = hash = ${liveSecretOk} · los dos re-verifican = ${liveReverifyOk}`,
-    `(${lv?.players.map((p) => p.score).join(" a ")})`,
-  );
-  // Un replay armado afuera no entra, aunque sea verosímil: en vivo solo
-  // cuenta lo que se comprometió tick a tick.
   const L3 = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   const L4 = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-  const om = await matchmake("flappy", 1, L3);
-  await matchmake("flappy", 1, L4);
-  let liveOutsideRejected = false;
-  try {
-    await submitScore(om.matchId, L3, 3, { ticks: 600, flaps: [0, 36, 72], v: 2 });
-  } catch (e) {
-    liveOutsideRejected = /replay not allowed/.test((e as Error).message);
+  const liveCases: {
+    game: "flappy" | "racing";
+    def: LiveGame<unknown>;
+    verify: (secret: string, replay: unknown) => number;
+    outside: unknown;
+  }[] = [
+    {
+      game: "flappy",
+      def: flappyLive,
+      verify: (secret, r) => verifyFlappyLive(secret, r as { ticks: number; flaps: number[] }),
+      outside: { ticks: 600, flaps: [0, 36, 72], v: 2 },
+    },
+    {
+      game: "racing",
+      def: racingLive,
+      verify: (secret, r) => verifyRacingLive(secret, r as { ticks: number; inputs: LiveInput[] }),
+      outside: { ticks: 600, inputs: [{ t: 30, a: "l" }], v: 3 },
+    },
+  ];
+  let liveOk = true;
+  for (const c of liveCases) {
+    const lm = await matchmake(c.game, 1, L1);
+    await matchmake(c.game, 1, L2);
+    const noSeedOk = lm.live === true && lm.seed === undefined && typeof lm.secretHash === "string";
+    const def = strategiesFor(c.game).find((d) => d.step)!;
+    for (const [who, cap] of [
+      [L1, undefined],
+      [L2, 100],
+    ] as const) {
+      const start = await liveStart(lm.matchId, who);
+      if (start.over) continue;
+      const step = def.step!(defaultParams(def));
+      await playLive(c.def, {
+        start,
+        decide: step.decide,
+        maxTicks: cap ?? step.maxTicks,
+        commit: (cm) => liveCommit(lm.matchId, who, { ...cm, token: start.token }),
+      });
+    }
+    const lv = publicReplay(lm.matchId);
+    const lvSecret = lv?.secret;
+    // Gana L1, salvo que también haga 0: con el secreto al azar puede pasar (en
+    // Flappy nunca pasó en 5000 secretos), y en ese caso tiene que dar empate
+    // (no un falso rojo en CI).
+    const [s1, s2] = [L1, L2].map((a) => lv?.players.find((p) => p.address === a)?.score ?? -1);
+    const decidedOk =
+      lv !== null && (s1 > s2 ? lv.winner === L1 : s1 === s2 && lv.outcome === "draw");
+    const secretOk = !!lvSecret && liveSecretHash(lvSecret) === lm.secretHash;
+    const reverifyOk =
+      !!lvSecret && !!lv && lv.players.every((p) => c.verify(lvSecret, p.replay) === p.score);
+    console.log(
+      `✓ ${c.game} EN VIVO: sin semilla = ${noSeedOk} · decidida bien = ${decidedOk}` +
+        ` · secreto = hash = ${secretOk} · los dos re-verifican = ${reverifyOk}`,
+      `(${lv?.players.map((p) => p.score).join(" a ")})`,
+    );
+    const om = await matchmake(c.game, 1, L3);
+    await matchmake(c.game, 1, L4);
+    let outsideRejected = false;
+    try {
+      await submitScore(om.matchId, L3, 3, c.outside);
+    } catch (e) {
+      outsideRejected = /replay not allowed/.test((e as Error).message);
+    }
+    console.log(`✓ ${c.game} EN VIVO: replay armado afuera RECHAZADO:`, outsideRejected);
+    liveOk = liveOk && noSeedOk && decidedOk && secretOk && reverifyOk && outsideRejected;
   }
-  console.log("✓ flappy EN VIVO: replay armado afuera RECHAZADO:", liveOutsideRejected);
 
   // 8) DEFAULT-DENY: un juego desconocido no se empareja (y por ende jamás
   //    podría liquidar un puntaje sin verificar).
@@ -507,11 +501,7 @@ async function main() {
     badRejected &&
     draw.outcome === "draw" &&
     realtimeOk &&
-    liveNoSeedOk &&
-    liveDecidedOk &&
-    liveSecretOk &&
-    liveReverifyOk &&
-    liveOutsideRejected &&
+    liveOk &&
     unknownRejected &&
     seedCheatRejected &&
     resubmitRejected &&

@@ -36,7 +36,8 @@ consume another workspace's TypeScript source directly.
 `scripts/publish-sdk.mjs` (invoked as `npm run release --workspace packages/game-sdk`,
 etc.) so external consumers can `npm install @arcade1v1/game-sdk` without
 pulling in the rest of the monorepo. `apps/mcp` is published on its own
-(`@arcade1v1/mcp`). All four are at `0.5.0` on npm today.
+(`@arcade1v1/mcp`). The four go out together, at the same version: `0.6.0`
+since 3.12.0 (publish in that order: game-sdk, strategies, agent-sdk, mcp).
 
 ### Adding a new workspace
 

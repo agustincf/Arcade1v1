@@ -14,6 +14,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Hex } from "viem";
 import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
+import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { startFakeUpstash } from "./fake-upstash.js";
 
 const upstash = await startFakeUpstash();
@@ -173,6 +174,55 @@ test("plata: si ya no da el tiempo para cobrar antes del reembolso, se reembolsa
   assert.equal(va.status, "draw");
   assert.equal(va.signature, undefined, "no firma algo que no llega a cobrarse");
   assert.ok(cancels.includes(id));
+});
+
+// ---- Un deploy cambió las reglas a mitad de partida ------------------------------
+// El envío exige las reglas vigentes: después del deploy, el que no había
+// presentado ya no puede. No eligió no presentar, así que no hay castigo: la
+// partida se anula como antes de W2.
+
+/** A presenta, y un deploy sube las reglas de 2048 antes de que B presente. */
+async function rulesBumpedAfterA(stake: number) {
+  const r = await onlyAPlays(stake);
+  RULES_V["2048"] = (RULES_V["2048"] ?? 1) + 1;
+  return r;
+}
+
+test("gratis: si un deploy cambió las reglas y solo uno presentó, el otro no pudo: empate", async () => {
+  const before = RULES_V["2048"];
+  try {
+    const { id, A, B, createdAt } = await rulesBumpedAfterA(0);
+    const b = play2048(MM.matchRecord(id)!.seed, 200);
+    await assert.rejects(
+      MM.submitScore(id, B, b.score, b.replay),
+      /rules version mismatch/,
+      "con las reglas nuevas, B ya no puede presentar",
+    );
+    await MM.sweepMatches(expiry(createdAt));
+    const va = MM.getMatch(id, A)!;
+    assert.equal(va.status, "draw");
+    assert.equal(va.noShow, undefined, "no hay castigo: B no pudo presentar");
+    assert.equal(va.ratingDelta, undefined);
+  } finally {
+    RULES_V["2048"] = before;
+  }
+});
+
+test("plata: si un deploy cambió las reglas y solo uno presentó, se reembolsa a los dos", async () => {
+  const before = RULES_V["2048"];
+  try {
+    const { id, A, createdAt } = await rulesBumpedAfterA(1);
+    status.set(id, ST.Funded);
+    await MM.sweepMatches(expiry(createdAt));
+    await MM.onchainSettled(id);
+    const va = MM.getMatch(id, A)!;
+    assert.equal(va.status, "draw");
+    assert.equal(va.noShow, undefined);
+    assert.ok(cancels.includes(id), "reembolso");
+    assert.equal(settles.filter((c) => c.id === id).length, 0, "nadie cobra el pozo");
+  } finally {
+    RULES_V["2048"] = before;
+  }
 });
 
 test("plata: si la cadena no contesta, no decide y espera al próximo barrido", async () => {
