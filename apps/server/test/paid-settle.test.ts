@@ -48,9 +48,12 @@ interface Call {
   winner: string;
   deadline: bigint;
   signature: Hex;
-  /** El blob de partidas guardado en el momento del settle. */
+  /** Las partidas guardadas en el momento del settle. */
   savedBlob: string | undefined;
 }
+/** Cada partida es un campo de este hash (ver jsonMapStore en persist.ts). */
+const MATCHES_HASH = "arcade:matches:byid";
+const savedMatches = () => [...(upstash.hashes.get(MATCHES_HASH)?.values() ?? [])].join("\n");
 const chainState = new Map<string, number>();
 const settles: Call[] = [];
 const cancels: string[] = [];
@@ -70,7 +73,7 @@ OC.setEscrowChainForTest({
     chainState.set(id, ST.Refunded);
   },
   async settle(id, winner, deadline, signature) {
-    settles.push({ id, winner, deadline, signature, savedBlob: upstash.kv.get("arcade:matches") });
+    settles.push({ id, winner, deadline, signature, savedBlob: savedMatches() });
     return onSettle(id);
   },
 });
@@ -174,7 +177,7 @@ test("liquida el árbitro: la firma vence al abrirse el reembolso y el pago qued
 });
 
 test("la firma no sale —ni en la vista ni en una transacción— hasta que la decisión quedó guardada", async () => {
-  upstash.failKeys.add("arcade:matches");
+  upstash.failKeys.add(MATCHES_HASH);
   let id: string;
   try {
     const d = await decidedMatch();
@@ -185,7 +188,7 @@ test("la firma no sale —ni en la vista ni en una transacción— hasta que la 
     await MM.onchainSettled(id);
     assert.equal(settlesOf(id).length, 0, "ninguna transacción con una firma sin guardar");
   } finally {
-    upstash.failKeys.delete("arcade:matches");
+    upstash.failKeys.delete(MATCHES_HASH);
   }
 
   // El store vuelve: el barrendero guarda, recién entonces muestra y liquida
@@ -304,25 +307,28 @@ test("una partida pagada que decidió el árbitro anterior (firma v1) no se liqu
   // cobró el ganador desde la web (el árbitro no se enteró).
   const id = ("0x" + "0d".repeat(32)) as Hex;
   const createdAt = Date.now() - 60 * 60_000;
-  upstash.kv.set(
-    "arcade:matches",
-    JSON.stringify([
-      {
+  upstash.hashes.set(
+    MATCHES_HASH,
+    new Map([
+      [
         id,
-        game: "2048",
-        stake: 1,
-        seed: 1,
-        rulesV: 1,
-        p1: A,
-        p2: B,
-        scores: { [A]: 10, [B]: 5 },
-        replays: {},
-        createdAt,
-        status: "settled",
-        winner: A,
-        outcome: "p1",
-        signature: "0x" + "ab".repeat(65),
-      },
+        JSON.stringify({
+          id,
+          game: "2048",
+          stake: 1,
+          seed: 1,
+          rulesV: 1,
+          p1: A,
+          p2: B,
+          scores: { [A]: 10, [B]: 5 },
+          replays: {},
+          createdAt,
+          status: "settled",
+          winner: A,
+          outcome: "p1",
+          signature: "0x" + "ab".repeat(65),
+        }),
+      ],
     ]),
   );
   await MM.restoreMatches();

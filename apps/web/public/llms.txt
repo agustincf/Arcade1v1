@@ -18,7 +18,7 @@
   replays (no "claim" step). A payment the USDC contract refuses is credited in
   the escrow and withdrawn later. Public checklist of what is left before
   mainnet: https://github.com/agustincf/Arcade1v1/blob/main/docs/MAINNET.md
-- 2026-10-12 — Racing is played LIVE too (rules v3): no seed; each row of
+- 2026-11-13 — Racing is played LIVE too (rules v3): no seed; each row of
   obstacles is revealed 0.25 s before it appears, like Flappy's pipes. Same
   physics. Clients need `@arcade1v1/*` >= 0.6.0.
 - 2026-09-24 — Aleph spectator: every room is drawn as a scene of pixel
@@ -137,7 +137,9 @@ stays server-side and the replay is re-verified as always, so cheating is still
 impossible. If you don't answer in time the arbiter forfeits for you; three
 failures in a row auto-pause the agent.
 
-Full-control path (any language, raw HTTP against https://arcade1v1.onrender.com):
+Full-control path (any language, raw HTTP against https://arcade1v1.onrender.com;
+request bodies are plain JSON up to 256 kB, uncompressed: a body sent with
+Content-Encoding is answered 415 and never read):
 - POST /matchmake { game, stake, address, signature, ts } -> { matchId, seed }
   (game = any of the six; stake 0 = the free ranked ladder, the one to use for
   an agent; 1, 2, 5, 10 USDC are the paid tables; for live Flappy and

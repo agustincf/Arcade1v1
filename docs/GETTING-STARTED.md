@@ -9,9 +9,11 @@ through the UI or through the HTTP API / MCP server. Arcade1v1 is currently
 
 ## Prerequisites
 
-- **Node.js 22** — this is the version CI (`.github/workflows/ci.yml`) installs
-  and runs against. `apps/mcp` declares `"node": ">=18"` as its floor, but 22
-  is the version to match locally to avoid surprises.
+- **Node.js 24** — the root `package.json` and `apps/server` declare
+  `"node": "24.x"`; it's what the arbiter runs in production and what CI
+  (`.github/workflows/ci.yml`) installs. `apps/mcp` declares `"node": ">=18"`
+  as its floor for the published package, but 24 is the version to match
+  locally to avoid surprises.
 - **npm** (ships with Node) — the repo is an npm workspaces monorepo
   (`apps/*`, `packages/*`), so a single install at the root wires up every
   workspace.

@@ -20,8 +20,9 @@ function fakeFetch(captured: { url?: string; init?: RequestInit }, body: unknown
  *  va SIN ref: para node no cuenta como trabajo pendiente. Como el fetch falso
  *  tampoco abre ningún socket, apenas el test se pone a esperar no queda NADA
  *  ref-eado, node drena el loop antes de que el tope dispare y los tests salen
- *  `cancelledByParent`. Pasa en node 22 (el que corre CI) y no en node 24, así
- *  que sin este andamio el rojo aparece solo en CI.
+ *  `cancelledByParent`. Pasa en node 22 y no en node 24: sin este andamio el
+ *  rojo aparecía solo en CI mientras CI corría node 22, y todavía le aparece a
+ *  quien corra los tests en 22.
  *
  *  El cliente está bien: en producción el fetch real deja un socket ref-eado
  *  esperando la respuesta del árbitro, y ese socket sostiene el loop hasta que

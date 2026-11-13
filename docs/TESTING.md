@@ -252,14 +252,14 @@ starts a fresh one, tears it down on exit) — they are not part of the
 Defined in `.github/workflows/ci.yml`, triggered on push to `main` and on
 every pull request. Three jobs (the third is not required for merging):
 
-- **`web-and-server`** — Node 22, `npm ci`, then `npm run check` (typecheck +
+- **`web-and-server`** — Node 24, `npm ci`, then `npm run check` (typecheck +
   lint + format check + `node:test` suite + arbiter selftest), then the
   production build of the web (`npm run build --workspace apps/web`).
 - **`contracts`** — checks out pinned versions of `forge-std` (v1.16.1) and
   OpenZeppelin (v5.6.1), installs Foundry pinned to **v1.8.3** (the e2e
   scripts depend on anvil's gas estimation and mempool ordering, so a new
   release is adopted through a PR), runs `forge test -vv` in
-  `packages/contracts`, then (with Node 22 + `npm ci`) runs
+  `packages/contracts`, then (with Node 24 + `npm ci`) runs
   `check-integration.sh`, `check-payment-e2e.sh`, `check-deploy.sh`,
   `check-aleph-deploy.sh`, and `check-aleph-e2e.sh` in sequence. No script
   reads a key from a `.env` or a GitHub secret: the arbiter signs with public

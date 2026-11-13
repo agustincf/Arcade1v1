@@ -8,7 +8,7 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
-## [3.12.0] — 2026-10-12
+## [3.12.0] — 2026-11-13
 
 **Carrera se juega en vivo, y el árbitro y el contrato quedan listos para la
 auditoría de mainnet.** Carrera pasa a sus reglas v3: sin semilla, cada fila de
@@ -23,9 +23,60 @@ reintentan, rotar la llave sin dejar ganadores sin cobrar, no presentar el
 puntaje ya no es gratis, Aleph en su propia red). El MCP le muestra el
 resultado a la persona, con el link a la partida, y los agentes hosteados
 vuelven a jugar. Los paquetes de npm pasan a **0.6.0**, los cuatro juntos
-(game-sdk, strategies, agent-sdk y mcp), porque Carrera v3 los necesita.
+(game-sdk, strategies, agent-sdk y mcp), porque Carrera v3 los necesita. Y un
+repaso de dependencias cierra una falla que tiraba el árbitro con un solo
+pedido y tres avisos críticos de Next.
 
 ### Seguridad
+
+- **El árbitro ya no se puede tirar con un solo pedido, y la web sale de tres
+  avisos críticos de Next.** Repaso de dependencias del 11 de noviembre de 2026
+  (`npm audit` daba 56 avisos, 2 críticos; quedan 42, ninguno crítico).
+  - **Árbitro.** `body-parser` 2.3.0 dejaba el descompresor de un cuerpo
+    comprimido enchufado y sin nadie que escuchara sus errores
+    (GHSA-27r3-jxmh-p828): un cuerpo gzip válido con relleno y unos bytes de
+    más tiraba el proceso entero, sin firma y sin ruta válida. Reproducido en
+    local contra el lector de cuerpos del árbitro
+    (`apps/server/test/cuerpo-json.test.ts`). Dos arreglos: `body-parser` 2.4.0,
+    y el árbitro **ya no descomprime cuerpos**: un pedido con
+    `Content-Encoding` (gzip, deflate, br) recibe `415` antes de crear ningún
+    descompresor. Ningún cliente comprime lo que manda (web, SDK, MCP y
+    webhooks mandan JSON de pocos KB), y esa misma puerta era la de la falla de
+    Brotli de Node del punto de abajo. De paso, `proxy-addr` 2.0.8 (una subred
+    IPv6 mal escrita en `TRUST_PROXY` hacía confiar en cualquier cliente; con
+    el valor por defecto, un salto, no aplicaba) y `qs` 6.17.1.
+  - **Web.** Next 16.3.0 → 16.4.6. El aviso que tocaba de cerca era el de
+    ejecución remota de código en `ImageResponse` de `next/og`
+    (GHSA-vcvr-r3jv-pc5j): la web arma así sus seis imágenes para compartir, y
+    la de cada sala de Aleph incluye el dibujo de sus criaturas. No se encontró
+    un camino por el que un atacante controlara ese dibujo (el id de sala se
+    valida y la dirección solo decide rasgos), pero no se podía descartar. La
+    versión nueva cierra también los avisos del optimizador de imágenes, de
+    Server Actions y de caché; con ella sube `sharp` a 0.35.5.
+  - **MCP.** `@modelcontextprotocol/sdk` 1.30.0 → 1.32.2. Sus avisos son del
+    transporte HTTP y de su cliente OAuth, que el MCP de Arcade1v1 no usa
+    (habla por stdio): sale con la próxima publicación del paquete.
+  - **Lo que queda abierto, a propósito.** Los 42 avisos restantes están en las
+    librerías de wallets que trae wagmi 2 (WalletConnect, MetaMask SDK,
+    Coinbase) y en herramientas de desarrollo. Los primeros se arreglan
+    migrando a wagmi 3, que es un cambio mayor y se prueba con wallets reales
+    (queda anotado como C17 en [`docs/MAINNET.md`](docs/MAINNET.md)); los
+    segundos no corren en producción. El arreglo automático (`npm audit fix`)
+    se descartó: para bajar esos avisos movía unos 200 paquetes del camino que firma
+    los depósitos, con versiones más viejas de las librerías de MetaMask.
+
+- **El árbitro corre siempre el último Node 24, con los parches de seguridad.**
+  El proyecto no le decía a Render qué Node usar, y Render deja en cada
+  servicio la versión por defecto del día en que se creó, sin actualizarla
+  nunca: un servicio creado en junio de 2026 queda en Node 24.14.1, sin los
+  parches del 21 de octubre de 2026 (24.22.1). El más grave, CVE-2026-111497
+  (escritura fuera de rango al descomprimir Brotli, con posible ejecución de
+  código), se alcanzaba desde internet, porque el árbitro acepta cuerpos con
+  `Content-Encoding: br` (los descomprime `express.json()`). Ahora el
+  `package.json` raíz y el de `apps/server` piden `"node": "24.x"`: Render
+  toma el último 24 en cada deploy, y el CI pasa de Node 22 a 24 para probar
+  lo mismo que corre en producción. La web no cambia: Vercel aplica por su
+  cuenta los parches de la versión mayor elegida.
 
 - **`Escrow1v1` listo para la auditoría externa (pre-auditoría, tanda 1 de
   mainnet).** El contrato se revisó con todo lo que se usa antes de pagar una
@@ -321,6 +372,14 @@ vuelven a jugar. Los paquetes de npm pasan a **0.6.0**, los cuatro juntos
   dice que enfrentaron el mismo azar secreto, revelado de a poco y ya público
   para re-verificarla. La pregunta frecuente "¿Por qué Flappy no tiene
   semilla?" pasa a incluir a Carrera, en los tres idiomas.
+- **El árbitro se comía el ancho de banda del plan Free de Upstash** (9 de los
+  10 GB del mes en la primera semana de octubre). Las partidas se guardaban
+  como un solo blob con dos días de historial y sus replays adentro (~9 MB), y
+  cada guardado lo subía entero: con la casa jugando ~200 partidas por día
+  eran más de 1 GB diario. Ahora cada partida es un campo de un hash de Redis
+  (`arcade:matches:byid`) y cada guardado sube solo las que cambiaron (~20 KB
+  por partida terminada) y borra las purgadas. El primer arranque con este
+  código migra el blob viejo (`arcade:matches`) al hash y después lo borra.
 - **`docs/MAINNET.md` daba por pendiente el redespliegue de los contratos v2**
   (C1, C2, C4 y O7, y los pasos de "Cómo seguir"): se ejecutó el 2026-09-24.
   `DEPLOY.md` arrastraba el mismo atraso en su checklist de mainnet.
@@ -335,6 +394,14 @@ vuelven a jugar. Los paquetes de npm pasan a **0.6.0**, los cuatro juntos
   el árbitro las guarda 90 días y, como tope, las 50 más recientes
   (`ALEPH_FINISHED_TTL_MS`, `ALEPH_MAX_SETTLED_KEPT`). Ahora dice que guarda
   solo las más recientes, sin números que se vuelvan a desactualizar.
+- **Un test de Flappy en vivo fallaba al azar en CI** ("tras una caída dura,
+  el intento vuelve desde su registro"). El secreto de cada partida es
+  aleatorio y, en ~1 de cada 200, la política del test chocaba dentro de los
+  primeros compromisos: el intento se cerraba y el árbitro contestaba el
+  intento terminado, no el conflicto que el test esperaba. El árbitro hacía lo
+  correcto; ahora ese test y el de "cada compromiso se guarda antes de
+  contestar" juegan con un secreto fijo, y el primero comprueba que el intento
+  siga abierto antes de simular la caída.
 
 ## [3.11.0] — 2026-09-29
 

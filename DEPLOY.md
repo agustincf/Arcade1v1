@@ -88,6 +88,13 @@ misma cuenta y el mismo `ARBITER_PRIVATE_KEY` del Paso 2, no una wallet nueva.
 En un hosting de Node (ej. Render), apuntando a `apps/server`:
 
 - Build/Start: `npm install` y `npm run start -w @arcade1v1/server`.
+- Versión de Node: la fija `"engines": { "node": "24.x" }` en el `package.json`
+  raíz y en el de `apps/server`. Render toma el último 24 en cada deploy, con
+  los parches de seguridad incluidos. **No cargues `NODE_VERSION`** en el
+  panel: le gana al `package.json` y congela la versión. Sin ninguna de las
+  dos cosas, Render deja para siempre la versión por defecto del día en que se
+  creó el servicio. La que tomó figura en el log del deploy
+  (`Using Node.js version …`).
 - Variables de entorno (en los "secrets" del hosting, **no** en el código):
   - `ARBITER_PRIVATE_KEY` — la llave del árbitro (guardar como secreto). Debe ser
     la cuenta que figura como **arbiter** en el contrato (Paso 1). Para
@@ -126,12 +133,13 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     endpoints caros / de los compromisos de las partidas en vivo, default 60
     cada 10 s).
   - `PERSIST_DEBOUNCE_MS` — cada cuánto, como mucho, se sube el estado a Redis
-    (default 20 s). **Ojo con bajarlo:** cada escritura manda el blob entero
-    (~1,3 MB con los replays adentro), así que la frecuencia se paga en ancho de
-    banda de SALIDA del hosting — con 500 ms nos comimos los 5 GB incluidos de
-    Render en una semana. Subirlo ahorra más; a cambio, un crash sin `SIGTERM`
-    pierde hasta ese tiempo de cambios en las partidas en curso (el dinero no:
-    está en el escrow on-chain; los intentos en vivo tampoco: cada uno tiene su
+    (default 20 s). **Ojo con bajarlo:** cada escritura se paga en ancho de
+    banda, del hosting y de Upstash (el plan Free trae 10 GB por mes). Las
+    partidas ya suben solo las que cambiaron (un campo de hash por partida),
+    pero los otros stores (ratings, agentes, stats, Aleph) siguen subiendo su
+    blob entero. Subirlo ahorra más; a cambio, un crash sin `SIGTERM` pierde
+    hasta ese tiempo de cambios en las partidas en curso (el dinero no: está en
+    el escrow on-chain; los intentos en vivo tampoco: cada uno tiene su
     registro, guardado antes de revelar).
   - `AGENTS_ENABLED=false` — apaga el runner de los agentes de la casa. También
     es una palanca de ancho de banda: cada partida que juegan dispara escrituras.
@@ -172,7 +180,9 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
 
 ## Paso 3 — Publicar la web (Vercel)
 
-Importá el repo en Vercel, raíz `apps/web`. Variables de entorno:
+Importá el repo en Vercel, raíz `apps/web`. De Node se elige solo la versión
+mayor (24.x o 22.x, en la configuración del proyecto); los parches de
+seguridad los aplica Vercel. Variables de entorno:
 
 - `NEXT_PUBLIC_SITE_URL` — tu dominio (para SEO / sitemap / Open Graph).
 - `NEXT_PUBLIC_ARBITER_URL` — la URL del árbitro (Paso 2).
