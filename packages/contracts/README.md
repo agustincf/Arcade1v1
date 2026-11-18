@@ -218,6 +218,19 @@ local (Anvil), sin gastar nada:
 bash check-deploy.sh
 ```
 
+Después de un deploy, una partida de 1 USDC de punta a punta contra el árbitro
+publicado: dos wallets descartables (las fondea la wallet de deploy de `.env`)
+abren, se unen, juegan y presentan, y el árbitro tiene que liquidar solo. Cuesta
+unos 0,00005 ETH de testnet y tarda 1-2 minutos. Desde la raíz del repo:
+
+```bash
+ESCROW_ADDRESS=<escrow> node --import tsx scripts/smoke-1v1-mesa-paga.mts
+```
+
+El `Escrow1v1` que corre hoy en testnet (la revisión de la pre-auditoría) está en
+`0x8968dfcf16d9542320B6Fd7c857F9f2c5eE19938`, desplegado el 2026-11-18
+([runbook](../../docs/REDEPLOY-escrow1v1-preauditoria.md)).
+
 ## Desplegar en Base mainnet (dinero real)
 
 Un solo comando, que no firma nada si algo no es exactamente lo aprobado

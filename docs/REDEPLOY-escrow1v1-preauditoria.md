@@ -1,8 +1,21 @@
 # Redeploy de `Escrow1v1` revisado (pre-auditoría) en Base Sepolia
 
-> **Pendiente.** Lo corre el dueño, después del merge del PR de la
-> pre-auditoría. Cuando esté hecho, anotar acá la dirección nueva y marcarlo
-> como ejecutado (como [REDEPLOY-contratos-v2.md](REDEPLOY-contratos-v2.md)).
+> **Ejecutado el 2026-11-18.** `Escrow1v1` revisado:
+> `0x8968dfcf16d9542320B6Fd7c857F9f2c5eE19938` (bloque 60.241.298), con el
+> mismo árbitro (`0xf0476b02…`), el mismo TestUSDC, la misma wallet de la
+> plataforma, comisión 1500 y las mesas 1, 2, 5 y 10 habilitadas; `PAY_GAS` =
+> 300000 y `MAX_MATCH_DURATION` = 172800 confirman que es la versión revisada.
+> El viejo (`0x155ff6…`) tenía saldo de USDC **0** al cerrarlo: ninguna partida
+> abierta ni fondeada, nada que reembolsar. Render y Vercel apuntan al nuevo, y
+> el smoke del paso 4 pasó (una partida de 1 USDC: el árbitro pagó 1,70 al
+> ganador y 0,30 de comisión).
+>
+> **Diferencia con el 24/9:** el dueño del contrato nuevo es la wallet de
+> deploy de `packages/contracts/.env` (`0xda0ccd24…`), no
+> `0x9CC97CadD71b97E3770305f6e717B984652F9077`, que era la dueña del viejo. En
+> testnet el dueño solo administra (mesas, wallet de la plataforma) y no toca
+> la plata de las partidas. Para devolvérsela: `transferOwnership(0x9CC97C…)`
+> desde la de deploy y `acceptOwnership()` desde `0x9CC97C…` (`Ownable2Step`).
 
 La pre-auditoría ([informe](auditorias/2026-10-02-preauditoria-escrow1v1.md))
 cambió `Escrow1v1` antes de mandarlo a auditar: tope al vencimiento del
@@ -33,8 +46,22 @@ deploy no rompe nada.
 
 ### 1) Cerrar las mesas de plata del 1v1 y esperar que se vacíen
 
-En Render, `STAKES_ALLOWED=` (vacía) y redeploy. Una partida de plata vive como
-mucho unas 2,5 h. Después revisá que en el contrato de hoy no quede ninguna
+En Render, `STAKES_ALLOWED=0` y redeploy. Mejor `0` que vacía: si el panel
+descarta una variable vacía, el árbitro vuelve a su valor por defecto
+(`1,2,5,10`) y las mesas quedan abiertas; `0` las cierra seguro (la mesa 0 es
+la gratis, que no se toca).
+
+**El chequeo rápido:** si el contrato viejo no tiene USDC, no hay ninguna
+partida `Open` ni `Funded` (cada una tiene depositado su stake) ni crédito
+pendiente, y no hace falta esperar ni recorrer eventos:
+
+```bash
+cast call 0xBE3A57a90548b336F5EBF997E6DA6d3DC64EE137 "balanceOf(address)(uint256)" \
+  0x155ff6FB175cC43197bA983Cb16c532Be12a34cb --rpc-url https://sepolia.base.org   # → 0
+```
+
+Si da más que 0: una partida de plata vive como mucho unas 2,5 h. Después
+revisá que en el contrato de hoy no quede ninguna
 `Open` ni `Funded` **desde que se desplegó** (bloque 47.255.314, el
 2026-09-24), no solo las últimas 48 h: los reembolsos del árbitro son de un
 solo intento (W4 de [MAINNET.md](MAINNET.md)) y alguna vieja pudo quedar
@@ -93,8 +120,19 @@ cast call "$NEW" "arbiter()(address)" --rpc-url "$RPC"              # → el ár
 ### 4) Reabrir y probar
 
 - **Render:** `STAKES_ALLOWED=1,2,5,10` (o borrar la variable) y redeploy.
-- Jugá una mesa de 1 USDC con dos wallets desde la web. La pantalla del ganador
-  tiene que pasar sola a "¡Cobrado!" y `GET /match/<id>` mostrar `settleTx`.
+- Antes de probar, que la web publicada ya tenga la dirección nueva (el
+  redeploy de Vercel tarda unos minutos en quedar en el dominio).
+- Una partida de 1 USDC, con el smoke (dos wallets descartables que fondea la
+  wallet de deploy de `packages/contracts/.env`; 1-2 minutos):
+
+  ```bash
+  ESCROW_ADDRESS=<dirección nueva> node --import tsx scripts/smoke-1v1-mesa-paga.mts
+  ```
+
+  Tiene que terminar en `SMOKE OK`: el árbitro liquidó solo (`settleTx`), el
+  ganador quedó con 1,70 USDC y la plataforma cobró 0,30. O a mano, desde la
+  web con dos wallets: la pantalla del ganador pasa sola a "¡Cobrado!" y
+  `GET /match/<id>` muestra `settleTx`.
 
 ## Reversa
 

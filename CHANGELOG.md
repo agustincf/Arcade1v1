@@ -8,6 +8,33 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [Sin publicar]
+
+### Cambiado
+
+- **Testnet corre el `Escrow1v1` que va a la auditoría externa** (O8 de
+  [`docs/MAINNET.md`](docs/MAINNET.md)). La versión revisada en la
+  pre-auditoría (tope al vencimiento del resultado, presupuesto fijo de gas por
+  pago, duración máxima de una partida, comisión congelada al abrir) quedó
+  desplegada en Base Sepolia el 2026-11-18, en
+  `0x8968dfcf16d9542320B6Fd7c857F9f2c5eE19938`, y el árbitro y la web apuntan a
+  ella. El contrato anterior no tenía plata adentro al cerrarlo. Una partida de
+  prueba de 1 USDC pasó de punta a punta: el árbitro pagó solo 1,70 al ganador y
+  0,30 de comisión. El runbook
+  ([`docs/REDEPLOY-escrow1v1-preauditoria.md`](docs/REDEPLOY-escrow1v1-preauditoria.md))
+  queda marcado como ejecutado, con dos ajustes que salieron de hacerlo: cerrar
+  las mesas con `STAKES_ALLOWED=0` (una variable vacía puede volver al valor por
+  defecto) y comprobar que el contrato viejo no tiene USDC, en vez de recorrer
+  sus eventos con un nodo público que no responde.
+
+### Agregado
+
+- **`scripts/smoke-1v1-mesa-paga.mts`**: el smoke de una mesa de plata del 1v1
+  en testnet, como el de Aleph. Dos wallets descartables (las fondea la wallet
+  de deploy de `packages/contracts/.env`) abren y se unen a una partida de 1
+  USDC, juegan, presentan, y el script comprueba que el árbitro liquide solo y
+  que los saldos cuadren. Tarda 1-2 minutos.
+
 ## [3.12.0] — 2026-11-13
 
 **Carrera se juega en vivo, y el árbitro y el contrato quedan listos para la
