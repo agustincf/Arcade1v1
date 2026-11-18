@@ -15,9 +15,33 @@
 // reintenta. El blob de partidas sigue guardándose como siempre: al restaurar,
 // el registro manda sobre la copia del blob (ver `restoreLiveAttempts`).
 //
+// QUÉ SE GUARDA: cada intento son varios campos del hash `arcade:live`.
+//   - `<matchId>:<address>`, la CABECERA: el intento sin sus jugadas (token,
+//     tick, revelados, final), más `wire` (si sus jugadas son `flaps` o
+//     `inputs`) y `moves` (cuántas hay hasta su tick).
+//   - `<matchId>:<address>#<from>`, un TRAMO: las jugadas en `[from, to)` y el
+//     avance al llegar a `to` (revelados, final).
+// Cada compromiso escribe UN campo: su tramo, desde donde había quedado lo
+// guardado. La cabecera se reescribe solo si cambia algo que no es avance (el
+// token, al retomar el intento) o si el avance cambia sin que el tick avance (un
+// cierre en el mismo tick). Cuando van las dos, van en el MISMO comando (un HSET
+// con varios campos): o quedan las dos o ninguna.
+//
+// Para rearmar el intento se recorren los tramos desde el 0, de `to` en `to`,
+// pasando por el tick de la cabecera, hasta que no hay más: el último dice el
+// avance. Un reintento (una respuesta que se perdió) vuelve a subir el tramo
+// desde el mismo `from`: pisa el mismo campo y no duplica jugadas. Un intento que
+// se reescribe entero (un registro viejo, o uno que no sigue a lo guardado)
+// estrena una generación (`g`), y los tramos que quedaran de antes no se leen.
+//
+// Antes cada compromiso reescribía el intento entero: en Space Invaders, con
+// ~850 jugadas y ~95 compromisos, ~1 MB por jugador y partida. Los registros con
+// ese formato (el intento entero en la cabecera, sin `wire`) se siguen leyendo,
+// y el primer cambio los pasa a tramos.
+//
 // Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md,
 // "Por qué alcanza, y qué no cubre" (decidido el 2026-09-22 para antes de
-// mainnet).
+// mainnet; los tramos, el 2026-11-18, antes de Space Invaders en vivo).
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -25,29 +49,32 @@ import { dirname, join } from "node:path";
 import { redisCommand, redisPipeline } from "./redis.js";
 import { EPOCH_READ, epochStillMine, isHolder } from "./lease.js";
 import { handoverEnabled, persistenceBackend } from "./persist.js";
+import type { LiveInput } from "@arcade1v1/game-sdk/live";
 import type { LiveAttempt } from "./matchmaking.js";
 
 /** No se pudo guardar el intento: el pedido no revela nada y se reintenta. Las
  *  rutas lo contestan con 503 (un cliente lo reintenta solo). */
 export class LiveUnavailableError extends Error {}
 
-/** Dónde se guarda. Un campo por intento (`<matchId>:<address>`) de UN hash de
- *  Redis: cada escritura sube solo ese intento, y al arrancar se leen todos en
- *  un pedido. */
+/** Dónde se guarda: campos de UN hash de Redis (la cabecera y los tramos de
+ *  cada intento, ver arriba). Al arrancar se leen todos en un pedido. */
 export interface LiveRecordStore {
-  /** Guarda YA. Resuelve solo si quedó guardado; si no, rechaza. */
-  save(key: string, json: string): Promise<void>;
+  /** Escribe estos campos (de un mismo intento) YA y juntos, en un solo
+   *  comando: o quedan todos o ninguno. Resuelve solo si quedó guardado; si no,
+   *  rechaza. */
+  save(fields: [string, string][]): Promise<void>;
   loadAll(): Promise<Map<string, string>>;
-  remove(keys: string[]): Promise<void>;
+  remove(fields: string[]): Promise<void>;
 }
 
 const LIVE_HASH = "arcade:live";
 
 function redisStore(): LiveRecordStore {
   return {
-    async save(key, json) {
+    async save(fields) {
+      const hset = ["HSET", LIVE_HASH, ...fields.flat()];
       if (!handoverEnabled) {
-        await redisCommand(["HSET", LIVE_HASH, key, json]);
+        await redisCommand(hset);
         return;
       }
       // Con traspaso escribe solo la dueña de la posta, como el resto del
@@ -57,7 +84,7 @@ function redisStore(): LiveRecordStore {
       // era de otra, el intento no se da por guardado (nada se revela) y esta
       // instancia se cerca.
       if (!isHolder()) throw new Error("live store: sin la posta, no se guarda");
-      const [cur] = await redisPipeline([[...EPOCH_READ], ["HSET", LIVE_HASH, key, json]]);
+      const [cur] = await redisPipeline([[...EPOCH_READ], hset]);
       if (!epochStillMine(cur)) throw new Error("live store: la posta es de otra instancia");
     },
     async loadAll() {
@@ -66,9 +93,9 @@ function redisStore(): LiveRecordStore {
       for (let i = 0; flat && i + 1 < flat.length; i += 2) out.set(flat[i], flat[i + 1]);
       return out;
     },
-    async remove(keys) {
-      if (keys.length === 0 || (handoverEnabled && !isHolder())) return;
-      await redisCommand(["HDEL", LIVE_HASH, ...keys]);
+    async remove(fields) {
+      if (fields.length === 0 || (handoverEnabled && !isHolder())) return;
+      await redisCommand(["HDEL", LIVE_HASH, ...fields]);
     },
   };
 }
@@ -96,16 +123,16 @@ function fileStore(): LiveRecordStore {
     renameSync(tmp, file);
   };
   return {
-    async save(key, json) {
-      current()[key] = json;
+    async save(fields) {
+      for (const [field, value] of fields) current()[field] = value;
       write();
     },
     async loadAll() {
       return new Map(Object.entries(current()));
     },
-    async remove(keys) {
-      if (keys.length === 0) return;
-      for (const k of keys) delete current()[k];
+    async remove(fields) {
+      if (fields.length === 0) return;
+      for (const f of fields) delete current()[f];
       write();
     },
   };
@@ -132,18 +159,100 @@ const store = (): LiveRecordStore =>
 /** Tests: inyectar un store (o `undefined` para volver al del entorno). */
 export function setLiveRecordStoreForTest(s: LiveRecordStore | undefined): void {
   impl = s;
-  lastSaved.clear();
+  saved.clear();
 }
 
 export const liveRecordKey = (matchId: string, address: string): string =>
   `${matchId}:${address.toLowerCase()}`;
 
-/** El JSON guardado de cada intento, tal cual: guardar lo mismo dos veces no
- *  hace falta (casi todo compromiso trae valores nuevos, pero los que no,
- *  y los reintentos, no escriben). Se poda con `forgetLiveAttempts`. */
-const lastSaved = new Map<string, string>();
+/** El campo del tramo de `key` que empieza en el tick `from`. */
+const partField = (key: string, from: number): string => `${key}#${from}`;
 
-/** Guarda el intento si cambió desde el último guardado. Resuelve cuando quedó
+/** Cómo viajan las jugadas de un intento: Flappy guarda los ticks de sus
+ *  aleteos (`flaps`); los demás, `{ t, a }` (`inputs`). */
+type Wire = "flaps" | "inputs";
+type Move = number | LiveInput;
+const wireOf = (a: LiveAttempt): Wire => (a.flaps ? "flaps" : "inputs");
+const movesOf = (a: LiveAttempt): readonly Move[] => a.flaps ?? a.inputs ?? [];
+const tickOf = (m: Move): number => (typeof m === "number" ? m : m.t);
+/** Una jugada como se guarda: el tick (Flappy) o solo `{ t, a }`. */
+const plain = (m: Move): Move => (typeof m === "number" ? m : { t: m.t, a: m.a });
+
+/** Lo que avanza en cada compromiso: viaja en el tramo que lo produjo. */
+const PROGRESS = ["tick", "revealed", "over", "score"] as const;
+
+/** Lo fijo del intento (el token, cuándo empezó): todo menos las jugadas y el
+ *  avance. Si cambia, se reescribe la cabecera. */
+function metaOf(a: LiveAttempt): string {
+  const rest: Partial<LiveAttempt> = { ...a };
+  delete rest.flaps;
+  delete rest.inputs;
+  for (const k of PROGRESS) delete rest[k];
+  return JSON.stringify(rest);
+}
+
+/** El avance sin el tick: revelados y final. */
+const progressOf = (a: LiveAttempt): string =>
+  JSON.stringify({ revealed: a.revealed, over: a.over, score: a.score });
+
+/** La cabecera: el intento sin sus jugadas, cómo viajan, cuántas hay y su
+ *  generación (si no es la primera). */
+function headOf(a: LiveAttempt, moves: number, gen: number): string {
+  const rest: Partial<LiveAttempt> = { ...a };
+  delete rest.flaps;
+  delete rest.inputs;
+  return JSON.stringify({ ...rest, wire: wireOf(a), moves, ...(gen ? { g: gen } : {}) });
+}
+
+/** Un tramo: hasta dónde llega, el avance ahí, y sus jugadas. */
+function trancheOf(a: LiveAttempt, moves: readonly Move[], gen: number): string {
+  return JSON.stringify({
+    to: a.tick,
+    revealed: a.revealed,
+    over: a.over,
+    score: a.score,
+    ...(gen ? { g: gen } : {}),
+    [wireOf(a)]: moves.map(plain),
+  });
+}
+
+/** Lo que este proceso sabe que hay guardado de cada intento. Se poda con
+ *  `forgetLiveAttempts`. */
+interface Saved {
+  /** Formato por tramos: lo fijo y el avance que quedaron guardados... */
+  meta?: string;
+  progress?: string;
+  /** ...o el JSON entero de un registro viejo, tal como se leyó. */
+  legacy?: string;
+  wire: Wire;
+  /** Las jugadas están guardadas hasta este tick, y son estas tantas. */
+  tick: number;
+  moves: number;
+  /** La generación de los tramos vigentes. */
+  gen: number;
+  /** Dónde empiezan los tramos que puede haber en el store, para borrarlos
+   *  con el intento. */
+  parts: Set<number>;
+}
+const saved = new Map<string, Saved>();
+
+/** ¿El intento en memoria sigue a lo guardado? Las jugadas solo se agregan y
+ *  el tick solo avanza, así que sí: lo nuevo son las jugadas desde la número
+ *  `prev.moves`, todas en `[prev.tick, a.tick)`. Si no (no debería pasar), se
+ *  reescribe entero. */
+function follows(prev: Saved, a: LiveAttempt, all: readonly Move[]): boolean {
+  if (prev.meta === undefined || prev.wire !== wireOf(a)) return false;
+  if (a.tick < prev.tick || all.length < prev.moves) return false;
+  for (let i = prev.moves; i < all.length; i++) {
+    const t = tickOf(all[i]);
+    if (t < prev.tick || t >= a.tick) return false;
+  }
+  return true;
+}
+
+/** Guarda lo que cambió del intento desde el último guardado: si avanzó, su
+ *  tramo nuevo (las jugadas desde donde había quedado lo guardado, y el
+ *  avance); la cabecera, si hace falta (ver arriba). Resuelve cuando quedó
  *  guardado; si no se pudo, tira `LiveUnavailableError` (y el llamador no
  *  revela nada). */
 export async function saveLiveAttempt(
@@ -152,21 +261,48 @@ export async function saveLiveAttempt(
   a: LiveAttempt,
 ): Promise<void> {
   const key = liveRecordKey(matchId, address);
-  const json = JSON.stringify(a);
-  if (lastSaved.get(key) === json) return;
+  const prev = saved.get(key);
+  if (prev?.legacy !== undefined && prev.legacy === JSON.stringify(a)) return;
+  const all = movesOf(a);
+  const meta = metaOf(a);
+  const progress = progressOf(a);
+  // Desde dónde se sube: lo que sigue a lo guardado, o todo desde el tick 0
+  // (nada guardado todavía, un registro viejo, o un intento que no sigue), con
+  // una generación nueva.
+  const base = prev && follows(prev, a, all) ? prev : undefined;
+  if (base && a.tick === base.tick && meta === base.meta && progress === base.progress) return;
+  const gen = base ? base.gen : prev ? prev.gen + 1 : 0;
+  const from = base ? base.tick : 0;
+  const fields: [string, string][] = [];
+  if (!base || meta !== base.meta || a.tick === base.tick) {
+    fields.push([key, headOf(a, all.length, gen)]);
+  }
+  // Un tramo sin jugadas también se escribe: su `to` es el eslabón al tramo
+  // siguiente, y lleva el avance.
+  if (a.tick > from) {
+    fields.push([partField(key, from), trancheOf(a, all.slice(base ? base.moves : 0), gen)]);
+  }
+  // El tramo se anota aunque falle: la escritura puede haber llegado y perderse
+  // la respuesta, y entonces hay que borrarlo con el intento.
+  const parts = new Set(prev?.parts ?? []);
+  if (a.tick > from) parts.add(from);
   try {
-    await store().save(key, json);
+    await store().save(fields);
   } catch (e) {
+    // No se sabe si quedó: lo que sigue se vuelve a subir desde lo último
+    // seguro, y si había quedado se pisa el mismo campo.
+    const before = prev ?? { wire: wireOf(a), tick: 0, moves: 0, gen };
+    saved.set(key, { ...before, gen: Math.max(before.gen, gen), parts });
     console.error(`[live] no se pudo guardar el intento ${key}:`, (e as Error).message);
     throw new LiveUnavailableError("could not save your live attempt — retry in a moment", {
       cause: e,
     });
   }
-  lastSaved.set(key, json);
+  saved.set(key, { meta, progress, wire: wireOf(a), tick: a.tick, moves: all.length, gen, parts });
 }
 
-/** Las jugadas de un registro: `flaps` (Flappy) o `inputs` (los demás), y
- *  lo que haya tiene que ser una lista. */
+/** Las jugadas de un registro viejo: `flaps` (Flappy) o `inputs` (los
+ *  demás), y lo que haya tiene que ser una lista. */
 const movesOk = (a: LiveAttempt) =>
   (a.flaps === undefined || Array.isArray(a.flaps)) &&
   (a.inputs === undefined || Array.isArray(a.inputs)) &&
@@ -178,44 +314,188 @@ export interface StoredLiveAttempt {
   attempt: LiveAttempt;
 }
 
-/** Todos los intentos guardados (al arrancar). Los que se leen ya están
- *  guardados: no se vuelven a escribir si no cambian. */
-export async function loadLiveAttempts(): Promise<StoredLiveAttempt[]> {
-  const out: StoredLiveAttempt[] = [];
-  const broken: string[] = [];
-  for (const [key, json] of await store().loadAll()) {
-    const cut = key.lastIndexOf(":");
-    let attempt: LiveAttempt | undefined;
+const isTick = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0;
+
+/** Arma UN intento con su cabecera y sus tramos (los campos `#<from>` de su
+ *  clave), o `undefined` si no se puede: JSON roto, un hueco antes del tick de
+ *  la cabecera, una jugada fuera de su tramo o una cuenta de jugadas que no
+ *  da. */
+function decodeOne(
+  json: string,
+  parts: ReadonlyMap<number, string>,
+): { attempt: LiveAttempt; saved: Omit<Saved, "parts"> } | undefined {
+  let rec: any;
+  try {
+    rec = JSON.parse(json);
+  } catch {
+    return undefined;
+  }
+  if (!rec || typeof rec !== "object" || !isTick(rec.tick)) return undefined;
+  if (rec.wire === undefined) {
+    // Formato viejo: el intento entero, con sus jugadas.
+    if (!movesOk(rec)) return undefined;
+    const attempt = rec as LiveAttempt;
+    const moves = movesOf(attempt).length;
+    return {
+      attempt,
+      saved: { legacy: json, wire: wireOf(attempt), tick: rec.tick, moves, gen: 0 },
+    };
+  }
+  const wire = rec.wire as Wire;
+  const gen = rec.g ?? 0;
+  if ((wire !== "flaps" && wire !== "inputs") || !isTick(rec.moves) || !isTick(gen)) {
+    return undefined;
+  }
+  const moves: Move[] = [];
+  let last: any;
+  let cur = 0;
+  for (;;) {
+    if (cur === rec.tick && moves.length !== rec.moves) return undefined;
+    const raw = parts.get(cur);
+    if (raw === undefined) break;
+    let tr: any;
     try {
-      attempt = JSON.parse(json) as LiveAttempt;
+      tr = JSON.parse(raw);
     } catch {
-      attempt = undefined;
+      return undefined;
     }
-    if (cut <= 0 || !attempt || !Number.isInteger(attempt.tick) || !movesOk(attempt)) {
+    if (!tr || typeof tr !== "object") return undefined;
+    // De otra generación: es de antes de una reescritura, y ahí termina.
+    if ((tr.g ?? 0) !== gen) break;
+    if (!isTick(tr.to) || tr.to <= cur || !isTick(tr.revealed) || !Array.isArray(tr[wire])) {
+      return undefined;
+    }
+    // La cabecera cae justo en el borde de un tramo.
+    if (cur < rec.tick && tr.to > rec.tick) return undefined;
+    for (const m of tr[wire] as unknown[]) {
+      const t = wire === "flaps" ? m : (m as LiveInput | null)?.t;
+      if (!Number.isInteger(t) || (t as number) < cur || (t as number) >= tr.to) return undefined;
+      if (wire === "inputs" && typeof (m as LiveInput).a !== "string") return undefined;
+      moves.push(plain(m as Move));
+    }
+    last = tr;
+    cur = tr.to;
+  }
+  if (cur < rec.tick) return undefined;
+  const attempt = { ...rec, [wire]: moves } as LiveAttempt & {
+    wire?: Wire;
+    moves?: number;
+    g?: number;
+  };
+  delete attempt.wire;
+  delete attempt.moves;
+  delete attempt.g;
+  if (cur > rec.tick) {
+    // Los tramos siguieron después de la cabecera: el último dice el avance.
+    if (rec.over) return undefined; // un intento cerrado no avanza
+    attempt.tick = cur;
+    attempt.revealed = last.revealed;
+    if (last.over) Object.assign(attempt, { over: true, score: last.score });
+  } else if (last) {
+    // La cabecera se escribió en el mismo tick que el último tramo, o después.
+    attempt.revealed = Math.max(attempt.revealed, last.revealed);
+    if (!attempt.over && last.over) Object.assign(attempt, { over: true, score: last.score });
+  }
+  return {
+    attempt,
+    saved: {
+      meta: metaOf(attempt),
+      progress: progressOf(attempt),
+      wire,
+      tick: attempt.tick,
+      moves: moves.length,
+      gen,
+    },
+  };
+}
+
+/** Todos los registros de un hash leído entero: los que se arman y, aparte,
+ *  los campos ilegibles (`junk`: de registros que no se arman, o tramos sin
+ *  cabecera) y de qué intentos son (`broken`, para el log). */
+function decodeAll(all: ReadonlyMap<string, string>) {
+  const heads = new Map<string, string>();
+  const tranches = new Map<string, Map<number, string>>();
+  const junk: string[] = [];
+  const broken: string[] = [];
+  for (const [field, value] of all) {
+    const hash = field.indexOf("#");
+    if (hash < 0) {
+      heads.set(field, value);
+      continue;
+    }
+    const key = field.slice(0, hash);
+    const from = field.slice(hash + 1);
+    if (!/^\d+$/.test(from)) {
+      junk.push(field);
+      broken.push(field);
+      continue;
+    }
+    let mine = tranches.get(key);
+    if (!mine) tranches.set(key, (mine = new Map()));
+    mine.set(Number(from), value);
+  }
+  const ok: (StoredLiveAttempt & { key: string; saved: Saved })[] = [];
+  for (const [key, json] of heads) {
+    const parts = tranches.get(key) ?? new Map<number, string>();
+    tranches.delete(key);
+    const cut = key.lastIndexOf(":");
+    const d = cut > 0 ? decodeOne(json, parts) : undefined;
+    if (!d) {
+      junk.push(key, ...[...parts.keys()].map((p) => partField(key, p)));
       broken.push(key);
       continue;
     }
-    lastSaved.set(key, json);
-    out.push({ matchId: key.slice(0, cut), address: key.slice(cut + 1), attempt });
+    ok.push({
+      matchId: key.slice(0, cut),
+      address: key.slice(cut + 1),
+      attempt: d.attempt,
+      key,
+      // Todos sus tramos, en el camino o no: se borran con el intento.
+      saved: { ...d.saved, parts: new Set(parts.keys()) },
+    });
   }
-  if (broken.length) {
+  // Tramos sin cabecera: de un intento que se borró a medias.
+  for (const [key, parts] of tranches) {
+    junk.push(...[...parts.keys()].map((p) => partField(key, p)));
+    broken.push(`${key} (${parts.size} tramos sin cabecera)`);
+  }
+  return { ok, junk, broken };
+}
+
+/** Los intentos de un hash leído entero (sin tocar nada): para mirar lo
+ *  guardado (tests, diagnóstico). */
+export function decodeLiveRecords(all: ReadonlyMap<string, string>): StoredLiveAttempt[] {
+  return decodeAll(all).ok.map(({ matchId, address, attempt }) => ({ matchId, address, attempt }));
+}
+
+/** Todos los intentos guardados (al arrancar). Los que se leen ya están
+ *  guardados: no se vuelven a escribir si no cambian. */
+export async function loadLiveAttempts(): Promise<StoredLiveAttempt[]> {
+  const { ok, junk, broken } = decodeAll(await store().loadAll());
+  for (const r of ok) saved.set(r.key, r.saved);
+  if (junk.length) {
     console.error(`[live] registros ilegibles, se descartan: ${broken.join(", ")}`);
     await store()
-      .remove(broken)
+      .remove(junk)
       .catch(() => {});
   }
-  return out;
+  return ok.map(({ matchId, address, attempt }) => ({ matchId, address, attempt }));
 }
 
 /** Borra los registros de una partida que ya no existe (se purgó o nunca se
- *  restauró). No espera: es limpieza, y si falla se reintenta la próxima vez
- *  que se purgue o se arranque. */
+ *  restauró): la cabecera y todos los tramos de cada intento. No espera: es
+ *  limpieza, y si falla se reintenta la próxima vez que se purgue o se
+ *  arranque. */
 export function forgetLiveAttempts(matchId: string, addresses: string[]): void {
-  const keys = addresses.map((a) => liveRecordKey(matchId, a));
-  for (const k of keys) lastSaved.delete(k);
-  if (keys.length === 0) return;
+  const fields: string[] = [];
+  for (const address of addresses) {
+    const key = liveRecordKey(matchId, address);
+    fields.push(key, ...[...(saved.get(key)?.parts ?? [])].map((p) => partField(key, p)));
+    saved.delete(key);
+  }
+  if (fields.length === 0) return;
   store()
-    .remove(keys)
+    .remove(fields)
     .catch((e) => console.error("[live] no se pudo borrar un registro:", (e as Error).message));
 }
 
@@ -250,6 +530,6 @@ export async function withLiveLock<T>(
 
 /** Tests: olvidar lo guardado y los cerrojos (no toca el store). */
 export function __resetLiveStoreForTest(): void {
-  lastSaved.clear();
+  saved.clear();
   locks.clear();
 }

@@ -328,8 +328,9 @@ export async function liveCommit(
     const game = liveGameFor(m.game)!;
     const tranche = trancheOf(game, body, from, to);
     // Tope del intento (Carrera): sin él, quien sobrevive podría inflar su
-    // registro con jugadas que no cambian nada, y se reescribe entero en cada
-    // compromiso. Un cliente honesto recorta antes de jugar y nunca llega acá.
+    // registro con jugadas que no cambian nada, y cada una se guarda (en su
+    // tramo) y se re-simula. Un cliente honesto recorta antes de jugar y nunca
+    // llega acá.
     const budget = game.inputBudget(to);
     if (attemptInputs(m.game, a).length + tranche.length > budget) {
       throw new LiveError(`too many inputs: at most ${budget} by tick ${to}`);
