@@ -10,6 +10,22 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **Avisos de seguridad prendidos en el repositorio** (O9 de
+  [`docs/MAINNET.md`](docs/MAINNET.md)): las alertas de Dependabot, el escaneo
+  de secretos y su bloqueo al subir (GitHub rechaza un push que traiga una
+  clave). Estaban apagados, y por eso los avisos de dependencias de octubre y
+  noviembre de 2026 no le llegaron a nadie. Al prenderlos, Dependabot listó lo
+  mismo que `npm audit` ya había dejado abierto a propósito (las librerías de
+  wallets de wagmi 2, C17); el escaneo de secretos no había levantado ninguna
+  alerta al cerrar este cambio (revisa el historial en segundo plano: si
+  aparece una, la clave se rota).
+- **La versión de `Escrow1v1` que va a la auditoría quedó etiquetada**:
+  `escrow1v1-audit` apunta a `b054e80` (la fuente del contrato no cambia desde
+  `4689953`, el #59), que es la que corre en testnet. El auditor revisa esa
+  etiqueta; si el contrato cambiara antes, hay que moverla y avisarle.
+
 ### Cambiado
 
 - **Testnet corre el `Escrow1v1` que va a la auditoría externa** (O8 de
