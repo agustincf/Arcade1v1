@@ -32,18 +32,21 @@ function reference(secret: string, i: number): number {
 
 const SECRET = "7f".repeat(32);
 
-test("el interruptor: Flappy se juega en vivo desde las reglas v2, Carrera desde las v3, y nada más", () => {
+test("el interruptor: Flappy se juega en vivo desde las reglas v2, Carrera desde las v3, Invaders desde las v2, y nada más", () => {
   assert.equal(isLiveMatch("flappy", 1), false);
   assert.equal(isLiveMatch("flappy", undefined), false, "sin versión es v1");
   assert.equal(isLiveMatch("flappy", 2), true);
   assert.equal(isLiveMatch("flappy", 3), true);
-  assert.equal(isLiveMatch("racing", 2), false, "Carrera v2 (la de hoy) sigue con semilla");
+  assert.equal(isLiveMatch("racing", 2), false, "Carrera v2 sigue con semilla");
   assert.equal(isLiveMatch("racing", 3), true);
+  assert.equal(isLiveMatch("invaders", undefined), false, "Invaders v1 (la de hoy) sigue con semilla");
+  assert.equal(isLiveMatch("invaders", 2), true);
   assert.equal(isLiveMatch("2048", 9), false);
-  assert.deepEqual(LIVE_SINCE_RULES_V, { flappy: 2, racing: 3 });
-  // El interruptor está prendido: las reglas vigentes de los dos se juegan en vivo.
+  assert.deepEqual(LIVE_SINCE_RULES_V, { flappy: 2, racing: 3, invaders: 2 });
+  // Prendido para Flappy y Carrera; Invaders, todavía apagado (PR 2).
   assert.equal(isLiveMatch("flappy", RULES_V.flappy), true);
   assert.equal(isLiveMatch("racing", RULES_V.racing), true);
+  assert.equal(isLiveMatch("invaders", RULES_V.invaders), false);
 });
 
 test("constantes del protocolo", () => {

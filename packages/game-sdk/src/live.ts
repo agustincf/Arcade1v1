@@ -4,7 +4,7 @@
 // jugadas hasta un tick y recibe los valores al azar que el juego va a consumir
 // en los próximos LIVE_LEAD_TICKS; con esos valores el motor corre igual que
 // siempre. Al decidirse la partida se publica el secreto y cualquiera
-// re-verifica (verifyFlappyLive, verifyRacingLive).
+// re-verifica (verifyFlappyLive, verifyRacingLive, verifyInvadersLive).
 // Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md
 
 import { sha256, sha256Hex, hexToBytes } from "./sha256";
@@ -21,8 +21,9 @@ export const MAX_COMMIT_TICKS = 3_600;
 
 /** Desde qué versión de reglas se juega en vivo cada juego. El interruptor de
  *  cada uno es su `RULES_V` (rules.ts): Flappy está en vivo desde la v2;
- *  Carrera, desde la v3 (mientras `RULES_V.racing` siga en 2, con semilla). */
-export const LIVE_SINCE_RULES_V: Record<string, number> = { flappy: 2, racing: 3 };
+ *  Carrera, desde la v3; Invaders, desde la v2 (mientras `RULES_V.invaders`
+ *  siga en 1, con semilla). */
+export const LIVE_SINCE_RULES_V: Record<string, number> = { flappy: 2, racing: 3, invaders: 2 };
 
 /** ¿Una partida de `game` nacida con las reglas `rulesV` se juega en vivo? */
 export function isLiveMatch(game: string, rulesV: number | undefined): boolean {
@@ -147,7 +148,8 @@ export function checkLiveReveals(
 // ---- Cualquier juego en vivo ----------------------------------------------------
 // El driver, la sesión de la web, el árbitro y la re-verificación no saben de
 // aleteos ni de carriles: trabajan con la DEFINICIÓN de cada juego en vivo
-// (flappy-live.ts, racing-live.ts) y con sus jugadas como `{ t, a }`.
+// (flappy-live.ts, racing-live.ts, invaders-live.ts) y con sus jugadas como
+// `{ t, a }`.
 
 /** Una jugada: la acción `a` en el tick `t` (absoluto). En Flappy, `a` es "f". */
 export interface LiveInput {
