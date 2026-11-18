@@ -39,7 +39,11 @@ test("el interruptor: Flappy se juega en vivo desde las reglas v2, Carrera desde
   assert.equal(isLiveMatch("flappy", 3), true);
   assert.equal(isLiveMatch("racing", 2), false, "Carrera v2 sigue con semilla");
   assert.equal(isLiveMatch("racing", 3), true);
-  assert.equal(isLiveMatch("invaders", undefined), false, "Invaders v1 (la de hoy) sigue con semilla");
+  assert.equal(
+    isLiveMatch("invaders", undefined),
+    false,
+    "Invaders v1 (la de hoy) sigue con semilla",
+  );
   assert.equal(isLiveMatch("invaders", 2), true);
   assert.equal(isLiveMatch("2048", 9), false);
   assert.deepEqual(LIVE_SINCE_RULES_V, { flappy: 2, racing: 3, invaders: 2 });
