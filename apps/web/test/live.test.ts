@@ -13,6 +13,8 @@ import {
   forgetLiveMatch,
   flappyReplaySource,
   racingReplaySource,
+  invadersReplaySource,
+  heldDiff,
   liveSecretHolds,
   liveErrorReason,
 } from "../app/lib/live.js";
@@ -99,6 +101,27 @@ test("el replay de Carrera se re-juega con el secreto publicado; sin secreto, co
   assert.equal(racingReplaySource(seededReplay), 42);
   assert.throws(() => racingReplaySource(liveReplay), /secret/);
   assert.deepEqual(forfeitReplay("racing", null, 3), { ticks: 0, inputs: [], v: 3 });
+});
+
+test("el replay de Invaders se re-juega con el secreto publicado; sin secreto, con su semilla", () => {
+  const secret = "7f".repeat(32);
+  const liveReplay = { ticks: 10, inputs: [] as { t: number; a: string }[], v: 2 };
+  const seededReplay = { seed: 42, ticks: 10, inputs: [] as { t: number; a: string }[] };
+  assert.ok(invadersReplaySource(liveReplay, secret) instanceof SecretSource);
+  assert.equal(invadersReplaySource(seededReplay), 42);
+  assert.throws(() => invadersReplaySource(liveReplay), /secret/);
+  assert.deepEqual(forfeitReplay("invaders", null, 2), { ticks: 0, inputs: [], v: 2 });
+});
+
+test("Invaders en vivo manda solo las teclas que cambian, y lo recortado vuelve a salir", () => {
+  const none = { left: false, right: false, fire: false };
+  assert.deepEqual(heldDiff(none, none), []);
+  assert.deepEqual(heldDiff({ ...none, left: true }, none), ["l1"]);
+  assert.deepEqual(heldDiff({ ...none, right: true }, { ...none, left: true }), ["l0", "r1"]);
+  assert.deepEqual(heldDiff({ left: true, right: false, fire: true }, none), ["l1", "f1"]);
+  // Un tope recortó el "soltar": el motor sigue disparando y el jugador ya
+  // soltó. El tick siguiente lo vuelve a mandar en vez de dejar la tecla pegada.
+  assert.deepEqual(heldDiff(none, { ...none, fire: true }), ["f0"]);
 });
 
 test("el secreto de una partida en vivo decidida se comprueba cerrado: sin secreto o sin hash, no cumple", () => {

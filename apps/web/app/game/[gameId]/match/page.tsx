@@ -827,7 +827,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   // el cliente es siempre este navegador, nunca un agente headless.
   const gameProps = { onStarted: () => setPlaying(true), strict: needsDeposit };
 
-  // EN VIVO: el juego (FlappyGame, RacingGame) abre el intento con su firma (la
+  // EN VIVO: el juego (FlappyGame, RacingGame, InvadersGame) abre el intento con su firma (la
   // del puntaje final ya no hace falta: siguen siendo dos firmas por partida) y
   // compromete jugadas con el token del intento.
   const liveController: LiveController | undefined =
@@ -1065,9 +1065,14 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
           ) : game.id === "invaders" ? (
             <InvadersGame
               key={round}
-              seed={seed!}
+              {...(live ? { live: liveController } : { seed: seed! })}
               {...gameProps}
-              onFinish={(r: InvadersResult) => finishMatch(r.score, r.replay)}
+              // El árbitro cerró el intento: el puntaje ya está anotado, así que
+              // "Salir" deja de ser una rendición.
+              onAttemptClosed={() => setPlaying(false)}
+              onFinish={(r: InvadersResult) =>
+                r.live ? void finishLive(r.score, r.live.reveals) : finishMatch(r.score, r.replay)
+              }
             />
           ) : (
             <Game2048Component

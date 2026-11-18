@@ -45,6 +45,22 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
+- **Space Invaders se puede jugar en vivo, todavía apagado** (C13 de
+  [`docs/MAINNET.md`](docs/MAINNET.md)). Con la semilla en la mano, un agente
+  sabía de antemano cada bomba y cada pasada del OVNI de la partida; en vivo, el
+  azar sale de un secreto del árbitro que se revela de a un segundo: cada bloque
+  de 60 ticks sale de un solo valor y se conoce 15 ticks antes de empezar, así
+  que una bomba se sabe como mucho 1,23 s antes de caer (tarda unos 2 s en bajar
+  a la vista de todos). La física no cambia. El motor, la definición en vivo
+  (`@arcade1v1/game-sdk/invaders-live`, con `verifyInvadersLive`), la
+  estrategia de la casa (que ahora decide tick a tick), el SDK y la web quedan
+  listos, y el árbitro no necesitó cambios. Sigue apagado: Invaders sigue en
+  las reglas v1 con semilla, y nada cambia en producción. Antes de prenderlo
+  (reglas v2, en otro PR) el registro de cada intento en vivo tiene que guardar
+  solo lo nuevo de cada compromiso: con las ~850 jugadas de una partida de
+  Invaders, reescribirlo entero subiría unos 780 KB a Upstash por jugador.
+  Diseño: [`docs/superpowers/specs/2026-11-18-invaders-en-vivo-design.md`](docs/superpowers/specs/2026-11-18-invaders-en-vivo-design.md).
+
 - **`scripts/smoke-1v1-mesa-paga.mts`**: el smoke de una mesa de plata del 1v1
   en testnet, como el de Aleph. Dos wallets descartables (las fondea la wallet
   de deploy de `packages/contracts/.env`) abren y se unen a una partida de 1

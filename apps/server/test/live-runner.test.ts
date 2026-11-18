@@ -14,6 +14,8 @@ import { FlappyEngine, FLAPPY_DT } from "@arcade1v1/game-sdk/flappy";
 import { SecretSource, capLiveActions, liveActions } from "@arcade1v1/game-sdk/live";
 import { RacingEngine } from "@arcade1v1/game-sdk/racing";
 import { racingLive } from "@arcade1v1/game-sdk/racing-live";
+import { InvadersEngine } from "@arcade1v1/game-sdk/invaders";
+import { invadersLive } from "@arcade1v1/game-sdk/invaders-live";
 import { getStrategy, defaultParams } from "@arcade1v1/strategies";
 
 process.env.REQUIRE_AUTH = "true";
@@ -21,6 +23,7 @@ process.env.AGENTS_ENABLED = "false"; // sin timer: ticks manuales
 process.env.MAX_AGENTS_PER_OWNER = "100";
 RULES_V.flappy = 2;
 RULES_V.racing = 3; // Carrera en vivo (en producción, recién con el PR 2)
+RULES_V.invaders = 2; // Invaders en vivo (en producción, recién con su PR 2)
 const { createHostedAgent, getAgent } = await import("../src/agents.js");
 const { runAgentsTick } = await import("../src/agent-runner.js");
 const { matchmake, submitScore, getMatch, matchRecord } = await import("../src/matchmaking.js");
@@ -202,4 +205,63 @@ test("la casa juega Carrera en vivo sin ver el secreto, y su puntaje es el de su
 
   const done = getMatch(pending)!;
   assert.equal(houseScore, racingBatchWithSecret(done.secret!));
+});
+
+/** Invaders: la estrategia por defecto jugada de un tirón con el secreto, con
+ *  los mismos topes de jugadas que aplica quien juega en vivo. */
+function invadersBatchWithSecret(secret: string): number {
+  const def = getStrategy("invaders.hunter")!;
+  const step = def.step!(defaultParams(def));
+  const g = new InvadersEngine(new SecretSource(secret));
+  let played = 0;
+  for (let t = 0; t < step.maxTicks && !g.over; t++) {
+    const acts = capLiveActions(
+      invadersLive,
+      liveActions(invadersLive, step.decide(g, t)),
+      played,
+      t,
+    );
+    played += acts.length;
+    invadersLive.step(g, acts);
+  }
+  return g.score;
+}
+
+test("la casa juega Invaders en vivo sin ver el secreto, y su puntaje es el de su estrategia", async () => {
+  const agent = createHostedAgent({
+    owner: "0x" + "c".repeat(40),
+    name: "InvasoresCasa",
+    avatar: "🤖",
+    game: "invaders",
+    strategyId: "invaders.hunter",
+    params: undefined,
+  });
+  const agentAddr = agent.address.toLowerCase();
+
+  await runAgentsTick(); // se encola
+  const pending = getAgent(agent.id)!.pendingMatchId!;
+  assert.ok(pending, "quedó esperando rival");
+
+  const rival = privateKeyToAccount(generatePrivateKey());
+  const rivalAddr = rival.address.toLowerCase();
+  const ts = Date.now();
+  const signature = await rival.signMessage({
+    message: matchmakeAuthMessage("invaders", 0, rivalAddr, ts),
+  });
+  const m = await matchmake("invaders", 0, rivalAddr, { signature, ts });
+  assert.equal(m.matchId, pending);
+  assert.equal(m.live, true);
+
+  await runAgentsTick(); // juega en vivo
+  assert.equal(getMatch(pending, agentAddr)!.secret, undefined, "sin decidir: nada de secreto");
+  const houseScore = matchRecord(pending)!.scores[agentAddr];
+  assert.equal(typeof houseScore, "number", "el intento cerró con puntaje");
+
+  const sig0 = await rival.signMessage({ message: scoreAuthMessage(pending, rivalAddr, 0) });
+  const after = await submitScore(pending, rivalAddr, 0, { ticks: 0, inputs: [], v: 2 }, sig0);
+  assert.ok(after.status === "settled" || after.status === "draw");
+
+  const done = getMatch(pending)!;
+  assert.ok(houseScore > 0, "la casa suma puntos");
+  assert.equal(houseScore, invadersBatchWithSecret(done.secret!));
 });
