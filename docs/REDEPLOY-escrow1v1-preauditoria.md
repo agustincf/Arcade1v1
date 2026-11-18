@@ -10,12 +10,17 @@
 > el smoke del paso 4 pasó (una partida de 1 USDC: el árbitro pagó 1,70 al
 > ganador y 0,30 de comisión).
 >
-> **Diferencia con el 24/9:** el dueño del contrato nuevo es la wallet de
-> deploy de `packages/contracts/.env` (`0xda0ccd24…`), no
-> `0x9CC97CadD71b97E3770305f6e717B984652F9077`, que era la dueña del viejo. En
-> testnet el dueño solo administra (mesas, wallet de la plataforma) y no toca
-> la plata de las partidas. Para devolvérsela: `transferOwnership(0x9CC97C…)`
-> desde la de deploy y `acceptOwnership()` desde `0x9CC97C…` (`Ownable2Step`).
+> **Dueño:** el deploy lo dejó en la wallet de deploy de
+> `packages/contracts/.env` (`0xda0ccd24…`), y el mismo 2026-11-18 pasó a
+> `0x15bd1EFcC9F23Ca34c99C8b22f79d707F392268C` (la wallet del dueño del
+> proyecto, que también cobra la comisión) con `Ownable2Step`:
+> `transferOwnership` desde la de deploy y `acceptOwnership` desde la nueva. El
+> viejo era de `0x9CC97C…`. En testnet el dueño solo administra (mesas, wallet
+> de la plataforma) y no toca la plata de las partidas. El código está
+> verificado en
+> [Blockscout](https://base-sepolia.blockscout.com/address/0x8968dfcf16d9542320B6Fd7c857F9f2c5eE19938?tab=contract),
+> así que el dueño puede administrar desde la pestaña de escritura con su
+> wallet.
 
 La pre-auditoría ([informe](auditorias/2026-10-02-preauditoria-escrow1v1.md))
 cambió `Escrow1v1` antes de mandarlo a auditar: tope al vencimiento del
