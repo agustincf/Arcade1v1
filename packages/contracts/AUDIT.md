@@ -12,17 +12,17 @@ mainnet**. It is the only contract in scope.
 
 ## 1. Scope
 
-| Item         | Value                                                                                                                                                  |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| In scope     | `packages/contracts/src/Escrow1v1.sol` (single contract, ~320 lines of code without comments or blank lines)                                           |
-| Commit       | the commit tagged `escrow1v1-audit` (set when the audit is contracted); the audited build's creation-code hash is then pinned in `build-aprobada.json` |
-| Compiler     | solc **0.8.24** (pinned), optimizer **200 runs**, **no** `via_ir`, `evm_version = cancun`                                                              |
-| Dependencies | OpenZeppelin Contracts **5.6.1**: `Ownable2Step`, `ReentrancyGuard`, `EIP712`, `ECDSA`, `SafeERC20`, `IERC20`                                          |
-| Target chain | Base mainnet (chain id 8453)                                                                                                                           |
-| Token        | Circle USDC on Base, `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (`FiatTokenProxy` → `FiatTokenV2_2`: 6 decimals, blacklist, pause, upgradeable)      |
-| Tables       | 1, 2, 5 and 10 USDC per player                                                                                                                         |
-| Fee          | 1500 bps (15% of the pot), hard cap 2000 (`MAX_FEE_BPS`)                                                                                               |
-| Owner        | a Safe multisig, via `Ownable2Step` (deployed by a Ledger, then handed over)                                                                           |
+| Item         | Value                                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| In scope     | `packages/contracts/src/Escrow1v1.sol` (single contract, ~320 lines of code without comments or blank lines)                                      |
+| Commit       | tag `escrow1v1-audit` (commit `b054e80`, 2026-11-18; source unchanged since `4689953`); its build hash is then pinned in `build-aprobada.json`    |
+| Compiler     | solc **0.8.24** (pinned), optimizer **200 runs**, **no** `via_ir`, `evm_version = cancun`                                                         |
+| Dependencies | OpenZeppelin Contracts **5.6.1**: `Ownable2Step`, `ReentrancyGuard`, `EIP712`, `ECDSA`, `SafeERC20`, `IERC20`                                     |
+| Target chain | Base mainnet (chain id 8453)                                                                                                                      |
+| Token        | Circle USDC on Base, `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (`FiatTokenProxy` → `FiatTokenV2_2`: 6 decimals, blacklist, pause, upgradeable) |
+| Tables       | 1, 2, 5 and 10 USDC per player                                                                                                                    |
+| Fee          | 1500 bps (15% of the pot), hard cap 2000 (`MAX_FEE_BPS`)                                                                                          |
+| Owner        | a Safe multisig, via `Ownable2Step` (deployed by a Ledger, then handed over)                                                                      |
 
 **Out of scope:** `EscrowAleph.sol` (the multi-agent money tables stay on
 testnet; it will be audited separately if they ever go to mainnet),
