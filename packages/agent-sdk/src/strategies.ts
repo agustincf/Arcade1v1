@@ -43,8 +43,10 @@ export const DEFAULT_STRATEGIES: Record<string, Strategy> = Object.fromEntries(
 
 /** Estrategia EN VIVO: decide tick a tick mirando el motor, sin azar futuro.
  *  Devuelve qué jugar en ese tick: en Flappy, `true` para aletear; en Carrera,
- *  las acciones (`"l"`, `"r"`, `"j"`, una o varias) o nada. Puede pensar lo
- *  que quiera (una promesa): en vivo no hay apuro entre tramos. */
+ *  las acciones (`"l"`, `"r"`, `"j"`, una o varias) o nada; en Invaders, las
+ *  teclas que cambian (`"l1"`/`"l0"`, `"r1"`/`"r0"`, `"f1"`/`"f0"`: apretar o
+ *  soltar; `engine.held` dice cuáles están apretadas). Puede pensar lo que
+ *  quiera (una promesa): en vivo no hay apuro entre tramos. */
 export interface LiveStrategy {
   decide(engine: any, tick: number): LiveDecision | Promise<LiveDecision>;
   /** Si llega vivo a este tick, el intento se cierra con lo alcanzado. */
