@@ -5,6 +5,9 @@
 // durable (live-store.ts) y live.ts no contesta nada nuevo hasta tenerlo
 // guardado. Acá se usa un store inyectado para mirar CUÁNDO se guarda, hacerlo
 // fallar y simular la caída (el blob de partidas vuelve atrás, el registro no).
+// El registro sube en cada guardado la cabecera del intento y solo su tramo
+// nuevo de jugadas: al final, cuánto sube una partida entera de Carrera (y de
+// Space Invaders, cuando se juegue en vivo) contra lo que subía antes.
 // Correr: node --import tsx --test apps/server/test/live-durable.test.ts
 
 import "../src/offline-env.js";
@@ -14,6 +17,9 @@ import { RULES_V } from "@arcade1v1/game-sdk/rules";
 import { FlappyEngine, FLAPPY_CONST } from "@arcade1v1/game-sdk/flappy";
 import { SecretSource } from "@arcade1v1/game-sdk/live";
 import { playFlappyLive, type FlappyLiveReply } from "@arcade1v1/game-sdk/flappy-live";
+import { playLive, type LiveReply } from "@arcade1v1/game-sdk/live-play";
+import { liveGameFor } from "@arcade1v1/game-sdk/live-games";
+import { getStrategy, defaultParams } from "@arcade1v1/strategies";
 import { matchmake, submitScore, getMatch, matchRecord, sweepMatches } from "../src/matchmaking.js";
 import {
   liveStart,
@@ -27,24 +33,44 @@ import {
 import {
   setLiveRecordStoreForTest,
   __resetLiveStoreForTest,
+  decodeLiveRecords,
   type LiveRecordStore,
 } from "../src/live-store.js";
 import type { LiveAttempt } from "../src/matchmaking.js";
 
 RULES_V.flappy = 2;
+RULES_V.racing = 3;
 
 const base = BigInt("0x" + Date.now().toString(16).padStart(12, "0") + "1111");
 let ctr = 0;
 const addr = () => "0x" + (base + BigInt(++ctr)).toString(16).padStart(40, "0").slice(-40);
 
+/** Lo que mide cada guardado de un intento: los bytes del pedido que lo sube
+ *  (como lo arma el store de Redis) y los que subía el registro viejo, que
+ *  escribía el intento entero en cada guardado. */
+interface Upload {
+  saves: number;
+  bytes: number;
+  legacyBytes: number;
+}
+const hsetBody = (fields: [string, string][]) =>
+  Buffer.byteLength(
+    JSON.stringify([
+      ["GET", "arcade:lease:epoch"],
+      ["HSET", "arcade:live", ...fields.flat()],
+    ]),
+  );
+
 /** Un store en memoria que deja mirar y manejar cada guardado. */
 function gatedStore() {
   const saved = new Map<string, string>();
+  const uploads = new Map<string, Upload>();
   let gate: Promise<void> | null = null;
   let open: () => void = () => {};
   let failures = 0;
   const f = {
     saved,
+    uploads,
     saves: 0,
     /** Los guardados siguientes esperan hasta `release()`. */
     hold() {
@@ -58,19 +84,30 @@ function gatedStore() {
     failTimes(n: number) {
       failures = n;
     },
+    /** El intento guardado, leído como lo lee el árbitro al arrancar. */
     record(id: string, address: string): LiveAttempt | undefined {
-      const raw = saved.get(`${id}:${address.toLowerCase()}`);
-      return raw ? (JSON.parse(raw) as LiveAttempt) : undefined;
+      return decodeLiveRecords(saved).find(
+        (r) => r.matchId === id && r.address === address.toLowerCase(),
+      )?.attempt;
     },
     store: {
-      async save(key, json) {
+      async save(fields) {
         f.saves++;
         if (gate) await gate;
         if (failures > 0) {
           failures--;
           throw new Error("upstash caído");
         }
-        saved.set(key, json);
+        for (const [field, value] of fields) saved.set(field, value);
+        // El intento: `<matchId>:<address>` (la cabecera; un tramo le suma `#<from>`).
+        const head = fields[0][0].replace(/#\d+$/, "");
+        const cut = head.lastIndexOf(":");
+        const now = f.record(head.slice(0, cut), head.slice(cut + 1))!;
+        const u = uploads.get(head) ?? { saves: 0, bytes: 0, legacyBytes: 0 };
+        u.saves++;
+        u.bytes += hsetBody(fields);
+        u.legacyBytes += hsetBody([[head, JSON.stringify(now)]]);
+        uploads.set(head, u);
       },
       async loadAll() {
         return new Map(saved);
@@ -376,4 +413,104 @@ test("un cierre que no se pudo guardar y nadie reintentó lo completa el barrend
   await settle();
   assert.equal(st.record(id, p1)!.over, true, "el barrendero lo guardó");
   assert.equal(m.scores[p1], m.live![p1].score, "y anotó el puntaje");
+});
+
+test("tras una caída dura, un registro viejo (el intento entero) y uno nuevo (por tramos) vuelven los dos", async () => {
+  const { id, p1, p2 } = await livePair();
+  steadySecret(id);
+  const s1 = opened(await liveStart(id, p1));
+  const s2 = opened(await liveStart(id, p2));
+  const m = matchRecord(id)!;
+  const blob = structuredClone(m.live!);
+  const reached1 = await playSome(id, p1, 3, s1);
+  const reached2 = await playSome(id, p2, 4, s2);
+  // El de p1 quedó como lo guardaba el árbitro hasta hoy: un solo campo con el
+  // intento entero (un deploy en medio de la partida).
+  const k1 = `${id}:${p1}`;
+  const legacy = JSON.stringify(st.record(id, p1));
+  for (const field of [...st.saved.keys()]) if (field.startsWith(k1)) st.saved.delete(field);
+  st.saved.set(k1, legacy);
+
+  m.live = structuredClone(blob); // LA CAÍDA: el blob traía los dos recién abiertos
+  __clearLiveEnginesForTest();
+  __resetLiveStoreForTest();
+  await restoreLiveAttempts();
+  assert.equal(m.live[p1].tick, reached1, "el viejo vuelve donde llegó");
+  assert.equal(m.live[p2].tick, reached2, "el nuevo también");
+  assert.deepEqual(m.live[p1], JSON.parse(legacy));
+
+  // Y el viejo sigue jugándose: su primer guardado lo pasa a tramos, sin perder
+  // ni repetir jugadas.
+  const again1 = opened(await liveStart(id, p1));
+  const after1 = await playSome(id, p1, 2, again1);
+  assert.ok(after1 > reached1);
+  assert.deepEqual(st.record(id, p1), m.live[p1], "lo guardado es exactamente el intento");
+  assert.ok(st.saved.has(`${k1}#0`), "ya está por tramos");
+});
+
+// ---- Cuánto sube una partida entera ---------------------------------------------
+
+/** Juega un intento entero con el driver real y la estrategia en vivo de la casa. */
+async function playWhole(game: string, strategyId: string, maxTicks: number) {
+  const p1 = addr();
+  const p2 = addr();
+  const m1 = await matchmake(game, 0, p1);
+  await matchmake(game, 0, p2);
+  const id = m1.matchId;
+  const s = opened(await liveStart(id, p1));
+  const def = getStrategy(strategyId)!;
+  const step = def.step!(defaultParams(def));
+  const result = await playLive(liveGameFor(game)!, {
+    start: s,
+    decide: step.decide,
+    maxTicks,
+    commit: async (c) => (await liveCommit(id, p1, { token: s.token, ...c })) as LiveReply,
+  });
+  const a = matchRecord(id)!.live![p1];
+  assert.equal(a.over, true, "el intento terminó");
+  assert.equal(result.ticks, a.tick);
+  assert.deepEqual(st.record(id, p1), a, "lo guardado es el intento entero");
+  const up = st.uploads.get(`${id}:${p1}`)!;
+  const finalRecord = Buffer.byteLength(JSON.stringify(a));
+  const moves = (a.inputs ?? a.flaps ?? []).length;
+  return { a, up, finalRecord, moves };
+}
+
+const kb = (n: number) => `${(n / 1024).toFixed(1)} KB`;
+
+/** Lo que puede subir una partida guardando por tramos: cada jugada UNA vez
+ *  (con el escapado del JSON, menos del doble del registro final) y, por cada
+ *  guardado, un costo fijo chico (el nombre del campo, el avance y la lectura
+ *  de la época). El registro viejo subía el intento entero en cada guardado. */
+const FIXED_PER_SAVE = 300;
+function assertSavedByTranches(up: Upload, finalRecord: number) {
+  const bound = 2 * finalRecord + FIXED_PER_SAVE * up.saves;
+  assert.ok(up.bytes <= bound, `sube ${kb(up.bytes)}; por tramos, a lo sumo ${kb(bound)}`);
+  assert.ok(up.bytes < up.legacyBytes, `sube ${kb(up.bytes)}, antes ${kb(up.legacyBytes)}`);
+}
+
+test("Carrera: una partida entera sube cada jugada una vez, no el intento entero en cada compromiso", async (t) => {
+  const { a, up, finalRecord, moves } = await playWhole("racing", "racing.dodger", 6_000);
+  t.diagnostic(
+    `${a.tick} ticks, ${moves} jugadas, ${up.saves} guardados; registro final ${kb(finalRecord)}; ` +
+      `sube ${kb(up.bytes)} (antes ${kb(up.legacyBytes)})`,
+  );
+  assertSavedByTranches(up, finalRecord);
+});
+
+// Space Invaders en vivo (reglas v2, apagado en producción hasta su interruptor):
+// ~750 jugadas en una partida típica, y con el registro viejo ~790 KB por jugador.
+test("Invaders (reglas v2): una partida entera sube cada jugada una vez, no ~1 MB", async (t) => {
+  const before = RULES_V.invaders;
+  RULES_V.invaders = 2;
+  try {
+    const { a, up, finalRecord, moves } = await playWhole("invaders", "invaders.hunter", 20_000);
+    t.diagnostic(
+      `${a.tick} ticks, ${moves} jugadas, ${up.saves} guardados; registro final ` +
+        `${kb(finalRecord)}; sube ${kb(up.bytes)} (antes ${kb(up.legacyBytes)})`,
+    );
+    assertSavedByTranches(up, finalRecord);
+  } finally {
+    RULES_V.invaders = before;
+  }
 });

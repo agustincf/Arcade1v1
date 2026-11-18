@@ -61,7 +61,10 @@ sesión (Invaders: 5.651 ticks, 59 bombas, 6 OVNIs y 849 jugadas de mediana).
    tamaño del registro final (~20 KB). Va en un PR propio, antes del interruptor,
    porque toca el registro durable de Flappy y Carrera, que ya están en
    producción: este PR 1 deja todo apagado y no puede cambiar nada de lo que
-   corre.
+   corre. _Hecho en el PR #73: cada compromiso escribe solo su tramo (las
+   jugadas nuevas y el avance). Mediana de 25 partidas de `invaders.hunter`:
+   37 KB por jugador en vez de 786 KB (la más larga, 57 KB contra 2 MB);
+   Carrera, 12 KB en vez de 53 KB._
 4. **Dos PRs, como Carrera:** el PR 1 trae todo apagado (`INVADERS_RULES_V`
    sigue en 1); el PR 2 es el interruptor (reglas v2, docs, paquetes) y sale
    después del PR del registro.
@@ -184,8 +187,8 @@ Invaders en vivo (subiendo `RULES_V.invaders` a 2 dentro del test).
 
 1. **PR 1, apagado (este).** Todo lo anterior con `INVADERS_RULES_V = 1` y
    `LIVE_SINCE_RULES_V.invaders = 2`: en producción nada cambia.
-2. **PR del registro:** guardar solo el tramo nuevo de cada intento (Flappy,
-   Carrera e Invaders), con lectura de los registros viejos.
+2. **PR del registro (#73):** guardar solo el tramo nuevo de cada intento
+   (Flappy, Carrera e Invaders), con lectura de los registros viejos.
 3. **PR 2, el interruptor.** `INVADERS_RULES_V = 2`, selftest, CHANGELOG,
    AGENTS.md, llms.txt, READMEs, MAINNET.md (C13: Invaders hecho) y paquetes.
    Antes de pedir el merge: prueba manual de la web contra un árbitro local. Ese

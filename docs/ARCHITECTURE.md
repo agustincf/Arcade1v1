@@ -258,11 +258,23 @@ replay)` re-runs an attempt once the secret is public. Flappy keeps its
   `/match/:id/replay` publish `secret` next to `secretHash`.
 - **Durable attempts** (`apps/server/src/live-store.ts`) — the attempt also
   lives in the match state (saved with the 20 s debounce of `persist.ts`), but
-  every attempt has its own small record (a field of the Redis hash
-  `arcade:live`), written in ONE round trip together with the lease-epoch
-  check. Nothing a player hasn't seen goes out (new reveals, the end of the
-  attempt, a fresh token) until that record is saved; if the save fails, the
-  commit is a `503` that reveals nothing. Requests of one attempt are served
+  every attempt has its own small record in the Redis hash `arcade:live`: a
+  _head_ (`<matchId>:<address>`, the attempt without its moves) and its
+  _tranches_ (`<matchId>:<address>#<from>`, the moves in `[from, to)` plus the
+  progress at `to`: reveals, the end). Each commit writes ONE field, its new
+  tranche, in ONE round trip together with the lease-epoch check; the head is
+  rewritten only when the token changes or the progress changes without the
+  tick moving, and when both go they go in the same `HSET`. The attempt is
+  rebuilt by walking the tranches from tick 0 through the head's tick: a
+  retried commit overwrites the same tranche (no duplicated moves), and an
+  attempt rewritten whole starts a new generation (`g`) so older tranches are
+  not read. Records in the old format (the whole attempt in one JSON) are still
+  read and switch to tranches on their first change. Before, every commit
+  re-uploaded the whole attempt: a typical Space Invaders game (~750 moves,
+  ~90 commits) uploaded ~790 KB per player, now ~37 KB (Racing: 53 KB, now
+  12 KB). Nothing a player hasn't seen goes out
+  (new reveals, the end of the attempt, a fresh token) until that record is
+  saved; if the save fails, the commit is a `503` that reveals nothing. Requests of one attempt are served
   one at a time (`withLiveLock`). On startup, `restoreLiveAttempts` merges the
   records over the (possibly older) blob copy and completes an attempt that had
   ended without reaching the blob; the sweeper completes a close whose save
