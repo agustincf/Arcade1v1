@@ -34,10 +34,10 @@
 // se reescribe entero (un registro viejo, o uno que no sigue a lo guardado)
 // estrena una generación (`g`), y los tramos que quedaran de antes no se leen.
 //
-// Antes cada compromiso reescribía el intento entero: en Space Invaders, con
-// ~850 jugadas y ~95 compromisos, ~1 MB por jugador y partida. Los registros con
-// ese formato (el intento entero en la cabecera, sin `wire`) se siguen leyendo,
-// y el primer cambio los pasa a tramos.
+// Antes cada compromiso reescribía el intento entero: una partida típica de
+// Space Invaders (~750 jugadas, ~90 compromisos) subía ~790 KB por jugador; así,
+// ~37 KB. Los registros con ese formato (el intento entero en la cabecera, sin
+// `wire`) se siguen leyendo, y el primer cambio los pasa a tramos.
 //
 // Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md,
 // "Por qué alcanza, y qué no cubre" (decidido el 2026-09-22 para antes de

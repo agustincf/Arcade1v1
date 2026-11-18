@@ -28,6 +28,21 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- **El registro de cada partida en vivo sube solo lo nuevo** (requisito para
+  jugar Space Invaders en vivo). Hasta ahora, en cada compromiso el árbitro
+  volvía a subir a Upstash el intento entero, con todas sus jugadas: con las
+  ~750 jugadas de una partida típica de Invaders eran ~790 KB por jugador (2 MB
+  en las largas), contra los 10 GB por mes del plan gratis. Ahora cada intento
+  se guarda en una cabecera chica y en tramos de jugadas, y cada compromiso
+  escribe un solo campo: su tramo nuevo. Medido con la estrategia de la casa
+  (mediana de 25 partidas): Invaders sube 37 KB por jugador en vez de 786 KB, y
+  Carrera 12 KB en vez de 53 KB. Las garantías no cambian: nada se revela antes
+  de quedar guardado (si no se puede, el compromiso contesta 503), la escritura
+  sigue yendo en el mismo pedido que la lectura de la época de la posta, y al
+  arrancar el registro manda sobre la copia del blob. Un reintento vuelve a
+  escribir el mismo tramo, así que no duplica jugadas. Los registros que ya hay
+  en producción (Flappy y Carrera, con el formato viejo) se leen igual y pasan a
+  tramos en su primer cambio.
 - **Testnet corre el `Escrow1v1` que va a la auditoría externa** (O8 de
   [`docs/MAINNET.md`](docs/MAINNET.md)). La versión revisada en la
   pre-auditoría (tope al vencimiento del resultado, presupuesto fijo de gas por

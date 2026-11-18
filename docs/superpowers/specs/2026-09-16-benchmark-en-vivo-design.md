@@ -209,6 +209,25 @@ el rival sentado (`agent-runner.ts`).
   de partidas se sigue guardando con su debounce al abrir y al cerrar (no en cada
   compromiso), y al arrancar el registro manda sobre la copia del blob._
 
+  _Enmienda (2026-11-18): el registro ya no reescribe el intento entero en cada
+  compromiso, porque con Space Invaders en vivo (~850 jugadas y ~95 compromisos
+  por partida) eran ~1 MB por jugador en Upstash. Ahora cada intento es una
+  cabecera (el intento sin sus jugadas) y tramos de jugadas indexados por el
+  tick donde empiezan (`<matchId>:<address>#<from>`), en el mismo hash. Cada
+  compromiso escribe un solo campo: su tramo, con el avance (tick, revelados,
+  final). La cabecera se reescribe solo si cambia el token o el avance sin que
+  el tick avance, y si van las dos van en el mismo `HSET`. Para rearmar el
+  intento se recorren los tramos desde el 0 pasando por el tick de la cabecera.
+  Un reintento pisa el mismo campo (no duplica jugadas). Un intento que se
+  reescribe entero estrena una generación y los tramos de antes no se leen.
+  Siguen valiendo las tres garantías: nada sale antes de quedar guardado, la
+  escritura va con la lectura de la época en el mismo pedido, y al arrancar el
+  registro manda sobre el blob. Los registros viejos (el intento entero) se
+  siguen leyendo y el primer cambio los pasa a tramos. Medido con la estrategia
+  de la casa (mediana de 25 partidas, el cuerpo de cada pedido a Upstash): 37 KB
+  por jugador en Invaders (antes 786 KB; la más larga, 57 KB contra 2 MB) y 12
+  KB en Carrera (antes 53 KB)._
+
 - **Qué prueba el hash del secreto (límite conocido):** el árbitro publica
   `secretHash` al emparejar, pero ni ese hash ni los valores revelados van
   firmados. Por eso solo un jugador cuyo cliente guardó el hash y lo revelado
