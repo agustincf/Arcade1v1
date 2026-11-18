@@ -12,6 +12,48 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Seguridad
 
+- **Las librerías de wallets de la web, sin los avisos que tenían arreglo**
+  (C17 de [`docs/MAINNET.md`](docs/MAINNET.md)). La web sigue en wagmi 2 con
+  RainbowKit: el modal para conectar la wallet no cambia. Migrar a wagmi 3 (el
+  arreglo "oficial") obligaba a cambiar ese modal, porque RainbowKit todavía no
+  lo soporta, y tampoco cerraba lo que queda abierto. En su lugar, `overrides`
+  en el `package.json` raíz fuerzan las versiones arregladas de las librerías
+  de fondo:
+  - `axios` 1.16.0 → 1.21.1 y `follow-redirects` 1.16.0 → 1.16.3, del SDK de
+    Coinbase (23 avisos: contaminación de prototipo, proxys que se saltean,
+    credenciales que siguen una redirección).
+  - `ws` 8.18.0 → 8.21.0, de una copia vieja de viem dentro de WalletConnect
+    (memoria sin inicializar y agotamiento de memoria). Solo esa: el `ws` 7 que
+    WalletConnect usa en Node no está afectado y no se toca.
+  - `uuid` 8 y 9 → 11.1.1, del SDK de MetaMask y del de Coinbase: solo usan
+    `v4` y `validate`, que no cambiaron.
+  - `query-string` 7 → 10 dentro de `@walletconnect/utils`, que lo declara pero
+    nunca lo carga: la 10 ya no trae `decode-uri-component` (dos avisos de
+    denegación de servicio).
+
+  `npm audit` pasa de 39 entradas, que salían de 7 avisos de fondo, a 27 que
+  salen de 2. Lo que queda: **`zod`** (GHSA-mrhx-c7xc-m3w5, agotar memoria
+  validando una colección gigante), que no tiene arreglo en zod 3; el arreglo
+  es zod 4, con otra API, y ni WalletConnect ni Coinbase (ni los SDK de
+  Anthropic y de MCP de nuestros paquetes) pasaron a zod 4 en su última
+  versión. npm lo repite en cada paquete que lo usa, de ahí las 27 entradas.
+  En la web, lo peor que puede hacer es colgar la pestaña del propio usuario.
+  Y **`minimatch`**, de eslint (solo desarrollo): su arreglo salió hace 2 a 5
+  días (eslint 10.15, typescript-eslint 8.73); se deja para Dependabot en una
+  semana, porque las versiones recién publicadas son el blanco típico de los
+  ataques a npm. Ojo con WalletConnect: desde la 2.21.9 cambió de Apache a una
+  licencia propia de Reown (aviso en el sitio, usar su red y licencia paga por
+  encima de 500 wallets activas por mes); wagmi 2 la fija en 2.21.1 y acá se
+  queda ahí. Cada override y cómo sacarlo está en
+  [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+
+  Probado con la build de producción y una sonda de Playwright con wallet
+  falsa (EIP-6963) contra una copia local de Base Sepolia con el `Escrow1v1`
+  real: dos jugadores conectan, aprueban USDC, abren y se unen, juegan, y el
+  ganador cobra desde la web (+0,7 USDC; el perdedor, −1). Y los conectores que
+  usan las librerías forzadas arrancan sin errores: MetaMask, Rainbow y
+  WalletConnect (QR y modal oficial) y Base de Coinbase.
+
 - **Avisos de seguridad prendidos en el repositorio** (O9 de
   [`docs/MAINNET.md`](docs/MAINNET.md)): las alertas de Dependabot, el escaneo
   de secretos y su bloqueo al subir (GitHub rechaza un push que traiga una

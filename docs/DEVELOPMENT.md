@@ -146,6 +146,39 @@ own README/docs.
   reproduces the exploited case — see `apps/server/test/*` for the pattern
   (spin up the real router, fire signed HTTP requests against it).
 
+## Dependency overrides
+
+The root `package.json` pins a few transitive dependencies with npm
+`overrides` (JSON has no comments, so the reasons live here). `qr` `0.5.5`
+is a bug fix: RainbowKit → `cuer` → `qr` 0.6.0 rejected `border: 0` and broke
+the wallet QR. The rest close `npm audit` advisories in the wallet libraries
+that wagmi 2 pulls in (C17 in [`MAINNET.md`](MAINNET.md)); the web stays on
+wagmi 2 because RainbowKit (the connect modal) does not support wagmi 3 yet.
+
+| Override                                          | Pulled in by                              | Why it is safe                                                                                   |
+| ------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `axios` `^1.20.0`                                 | Coinbase `@coinbase/cdp-sdk`              | same major; it pinned 1.16.0                                                                     |
+| `follow-redirects` `^1.16.2`                      | `axios`                                   | patch release                                                                                    |
+| `uuid` `^11.1.1`                                  | MetaMask SDK, `@metamask/utils`, Coinbase | they only call `v4` and `validate`, unchanged in 11                                              |
+| `viem` → `ws` `^8.21.0`                           | an old viem copy inside WalletConnect     | same major; scoped to viem so WalletConnect's own `ws` 7 (Node only, not affected) is left alone |
+| `@walletconnect/utils` → `query-string` `^10.0.0` | WalletConnect 2.21                        | declared but never imported by its builds; 10 no longer depends on `decode-uri-component`        |
+
+Rules:
+
+- **Do not override `@walletconnect/*` to a newer release** (wagmi 2 pins
+  2.21.1). From 2.21.9 on they moved from Apache-2.0 to the WalletConnect
+  Community License (attribution on the site, use of Reown's network, a paid
+  license above 500 monthly active wallets). That is a product and legal
+  decision, not a dependency bump.
+- npm only applies a new override to packages it re-resolves: after editing
+  `overrides`, run `npm update <pkg>` for each overridden package (a plain
+  `npm install` keeps the old lockfile entries), then check with
+  `npm ls <pkg> --all`. `npm update` also bumps the other copies of that
+  package within their own ranges: review the `package-lock.json` diff and keep
+  only what the override needs.
+- Drop an override once the package that pulls it in ships the fixed version
+  itself (or goes away, e.g. a future move to wagmi 3).
+
 ## Git conventions
 
 - **Commit messages**: `type(scope): description in Spanish` — e.g.
