@@ -258,6 +258,12 @@ export const fr: Dict = {
     "Bouge avec ← →, tire avec Espace (ou les boutons). Détruis les aliens avant qu'ils n'arrivent. 3 vies !",
   "g.invaders.over": "GAME OVER !",
   "g.invaders.hint": "← → bouger · Espace tirer (ou les boutons).",
+  "g.invaders.liveSign": "Signe dans ton wallet pour commencer ta tentative en direct…",
+  "g.invaders.liveConnecting": "connexion…",
+  "g.invaders.liveConfirming": "confirmation de ton score…",
+  "g.invaders.liveError":
+    "La connexion avec l'arbitre a été coupée ({reason}). Ta tentative est toujours ouverte : recharge pour la reprendre.",
+  "g.invaders.liveReload": "RECHARGER ET REPRENDRE",
   "err.title": "ERROR.SYS",
   "err.head": "QUELQUE CHOSE A CASSÉ",
   "err.body": "Pas de panique : aucun fonds touché. Réessaie.",
