@@ -2,8 +2,21 @@
 // la formacion baja y acelera, los aliens tiran bombas (rng con semilla), el
 // jugador dispara. Misma semilla + mismas entradas = mismo resultado -> el
 // servidor re-simula el replay y verifica el puntaje (anti-trampa).
+// EN VIVO (reglas v2) no hay semilla: cada bloque de INVADERS_LIVE_BLOCK ticks
+// sale de UN valor que revela el árbitro (ver `./invaders-live` y `./live`).
 
-import { mulberry32, groupByTick } from "./replay";
+import { mulberry32, groupByTick, type RandomSource } from "./replay";
+
+// ---- Reglas -----------------------------------------------------------------
+// v1: con semilla. v2 (todavía apagada): se juega EN VIVO; la física no cambia.
+export const INVADERS_RULES_V = 1;
+
+/** En vivo: cada cuántos ticks llega un valor nuevo del árbitro (un segundo a
+ *  60 ticks por segundo). Los aliens tiran los dados en cada tick; un valor por
+ *  tick obligaría a comprometer en cada tick. El bloque se revela
+ *  LIVE_LEAD_TICKS antes de empezar: una bomba se conoce como mucho
+ *  INVADERS_LIVE_BLOCK + LIVE_LEAD_TICKS - 1 ticks antes de caer. */
+export const INVADERS_LIVE_BLOCK = 60;
 
 export const WIDTH = 320;
 export const HEIGHT = 440;
@@ -72,14 +85,35 @@ export class InvadersEngine {
   shields: { x: number; y: number }[] = [];
   ufo: { x: number; dir: number } | null = null;
 
+  /** Ticks jugados. */
+  tickCount = 0;
+
   private rng: () => number;
+  /** En vivo: de dónde sale el valor de cada bloque. */
+  private readonly blocks?: RandomSource;
+  /** En vivo: el azar del bloque y los 4 sub-valores del tick (bomba,
+   *  columna, OVNI, sentido). */
+  private block: () => number = () => 0;
+  private dice: [number, number, number, number] = [0, 0, 0, 0];
   private movingLeft = false;
   private movingRight = false;
   private firing = false;
   private fireCooldown = 0;
 
-  constructor(seed: number) {
-    this.rng = mulberry32(seed);
+  /** Con una semilla, el azar de siempre (v1), valor por valor. Con una fuente
+   *  (en vivo), cada bloque de INVADERS_LIVE_BLOCK ticks sale de UN valor: el
+   *  bloque lo expande con su propio mulberry32 y cada tick saca 4 sub-valores,
+   *  se usen o no. Así cuánto azar consume el juego no depende del azar ni de
+   *  las jugadas, y ninguna jugada corre el azar de los ticks siguientes. */
+  constructor(source: number | RandomSource) {
+    if (typeof source === "number") {
+      this.rng = mulberry32(source);
+    } else {
+      this.blocks = source;
+      this.rng = () => {
+        throw new Error("invaders: in live play each tick draws from its block");
+      };
+    }
     this.alive = Array.from({ length: ROWS }, () => Array(COLS).fill(true));
     this.shields = this.buildShields();
   }
@@ -125,6 +159,29 @@ export class InvadersEngine {
     return out;
   }
 
+  /** Qué teclas tiene apretadas el motor (lo que dejaron las jugadas). */
+  get held(): { left: boolean; right: boolean; fire: boolean } {
+    return { left: this.movingLeft, right: this.movingRight, fire: this.firing };
+  }
+
+  /** Cuántos valores al azar consumirían los próximos `ticks` ticks (en vivo,
+   *  uno por bloque): los bloques que empiezan en esos ticks. No toca el motor
+   *  ni depende de las jugadas; con la partida terminada no se consume nada. Lo
+   *  usan el árbitro para revelar y el cliente para saber cuándo comprometer. */
+  drawsWithin(ticks: number): number {
+    if (this.over || !(ticks > 0)) return 0;
+    const first = Math.ceil(this.tickCount / INVADERS_LIVE_BLOCK) * INVADERS_LIVE_BLOCK;
+    const end = this.tickCount + ticks;
+    return first >= end ? 0 : Math.floor((end - 1 - first) / INVADERS_LIVE_BLOCK) + 1;
+  }
+
+  /** La tirada `i` del tick (0 bomba, 1 columna, 2 OVNI, 3 sentido). Con
+   *  semilla, el `rng()` de siempre, en el mismo lugar; en vivo, el sub-valor ya
+   *  sacado al empezar el tick. */
+  private roll(i: 0 | 1 | 2 | 3): number {
+    return this.blocks ? this.dice[i] : this.rng();
+  }
+
   apply(a: InvaderAction) {
     if (this.over) return;
     if (a === "l1") this.movingLeft = true;
@@ -157,7 +214,7 @@ export class InvadersEngine {
     const cols: number[] = [];
     for (let c = 0; c < COLS; c++) if (this.alive.some((row) => row[c])) cols.push(c);
     if (!cols.length) return;
-    const col = cols[Math.floor(this.rng() * cols.length)];
+    const col = cols[Math.floor(this.roll(1) * cols.length)];
     let row = -1;
     for (let r = ROWS - 1; r >= 0; r--)
       if (this.alive[r][col]) {
@@ -171,6 +228,15 @@ export class InvadersEngine {
 
   tick() {
     if (this.over) return;
+    if (this.blocks) {
+      // En vivo: el valor del bloque al empezarlo, y los 4 sub-valores de este
+      // tick ANTES de cualquier salida temprana (oleada despejada).
+      if (this.tickCount % INVADERS_LIVE_BLOCK === 0) {
+        this.block = mulberry32(Math.floor(this.blocks.next() * 4294967296));
+      }
+      this.dice = [this.block(), this.block(), this.block(), this.block()];
+    }
+    this.tickCount += 1;
 
     // Jugador
     if (this.movingLeft) this.playerX -= PLAYER_SPEED;
@@ -228,14 +294,14 @@ export class InvadersEngine {
 
     // Bombas de los aliens (rng con semilla)
     const chance = 0.01 + (this.wave - 1) * 0.0025;
-    if (this.rng() < chance) this.dropBomb();
+    if (this.roll(0) < chance) this.dropBomb();
 
     // OVNI bonus: aparece de a ratos y cruza la pantalla.
     if (this.ufo) {
       this.ufo.x += this.ufo.dir * UFO_SPEED;
       if (this.ufo.x < -UFO_W || this.ufo.x > WIDTH) this.ufo = null;
-    } else if (this.rng() < UFO_CHANCE) {
-      const dir = this.rng() < 0.5 ? 1 : -1;
+    } else if (this.roll(2) < UFO_CHANCE) {
+      const dir = this.roll(3) < 0.5 ? 1 : -1;
       this.ufo = { x: dir > 0 ? -UFO_W : WIDTH, dir };
     }
 
@@ -326,6 +392,8 @@ export interface ReplayInvaders {
   seed: number;
   ticks: number;
   inputs: { t: number; a: InvaderAction }[];
+  /** Versión de reglas con la que se jugó (v2+ la declaran; ausente = v1). */
+  v?: number;
 }
 
 /** ANTI-TRAMPA: re-simula el replay y devuelve el puntaje real. */
