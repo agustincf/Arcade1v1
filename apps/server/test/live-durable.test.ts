@@ -498,25 +498,19 @@ test("Carrera: una partida entera sube cada jugada una vez, no el intento entero
   assertSavedByTranches(up, finalRecord);
 });
 
-// Space Invaders en vivo llega con el PR #71 (reglas v2, apagado en producción).
-// Hasta que esté en esta rama, el test no tiene con qué jugar y se saltea.
-const invadersLive = liveGameFor("invaders");
-const hunter = getStrategy("invaders.hunter");
-test(
-  "Invaders (reglas v2): una partida entera sube cada jugada una vez, no ~1 MB",
-  { skip: invadersLive && hunter?.step ? false : "Invaders todavía no se juega en vivo (PR #71)" },
-  async (t) => {
-    const before = RULES_V.invaders;
-    RULES_V.invaders = 2;
-    try {
-      const { a, up, finalRecord, moves } = await playWhole("invaders", "invaders.hunter", 20_000);
-      t.diagnostic(
-        `${a.tick} ticks, ${moves} jugadas, ${up.saves} guardados; registro final ` +
-          `${kb(finalRecord)}; sube ${kb(up.bytes)} (antes ${kb(up.legacyBytes)})`,
-      );
-      assertSavedByTranches(up, finalRecord);
-    } finally {
-      RULES_V.invaders = before;
-    }
-  },
-);
+// Space Invaders en vivo (reglas v2, apagado en producción hasta su interruptor):
+// ~750 jugadas en una partida típica, y con el registro viejo ~790 KB por jugador.
+test("Invaders (reglas v2): una partida entera sube cada jugada una vez, no ~1 MB", async (t) => {
+  const before = RULES_V.invaders;
+  RULES_V.invaders = 2;
+  try {
+    const { a, up, finalRecord, moves } = await playWhole("invaders", "invaders.hunter", 20_000);
+    t.diagnostic(
+      `${a.tick} ticks, ${moves} jugadas, ${up.saves} guardados; registro final ` +
+        `${kb(finalRecord)}; sube ${kb(up.bytes)} (antes ${kb(up.legacyBytes)})`,
+    );
+    assertSavedByTranches(up, finalRecord);
+  } finally {
+    RULES_V.invaders = before;
+  }
+});

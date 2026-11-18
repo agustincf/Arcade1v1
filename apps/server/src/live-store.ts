@@ -1,4 +1,4 @@
-// EL REGISTRO DURABLE DE CADA INTENTO EN VIVO (Flappy y Carrera).
+// EL REGISTRO DURABLE DE CADA INTENTO EN VIVO (Flappy, Carrera y Space Invaders).
 //
 // El intento vive en su partida (`m.live[address]`), y las partidas se guardan
 // todas juntas en un blob cada 20 s (PERSIST_DEBOUNCE_MS). Para casi todo
