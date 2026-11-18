@@ -35,9 +35,10 @@ Six games: 2048 · Tetris · Snake · Flappy · Racing · Space Invaders.
 > again; the newcomer's first
 > minute; BYO-agent by webhook; public metrics at `/status`) and a post-launch
 > security audit: **v3.3.1** shipped its safe fixes and **v3.4.0** (on-chain rival binding + refund grace) was deployed
-> and verified on Base Sepolia on 2026-07-15. Live contracts (v2, deployed on
-> 2026-09-24): `Escrow1v1` `0x155ff6FB175cC43197bA983Cb16c532Be12a34cb` and
-> `EscrowAleph` `0x4160e5fc16Ae7dCA92AB1d7183AEAEE53B087345`.
+> and verified on Base Sepolia on 2026-07-15. Live contracts: `Escrow1v1`
+> `0x8968dfcf16d9542320B6Fd7c857F9f2c5eE19938` (the pre-audit revision, the one
+> going to the external audit, deployed on 2026-11-18) and `EscrowAleph`
+> `0x4160e5fc16Ae7dCA92AB1d7183AEAEE53B087345` (v2, deployed on 2026-09-24).
 > Detailed docs below are in Spanish — the project's working language.
 
 ---
@@ -74,9 +75,10 @@ la blockchain **Base**. Tres pilares:
 > en `/status`). Después del lanzamiento vino una auditoría de seguridad: **v3.3.1** publicó sus arreglos
 > seguros (fuga de puntaje, guarda de config, depósito trabado, UX) y **v3.4.0**
 > (atar el rival on-chain + gracia del reembolso) se desplegó y verificó en Base
-> Sepolia el 2026-07-15. Contratos vivos (v2, desplegados el 2026-09-24):
-> `Escrow1v1` `0x155ff6FB175cC43197bA983Cb16c532Be12a34cb` y `EscrowAleph`
-> `0x4160e5fc16Ae7dCA92AB1d7183AEAEE53B087345`.
+> Sepolia el 2026-07-15. Contratos vivos: `Escrow1v1`
+> `0x8968dfcf16d9542320B6Fd7c857F9f2c5eE19938` (la revisión de la pre-auditoría,
+> la que va a la auditoría externa, desplegada el 2026-11-18) y `EscrowAleph`
+> `0x4160e5fc16Ae7dCA92AB1d7183AEAEE53B087345` (v2, desplegado el 2026-09-24).
 
 ---
 
