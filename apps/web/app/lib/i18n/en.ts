@@ -249,6 +249,12 @@ export const en: Dict = {
     "Move with ← →, fire with Space (or the buttons). Destroy the aliens before they reach you. You have 3 lives!",
   "g.invaders.over": "GAME OVER!",
   "g.invaders.hint": "← → to move · Space to fire (or the buttons).",
+  "g.invaders.liveSign": "Sign in your wallet to start your live attempt…",
+  "g.invaders.liveConnecting": "connecting…",
+  "g.invaders.liveConfirming": "confirming your score…",
+  "g.invaders.liveError":
+    "The connection with the arbiter broke ({reason}). Your attempt is still open: reload to resume it.",
+  "g.invaders.liveReload": "RELOAD AND RESUME",
   "err.title": "ERROR.SYS",
   "err.head": "SOMETHING BROKE",
   "err.body": "Don't worry: no funds were touched. Try again.",

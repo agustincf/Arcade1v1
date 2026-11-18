@@ -33,6 +33,7 @@
     "./live-games": "./src/live-games.ts",
     "./racing": "./src/racing.ts",
     "./racing-live": "./src/racing-live.ts",
+    "./invaders-live": "./src/invaders-live.ts",
     "./snake": "./src/snake.ts",
     "./invaders": "./src/invaders.ts",
     "./auth": "./src/auth.ts",

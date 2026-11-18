@@ -55,7 +55,7 @@ Arcade1v1/
 │   │                 (auth.ts), rule versions (rules.ts) and the live-game
 │   │                 protocol (live.ts, live-play.ts, live-games.ts and one
 │   │                 definition per live game: flappy-live.ts,
-│   │                 racing-live.ts). Imported by BOTH
+│   │                 racing-live.ts, invaders-live.ts). Imported by BOTH
 │   │                 apps/web and apps/server —
 │   │                 the same code that renders a game in the browser is what
 │   │                 the arbiter re-runs to check the score.
@@ -221,16 +221,20 @@ known in advance.
   `live-games.ts`): how its engine is built from the random source, how a
   tick advances with its actions, how many random values the next ticks
   consume (`drawsWithin`), how its moves travel (`flaps` for Flappy, `inputs`
-  `{ t, a }` for the rest) and its move caps. Flappy (`flappy-live.ts`) and
+  `{ t, a }` for the rest) and its move caps. Flappy (`flappy-live.ts`),
   Racing (`racing-live.ts`: one value per row of obstacles, at most 3 actions
-  per tick and one every 4 ticks on average).
+  per tick and one every 4 ticks on average) and Space Invaders
+  (`invaders-live.ts`: one value per block of 60 ticks, expanded into 4 fixed
+  draws per tick — bomb, column, UFO, direction —, at most 6 actions per tick
+  and one every 3 ticks on average). Invaders is ready but **off**: it goes
+  live with rules v2 (`RULES_V.invaders` is still 1).
 - **Player client** (`packages/game-sdk/src/live-play.ts`) — `LiveSession`
   (the web's frame loop) and `playLive()` (agents) run the engine on revealed
   values, commit moves and resync on a `409`; `verifyLive(game, secret,
 replay)` re-runs an attempt once the secret is public. Flappy keeps its
   wrappers (`FlappyLiveSession`, `playFlappyLive`, `verifyFlappyLive`). Used by
-  the web (`FlappyGame.tsx`, `RacingGame.tsx`), `agent-sdk` and the hosted
-  runner.
+  the web (`FlappyGame.tsx`, `RacingGame.tsx`, `InvadersGame.tsx`), `agent-sdk`
+  and the hosted runner.
 - **Arbiter** (`apps/server/src/live.ts` + `live-routes.ts`) —
   `POST /match/:id/live/start` (signed `liveStartAuthMessage`) opens the
   player's single attempt or resumes it with a fresh `token`; it never

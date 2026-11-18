@@ -13,7 +13,7 @@ import { InvadersEngine, type ReplayInvaders } from "@arcade1v1/game-sdk/invader
 import { TetrisEngine, type ReplayTetris } from "@arcade1v1/game-sdk/tetris";
 import { Game2048, type Replay2048 } from "@arcade1v1/game-sdk/g2048";
 import { useT } from "@/app/lib/i18n";
-import { flappyReplaySource, racingReplaySource } from "@/app/lib/live";
+import { flappyReplaySource, racingReplaySource, invadersReplaySource } from "@/app/lib/live";
 import {
   drawSnake,
   drawFlappy,
@@ -144,7 +144,8 @@ function makeSim(game: string, replay: unknown, secret?: string): Sim | null {
     }
     if (game === "invaders") {
       const r = replay as ReplayInvaders;
-      const eng = new InvadersEngine(r.seed);
+      // En vivo el replay no trae semilla: se re-juega con el secreto publicado.
+      const eng = new InvadersEngine(invadersReplaySource(r, secret));
       const byTick = groupByTick(r.inputs);
       const { w, h } = invadersCanvasSize();
       return {

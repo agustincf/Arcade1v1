@@ -1,14 +1,16 @@
 // Piezas puras del modo EN VIVO de la web (sin React ni navegador, para poder
 // testearlas): la rendición, retomar un intento al recargar, la fuente de azar
-// con que se re-juega un replay (Flappy, Carrera) y lo que la página le pasa a
-// un juego en vivo para jugarlo.
-// Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md y
-// docs/superpowers/specs/2026-10-10-carrera-en-vivo-design.md
+// con que se re-juega un replay (Flappy, Carrera, Invaders), las teclas que
+// manda Invaders y lo que la página le pasa a un juego en vivo para jugarlo.
+// Diseño: docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md,
+// docs/superpowers/specs/2026-10-10-carrera-en-vivo-design.md y
+// docs/superpowers/specs/2026-11-18-invaders-en-vivo-design.md
 
 import { SecretSource, checkLiveReveals, type RandomSource } from "@arcade1v1/game-sdk/live";
 import type { LiveCommitFn, LiveStart } from "@arcade1v1/game-sdk/live-play";
+import type { InvaderAction } from "@arcade1v1/game-sdk/invaders";
 
-/** Cómo juega la página una partida EN VIVO (Flappy, Carrera): abre el intento
+/** Cómo juega la página una partida EN VIVO (Flappy, Carrera, Invaders): abre el intento
  *  (firma incluida), compromete jugadas y traduce un error de apertura a texto. */
 export interface LiveController {
   /** Firma y abre (o retoma) el intento. Tira si no se pudo. */
@@ -128,6 +130,35 @@ export function racingReplaySource(
   secret?: string,
 ): number | RandomSource {
   return replaySource(replay, secret);
+}
+
+/** La fuente de azar para re-jugar un replay de Invaders (ver `replaySource`):
+ *  en vivo, cada bloque de 60 ticks sale de un valor del secreto. */
+export function invadersReplaySource(
+  replay: { seed?: number; ticks: number; inputs: { t: number; a: string }[] },
+  secret?: string,
+): number | RandomSource {
+  return replaySource(replay, secret);
+}
+
+/** Teclas de Invaders: qué quiere el jugador, o qué tiene apretado el motor. */
+export interface InvadersKeys {
+  left: boolean;
+  right: boolean;
+  fire: boolean;
+}
+
+/** Las jugadas de Invaders EN VIVO para este tick: la diferencia entre las
+ *  teclas que el jugador tiene apretadas y las que tiene el motor (`held`), en
+ *  orden izquierda, derecha, disparo. Solo cambios: no se gastan jugadas del
+ *  tope en repetir lo mismo, y si un tope recortara una, el tick siguiente la
+ *  vuelve a mandar en vez de dejar una tecla pegada. */
+export function heldDiff(want: InvadersKeys, held: InvadersKeys): InvaderAction[] {
+  const out: InvaderAction[] = [];
+  if (want.left !== held.left) out.push(want.left ? "l1" : "l0");
+  if (want.right !== held.right) out.push(want.right ? "r1" : "r0");
+  if (want.fire !== held.fire) out.push(want.fire ? "f1" : "f0");
+  return out;
 }
 
 /** ¿Cumplió el árbitro lo que comprometió en una partida en vivo ya decidida?

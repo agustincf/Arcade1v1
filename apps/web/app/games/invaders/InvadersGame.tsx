@@ -8,11 +8,14 @@ import {
   type InvaderAction,
   type ReplayInvaders,
 } from "@arcade1v1/game-sdk/invaders";
+import { LiveSession } from "@arcade1v1/game-sdk/live-play";
+import { invadersLive } from "@arcade1v1/game-sdk/invaders-live";
 import { StartScreen, GameOverScreen } from "@/app/games/_shared/ui";
 import { sfx, ensureAudio } from "@/app/lib/sound";
 import { GameIcon } from "@/app/components/GameIcon";
 import { useT } from "@/app/lib/i18n";
 import { dtCap } from "@/app/games/_shared/strict";
+import { heldDiff, liveErrorReason, type LiveController } from "@/app/lib/live";
 import {
   ROW_COLOR,
   drawAlien,
@@ -54,43 +57,75 @@ interface Popup {
   life: number;
 }
 
-export interface InvadersResult {
-  score: number;
-  replay: ReplayInvaders;
-}
+/** Con semilla: el replay para enviar. En vivo: el puntaje ya lo confirmó el
+ *  árbitro, y vuelve todo lo revelado para comprobar el secreto al decidirse. */
+export type InvadersResult =
+  | { score: number; replay: ReplayInvaders; live?: undefined }
+  | { score: number; replay?: undefined; live: { reveals: number[] } };
 
 export function InvadersGame({
   seed,
+  live,
   onFinish,
   onStarted,
+  onAttemptClosed,
   strict,
 }: {
-  seed: number;
+  /** Práctica o partida con semilla (reglas v1). */
+  seed?: number;
+  /** Partida EN VIVO: cada bloque de azar llega del árbitro (ver LiveSession). */
+  live?: LiveController;
   onFinish: (result: InvadersResult) => void;
   onStarted?: () => void;
+  /** En vivo: el árbitro cerró el intento (el puntaje ya quedó anotado), antes
+   *  de que el jugador confirme el cartel de fin. */
+  onAttemptClosed?: () => void;
   /** Mesa de plata: sin pausa y con puesta al día tras un alt-tab. */
   strict?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<InvadersEngine | null>(null);
-  if (engineRef.current === null) engineRef.current = new InvadersEngine(seed);
+  // En vivo el motor nace con la sesión, al abrir el intento.
+  if (engineRef.current === null && !live) engineRef.current = new InvadersEngine(seed ?? 0);
+  const sessionRef = useRef<LiveSession<InvadersEngine> | null>(null);
 
   const { t } = useT();
   // El bucle lee el modo por ref: cambiar de prop no debe reiniciar la partida.
   const strictRef = useRef(!!strict);
   strictRef.current = !!strict;
+  // Avisos del modo en vivo, dibujados en el canvas (por ref: cambiar de idioma
+  // no debe reiniciar la partida).
+  const connectingRef = useRef(t("g.invaders.liveConnecting"));
+  connectingRef.current = t("g.invaders.liveConnecting");
+  const confirmingRef = useRef(t("g.invaders.liveConfirming"));
+  confirmingRef.current = t("g.invaders.liveConfirming");
+  const onAttemptClosedRef = useRef(onAttemptClosed);
+  onAttemptClosedRef.current = onAttemptClosed;
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [score, setScore] = useState(0);
+  // En vivo: abriendo el intento (firma), por qué no se pudo abrir y si la
+  // sesión se desincronizó del árbitro.
+  const [opening, setOpening] = useState(false);
+  const [openError, setOpenError] = useState<{
+    key: string;
+    vars?: Record<string, string | number>;
+  } | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
   const inputs = useRef<{ t: number; a: InvaderAction }[]>([]);
   const tickRef = useRef(0);
   const pending = useRef<InvaderAction[]>([]);
   const keys = useRef({ left: false, right: false, fire: false });
 
-  function enqueue(a: InvaderAction) {
-    if (engineRef.current!.over) return;
-    pending.current.push(a);
+  /** Apretar o soltar una tecla. Con semilla se anota el cambio tal cual (el
+   *  replay de siempre); en vivo el bucle manda en cada tick la diferencia entre
+   *  estas teclas y las del motor (`heldDiff`). */
+  function press(key: "left" | "right" | "fire", on: boolean) {
+    keys.current[key] = on;
+    if (!engineRef.current || engineRef.current.over) return;
+    const k = key === "left" ? "l" : key === "right" ? "r" : "f";
+    pending.current.push(`${k}${on ? 1 : 0}` as InvaderAction);
   }
 
   useEffect(() => {
@@ -110,6 +145,12 @@ export function InvadersGame({
     let waveBanner = 0; // frames del cartel de oleada
     let beatCount = 0; // latido de la formacion
     let beatNote = 0;
+    // En vivo: desde cuándo falta el azar del próximo tick, qué aviso mostrar y
+    // si ya se avisó que el árbitro cerró el intento.
+    let stalledSince: number | null = null;
+    let liveNotice: "connecting" | "confirming" | null = null;
+    let closedNotified = false;
+    let ended = false;
 
     function boom(x: number, y: number, color: string, n: number, force = 1) {
       for (let i = 0; i < n; i++) {
@@ -140,8 +181,16 @@ export function InvadersGame({
       const prevScore = eng.score;
       const prevBullets = eng.bullets.length;
 
-      eng.tick();
-      tickRef.current += 1;
+      const session = sessionRef.current;
+      if (session) {
+        // La sesión aplica las teclas que cambiaron (con los topes del juego),
+        // las anota y compromete en segundo plano.
+        session.step(heldDiff(keys.current, eng.held));
+        tickRef.current = session.tick;
+      } else {
+        eng.tick();
+        tickRef.current += 1;
+      }
 
       // Disparo concretado (salio una bala nueva del cañon)
       if (eng.bullets.length > prevBullets) {
@@ -363,6 +412,19 @@ export function InvadersGame({
         ctx.fillRect(0, 0, WIDTH, HEIGHT);
         flash -= 1;
       }
+
+      if (liveNotice) {
+        ctx.fillStyle = "rgba(5,2,15,0.7)";
+        ctx.fillRect(0, HEIGHT / 2 + 14, WIDTH, 34);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 14px ui-sans-serif, system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          liveNotice === "connecting" ? connectingRef.current : confirmingRef.current,
+          WIDTH / 2,
+          HEIGHT / 2 + 36,
+        );
+      }
       ctx.restore();
     };
 
@@ -370,26 +432,71 @@ export function InvadersGame({
       const dt = Math.min(tnow - last, dtCap(strictRef.current));
       last = tnow;
       const eng = engineRef.current!;
-      acc += dt;
-      while (acc >= STEP) {
-        while (pending.current.length) {
-          const a = pending.current.shift()!;
-          eng.apply(a);
-          inputs.current.push({ t: tickRef.current, a });
+      const session = sessionRef.current;
+      if (!eng.over && !session?.result && !session?.error) {
+        acc += dt;
+        while (acc >= STEP) {
+          // EN VIVO: sin el azar del próximo tick no se avanza. El juego se
+          // congela (y avisa) en vez de adelantarse de golpe cuando llega.
+          if (session && !session.canStep()) {
+            acc = Math.min(acc, STEP);
+            if (stalledSince === null) stalledSince = tnow;
+            break;
+          }
+          stalledSince = null;
+          if (session) {
+            // En vivo mandan las teclas apretadas (ver `press`), no la cola.
+            pending.current.length = 0;
+          } else {
+            while (pending.current.length) {
+              const a = pending.current.shift()!;
+              eng.apply(a);
+              inputs.current.push({ t: tickRef.current, a });
+            }
+          }
+          runTick();
+          acc -= STEP;
+          if (eng.over) break;
         }
-        runTick();
-        acc -= STEP;
-        if (eng.over) break;
       }
+
+      // En vivo: compromete en segundo plano; al terminar, pide el cierre.
+      session?.pump();
+      if (session?.result && !closedNotified) {
+        closedNotified = true;
+        onAttemptClosedRef.current?.();
+      }
+      liveNotice =
+        !session || session.error
+          ? null
+          : eng.over && !session.result
+            ? "confirming"
+            : stalledSince !== null && tnow - stalledSince > 300
+              ? "connecting"
+              : null;
+
       if (eng.score !== lastScore) {
         lastScore = eng.score;
         setScore(eng.score);
       }
       draw();
-      if (eng.over) {
-        sfx.crash();
-        setOver(true);
-        return;
+      if (eng.over || session?.result || session?.error) {
+        if (!ended) {
+          ended = true;
+          if (eng.over) sfx.crash();
+        }
+        // En vivo el cartel espera el cierre del árbitro: su puntaje manda. Si
+        // la sesión se cortó, no hay puntaje que confirmar: el intento sigue
+        // abierto en el árbitro y se retoma recargando (ver el aviso de abajo).
+        if (session?.error) {
+          setLiveError(liveErrorReason(session.error.message));
+          return;
+        }
+        if (!session || session.result) {
+          if (session?.result) setScore(session.result.score);
+          setOver(true);
+          return;
+        }
       }
       raf = requestAnimationFrame(loop);
     };
@@ -403,35 +510,19 @@ export function InvadersGame({
     function onDownKey(e: KeyboardEvent) {
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        if (!keys.current.left) {
-          keys.current.left = true;
-          enqueue("l1");
-        }
+        if (!keys.current.left) press("left", true);
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        if (!keys.current.right) {
-          keys.current.right = true;
-          enqueue("r1");
-        }
+        if (!keys.current.right) press("right", true);
       } else if (e.key === " ") {
         e.preventDefault();
-        if (!keys.current.fire) {
-          keys.current.fire = true;
-          enqueue("f1"); // mantener apretado = disparo automatico
-        }
+        if (!keys.current.fire) press("fire", true); // mantener apretado = disparo automatico
       }
     }
     function onUpKey(e: KeyboardEvent) {
-      if (e.key === "ArrowLeft") {
-        keys.current.left = false;
-        enqueue("l0");
-      } else if (e.key === "ArrowRight") {
-        keys.current.right = false;
-        enqueue("r0");
-      } else if (e.key === " ") {
-        keys.current.fire = false;
-        enqueue("f0");
-      }
+      if (e.key === "ArrowLeft") press("left", false);
+      else if (e.key === "ArrowRight") press("right", false);
+      else if (e.key === " ") press("fire", false);
     }
     window.addEventListener("keydown", onDownKey);
     window.addEventListener("keyup", onUpKey);
@@ -441,12 +532,39 @@ export function InvadersGame({
     };
   }, [started]);
 
+  // EMPEZAR. En vivo primero se abre el intento (la página firma y llama al
+  // árbitro); recién con eso arranca la partida.
+  async function begin() {
+    ensureAudio();
+    if (live) {
+      if (opening) return;
+      setOpening(true);
+      setOpenError(null);
+      try {
+        const start = await live.open();
+        const session = new LiveSession(invadersLive, start, live.commit);
+        sessionRef.current = session;
+        engineRef.current = session.engine;
+        tickRef.current = session.tick;
+      } catch (e) {
+        setOpenError(live.describeError(e));
+        return;
+      } finally {
+        setOpening(false);
+      }
+    }
+    onStarted?.();
+    setStarted(true);
+  }
+
   // Botones tactiles: mantener para mover, tocar para disparar.
-  const hold = (a: InvaderAction) => ({
+  const hold = (key: "left" | "right" | "fire") => ({
     onPointerDown: (e: React.PointerEvent) => {
       e.preventDefault();
-      enqueue(a);
+      press(key, true);
     },
+    onPointerUp: () => press(key, false),
+    onPointerLeave: () => press(key, false),
   });
 
   return (
@@ -466,24 +584,30 @@ export function InvadersGame({
           <StartScreen
             icon={<GameIcon id="invaders" size={56} />}
             title={t("g.invaders.title")}
-            instructions={t("g.invaders.instr")}
-            onStart={() => {
-              ensureAudio();
-              onStarted?.();
-              setStarted(true);
-            }}
+            instructions={
+              opening
+                ? t("g.invaders.liveSign")
+                : openError
+                  ? t(openError.key, openError.vars)
+                  : t("g.invaders.instr")
+            }
+            onStart={() => void begin()}
           />
         )}
         {over && (
           <GameOverScreen
             headline={t("g.invaders.over")}
             score={score}
-            onConfirm={() =>
-              onFinish({
-                score,
-                replay: { seed, ticks: tickRef.current, inputs: inputs.current },
-              })
-            }
+            recorded={!!live}
+            onConfirm={() => {
+              const session = sessionRef.current;
+              if (session) onFinish({ score, live: { reveals: session.reveals } });
+              else
+                onFinish({
+                  score,
+                  replay: { seed: seed ?? 0, ticks: tickRef.current, inputs: inputs.current },
+                });
+            }}
           />
         )}
       </div>
@@ -491,27 +615,17 @@ export function InvadersGame({
       {started && !over && (
         <div className="grid w-full max-w-[320px] grid-cols-3 gap-2">
           <button
-            {...hold("l1")}
-            onPointerUp={() => enqueue("l0")}
-            onPointerLeave={() => enqueue("l0")}
+            {...hold("left")}
             aria-label="Mover a la izquierda"
             className="btn3d btn3d--cyan !text-2xl"
           >
             <span aria-hidden="true">◀</span>
           </button>
-          <button
-            {...hold("f1")}
-            onPointerUp={() => enqueue("f0")}
-            onPointerLeave={() => enqueue("f0")}
-            aria-label="Disparar"
-            className="btn3d btn3d--magenta !text-xl"
-          >
+          <button {...hold("fire")} aria-label="Disparar" className="btn3d btn3d--magenta !text-xl">
             <PixelIcon name="cannon" px={2} />
           </button>
           <button
-            {...hold("r1")}
-            onPointerUp={() => enqueue("r0")}
-            onPointerLeave={() => enqueue("r0")}
+            {...hold("right")}
             aria-label="Mover a la derecha"
             className="btn3d btn3d--cyan !text-2xl"
           >
@@ -520,6 +634,16 @@ export function InvadersGame({
         </div>
       )}
 
+      {liveError && (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-center text-sm wrap-anywhere text-(--color-lose)">
+            {t("g.invaders.liveError", { reason: liveError })}
+          </p>
+          <button className="btn3d btn3d--cyan" onClick={() => window.location.reload()}>
+            {t("g.invaders.liveReload")}
+          </button>
+        </div>
+      )}
       <p className="font-screen text-center text-base text-(--color-muted-3)">
         {t("g.invaders.hint")}
       </p>

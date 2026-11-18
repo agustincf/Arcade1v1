@@ -6,10 +6,12 @@
 import type { LiveGame } from "./live";
 import { flappyLive } from "./flappy-live";
 import { racingLive } from "./racing-live";
+import { invadersLive } from "./invaders-live";
 
 const LIVE_GAMES = new Map<string, LiveGame<unknown>>([
   ["flappy", flappyLive],
   ["racing", racingLive],
+  ["invaders", invadersLive],
 ]);
 
 /** La definición en vivo de `game`, o `undefined` si no se juega en vivo. */

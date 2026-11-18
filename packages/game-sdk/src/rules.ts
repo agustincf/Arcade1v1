@@ -4,6 +4,7 @@
 // Al evolucionar un juego NUNCA se lo renombra: cambia su versión, no su id.
 import { SNAKE_RULES_V } from "./snake";
 import { RACING_RULES_V } from "./racing";
+import { INVADERS_RULES_V } from "./invaders";
 import { ALEPH_RULES_V } from "./aleph-rules";
 
 // Cuántas acciones puede declarar un replay dentro de un mismo tick. Es una
@@ -20,6 +21,6 @@ export const RULES_V: Record<string, number> = {
   flappy: 2,
   racing: RACING_RULES_V,
   snake: SNAKE_RULES_V,
-  invaders: 1,
+  invaders: INVADERS_RULES_V,
   aleph: ALEPH_RULES_V, // formato multi-agente (no es cartucho 1v1)
 };

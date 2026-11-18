@@ -254,6 +254,12 @@ export const es: Dict = {
     "Movete con ← →, dispará con Espacio (o los botones). Destruí a los aliens antes de que lleguen. ¡Tenés 3 vidas!",
   "g.invaders.over": "¡GAME OVER!",
   "g.invaders.hint": "← → para mover · Espacio para disparar (o los botones).",
+  "g.invaders.liveSign": "Firmá en tu wallet para empezar tu intento en vivo…",
+  "g.invaders.liveConnecting": "conectando…",
+  "g.invaders.liveConfirming": "confirmando tu puntaje…",
+  "g.invaders.liveError":
+    "Se cortó la conexión con el árbitro ({reason}). Tu intento sigue abierto: recargá para retomarlo.",
+  "g.invaders.liveReload": "RECARGAR Y RETOMAR",
   "err.title": "ERROR.SYS",
   "err.head": "ALGO SE ROMPIÓ",
   "err.body": "Tranqui: no se tocó ningún fondo. Probá de nuevo.",
