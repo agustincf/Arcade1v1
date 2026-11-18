@@ -25,6 +25,18 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   `escrow1v1-audit` apunta a `b054e80` (la fuente del contrato no cambia desde
   `4689953`, el #59), que es la que corre en testnet. El auditor revisa esa
   etiqueta; si el contrato cambiara antes, hay que moverla y avisarle.
+- **Las opciones para contratar la auditoría externa de `Escrow1v1`, con el
+  mail para pedir cotización** (L2 de [`docs/MAINNET.md`](docs/MAINNET.md)):
+  [`docs/AUDITORIA-opciones.md`](docs/AUDITORIA-opciones.md) compara, de menor a
+  mayor costo y con fuentes, la revisión gratuita de Coinbase para proyectos de
+  Base, los subsidios (Optimism, Ethereum Foundation), una revisión individual
+  de un auditor reconocido, una firma mediana, un concurso y una firma de
+  primera línea. Recomienda la revisión individual (≈ USD 5.000–12.000 para las
+  317 líneas del contrato), pedida a la vez a Cantina y a Pashov Audit Group,
+  con cuatro condiciones para elegir (precio cerrado con revisión de los
+  arreglos, revisor con nombre, informe publicable que cite el commit y fecha
+  de arranque). Trae el mail en inglés listo para copiar y dónde mandarlo. De
+  paso deja anotado que Code4rena anunció su cierre en mayo de 2026.
 
 ### Cambiado
 
