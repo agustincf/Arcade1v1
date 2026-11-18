@@ -32,11 +32,13 @@
 ### Task 1: el motor juega en vivo
 
 **Files:**
+
 - Modify: `packages/game-sdk/src/invaders.ts`
 - Modify: `packages/game-sdk/src/rules.ts` (`invaders: INVADERS_RULES_V`)
 - Test: `packages/game-sdk/test/invaders-live.test.ts`
 
 **Interfaces:**
+
 - Produces: `INVADERS_RULES_V = 1`, `INVADERS_LIVE_BLOCK = 60`, `new InvadersEngine(source: number | RandomSource)`, `engine.tickCount: number`, `engine.held: { left: boolean; right: boolean; fire: boolean }`, `engine.drawsWithin(ticks: number): number`, `ReplayInvaders.v?: number`.
 
 - [ ] **Step 1:** test de caracterización ANTES de tocar el motor: `trace(seed)` juega 6.000 ticks con una política fija (perseguir el alien más cercano, disparar siempre, cambiar de tecla cada 30 ticks) y fotografía `{ score, lives, wave, playerX, bombs, ufo }` cada 250 ticks; hash sha256 de las fotos de las semillas 1..12. Correrlo, anotar el hash en el test.
@@ -48,11 +50,13 @@
 ### Task 2: la definición en vivo
 
 **Files:**
+
 - Create: `packages/game-sdk/src/invaders-live.ts`
 - Modify: `packages/game-sdk/src/live-games.ts`, `packages/game-sdk/src/live.ts` (`LIVE_SINCE_RULES_V`), `packages/game-sdk/package.json` (subpath `./invaders-live`)
 - Test: `packages/game-sdk/test/invaders-live-play.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1.
 - Produces: `invadersLive: LiveGame<InvadersEngine>`, `INVADERS_MAX_ACTIONS_PER_TICK = 6`, `invadersInputBudget(ticks: number): number`, `verifyInvadersLive(secret: string, replay: { ticks: number; inputs: LiveInput[] }): number`.
 
@@ -64,10 +68,12 @@
 ### Task 3: la estrategia decide tick a tick
 
 **Files:**
+
 - Modify: `packages/strategies/src/invaders.ts`, `packages/strategies/src/types.ts` (comentario de `step`)
 - Test: `packages/strategies/test/invaders-live-step.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 (`held`), Task 2 (`invadersLive`).
 - Produces: `strategyInvadersHunter.step(params): LiveStep`.
 
@@ -80,10 +86,12 @@
 ### Task 4: árbitro y SDK
 
 **Files:**
+
 - Test: `apps/server/test/live-invaders.test.ts`; modify `apps/server/test/live-sdk-e2e.test.ts`
 - Modify: `packages/agent-sdk/src/index.ts` (exporta `verifyInvadersLive`), `packages/agent-sdk/src/strategies.ts` (comentario de `LiveStrategy`)
 
 **Interfaces:**
+
 - Consumes: Tasks 1–3.
 
 - [ ] **Step 1:** tests con `RULES_V.invaders = 2` dentro del test: emparejar no da semilla (`live`, `secretHash`, `rulesV: 2`); el intento entero con `invaders.hunter` cierra solo con el puntaje que da `verifyInvadersLive` con el secreto publicado; ningún compromiso revela más allá de los bloques que empiezan antes de `to + 15`; un tramo con 7 acciones en un tick y uno que pasa el tope del intento → `LiveError`; la rendición `{ ticks: 0, inputs: [], v: 2 }` vale y otro replay da `replay not allowed`; cerrar con `final` a mitad de un bloque cuenta lo alcanzado. En `live-sdk-e2e`: `playAndSubmit({ game: "invaders", stake: 0 })` contra el árbitro en proceso da el puntaje de la estrategia jugada de corrido con el secreto.
@@ -94,10 +102,12 @@
 ### Task 5: la web
 
 **Files:**
+
 - Modify: `apps/web/app/games/invaders/InvadersGame.tsx`, `apps/web/app/game/[gameId]/match/page.tsx`, `apps/web/app/components/replay/ReplayPlayer.tsx`, `apps/web/app/lib/live.ts`, `apps/web/app/lib/i18n/{es,en,fr}.ts`
 - Test: `apps/web/test/live.test.ts`
 
 **Interfaces:**
+
 - Consumes: Tasks 1–2.
 - Produces: `invadersReplaySource(replay, secret?)`, `heldDiff(want: { left; right; fire }, held: { left; right; fire }): InvaderAction[]` (orden l, r, f; primero las que se sueltan de cada tecla) en `apps/web/app/lib/live.ts`; `InvadersResult` con `live?: { reveals: number[] }`.
 
@@ -108,6 +118,7 @@
 ### Task 6: docs, check y PR
 
 **Files:**
+
 - Modify: `CHANGELOG.md` (Sin publicar), `docs/ARCHITECTURE.md`, `docs/TESTING.md`, `docs/MAINNET.md` (C13), `packages/game-sdk/README.md`
 
 - [ ] **Step 1:** CHANGELOG: Invaders se puede jugar en vivo, todavía apagado (qué cambia el día del interruptor y el PR del registro antes). ARCHITECTURE y el README de game-sdk: `invaders-live`. TESTING: los archivos nuevos. MAINNET C13: Invaders listo, apagado.

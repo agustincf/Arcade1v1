@@ -21,11 +21,11 @@ que ya usan Flappy y Carrera.
 
 Medido con las estrategias de la casa (20 semillas, parámetros por defecto):
 
-| Juego    | De dónde sale el azar                                          | ¿Lo dispara la jugada?           |
-| -------- | -------------------------------------------------------------- | -------------------------------- |
-| Invaders | tirada de bomba cada tick (y su columna), pasada del OVNI      | No: los aliens tienen su reloj   |
-| Snake    | la fruta nueva al comer, la tirada de moneda en cada paso      | Sí: comer pide la fruta siguiente |
-| Tetris   | la bolsa de 7 piezas; cada pieza apoyada pide la siguiente     | Sí: apoyar pide la pieza          |
+| Juego    | De dónde sale el azar                                      | ¿Lo dispara la jugada?            |
+| -------- | ---------------------------------------------------------- | --------------------------------- |
+| Invaders | tirada de bomba cada tick (y su columna), pasada del OVNI  | No: los aliens tienen su reloj    |
+| Snake    | la fruta nueva al comer, la tirada de moneda en cada paso  | Sí: comer pide la fruta siguiente |
+| Tetris   | la bolsa de 7 piezas; cada pieza apoyada pide la siguiente | Sí: apoyar pide la pieza          |
 
 Snake y Tetris tienen el dilema de 2048 (o el jugador conoce de antemano lo que
 va a salir, o el juego se frena un instante después de cada jugada): los decide
@@ -46,13 +46,13 @@ sesión (Invaders: 5.651 ticks, 59 bombas, 6 OVNIs y 849 jugadas de mediana).
    cruzar la pantalla: el adelanto es menor que lo que ya muestra la pantalla.
    Medido para elegir el tamaño (por jugador, por partida):
 
-   | Bloque     | Adelanto máx. | Compromisos | Upstash (hoy) |
-   | ---------- | ------------- | ----------- | ------------- |
-   | 15 ticks   | 0,48 s        | 378         | 3,0 MB        |
-   | 30 ticks   | 0,73 s        | 189         | 1,5 MB        |
-   | **60**     | **1,23 s**    | **95**      | **780 KB**    |
-   | 120 ticks  | 2,23 s        | 48          | 403 KB        |
-   | Carrera    | 0,25 s        | 56          | 54 KB         |
+   | Bloque    | Adelanto máx. | Compromisos | Upstash (hoy) |
+   | --------- | ------------- | ----------- | ------------- |
+   | 15 ticks  | 0,48 s        | 378         | 3,0 MB        |
+   | 30 ticks  | 0,73 s        | 189         | 1,5 MB        |
+   | **60**    | **1,23 s**    | **95**      | **780 KB**    |
+   | 120 ticks | 2,23 s        | 48          | 403 KB        |
+   | Carrera   | 0,25 s        | 56          | 54 KB         |
 
 3. **Guardar solo lo nuevo de cada tramo** (requisito del interruptor, no de
    este PR). Hoy cada compromiso reescribe el intento entero en Upstash; con las
@@ -115,7 +115,7 @@ sesión (Invaders: 5.651 ticks, 59 bombas, 6 OVNIs y 849 jugadas de mediana).
 
 - `invadersLive: LiveGame<InvadersEngine>`: acciones `l1 l0 r1 r0 f1 f0`,
   aplicadas en orden y después `tick()`, como en `verifyInvaders`; `wire:
-  "inputs"`.
+"inputs"`.
 - **Topes:** a lo sumo 6 acciones por tick (cada tecla, una vez apretar y una
   soltar) y `floor(ticks / 3) + 64` en el intento. La estrategia de la casa
   llega a una cada 6,9 ticks en el peor caso medido; una persona que toca el

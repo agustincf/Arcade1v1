@@ -41,23 +41,24 @@ while (!g.over && moves.length < 5000) {
 Each game ships as its own subpath export with its engine and the replay shape the
 arbiter expects:
 
-| Import                            | Game                                                                            |
-| --------------------------------- | ------------------------------------------------------------------------------- |
-| `@arcade1v1/game-sdk/g2048`       | 2048                                                                            |
-| `@arcade1v1/game-sdk/tetris`      | Tetris                                                                          |
-| `@arcade1v1/game-sdk/snake`       | Snake                                                                           |
-| `@arcade1v1/game-sdk/flappy`      | Flappy                                                                          |
-| `@arcade1v1/game-sdk/live`        | Live games: `SecretSource`, `liveSecretHash`, `checkLiveReveals`, `isLiveMatch` |
-| `@arcade1v1/game-sdk/flappy-live` | Flappy live: `playFlappyLive`, `verifyFlappyLive`                               |
-| `@arcade1v1/game-sdk/live-play`   | Any live game: `playLive`, `LiveSession`, `verifyLive`                          |
-| `@arcade1v1/game-sdk/live-games`  | `liveGameFor(game)`: the live definition of each game                           |
-| `@arcade1v1/game-sdk/racing-live` | Racing live: `racingLive`, `verifyRacingLive`                                   |
-| `@arcade1v1/game-sdk/racing`      | Racing                                                                          |
-| `@arcade1v1/game-sdk/invaders`    | Space Invaders                                                                  |
-| `@arcade1v1/game-sdk/aleph`       | Aleph (multi-agent format): rules, actions, `replayAleph`, escrow ABI           |
-| `@arcade1v1/game-sdk/auth`        | Wallet-auth message helpers                                                     |
-| `@arcade1v1/game-sdk/rules`       | `RULES_V`: the rules version of each game                                       |
-| `@arcade1v1/game-sdk/chain`       | `waitUntilSealed`: wait for the chain to seal a receipt's block                 |
+| Import                              | Game                                                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `@arcade1v1/game-sdk/g2048`         | 2048                                                                                   |
+| `@arcade1v1/game-sdk/tetris`        | Tetris                                                                                 |
+| `@arcade1v1/game-sdk/snake`         | Snake                                                                                  |
+| `@arcade1v1/game-sdk/flappy`        | Flappy                                                                                 |
+| `@arcade1v1/game-sdk/live`          | Live games: `SecretSource`, `liveSecretHash`, `checkLiveReveals`, `isLiveMatch`        |
+| `@arcade1v1/game-sdk/flappy-live`   | Flappy live: `playFlappyLive`, `verifyFlappyLive`                                      |
+| `@arcade1v1/game-sdk/live-play`     | Any live game: `playLive`, `LiveSession`, `verifyLive`                                 |
+| `@arcade1v1/game-sdk/live-games`    | `liveGameFor(game)`: the live definition of each game                                  |
+| `@arcade1v1/game-sdk/racing-live`   | Racing live: `racingLive`, `verifyRacingLive`                                          |
+| `@arcade1v1/game-sdk/invaders-live` | Space Invaders live (ready, still off: rules v1): `invadersLive`, `verifyInvadersLive` |
+| `@arcade1v1/game-sdk/racing`        | Racing                                                                                 |
+| `@arcade1v1/game-sdk/invaders`      | Space Invaders                                                                         |
+| `@arcade1v1/game-sdk/aleph`         | Aleph (multi-agent format): rules, actions, `replayAleph`, escrow ABI                  |
+| `@arcade1v1/game-sdk/auth`          | Wallet-auth message helpers                                                            |
+| `@arcade1v1/game-sdk/rules`         | `RULES_V`: the rules version of each game                                              |
+| `@arcade1v1/game-sdk/chain`         | `waitUntilSealed`: wait for the chain to seal a receipt's block                        |
 
 Games evolve their rules without changing their id; the version lives in `RULES_V`
 (`/rules`). Today: `2048` 1, `tetris` 1, `flappy` **2** (live), `racing` **3** (live),
