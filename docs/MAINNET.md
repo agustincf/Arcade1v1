@@ -101,7 +101,7 @@ sin cortes, approve por el monto exacto. Detalle en [SECURITY.md](../SECURITY.md
 | O6  | **Prueba de punta a punta en testnet con usuarios reales**, sobre el `Escrow1v1` revisado (en testnet desde el 2026-11-18; el smoke con dos wallets ya pasó: `scripts/smoke-1v1-mesa-paga.mts`).                                                                                                                       | pendiente                                                      |
 | O7  | **Redespliegue de `Escrow1v1` v2 y `EscrowAleph` v2 en Base Sepolia** junto con el merge que los trae ([runbook](REDEPLOY-contratos-v2.md)).                                                                                                                                                                           | ✅ ejecutado el 2026-09-24 (PR #48; direcciones en el runbook) |
 | O8  | **Redespliegue de `Escrow1v1` revisado (pre-auditoría) en Base Sepolia**, para que testnet corra lo mismo que se audita. Esta vez el orden con el merge no importa ([runbook](REDEPLOY-escrow1v1-preauditoria.md)).                                                                                                    | ✅ ejecutado el 2026-11-18 (dirección en el runbook)           |
-| O9  | **Avisos de dependencias prendidos** (Dependabot y escaneo de secretos, gratis en un repo público): hoy están apagados. Y tras cada merge, comparar el `commit` de `/health` con `main`: el parche de Node del 2026-10-23 estuvo 19 días mergeado sin desplegarse.                                                     | pendiente                                                      |
+| O9  | **Avisos de dependencias prendidos** (Dependabot y escaneo de secretos con bloqueo al subir, gratis en un repo público): prendidos el 2026-11-18. Y tras cada merge, comparar el `commit` de `/health` con `main`: el parche de Node del 2026-10-23 estuvo 19 días mergeado sin desplegarse.                           | ✅ prendidos el 2026-11-18                                     |
 
 ---
 
@@ -144,8 +144,8 @@ El orden acordado el 2026-09-29, en tres tandas de código más lo del dueño:
 1. **Tanda 1 — `Escrow1v1` listo para auditar.** Hecha: revisión, cambios al
    contrato (C14 a C16), pruebas (invariantes, mutación, USDC real), y el
    paquete para el auditor ([`AUDIT.md`](../packages/contracts/AUDIT.md)).
-   Redesplegado en testnet el 2026-11-18 (O8). Del dueño: etiquetar el
-   commit (`escrow1v1-audit`) y contratar la auditoría (L2).
+   Redesplegado en testnet el 2026-11-18 (O8) y etiquetado ese día
+   (`escrow1v1-audit` → `b054e80`). Del dueño: contratar la auditoría (L2).
 2. **Tanda 2 — el deploy a mainnet a prueba de errores** (W7). Hecha:
    traspaso a la Safe, verificación en Basescan, relectura del contrato
    desplegado, ensayo completo en una copia de Base. Del dueño, al cerrar la
