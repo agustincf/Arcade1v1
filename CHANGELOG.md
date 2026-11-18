@@ -67,6 +67,18 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   USDC, juegan, presentan, y el script comprueba que el árbitro liquide solo y
   que los saldos cuadren. Tarda 1-2 minutos.
 
+### Corregido
+
+- **La repetición de espectador de Space Invaders ya no se corta en negro.**
+  Cuando la formación de aliens se corría a la izquierda con las columnas de ese
+  lado muertas, el visor (en `/watch/<partida>` y en "Ver la corrida del rival")
+  calculaba un cuadro de animación -1, que no existe, y el dibujo se caía con
+  `Cannot read properties of undefined (reading 'length')`: el canvas quedaba
+  vacío a mitad de la partida. Pasaba en 13 de cada 20 partidas de la
+  estrategia de la casa (`invaders.hunter`), con semilla o sin ella. El cuadro
+  ahora sale siempre 0 o 1, y el dibujo de un alien acepta cualquier cuadro. El
+  puntaje y la verificación no cambian: era solo el dibujo.
+
 ## [3.12.0] — 2026-11-13
 
 **Carrera se juega en vivo, y el árbitro y el contrato quedan listos para la

@@ -90,10 +90,29 @@ const ROW_SPECIES: string[][][] = [SQUID, CRAB, CRAB, OCTOPUS];
 
 const PX = 2; // tamaño de pixel del sprite (12x9 -> 24x18)
 
+// Los cuadros se reducen a 0/1 con `& 1` y no con `% 2`: el `%` de JS conserva
+// el signo (-1 % 2 === -1) y un cuadro -1 no existe en las tablas de arriba.
+// `& 1` da 0 o 1 para cualquier número (negativos, decimales, NaN incluidos).
+
+/**
+ * Cuadro de animación (0 o 1) del visor de repeticiones, que no lleva contador
+ * propio y lo saca de `offsetX`. `offsetX` queda negativo cuando la formación
+ * se corre a la izquierda con las columnas de ese lado muertas.
+ */
+export function frameFromOffset(offsetX: number): 0 | 1 {
+  return (Math.floor(offsetX / 10) & 1) as 0 | 1;
+}
+
+/** Bitmap de un alien de esa fila; cualquier cuadro cae en 0 o 1. */
+export function alienBitmap(row: number, frame: number): string[] {
+  return ROW_SPECIES[row % ROW_SPECIES.length][frame & 1];
+}
+
 // Cache: cada (fila, cuadro) se pre-dibuja una vez en un canvas chiquito.
 const spriteCache = new Map<string, HTMLCanvasElement>();
 
-function bakedAlien(row: number, frame: number): HTMLCanvasElement {
+function bakedAlien(row: number, anyFrame: number): HTMLCanvasElement {
+  const frame = anyFrame & 1;
   const key = `${row}:${frame}`;
   const hit = spriteCache.get(key);
   if (hit) return hit;
@@ -101,7 +120,7 @@ function bakedAlien(row: number, frame: number): HTMLCanvasElement {
   cv.width = ALIEN_W;
   cv.height = ALIEN_H;
   const c = cv.getContext("2d")!;
-  const rows = ROW_SPECIES[row % ROW_SPECIES.length][frame % 2];
+  const rows = alienBitmap(row, frame);
   c.fillStyle = ROW_COLOR[row % ROW_COLOR.length];
   for (let r = 0; r < rows.length; r++)
     for (let col = 0; col < rows[r].length; col++)

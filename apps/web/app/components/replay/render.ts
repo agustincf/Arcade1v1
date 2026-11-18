@@ -14,6 +14,7 @@ import {
   drawShieldBlock,
   drawBullet,
   drawBomb,
+  frameFromOffset,
 } from "@/app/games/invaders/sprites";
 import {
   TetrisEngine,
@@ -245,7 +246,7 @@ export function drawInvaders(ctx: CanvasRenderingContext2D, eng: InvadersEngine)
   // ovni
   if (eng.ufo) drawUfo(ctx, eng.ufo.x, UFO_Y, tick);
   // aliens
-  const frame = Math.floor(eng.offsetX / 10) % 2;
+  const frame = frameFromOffset(eng.offsetX);
   for (const a of eng.aliveAliens()) drawAlien(ctx, a.x, a.y, a.row, frame);
   // escudos
   for (const s of eng.shields) drawShieldBlock(ctx, s.x, s.y);
