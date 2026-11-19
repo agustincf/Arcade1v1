@@ -154,6 +154,9 @@ export const es: Dict = {
   "match.fundStep1":
     "Paso 1 de 2 · Aprobá {bet} USDC en tu wallet (si ya lo aprobaste, se saltea solo).",
   "match.fundStep2": "Paso 2 de 2 · Confirmá el depósito de {bet} USDC en tu wallet.",
+  "match.fundPreparing":
+    "Preparando el depósito de {bet} USDC… Tené la wallet abierta: enseguida te pide confirmar.",
+  "match.fundBatch": "Confirmá en tu wallet: aprobar y depositar {bet} USDC, en un solo paso.",
   "match.depositWait": "Procesando…",
   "match.depositNoSeat":
     "No se pudo confirmar tu lugar en esta partida. Volvé a la mesa y entrá de nuevo — todavía no depositaste nada.",
