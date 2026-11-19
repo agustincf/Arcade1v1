@@ -12,6 +12,7 @@
 //   CADENA=eip155:1    se conecta solo en esa red
 //   RECHAZAR_RED=1     rechaza los pedidos de cambiar de red
 //   PASAR_A=eip155:1   a los 8 s avisa que cambió a esa red (como cambiarla en la app)
+//   NO_RESPONDER_TX=1  no contesta las transacciones (aprobar, depositar)
 // Imprime cada evento en una línea y escucha hasta 15 minutos.
 
 import { SignClient } from "@walletconnect/sign-client";
@@ -121,6 +122,8 @@ client.on("session_request", async ({ id, topic, params }) => {
     } else if (method === "wallet_switchEthereumChain" || method === "wallet_addEthereumChain") {
       await client.respond({ topic, response: { id, jsonrpc: "2.0", result: null } });
       log("  cambio de red aceptado");
+    } else if (process.env.NO_RESPONDER_TX) {
+      log("  (NO_RESPONDER_TX: la transacción no se contesta)");
     } else {
       await client.respond({
         topic,

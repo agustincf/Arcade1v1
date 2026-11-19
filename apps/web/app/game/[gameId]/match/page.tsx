@@ -337,16 +337,20 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     return () => clearTimeout(tm);
   }, [searching]);
 
-  // Si la firma no llega en WALLET_STUCK_MS, ofrecemos volver a conectar: con
-  // el QR la conexión con el celular se corta sola y la página no se entera.
+  // Si la wallet no contesta en WALLET_STUCK_MS (la firma para emparejar, o
+  // aprobar y depositar), ofrecemos volver a conectar: con el QR la conexión
+  // con el celular se corta sola y la página no se entera. Al volver, lo ya
+  // hecho no se repite: la aprobación queda, y un depósito que llegó a la
+  // cadena se reconoce solo.
+  const waitingOnWallet = awaitingWallet || funding !== "";
   useEffect(() => {
-    if (!awaitingWallet) {
+    if (!waitingOnWallet) {
       setWalletStuck(false);
       return;
     }
     const tm = setTimeout(() => setWalletStuck(true), WALLET_STUCK_MS);
     return () => clearTimeout(tm);
-  }, [awaitingWallet]);
+  }, [waitingOnWallet, funding]);
 
   // Volver a conectar: se corta la sesión (la del QR quedó muerta) y se recarga
   // limpio, que muestra "Conectá tu wallet". El emparejamiento no es
@@ -1067,7 +1071,28 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                       : t("match.openBtn", { bet })}
               </button>
               {funding !== "" ? (
-                <p className="mt-3 text-sm text-(--color-muted-2)">{t("match.fundingNote")}</p>
+                <>
+                  {/* En qué paso está y dónde confirmar: antes decía "Listo para
+                      jugar" con un texto genérico, y no se sabía si faltaba algo. */}
+                  <p className="mt-3 text-sm font-medium text-(--color-accent-2)">
+                    {funding === "approving"
+                      ? t("match.fundStep1", { bet })
+                      : t("match.fundStep2", { bet })}
+                  </p>
+                  <p className="mx-auto mt-1 max-w-sm text-sm text-(--color-muted-2)">
+                    {t("match.confirmInWalletHint")}
+                  </p>
+                  {walletStuck && (
+                    <>
+                      <p className="mx-auto mt-4 max-w-sm text-sm text-(--color-muted-2)">
+                        {t("match.walletStuck")}
+                      </p>
+                      <button onClick={reconnectWallet} className="btn3d btn3d--cyan mt-3">
+                        {t("match.reconnect")}
+                      </button>
+                    </>
+                  )}
+                </>
               ) : depositErr ? (
                 <>
                   <p className="mt-3 text-sm text-(--color-lose)">

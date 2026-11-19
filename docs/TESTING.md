@@ -263,8 +263,9 @@ node scripts/wc-billetera-prueba.mjs "wc:…@2?relay-protocol=irn&symKey=…"
 Environment flags simulate the failures a phone produces: `NO_RESPONDER=1`
 (never answers the signature, like an expired phone session), `CADENA=eip155:1`
 (connects only on that network), `RECHAZAR_RED=1` (refuses network switches)
-and `PASAR_A=eip155:1` (switches to that network 8 s after connecting). It is a
-manual tool, not part of `npm test`.
+`PASAR_A=eip155:1` (switches to that network 8 s after connecting) and
+`NO_RESPONDER_TX=1` (never answers transactions, like the approve or the
+deposit). It is a manual tool, not part of `npm test`.
 
 ## CI integration
 

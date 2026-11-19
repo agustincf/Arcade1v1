@@ -19,8 +19,14 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   servidor" para siempre. Ahora, mientras espera la firma para emparejar, dice
   "Confirmá la firma en tu wallet" (y, si te conectaste con el QR, que el pedido
   aparece en la app del celular); si en 30 segundos no llegó, ofrece **volver a
-  conectar** la wallet. Probado con una wallet de prueba por WalletConnect que
-  no contesta (`scripts/wc-billetera-prueba.mjs`, nuevo).
+  conectar** la wallet. Lo mismo al depositar en una mesa de plata: en vez de
+  "Listo para jugar" con un texto genérico, dice en qué paso está ("Paso 1 de 2 ·
+  Aprobá 1 USDC", "Paso 2 de 2 · Confirmá el depósito") y que con el QR el
+  pedido aparece en el celular; si no llega, también ofrece volver a conectar
+  (lo ya aprobado queda, y un depósito que llegó a la cadena se reconoce solo).
+  Probado con una wallet de prueba por WalletConnect que no contesta
+  (`scripts/wc-billetera-prueba.mjs`, nuevo), contra un árbitro y un contrato
+  locales sobre una copia de Base Sepolia.
 - **Con la wallet en otra red, tocar la dirección no hacía nada.** RainbowKit
   desactiva en silencio el menú de la cuenta cuando la wallet está en una red
   que la app no usa (típico: MetaMask del celular parada en Ethereum o en Base),
