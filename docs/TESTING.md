@@ -267,6 +267,21 @@ Environment flags simulate the failures a phone produces: `NO_RESPONDER=1`
 `NO_RESPONDER_TX=1` (never answers transactions, like the approve or the
 deposit). It is a manual tool, not part of `npm test`.
 
+By default it behaves like a wallet without batches: it rejects
+`wallet_getCapabilities` and `wallet_sendCalls` (EIP-5792) with `4200`, so the
+paid-table deposit falls back to two steps (approve, then deposit).
+`LOTES_RPC=http://127.0.0.1:8545` makes it a smart account instead: it funds
+its key on that **local** chain (1 ETH and 10 test USDC; it refuses any URL
+that is not localhost), declares atomic batches and executes `wallet_sendCalls`
+there, so the deposit goes out as one request. Point the web and a local
+arbiter at an `anvil --fork-url https://sepolia.base.org --chain-id 84532` copy
+with a local `Escrow1v1` whose arbiter is a key you hold.
+
+Keep in mind that a WalletConnect wallet answers requests **one at a time**:
+until it answers one, the next one does not reach it. A request the test
+wallet leaves unanswered (`NO_RESPONDER`, `NO_RESPONDER_TX`) blocks the ones
+after it, as it would on a phone.
+
 ## CI integration
 
 Defined in `.github/workflows/ci.yml`, triggered on push to `main` and on

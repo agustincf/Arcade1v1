@@ -159,7 +159,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     playDeadline: number;
   } | null>(null);
   const [deposited, setDeposited] = useState(false);
-  const [funding, setFunding] = useState<"" | "approving" | "depositing">("");
+  // "batch": aprobar y depositar en un solo pedido (lote atómico, EIP-5792).
+  const [funding, setFunding] = useState<"" | "preparing" | "approving" | "depositing" | "batch">(
+    "",
+  );
   // El motivo REAL del fallo, no un booleano: cancelaste la firma, estás en la
   // red equivocada, no tenés gas o no tenés USDC eran las cuatro la misma frase
   // ("la partida puede estar creándose"), que encima apunta al lado equivocado.
@@ -609,7 +612,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       }
     }
     try {
-      setFunding("approving"); // el botón queda ocupado mientras pregunta
+      // El botón queda ocupado mientras pregunta. Todavía no se sabe si va a
+      // ser un paso o dos: "Paso 1 de 2" sería mentira con una wallet que
+      // aprueba y deposita junto.
+      setFunding("preparing");
       if (await alreadyDeposited(mid)) {
         setDeposited(true);
         return;
@@ -660,6 +666,25 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
 
       // ¿Ya deposité en ESTA partida (la nueva, si cambió)?
       if (await alreadyDeposited(mid)) {
+        setDeposited(true);
+        return;
+      }
+
+      // UN SOLO PEDIDO cuando la wallet sabe hacer un lote atómico (EIP-5792:
+      // MetaMask con cuenta inteligente y otras): aprobar y depositar juntos.
+      // Con dos pedidos seguidos, conectado por el QR, el segundo quedaba
+      // trabado en el celular. Las demás wallets siguen con los dos pasos.
+      const owner = address as `0x${string}`;
+      if ((await escrow.needsApproval(owner, bet)) && (await escrow.canFundAtOnce(owner))) {
+        setFunding("batch");
+        await escrow.fundAtOnce({
+          owner,
+          betUsdc: bet,
+          role: myRole === "p2" ? "p2" : "p1",
+          matchId: mid,
+          seatSig: seat,
+          terms,
+        });
         setDeposited(true);
         return;
       }
@@ -1064,7 +1089,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
               >
                 {funding === "approving"
                   ? t("match.approving")
-                  : funding === "depositing"
+                  : funding !== ""
                     ? t("match.depositing")
                     : role === "p2"
                       ? t("match.joinBtn", { bet })
@@ -1075,9 +1100,13 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
                   {/* En qué paso está y dónde confirmar: antes decía "Listo para
                       jugar" con un texto genérico, y no se sabía si faltaba algo. */}
                   <p className="mt-3 text-sm font-medium text-(--color-accent-2)">
-                    {funding === "approving"
-                      ? t("match.fundStep1", { bet })
-                      : t("match.fundStep2", { bet })}
+                    {funding === "preparing"
+                      ? t("match.fundPreparing", { bet })
+                      : funding === "batch"
+                        ? t("match.fundBatch", { bet })
+                        : funding === "approving"
+                          ? t("match.fundStep1", { bet })
+                          : t("match.fundStep2", { bet })}
                   </p>
                   <p className="mx-auto mt-1 max-w-sm text-sm text-(--color-muted-2)">
                     {t("match.confirmInWalletHint")}
