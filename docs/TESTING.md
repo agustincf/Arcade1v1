@@ -247,6 +247,26 @@ Each script manages its own `anvil` process (kills any stray instance first,
 starts a fresh one, tears it down on exit) — they are not part of the
 `node:test` suite and are not picked up by `npm test`.
 
+## Testing the wallet QR flow (WalletConnect) without a phone
+
+`scripts/wc-billetera-prueba.mjs` is a throwaway wallet that connects to the web
+through the same WalletConnect QR that MetaMask Mobile scans, and logs every
+request it gets (the matchmaking signature, network switches, transactions). It
+signs messages with an ephemeral key and rejects transactions. Open the web
+(local or `arcade1v1.com`), pick WalletConnect → the official modal → "Copy
+link", and pass that `wc:…` URI:
+
+```bash
+node scripts/wc-billetera-prueba.mjs "wc:…@2?relay-protocol=irn&symKey=…"
+```
+
+Environment flags simulate the failures a phone produces: `NO_RESPONDER=1`
+(never answers the signature, like an expired phone session), `CADENA=eip155:1`
+(connects only on that network), `RECHAZAR_RED=1` (refuses network switches)
+`PASAR_A=eip155:1` (switches to that network 8 s after connecting) and
+`NO_RESPONDER_TX=1` (never answers transactions, like the approve or the
+deposit). It is a manual tool, not part of `npm test`.
+
 ## CI integration
 
 Defined in `.github/workflows/ci.yml`, triggered on push to `main` and on
