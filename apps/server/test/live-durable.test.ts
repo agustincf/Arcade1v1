@@ -498,19 +498,14 @@ test("Carrera: una partida entera sube cada jugada una vez, no el intento entero
   assertSavedByTranches(up, finalRecord);
 });
 
-// Space Invaders en vivo (reglas v2, apagado en producción hasta su interruptor):
-// ~750 jugadas en una partida típica, y con el registro viejo ~790 KB por jugador.
+// Space Invaders en vivo (reglas v2): ~750 jugadas en una partida típica, y con
+// el registro viejo ~790 KB por jugador.
 test("Invaders (reglas v2): una partida entera sube cada jugada una vez, no ~1 MB", async (t) => {
-  const before = RULES_V.invaders;
-  RULES_V.invaders = 2;
-  try {
-    const { a, up, finalRecord, moves } = await playWhole("invaders", "invaders.hunter", 20_000);
-    t.diagnostic(
-      `${a.tick} ticks, ${moves} jugadas, ${up.saves} guardados; registro final ` +
-        `${kb(finalRecord)}; sube ${kb(up.bytes)} (antes ${kb(up.legacyBytes)})`,
-    );
-    assertSavedByTranches(up, finalRecord);
-  } finally {
-    RULES_V.invaders = before;
-  }
+  assert.equal(RULES_V.invaders, 2, "las reglas vigentes de Invaders son las del modo en vivo");
+  const { a, up, finalRecord, moves } = await playWhole("invaders", "invaders.hunter", 20_000);
+  t.diagnostic(
+    `${a.tick} ticks, ${moves} jugadas, ${up.saves} guardados; registro final ` +
+      `${kb(finalRecord)}; sube ${kb(up.bytes)} (antes ${kb(up.legacyBytes)})`,
+  );
+  assertSavedByTranches(up, finalRecord);
 });

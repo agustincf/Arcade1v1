@@ -30,7 +30,7 @@ import { getStrategy, defaultParams, strategiesFor } from "@arcade1v1/strategies
 process.env.REQUIRE_AUTH = "true"; // como en producción
 RULES_V.flappy = 2;
 RULES_V.racing = 3; // Carrera en vivo (en producción, recién con el PR 2)
-RULES_V.invaders = 2; // Invaders en vivo (en producción, recién con su PR 2)
+assert.equal(RULES_V.invaders, 2); // Invaders ya se juega en vivo (reglas v2 vigentes)
 const { matchmake, getMatch } = await import("../src/matchmaking.js");
 const { liveRouter } = await import("../src/live-routes.js");
 

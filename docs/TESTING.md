@@ -129,9 +129,10 @@ root `npm test` glob. No registration step is required.
 
 Separate from the `node:test` suite, `apps/server` has an offline selftest
 covering matchmaking, signing, scoring, ELO, and anti-cheat (replay
-detection) across all six games — seeded replays for four of them, and a live
-match of Flappy and one of Racing played through `liveStart`/`liveCommit` and
-re-verified with the published secret:
+detection) across all six games — seeded replays for three of them (2048,
+Tetris and Snake), and a live match of Flappy, one of Racing and one of Space
+Invaders played through `liveStart`/`liveCommit` and re-verified with the
+published secret:
 
 ```bash
 npm run selftest --workspace apps/server

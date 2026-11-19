@@ -42,15 +42,20 @@ test("el interruptor: Flappy se juega en vivo desde las reglas v2, Carrera desde
   assert.equal(
     isLiveMatch("invaders", undefined),
     false,
-    "Invaders v1 (la de hoy) sigue con semilla",
+    "una partida de Invaders de las reglas v1 sigue con semilla",
   );
+  assert.equal(isLiveMatch("invaders", 1), false);
   assert.equal(isLiveMatch("invaders", 2), true);
   assert.equal(isLiveMatch("2048", 9), false);
   assert.deepEqual(LIVE_SINCE_RULES_V, { flappy: 2, racing: 3, invaders: 2 });
-  // Prendido para Flappy y Carrera; Invaders, todavía apagado (PR 2).
+  // El interruptor está prendido: las reglas vigentes de los tres se juegan en vivo.
   assert.equal(isLiveMatch("flappy", RULES_V.flappy), true);
   assert.equal(isLiveMatch("racing", RULES_V.racing), true);
-  assert.equal(isLiveMatch("invaders", RULES_V.invaders), false);
+  assert.equal(isLiveMatch("invaders", RULES_V.invaders), true);
+  // Y los otros tres juegos siguen con semilla.
+  for (const g of ["2048", "tetris", "snake"]) {
+    assert.equal(isLiveMatch(g, RULES_V[g]), false, `${g} todavía se juega con semilla`);
+  }
 });
 
 test("constantes del protocolo", () => {
