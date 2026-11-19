@@ -1,5 +1,6 @@
 // Auto-test del arbitro (sin red): emparejamiento, firma, empate, feedback rico,
-// ELO y ANTI-TRAMPA de los 6 juegos: replay con semilla en 5, y Flappy en vivo.
+// ELO y ANTI-TRAMPA de los 6 juegos: replay con semilla en 3 (2048, Tetris y
+// Snake), y Flappy, Carrera y Space Invaders en vivo.
 // Correr: npm run selftest -w @arcade1v1/server
 
 import "dotenv/config";
@@ -21,11 +22,11 @@ import { Game2048, type Dir } from "@arcade1v1/game-sdk/g2048";
 import { TetrisEngine, type TetrisAction } from "@arcade1v1/game-sdk/tetris";
 import { flappyLive, verifyFlappyLive } from "@arcade1v1/game-sdk/flappy-live";
 import { racingLive, verifyRacingLive } from "@arcade1v1/game-sdk/racing-live";
+import { invadersLive, verifyInvadersLive } from "@arcade1v1/game-sdk/invaders-live";
 import { playLive } from "@arcade1v1/game-sdk/live-play";
 import { liveSecretHash, type LiveGame, type LiveInput } from "@arcade1v1/game-sdk/live";
 import { defaultParams, strategiesFor } from "@arcade1v1/strategies";
 import { SnakeEngine, SNAKE_RULES_V } from "@arcade1v1/game-sdk/snake";
-import { InvadersEngine, type InvaderAction } from "@arcade1v1/game-sdk/invaders";
 import { scoreAuthMessage, matchmakeAuthMessage } from "@arcade1v1/game-sdk/auth";
 import { productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 
@@ -73,22 +74,6 @@ function playSnake(seedOrUndefined: number | undefined) {
     t++;
   }
   return { score: g.score, replay: { seed, ticks: t, inputs: [], v: SNAKE_RULES_V } };
-}
-
-function playInvaders(seedOrUndefined: number | undefined) {
-  const seed = need(seedOrUndefined);
-  const g = new InvadersEngine(seed);
-  const inputs: { t: number; a: InvaderAction }[] = [];
-  let t = 0;
-  g.apply("r1");
-  inputs.push({ t: 0, a: "r1" });
-  g.apply("f1"); // mantiene el disparo (auto-fire)
-  inputs.push({ t: 0, a: "f1" });
-  while (!g.over && t < 3000) {
-    g.tick();
-    t++;
-  }
-  return { score: g.score, replay: { seed, ticks: t, inputs } };
 }
 
 const A = "0x1111111111111111111111111111111111111111";
@@ -188,14 +173,14 @@ async function main() {
   console.log("✓ firma que no corresponde RECHAZADA:", badRejected);
 
   // 7) ANTI-TRAMPA en los juegos de TIEMPO REAL con semilla (paso fijo
-  //    determinístico). Flappy y Carrera no van acá: se juegan en vivo (ver 7b).
+  //    determinístico). Flappy, Carrera y Space Invaders no van acá: se juegan en
+  //    vivo (ver 7b).
   const games: {
-    name: "tetris" | "snake" | "invaders";
+    name: "tetris" | "snake";
     play: (s: number | undefined) => { score: number; replay: unknown };
   }[] = [
     { name: "tetris", play: playTetris },
     { name: "snake", play: playSnake },
-    { name: "invaders", play: playInvaders },
   ];
   let realtimeOk = true;
   for (const g of games) {
@@ -222,20 +207,23 @@ async function main() {
     realtimeOk = realtimeOk && legitOk && cheatOk;
   }
 
-  // 7b) JUEGOS EN VIVO (Flappy desde las reglas v2, Carrera desde las v3): la
-  //     partida no tiene semilla. Cada jugador abre su intento y compromete sus
-  //     jugadas; el azar le llega de a poco. Al decidirse se publica el secreto,
-  //     y con él cualquiera re-verifica los dos intentos. L1 juega con la
-  //     estrategia en vivo por defecto; L2 se planta en el tick 100, antes del
-  //     primer tubo o de la primera fila que llega al auto (puntaje 0), así hay
-  //     un ganador. Y un replay armado afuera no entra, aunque sea verosímil: en
-  //     vivo solo cuenta lo que se comprometió tick a tick.
+  // 7b) JUEGOS EN VIVO (Flappy desde las reglas v2, Carrera desde las v3 y Space
+  //     Invaders desde las v2): la partida no tiene semilla. Cada jugador abre
+  //     su intento y compromete sus jugadas; el azar le llega de a poco. Al
+  //     decidirse se publica el secreto, y con él cualquiera re-verifica los
+  //     dos intentos. L1 juega con la estrategia en vivo por defecto; L2 se
+  //     planta en el tick 100, antes del primer tubo o de la primera fila que
+  //     llega al auto (puntaje 0), así hay un ganador; en Invaders, con lo poco
+  //     que alcanzó a derribar (los dos juegan el mismo azar con la misma
+  //     estrategia, así que L2 nunca supera a L1). Y un replay armado afuera no
+  //     entra, aunque sea verosímil: en vivo solo cuenta lo que se comprometió
+  //     tick a tick.
   const L1 = "0x8888888888888888888888888888888888888888";
   const L2 = "0x9999999999999999999999999999999999999999";
   const L3 = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   const L4 = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
   const liveCases: {
-    game: "flappy" | "racing";
+    game: "flappy" | "racing" | "invaders";
     def: LiveGame<unknown>;
     verify: (secret: string, replay: unknown) => number;
     outside: unknown;
@@ -251,6 +239,13 @@ async function main() {
       def: racingLive,
       verify: (secret, r) => verifyRacingLive(secret, r as { ticks: number; inputs: LiveInput[] }),
       outside: { ticks: 600, inputs: [{ t: 30, a: "l" }], v: 3 },
+    },
+    {
+      game: "invaders",
+      def: invadersLive,
+      verify: (secret, r) =>
+        verifyInvadersLive(secret, r as { ticks: number; inputs: LiveInput[] }),
+      outside: { ticks: 600, inputs: [{ t: 30, a: "f1" }], v: 2 },
     },
   ];
   let liveOk = true;

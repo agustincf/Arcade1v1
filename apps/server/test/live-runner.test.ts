@@ -23,7 +23,7 @@ process.env.AGENTS_ENABLED = "false"; // sin timer: ticks manuales
 process.env.MAX_AGENTS_PER_OWNER = "100";
 RULES_V.flappy = 2;
 RULES_V.racing = 3; // Carrera en vivo (en producción, recién con el PR 2)
-RULES_V.invaders = 2; // Invaders en vivo (en producción, recién con su PR 2)
+assert.equal(RULES_V.invaders, 2); // Invaders ya se juega en vivo (reglas v2 vigentes)
 const { createHostedAgent, getAgent } = await import("../src/agents.js");
 const { runAgentsTick } = await import("../src/agent-runner.js");
 const { matchmake, submitScore, getMatch, matchRecord } = await import("../src/matchmaking.js");

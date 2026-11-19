@@ -255,7 +255,7 @@ lost to a hard crash was never seen by anyone, so re-deriving and re-signing it
 cannot leave a _second_ valid payment order for the same room. The signature
 also expires (`ALEPH_PAYOUT_TTL_MS`).
 
-**Live attempts** (Flappy since rules v2, Racing since v3) have their own durable record in the
+**Live attempts** (Flappy since rules v2, Racing since v3, Space Invaders since v2) have their own durable record in the
 Redis hash `arcade:live` (or `data/live.json` with the file backend): a small
 head per attempt plus one tranche of moves per commit, so each commit uploads
 only its new moves (see `src/live-store.ts`), written in a single round trip

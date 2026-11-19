@@ -43,6 +43,7 @@ import {
 } from "@arcade1v1/game-sdk/snake";
 import {
   InvadersEngine,
+  INVADERS_RULES_V,
   verifyInvaders,
   type InvaderAction,
   type ReplayInvaders,
@@ -294,6 +295,16 @@ test("snake v2: la fruta nunca reaparece sobre la moneda viva", () => {
       );
     }
   }
+});
+
+// --------------------- Invaders v2: se juega en vivo ---------------------------
+
+test("invaders: exporta la versión de reglas 2 (en vivo) y con semilla juega igual que antes", () => {
+  assert.equal(INVADERS_RULES_V, 2);
+  // Con una semilla (la práctica de la web, las vistas previas) el motor es el
+  // de siempre: el mismo intento se re-juega con el mismo puntaje.
+  const { score, replay } = playInvaders(SEED);
+  assert.equal(verifyInvaders(replay), score);
 });
 
 // --------------------- Racing v2: salto, vallas y monedas ---------------------
