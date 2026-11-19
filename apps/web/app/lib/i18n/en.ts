@@ -152,6 +152,9 @@ export const en: Dict = {
   "match.fundStep1":
     "Step 1 of 2 · Approve {bet} USDC in your wallet (skipped if you already did).",
   "match.fundStep2": "Step 2 of 2 · Confirm the {bet} USDC deposit in your wallet.",
+  "match.fundPreparing":
+    "Getting your {bet} USDC deposit ready… Keep your wallet open: it will ask you to confirm in a moment.",
+  "match.fundBatch": "Confirm in your wallet: approve and deposit {bet} USDC, in a single step.",
   "match.depositWait": "Processing…",
   "match.depositNoSeat":
     "We could not confirm your seat in this match. Go back to the table and enter again — nothing has been deposited yet.",
