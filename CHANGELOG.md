@@ -10,6 +10,24 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Conectado con el QR de MetaMask, la web podía quedarse esperando una firma
+  que nunca llegaba.** La sesión entre el navegador y la app del celular se
+  corta sola (la app estuvo cerrada un rato, o la conexión es de días atrás), y
+  la web no se enteraba: la mesa quedaba en "Conectando… despertando el
+  servidor" para siempre. Ahora, mientras espera la firma para emparejar, dice
+  "Confirmá la firma en tu wallet" (y, si te conectaste con el QR, que el pedido
+  aparece en la app del celular); si en 30 segundos no llegó, ofrece **volver a
+  conectar** la wallet. Probado con una wallet de prueba por WalletConnect que
+  no contesta (`scripts/wc-billetera-prueba.mjs`, nuevo).
+- **Con la wallet en otra red, tocar la dirección no hacía nada.** RainbowKit
+  desactiva en silencio el menú de la cuenta cuando la wallet está en una red
+  que la app no usa (típico: MetaMask del celular parada en Ethereum o en Base),
+  y no había forma de desconectar. Ahora el botón del encabezado dice "RED
+  EQUIVOCADA" y abre el menú de red, que permite pasar a Base Sepolia o
+  desconectar.
+
 ### Seguridad
 
 - **Las librerías de wallets de la web, sin los avisos que tenían arreglo**

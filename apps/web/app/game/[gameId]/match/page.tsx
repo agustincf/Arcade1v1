@@ -16,7 +16,7 @@ import { moneyTableBlocked } from "@/app/lib/config-guard";
 import { rememberMatch, rememberWin } from "@/app/lib/openMatches";
 import { failureText, isPaidTableClosed } from "@/app/lib/errors";
 import { depositedBy, noShowSide } from "@/app/lib/result";
-import { useSignMessage } from "wagmi";
+import { useDisconnect, useSignMessage } from "wagmi";
 import {
   scoreAuthMessage,
   matchmakeAuthMessage,
@@ -64,6 +64,11 @@ class LiveOpenError extends Error {
   }
 }
 
+/** Cuánto esperar la firma del emparejamiento antes de ofrecer volver a
+ *  conectar la wallet. Una firma que llega llega en segundos; 30 s deja tiempo
+ *  de agarrar el celular y abrir la app. */
+const WALLET_STUCK_MS = 30_000;
+
 /** localStorage, si el navegador deja usarlo (en modo privado estricto, no). */
 function liveStore(): Storage | undefined {
   try {
@@ -82,6 +87,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const { t } = useT();
   const { address, connect } = useWallet();
   const { signMessageAsync } = useSignMessage();
+  const { disconnectAsync } = useDisconnect();
   const ensureChain = useEnsureChain();
   const free = search.get("free") === "1";
   const challengeId = search.get("challenge");
@@ -112,6 +118,11 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
   const [error, setError] = useState<null | "sign" | "server" | "rules" | "tablesClosed">(null);
   const [retry, setRetry] = useState(0);
   const [slowHint, setSlowHint] = useState(false);
+  // Esperando que la wallet firme el emparejamiento. Con el QR (WalletConnect),
+  // si la conexión con el celular se cortó el pedido nunca llega, y antes la
+  // pantalla decía "despertando el servidor" para siempre, sin salida.
+  const [awaitingWallet, setAwaitingWallet] = useState(false);
+  const [walletStuck, setWalletStuck] = useState(false);
   // En produccion NUNCA simulamos un rival: si el arbitro no responde, error.
   const devMode = process.env.NODE_ENV !== "production";
   // Wallet requerida para emparejar: partidas de plata siempre; la ladder
@@ -263,6 +274,7 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
       let auth: { signature: string; ts: number } | undefined;
       if (address) {
         const ts = Date.now();
+        setAwaitingWallet(true);
         try {
           // La wallet tiene que estar en la red de la app antes de firmar
           // (conectada en otra red, la firma moría con un error críptico).
@@ -280,6 +292,8 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
             return;
           }
           /* en dev se puede emparejar sin firma */
+        } finally {
+          setAwaitingWallet(false);
         }
       }
       mmAuthRef.current = auth;
@@ -322,6 +336,29 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
     const tm = setTimeout(() => setSlowHint(true), 5000);
     return () => clearTimeout(tm);
   }, [searching]);
+
+  // Si la firma no llega en WALLET_STUCK_MS, ofrecemos volver a conectar: con
+  // el QR la conexión con el celular se corta sola y la página no se entera.
+  useEffect(() => {
+    if (!awaitingWallet) {
+      setWalletStuck(false);
+      return;
+    }
+    const tm = setTimeout(() => setWalletStuck(true), WALLET_STUCK_MS);
+    return () => clearTimeout(tm);
+  }, [awaitingWallet]);
+
+  // Volver a conectar: se corta la sesión (la del QR quedó muerta) y se recarga
+  // limpio, que muestra "Conectá tu wallet". El emparejamiento no es
+  // re-entrante (mismo patrón que la revancha), por eso la recarga.
+  async function reconnectWallet() {
+    try {
+      await disconnectAsync();
+    } catch {
+      /* la sesión ya estaba cortada */
+    }
+    window.location.reload();
+  }
 
   // Aviso del navegador si cierra/recarga durante el intento (de plata).
   useEffect(() => {
@@ -976,13 +1013,36 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
             </div>
           ) : seed === null && !live ? (
             <div className="py-10 text-center">
-              <p className="text-base font-medium text-(--color-accent-2)">
-                {t("match.connecting")}
-              </p>
-              {slowHint && (
-                <p className="mx-auto mt-3 max-w-sm text-sm text-(--color-muted-2)">
-                  {t("match.waking")}
-                </p>
+              {awaitingWallet ? (
+                <>
+                  <p className="text-base font-medium text-(--color-accent-2)">
+                    {t("match.confirmInWallet")}
+                  </p>
+                  <p className="mx-auto mt-3 max-w-sm text-sm text-(--color-muted-2)">
+                    {t("match.confirmInWalletHint")}
+                  </p>
+                  {walletStuck && (
+                    <>
+                      <p className="mx-auto mt-5 max-w-sm text-sm text-(--color-muted-2)">
+                        {t("match.walletStuck")}
+                      </p>
+                      <button onClick={reconnectWallet} className="btn3d btn3d--magenta mt-4">
+                        {t("match.reconnect")}
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-base font-medium text-(--color-accent-2)">
+                    {t("match.connecting")}
+                  </p>
+                  {slowHint && (
+                    <p className="mx-auto mt-3 max-w-sm text-sm text-(--color-muted-2)">
+                      {t("match.waking")}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           ) : needsDeposit && !deposited ? (
