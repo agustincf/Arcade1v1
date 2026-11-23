@@ -8,8 +8,12 @@
 // la red (Base Sepolia). Las mismas llamadas estan probadas en cadena local
 // (ver packages/contracts/check-payment-e2e.sh).
 
-import { useWriteContract, usePublicClient } from "wagmi";
+import { useWriteContract, usePublicClient, useConfig, useSendCalls } from "wagmi";
+import { getCapabilities, waitForCallsStatus } from "wagmi/actions";
 import { parseEventLogs } from "viem";
+import { waitUntilSealed } from "@arcade1v1/game-sdk/chain";
+import { canBatchAtomically, fundCalls } from "@/app/lib/deposito-en-un-paso";
+import { CHAIN } from "@/app/lib/wagmi";
 import {
   ESCROW_ADDRESS,
   USDC_ADDRESS,
@@ -22,9 +26,93 @@ import {
 // recibo preconfirmado de Base (ver confirm-tx.ts).
 import { confirmTx } from "@/app/lib/confirm-tx";
 
+/** Cuánto esperar a que la wallet diga si sabe hacer lotes. Una que no sabe
+ *  rechaza el método enseguida (o WalletConnect, si la sesión no lo incluye).
+ *  Con el QR la contesta el celular, que puede estar con la app cerrada: la
+ *  wallet atiende los pedidos de a uno, así que cortar antes no apura nada (el
+ *  pedido de aprobar quedaría en la fila detrás de esta pregunta) y solo haría
+ *  perder el paso único. La respuesta queda guardada en la sesión: se pregunta
+ *  una vez por conexión. */
+const CAPABILITIES_TIMEOUT_MS = 20_000;
+
 export function useEscrow() {
   const { writeContractAsync } = useWriteContract();
+  const { sendCallsAsync } = useSendCalls();
+  const config = useConfig();
   const publicClient = usePublicClient();
+
+  /** ¿Falta aprobar? El allowance de `owner` hacia el escrow no alcanza para
+   *  esta apuesta. */
+  async function needsApproval(owner: `0x${string}`, betUsdc: number): Promise<boolean> {
+    if (!ESCROW_ADDRESS || !USDC_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    const allowance = (await publicClient.readContract({
+      address: USDC_ADDRESS,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [owner, ESCROW_ADDRESS],
+    })) as bigint;
+    return allowance < toUsdcUnits(betUsdc);
+  }
+
+  /** ¿La wallet conectada puede aprobar y depositar en UN pedido (lote atómico,
+   *  EIP-5792)? Si no lo declara, o la pregunta falla, se sigue con dos pasos. */
+  async function canFundAtOnce(owner: `0x${string}`): Promise<boolean> {
+    try {
+      // Con tope: una wallet que nunca contesta la pregunta no deja el
+      // depósito colgado; pasado el tope, dos pasos como siempre.
+      const caps = await Promise.race([
+        getCapabilities(config, { account: owner, chainId: CHAIN.id }),
+        new Promise<never>((_, no) =>
+          setTimeout(() => no(new Error("sin respuesta")), CAPABILITIES_TIMEOUT_MS),
+        ),
+      ]);
+      return canBatchAtomically(caps, CHAIN.id);
+    } catch {
+      return false;
+    }
+  }
+
+  /** Aprueba y deposita en UNA confirmación: las dos llamadas van juntas en un
+   *  lote atómico (entran las dos o ninguna). El que se une revisa antes la
+   *  partida real en la cadena, como `join`. Se da por hecho recién con el
+   *  bloque del lote sellado (ver confirm-tx.ts). */
+  async function fundAtOnce(args: {
+    owner: `0x${string}`;
+    betUsdc: number;
+    role: "p1" | "p2";
+    matchId: `0x${string}`;
+    seatSig: `0x${string}`;
+    terms?: { fundDeadline: number; playDeadline: number };
+  }) {
+    if (!ESCROW_ADDRESS || !USDC_ADDRESS || !publicClient) {
+      throw new Error("on-chain no configurado");
+    }
+    if (args.role === "p2") {
+      const m = await readMatch(args.matchId);
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (m.status !== MatchStatus.Open) throw new Error("la partida no está abierta");
+      if (m.stake !== toUsdcUnits(args.betUsdc))
+        throw new Error("el monto no coincide con la mesa");
+      if (nowSec > m.fundDeadline) throw new Error("venció el plazo para unirse");
+    }
+    const calls = fundCalls({
+      usdc: USDC_ADDRESS,
+      escrow: ESCROW_ADDRESS,
+      betUsdc: args.betUsdc,
+      needApprove: await needsApproval(args.owner, args.betUsdc),
+      role: args.role,
+      matchId: args.matchId,
+      seatSig: args.seatSig,
+      terms: args.terms,
+    });
+    const { id } = await sendCallsAsync({ calls, forceAtomic: true, chainId: CHAIN.id });
+    const res = await waitForCallsStatus(config, { id, timeout: 5 * 60_000, throwOnFailure: true });
+    if (res.status !== "success") throw new Error("el depósito no se completó");
+    const last = res.receipts?.[res.receipts.length - 1];
+    if (last) await waitUntilSealed(publicClient, last.blockNumber);
+  }
 
   /** Aprueba el allowance hacia el escrow (sin depositar), por el monto EXACTO
    *  de la apuesta. Nada de approve infinito: si el contrato tuviera un bug,
@@ -278,6 +366,9 @@ export function useEscrow() {
 
   return {
     approveStake,
+    needsApproval,
+    canFundAtOnce,
+    fundAtOnce,
     mintTestUsdc,
     readUsdcBalance,
     open,

@@ -10,6 +10,23 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Entrar a una mesa de plata pide UNA confirmación en la wallet, no dos.**
+  Antes había que aprobar el USDC y después depositar: dos pedidos seguidos que,
+  conectado con el QR de MetaMask, se hacían un lío (el segundo quedaba trabado
+  en el celular y la mesa no avanzaba). Ahora, si la wallet sabe hacer un lote
+  atómico (EIP-5792, `wallet_sendCalls`: MetaMask con cuenta inteligente y
+  otras), la web le manda las dos llamadas juntas —aprobar el monto **exacto**
+  de la apuesta, nunca un approve infinito, y abrir o unirse a la partida— y
+  entran las dos o ninguna. Mientras pregunta, la mesa dice "Preparando el
+  depósito…" en vez de un "Paso 1 de 2" que podía no existir. Las wallets que
+  no saben hacerlo (o no contestan en 20 segundos) siguen con los dos pasos de
+  siempre. Probado de punta a punta contra un árbitro y un contrato locales
+  sobre una copia de Base Sepolia, con la wallet de prueba en los dos modos: la
+  que hace lotes depositó en un solo pedido, y la común recibió el pedido de
+  aprobar apenas rechazó el lote.
+
 ### Corregido
 
 - **Conectado con el QR de MetaMask, la web podía quedarse esperando una firma
