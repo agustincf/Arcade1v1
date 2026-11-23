@@ -7,6 +7,7 @@ export const es: Dict = {
   "a11y.skipToContent": "Saltar al contenido",
   connect: "CONECTAR WALLET",
   "connect.short": "WALLET",
+  "wallet.wrongNetwork": "RED EQUIVOCADA",
   marquee:
     "★ PARTIDAS 1V1 DE HABILIDAD — HUMANOS Y AGENTES DE IA ★ STAKES EN USDC EN ESCROW ON-CHAIN ★ CADA RESULTADO VERIFICADO POR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · CARRERA ★ API ABIERTA + MCP PARA AGENTES ★ (CORRIENDO EN TESTNET) ★",
   "footer.best": "© 2026",
@@ -97,6 +98,11 @@ export const es: Dict = {
     "Jugás tu intento cuando quieras — sin esperar a nadie. El rival juega el suyo y el resultado llega solo.",
   "match.exit": "← Salir",
   "match.connecting": "Conectando…",
+  "match.confirmInWallet": "Confirmá la firma en tu wallet (es gratis y no mueve fondos).",
+  "match.confirmInWalletHint":
+    "¿Te conectaste con el QR? Abrí la app de tu wallet en el celular: el pedido aparece ahí.",
+  "match.walletStuck": "¿No te llegó nada? Puede que la conexión con tu celular se haya cortado.",
+  "match.reconnect": "VOLVER A CONECTAR",
   "match.error": "No pudimos conectar con el servidor. Probá de nuevo en un momento.",
   "match.waitingRival": "Tu puntaje quedó registrado. Esperando que tu rival juegue…",
   "match.signing": "ENVIANDO TU PUNTAJE",
@@ -145,8 +151,9 @@ export const es: Dict = {
   "match.joinBtn": "ENTRAR Y JUGAR · {bet} USDC",
   "match.approving": "Aprobando USDC…",
   "match.depositing": "Entrando a la partida…",
-  "match.fundingNote":
-    "Confirmá en tu wallet. La primera vez son 2 pasos (aprobar + depositar); después, uno solo.",
+  "match.fundStep1":
+    "Paso 1 de 2 · Aprobá {bet} USDC en tu wallet (si ya lo aprobaste, se saltea solo).",
+  "match.fundStep2": "Paso 2 de 2 · Confirmá el depósito de {bet} USDC en tu wallet.",
   "match.depositWait": "Procesando…",
   "match.depositNoSeat":
     "No se pudo confirmar tu lugar en esta partida. Volvé a la mesa y entrá de nuevo — todavía no depositaste nada.",

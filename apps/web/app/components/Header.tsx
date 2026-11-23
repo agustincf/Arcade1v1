@@ -6,6 +6,7 @@ import { Logo } from "@/app/components/Logo";
 import { SoundToggle } from "@/app/components/SoundToggle";
 import { LanguageSelector } from "@/app/components/LanguageSelector";
 import { useT } from "@/app/lib/i18n";
+import { walletButtonMode } from "@/app/lib/wallet-button";
 
 // Header minimalista: logo + controles. Ranking vive en el footer y la red
 // (testnet) se informa en el footer — acá no compite con la acción principal.
@@ -44,14 +45,30 @@ export function Header() {
 
           {/* Boton de conexion (MetaMask / WalletConnect) */}
           <ConnectButton.Custom>
-            {({ account, chain, openConnectModal, openAccountModal, mounted }) => {
+            {({ account, chain, openConnectModal, openAccountModal, openChainModal, mounted }) => {
               const connected = mounted && account && chain;
+              // En otra red, el menú de la cuenta no abre (RainbowKit lo deja en
+              // un no-op): va el de red, que cambia de red o desconecta.
+              const mode = walletButtonMode({
+                connected: !!connected,
+                unsupportedChain: !!chain?.unsupported,
+              });
+              const onClick =
+                mode === "connect"
+                  ? openConnectModal
+                  : mode === "chain"
+                    ? openChainModal
+                    : openAccountModal;
               return (
                 <button
-                  onClick={connected ? openAccountModal : openConnectModal}
-                  className={`btn3d min-w-0 whitespace-nowrap !px-3 !py-2 ${connected ? "btn3d--cyan" : "btn3d--magenta"}`}
+                  onClick={onClick}
+                  className={`btn3d min-w-0 whitespace-nowrap !px-3 !py-2 ${mode === "account" ? "btn3d--cyan" : "btn3d--magenta"}`}
                 >
-                  {connected ? (
+                  {mode === "chain" ? (
+                    <span className="block max-w-[7.5rem] truncate sm:max-w-none">
+                      {t("wallet.wrongNetwork")}
+                    </span>
+                  ) : connected ? (
                     // normal-case: el botón va en mayúsculas, pero "0x…" no se
                     // escribe "0X…" (y un nombre ENS tampoco se grita).
                     <span className="block max-w-[7.5rem] truncate normal-case sm:max-w-none">

@@ -7,6 +7,7 @@ export const fr: Dict = {
   "a11y.skipToContent": "Aller au contenu principal",
   connect: "CONNECTER WALLET",
   "connect.short": "WALLET",
+  "wallet.wrongNetwork": "MAUVAIS RÉSEAU",
   marquee:
     "★ MATCHS DE SKILL 1V1 — HUMAINS & AGENTS IA ★ MISES USDC EN ESCROW ON-CHAIN ★ CHAQUE RÉSULTAT VÉRIFIÉ PAR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · COURSE ★ API OUVERTE + MCP POUR AGENTS ★ (EN TESTNET) ★",
   "footer.best": "© 2026",
@@ -97,6 +98,13 @@ export const fr: Dict = {
     "Joue ta partie quand tu veux — sans attente. Ton rival joue la sienne et le résultat arrive tout seul.",
   "match.exit": "← Quitter",
   "match.connecting": "Connexion…",
+  "match.confirmInWallet":
+    "Confirmez la signature dans votre wallet (c'est gratuit et ne déplace aucun fonds).",
+  "match.confirmInWalletHint":
+    "Connecté avec le QR code ? Ouvrez l'app de votre wallet sur votre téléphone : la demande y apparaît.",
+  "match.walletStuck":
+    "Rien dans votre wallet ? La connexion avec votre téléphone a peut-être expiré.",
+  "match.reconnect": "RECONNECTER LE WALLET",
   "match.error": "Connexion au serveur impossible. Réessaie dans un instant.",
   "match.waitingRival": "Ton score est enregistré. En attente que ton rival joue…",
   "match.signing": "ENVOI DE TON SCORE",
@@ -147,8 +155,9 @@ export const fr: Dict = {
   "match.joinBtn": "REJOINDRE ET JOUER · {bet} USDC",
   "match.approving": "Approbation de l'USDC…",
   "match.depositing": "Entrée dans la partie…",
-  "match.fundingNote":
-    "Confirme dans ton wallet. La première fois, ce sont 2 étapes (approuver + déposer) ; ensuite, une seule.",
+  "match.fundStep1":
+    "Étape 1 sur 2 · Approuvez {bet} USDC dans votre wallet (ignorée si c'est déjà fait).",
+  "match.fundStep2": "Étape 2 sur 2 · Confirmez le dépôt de {bet} USDC dans votre wallet.",
   "match.depositWait": "Traitement…",
   "match.depositNoSeat":
     "Impossible de confirmer votre place dans cette partie. Revenez à la table et entrez à nouveau — rien n'a encore été déposé.",

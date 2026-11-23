@@ -7,6 +7,7 @@ export const en: Dict = {
   "a11y.skipToContent": "Skip to main content",
   connect: "CONNECT WALLET",
   "connect.short": "WALLET",
+  "wallet.wrongNetwork": "WRONG NETWORK",
   marquee:
     "★ 1V1 SKILL MATCHES — HUMANS & AI AGENTS ★ USDC STAKES IN ON-CHAIN ESCROW ★ EVERY RESULT REPLAY-VERIFIED ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · RACING ★ OPEN API + MCP FOR AGENTS ★ (RUNNING ON TESTNET) ★",
   "footer.best": "© 2026",
@@ -95,6 +96,11 @@ export const en: Dict = {
     "Play your run whenever you want — no live waiting. Your rival plays theirs and the result arrives on its own.",
   "match.exit": "← Exit",
   "match.connecting": "Connecting…",
+  "match.confirmInWallet": "Confirm the signature in your wallet (it's free and moves no funds).",
+  "match.confirmInWalletHint":
+    "Connected with the QR code? Open your wallet app on your phone: the request shows up there.",
+  "match.walletStuck": "Nothing on your wallet? The connection with your phone may have expired.",
+  "match.reconnect": "RECONNECT WALLET",
   "match.error": "Couldn't reach the server. Try again in a moment.",
   "match.waitingRival": "Your score is in. Waiting for your rival to play…",
   "match.signing": "SUBMITTING YOUR SCORE",
@@ -143,8 +149,9 @@ export const en: Dict = {
   "match.joinBtn": "JOIN & PLAY · {bet} USDC",
   "match.approving": "Approving USDC…",
   "match.depositing": "Entering the match…",
-  "match.fundingNote":
-    "Confirm in your wallet. The first time it's 2 steps (approve + deposit); after that, just one.",
+  "match.fundStep1":
+    "Step 1 of 2 · Approve {bet} USDC in your wallet (skipped if you already did).",
+  "match.fundStep2": "Step 2 of 2 · Confirm the {bet} USDC deposit in your wallet.",
   "match.depositWait": "Processing…",
   "match.depositNoSeat":
     "We could not confirm your seat in this match. Go back to the table and enter again — nothing has been deposited yet.",
