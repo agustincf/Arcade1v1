@@ -30,6 +30,7 @@ import { playLive as playLiveGame, type LiveReply } from "@arcade1v1/game-sdk/li
 import { liveGameFor } from "@arcade1v1/game-sdk/live-games";
 import { waitUntilSealed } from "@arcade1v1/game-sdk/chain";
 import { validatePaid1v1, type Paid1v1Config } from "./paid1v1-config";
+import { createPaid1v1, Paid1v1Error, type Paid1v1Deposit } from "./paid1v1";
 import { normalizeModel } from "@arcade1v1/game-sdk/auth";
 import {
   ALEPH_RULES_V,
@@ -55,6 +56,29 @@ export interface LiveReceipt {
  *  de partida (se agotaron los reintentos, un token viejo, una desincronización):
  *  cada vez abre de nuevo con firma, y el árbitro le devuelve su progreso. */
 const MAX_LIVE_RESUMES = 2;
+
+/** Mesa de plata: desde que el agente se sienta, cuánto puede tardar en
+ *  depositar. El árbitro saca de la fila al p1 que no abrió en 10 minutos
+ *  (OPEN_GRACE_MS) y le da el lugar del p2 a otro a los 10 (JOIN_WINDOW_MS):
+ *  pasado este plazo, un depósito podría quedar en una partida sin rival. */
+const SEAT_DEPOSIT_WINDOW_MS = 9 * 60_000;
+
+/** Mesa de plata: las esperas entre aperturas del intento en vivo cuando el
+ *  árbitro todavía no ve el depósito (su RPC puede ir atrasado aunque el bloque
+ *  ya esté sellado). 60 s en total, nunca dos pedidos a menos de 2 s:
+ *  `live/start` está bajo el límite de 12 pedidos cada 10 s. */
+const LIVE_START_RETRY_DELAYS_MS = [2000, 4000, 8000, 8000, 8000, 10000, 10000, 10000];
+
+/** Lo que contesta el árbitro mientras no ve el depósito (onchain.ts). */
+const DEPOSIT_NOT_VISIBLE =
+  /no on-chain deposit found for this address|could not verify your deposit on-chain/;
+
+/** Un paso del flujo pagado, para que quien llama guarde el `matchId` y pueda
+ *  retomar si se le cae el proceso. */
+export interface PaidStepEvent {
+  step: "seated" | "deposited";
+  matchId: string;
+}
 
 /** El árbitro acepta un pase de vista por MATCHMAKE_AUTH_TTL_MS (10 min). Lo
  *  renovamos a los 8 para no quedar justo en el borde entre dos sondeos. */
@@ -120,6 +144,8 @@ export function createAgent(opts: {
    *  `playAndSubmit({ game, stake > 0 })` deposita y juega solo. Se valida al
    *  crear el agente, sin tocar la red (paid1v1-config.ts). */
   paid1v1?: Paid1v1Config;
+  /** Espera inyectable (tests): las pausas entre reintentos. */
+  sleep?: (ms: number) => Promise<void>;
 }): {
   address: Hex;
   client: ArbiterClient;
@@ -132,12 +158,26 @@ export function createAgent(opts: {
    *  intento firmado y compromete las jugadas mientras recibe el azar de a poco;
    *  `liveStrategy` reemplaza a la estrategia por defecto, y la vista vuelve con
    *  `liveReceipt` para comprobar el secreto cuando la partida se decida. */
+  /** Empareja, juega y envía. Con `stake: 0`, la ladder gratis. Con `stake > 0`
+   *  (y `paid1v1` en createAgent), una mesa 1v1 de plata de punta a punta:
+   *  revisa todo antes de sentarse, deposita exacto y juega en vivo. Una
+   *  partida pagada a la vez por agente. Un error después del depósito es un
+   *  `Paid1v1Error` con `deposited: true`: hay que llamar a `resume1v1`. */
   playAndSubmit(args: {
     game: string;
     stake: number;
     strategy?: Strategy;
     liveStrategy?: LiveStrategy;
-  }): Promise<MatchView & { liveReceipt?: LiveReceipt }>;
+    onPaidStep?: (e: PaidStepEvent) => void;
+  }): Promise<
+    MatchView & { liveReceipt?: LiveReceipt; deposit?: Paid1v1Deposit; waitingForRival?: boolean }
+  >;
+  /** Mesa de plata: retoma una partida en la que esta wallet ya depositó (abre
+   *  o reanuda el intento en vivo y lo juega). Nunca deposita. */
+  resume1v1(
+    matchId: string,
+    opts?: { liveStrategy?: LiveStrategy },
+  ): Promise<MatchView & { liveReceipt?: LiveReceipt }>;
   /** Aleph: pedir asiento (firmado). Stake 0 es la mesa gratis; una mesa de
    *  plata exige `rpcUrl`, `privateKey` y `escrow` en `createAgent`, y sin ellos
    *  se niega antes de tocar la red. Idempotente. Antes de sentarse, mira la
@@ -220,6 +260,13 @@ export function createAgent(opts: {
   // UN candado por wallet para todas sus transacciones (Aleph y 1v1): solo el
   // envío, el recibo y el sellado, para no chocar en el nonce (tx-lock.ts).
   const txLock = createTxLock();
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+
+  // Las mesas 1v1 de plata (paid1v1.ts). Una partida pagada en juego por agente.
+  const paid = paid1v1
+    ? createPaid1v1({ cfg: paid1v1, privateKey: wallet.privateKey, client, clock, txLock })
+    : undefined;
+  let paidInPlay = false;
 
   // `matchmake` solo toma asientos GRATIS. Un asiento de plata sin depósito deja
   // a la persona del otro lado esperando (hasta 10 minutos, hasta que el árbitro
@@ -256,16 +303,11 @@ export function createAgent(opts: {
     stake: number;
     strategy?: Strategy;
     liveStrategy?: LiveStrategy;
-  }): Promise<MatchView & { liveReceipt?: LiveReceipt }> {
-    if (args.stake > 0) {
-      if (!paid1v1) {
-        throw new Error(
-          `playAndSubmit with stake > 0 needs paid1v1 { rpcUrl, escrow, chainId, maxStake } and privateKey ` +
-            `in createAgent — not taking a seat`,
-        );
-      }
-      throw new Error("paid 1v1 tables: not implemented yet");
-    }
+    onPaidStep?: (e: PaidStepEvent) => void;
+  }): Promise<
+    MatchView & { liveReceipt?: LiveReceipt; deposit?: Paid1v1Deposit; waitingForRival?: boolean }
+  > {
+    if (args.stake > 0) return playPaid(args);
     // Un juego en vivo se valida ANTES de emparejar: si esta llamada no puede
     // jugarlo, emparejar dejaría una partida que se pierde por no jugarla.
     if (isLiveMatch(args.game, RULES_V[args.game])) liveStrategyFor(args);
@@ -290,6 +332,180 @@ export function createAgent(opts: {
       privateKey: wallet.privateKey,
     });
     return client.submitScore(m.matchId, wallet.address, score, replay, signature);
+  }
+
+  // ---- Mesas 1v1 de plata --------------------------------------------------
+
+  // Pedir asiento en una mesa de plata (firmado, con el reloj del agente). Solo
+  // lo llama el flujo pagado, que revisó todo antes y deposita enseguida.
+  async function seatPaid(game: string, stake: number): Promise<MatchView> {
+    const auth = await signMatchmake({
+      game,
+      stake,
+      address: wallet.address,
+      privateKey: wallet.privateKey,
+      ts: clock(),
+    });
+    return client.matchmake(game, stake, wallet.address, auth);
+  }
+
+  // Verificar el asiento. Si un p2 recibe un asiento que no firmó el árbitro
+  // del contrato (se rotó la llave), se pide UNA vez más: el árbitro le devuelve
+  // la misma partida firmada de nuevo (matchmaking.ts, re-pedido del p2).
+  async function verifyOrReask(
+    view: MatchView,
+    stake: number,
+    pre: Awaited<ReturnType<NonNullable<typeof paid>["preflight"]>>,
+  ): Promise<MatchView> {
+    try {
+      await paid!.verifySeat(view, stake, pre);
+      return view;
+    } catch (e) {
+      if (view.role !== "p2" || !/not signed by the arbiter/.test((e as Error).message)) throw e;
+      const again = await seatPaid(view.game, stake);
+      if (again.matchId !== view.matchId) throw e;
+      await paid!.verifySeat(again, stake, pre);
+      return again;
+    }
+  }
+
+  async function playPaid(args: {
+    game: string;
+    stake: number;
+    strategy?: Strategy;
+    liveStrategy?: LiveStrategy;
+    onPaidStep?: (e: PaidStepEvent) => void;
+  }): Promise<
+    MatchView & { liveReceipt?: LiveReceipt; deposit?: Paid1v1Deposit; waitingForRival?: boolean }
+  > {
+    if (!paid) {
+      throw new Error(
+        `playAndSubmit with stake > 0 needs paid1v1 { rpcUrl, escrow, chainId, maxStake } and privateKey ` +
+          `in createAgent — not taking a seat`,
+      );
+    }
+    // Una partida pagada EN JUEGO a la vez (desde sentarse hasta terminar el
+    // intento propio). Se marca antes del primer await: dos llamadas seguidas
+    // no pueden pasar las dos.
+    if (paidInPlay) {
+      throw new Paid1v1Error(
+        "another paid match is already in play in this agent (one at a time) — not taking a seat",
+        { stage: "check" },
+      );
+    }
+    paidInPlay = true;
+    let matchId: string | undefined;
+    let deposited = false;
+    try {
+      // Todo lo que puede fallar sin gastar, ANTES de sentarse.
+      const pre = await paid.preflight(args.game, args.stake);
+      liveStrategyFor(args);
+      const seatedAt = clock();
+      let view = await seatPaid(args.game, args.stake);
+      matchId = view.matchId;
+      view = await verifyOrReask(view, args.stake, pre);
+      args.onPaidStep?.({ step: "seated", matchId: view.matchId });
+
+      let deposit: Paid1v1Deposit;
+      const role = view.role as "p1" | "p2";
+      if ((await paid.depositedRole(view.matchId).catch(() => null)) === role) {
+        // Una partida propia que vuelve: ya depositó (se le cayó el proceso, o ya
+        // jugó y espera rival). No se deposita de nuevo; se juega o se devuelve.
+        deposit = { step: "already", role };
+      } else {
+        const approveTx = await paid.approveIfNeeded(pre);
+        // Pedir de nuevo justo antes de depositar, como la web: si mientras
+        // tanto una persona abrió en esta mesa, el árbitro lo sienta con ella en
+        // vez de dejar dos partidas esperando a un tercero. Nunca después de
+        // mandar el depósito: un p1 que pide de nuevo con su `open` todavía
+        // invisible puede terminar sentado en otra partida, con dos depósitos.
+        const first = view.matchId;
+        const again = await seatPaid(args.game, args.stake);
+        if (
+          again.matchId !== view.matchId ||
+          again.role !== view.role ||
+          again.seatSig !== view.seatSig
+        ) {
+          matchId = again.matchId;
+          await paid.verifySeat(again, args.stake, pre);
+          view = again;
+        }
+        if (clock() - seatedAt > SEAT_DEPOSIT_WINDOW_MS) {
+          throw new Paid1v1Error(
+            "more than 9 minutes went by since taking the seat: the arbiter may have released it — not depositing",
+            { stage: "deposit", matchId: view.matchId },
+          );
+        }
+        deposit = await paid.deposit(view, pre);
+        if (approveTx) deposit.approveTx = approveTx;
+        if (view.matchId !== first) deposit.reseatedFrom = first;
+      }
+      deposited = true;
+      args.onPaidStep?.({ step: "deposited", matchId: view.matchId });
+
+      let played: MatchView & { liveReceipt?: LiveReceipt };
+      try {
+        played = await playLive(view, args, true);
+      } catch (e) {
+        throw new Paid1v1Error(
+          `the deposit is in, but playing match ${view.matchId} failed: ${(e as Error).message} — ` +
+            `call resume1v1(matchId) before the deadline, or the rival wins by no-show`,
+          { stage: "play", matchId: view.matchId, deposited: true, cause: e },
+        );
+      }
+      return { ...played, deposit, waitingForRival: played.status === "waiting" };
+    } catch (e) {
+      if (e instanceof Paid1v1Error) throw e;
+      // Un error que no es de la plata (el árbitro no contestó al emparejar).
+      throw new Paid1v1Error(`${(e as Error).message}`, {
+        stage: deposited ? "play" : "seat",
+        matchId,
+        deposited,
+        cause: e,
+      });
+    } finally {
+      paidInPlay = false;
+    }
+  }
+
+  async function resume1v1(
+    matchId: string,
+    opts: { liveStrategy?: LiveStrategy } = {},
+  ): Promise<MatchView & { liveReceipt?: LiveReceipt }> {
+    if (!paid) {
+      throw new Error(
+        "resume1v1 needs paid1v1 { rpcUrl, escrow, chainId, maxStake } in createAgent",
+      );
+    }
+    const role = await paid.depositedRole(matchId).catch(() => null);
+    if (!role) {
+      throw new Paid1v1Error(
+        `this agent has no deposit on-chain in match ${matchId}: there is nothing to resume`,
+        { stage: "play", matchId, deposited: false },
+      );
+    }
+    const view = await client.getMatch(matchId, wallet.address);
+    return playLive(view, { game: view.game, liveStrategy: opts.liveStrategy }, true);
+  }
+
+  // Abrir (o retomar) el intento en vivo. En una mesa de plata, si el árbitro
+  // todavía no ve el depósito, se reintenta con esperas crecientes.
+  async function startLive(matchId: string, retryDeposit: boolean) {
+    const delays = retryDeposit ? LIVE_START_RETRY_DELAYS_MS : [];
+    for (let i = 0; ; i++) {
+      const auth = await signLiveStart({
+        matchId,
+        address: wallet.address,
+        privateKey: wallet.privateKey,
+        ts: clock(),
+      });
+      try {
+        return await client.liveStart(matchId, wallet.address, auth);
+      } catch (e) {
+        if (i >= delays.length || !DEPOSIT_NOT_VISIBLE.test((e as Error).message)) throw e;
+        await sleep(delays[i]);
+      }
+    }
   }
 
   // Con qué se juega en vivo `args.game`, o por qué esta llamada no puede.
@@ -318,6 +534,7 @@ export function createAgent(opts: {
   async function playLive(
     m: MatchView,
     args: { game: string; strategy?: Strategy; liveStrategy?: LiveStrategy },
+    retryDeposit = false,
   ): Promise<MatchView & { liveReceipt: LiveReceipt }> {
     const live = liveStrategyFor(args);
     const game = liveGameFor(m.game)!;
@@ -327,13 +544,7 @@ export function createAgent(opts: {
     let reveals: number[] = [];
     let confirmed: number;
     for (let resumes = 0; ; resumes++) {
-      const auth = await signLiveStart({
-        matchId: m.matchId,
-        address: wallet.address,
-        privateKey: wallet.privateKey,
-        ts: clock(),
-      });
-      const start = await client.liveStart(m.matchId, wallet.address, auth);
+      const start = await startLive(m.matchId, retryDeposit);
       if (start.over) {
         confirmed = start.score;
         break;
@@ -912,6 +1123,7 @@ export function createAgent(opts: {
     matchmake,
     getResult,
     playAndSubmit,
+    resume1v1,
     alephJoin,
     alephView,
     alephAct,

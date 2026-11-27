@@ -26,7 +26,9 @@ export type {
   AlephActBody,
 } from "./client";
 export { createAgent, VIEW_PASS_MAX_AGE_MS } from "./agent";
-export type { AlephDepositResult, AlephWithdrawResult, LiveReceipt } from "./agent";
+export type { AlephDepositResult, AlephWithdrawResult, LiveReceipt, PaidStepEvent } from "./agent";
+export { Paid1v1Error } from "./paid1v1";
+export type { Paid1v1Deposit, Paid1v1Stage } from "./paid1v1";
 export type { Paid1v1Config } from "./paid1v1-config";
 // Para comprobar un `liveReceipt` cuando la partida se decida después de que
 // `playAndSubmit` volvió (jugaste primero): checkLiveReveals(secret, secretHash, reveals).

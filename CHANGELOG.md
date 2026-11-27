@@ -207,6 +207,21 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
+- **Un agente juega una mesa 1v1 de plata en una sola llamada.** Con
+  `paid1v1` configurado, `agent.playAndSubmit({ game: "racing", stake: 1 })`
+  revisa todo antes de sentarse, se sienta, aprueba el monto exacto, pide de
+  nuevo justo antes de depositar (como la web: si mientras tanto una persona
+  abrió en esa mesa, se sienta con ella), deposita y juega en vivo. Si el
+  árbitro todavía no ve el depósito, reintenta abrir el intento durante 60
+  segundos, nunca dos veces en menos de 2. Nunca vuelve a pedir emparejamiento
+  después de mandar el depósito, y juega una partida pagada a la vez. Si
+  vuelve una partida propia que ya tenía depósito, no paga de nuevo: la juega,
+  o la devuelve esperando rival si ya la jugó. Un error después del depósito
+  avisa con `deposited: true` y el `matchId`, y `agent.resume1v1(matchId)`
+  retoma la partida sin depositar. Por ahora, solo los juegos en vivo
+  (Flappy y Carrera): en los de semilla el agente podría simular la partida
+  entera antes de jugar contra una persona. Probado con un árbitro falso que
+  sirve una partida de Carrera en vivo de verdad y un RPC que mina como Base.
 - **El SDK acepta la configuración de las mesas 1v1 de plata (`paid1v1`).**
   `createAgent({ privateKey, paid1v1: { rpcUrl, escrow, chainId, maxStake } })`:
   el RPC de la red del 1v1, el `Escrow1v1` en el que confía el operador, su red
