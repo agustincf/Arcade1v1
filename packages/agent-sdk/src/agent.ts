@@ -172,6 +172,14 @@ export function createAgent(opts: {
   }): Promise<
     MatchView & { liveReceipt?: LiveReceipt; deposit?: Paid1v1Deposit; waitingForRival?: boolean }
   >;
+  /** Mesa de plata: cobra lo que el Escrow1v1 fijado le tiene acreditado a esta
+   *  wallet (un pago que el USDC rechazó). Sin nada acreditado no transmite. */
+  withdraw1v1(): Promise<{ amount: bigint; txHash?: Hex }>;
+  /** Testnet: acuña USDC de PRUEBA para esta wallet (el TestUSDC del escrow
+   *  fijado). En Base (8453) se niega antes de tocar la red. */
+  mintTestUsdc(amountUsdc: number): Promise<{ amount: bigint; txHash: Hex }>;
+  /** La red del 1v1, el USDC y el ETH (wei) de esta wallet y lo acreditado. */
+  paid1v1Balances(): Promise<{ chainId: number; usdc: bigint; eth: bigint; owed: bigint }>;
   /** Mesa de plata: retoma una partida en la que esta wallet ya depositó (abre
    *  o reanuda el intento en vivo y lo juega). Nunca deposita. */
   resume1v1(
@@ -467,6 +475,17 @@ export function createAgent(opts: {
       paidInPlay = false;
     }
   }
+
+  function needPaid(what: string) {
+    if (!paid) {
+      throw new Error(`${what} needs paid1v1 { rpcUrl, escrow, chainId, maxStake } in createAgent`);
+    }
+    return paid;
+  }
+  const withdraw1v1 = async () => needPaid("withdraw1v1").withdraw();
+  const mintTestUsdc = async (amountUsdc: number) =>
+    needPaid("mintTestUsdc").mintTestUsdc(amountUsdc);
+  const paid1v1Balances = async () => needPaid("paid1v1Balances").balances();
 
   async function resume1v1(
     matchId: string,
@@ -1124,6 +1143,9 @@ export function createAgent(opts: {
     getResult,
     playAndSubmit,
     resume1v1,
+    withdraw1v1,
+    mintTestUsdc,
+    paid1v1Balances,
     alephJoin,
     alephView,
     alephAct,

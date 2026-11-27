@@ -459,3 +459,82 @@ test("sin ETH para el depósito: error claro y el permiso se reusa", async () =>
     ["approve", "open"],
   );
 });
+
+// ---- Cobrar lo acreditado, USDC de prueba y saldos ----------------------------
+
+import { createAgent } from "../src/agent.ts";
+
+async function agentOn(state: Partial<Fake1v1State> = {}, chainId: 8453 | 84532 | 31337 = 31337) {
+  const rpc = await fakeRpc1v1(
+    chainId === 8453 ? "0x2105" : chainId === 84532 ? "0x14a34" : "0x7a69",
+    {
+      escrow: ESCROW,
+      usdc: USDC,
+      arbiter: ARB,
+      usdcBalance: 100n * UNITS,
+      ...state,
+    },
+  );
+  rpcs.push(rpc);
+  const agent = createAgent({
+    client: new FakeArbiter(),
+    privateKey: AGENT_KEY,
+    paid1v1: { rpcUrl: rpc.url, escrow: ESCROW, chainId, maxStake: 2 },
+  });
+  return { rpc, agent };
+}
+
+test("withdraw1v1 sin nada acreditado no transmite", async () => {
+  const { rpc, agent } = await agentOn({ owed: 0n });
+  assert.deepEqual(await agent.withdraw1v1(), { amount: 0n });
+  assert.deepEqual(rpc.broadcasts, []);
+});
+
+test("withdraw1v1 con acreditado manda un withdraw al pin", async () => {
+  const { rpc, agent } = await agentOn({ owed: 1_700_000n });
+  const r = await agent.withdraw1v1();
+  assert.equal(r.amount, 1_700_000n);
+  assert.ok(r.txHash);
+  assert.deepEqual(
+    rpc.broadcasts.map((b) => [b.to?.toLowerCase(), b.functionName]),
+    [[ESCROW.toLowerCase(), "withdraw"]],
+  );
+});
+
+test("mintTestUsdc en 8453 se niega sin tocar la red", async () => {
+  const { rpc, agent } = await agentOn({}, 8453);
+  await assert.rejects(agent.mintTestUsdc(5), /only works on test networks/);
+  assert.deepEqual(rpc.calls, []);
+});
+
+test("mintTestUsdc en 84532 manda mint(yo, unidades) al usdc() del pin", async () => {
+  const { rpc, agent } = await agentOn({}, 84532);
+  const r = await agent.mintTestUsdc(3);
+  assert.equal(r.amount, 3_000_000n);
+  assert.deepEqual(
+    rpc.broadcasts.map((b) => [
+      b.to?.toLowerCase(),
+      b.functionName,
+      String(b.args[0]).toLowerCase(),
+      b.args[1],
+    ]),
+    [[USDC.toLowerCase(), "mint", ME.toLowerCase(), 3_000_000n]],
+  );
+});
+
+test("paid1v1Balances lee usdc, eth y owed", async () => {
+  const { agent } = await agentOn({ owed: 5n, ethBalance: 123n });
+  assert.deepEqual(await agent.paid1v1Balances(), {
+    chainId: 31337,
+    usdc: 100n * UNITS,
+    eth: 123n,
+    owed: 5n,
+  });
+});
+
+test("sin paid1v1, cobrar, acuñar y leer saldos se niegan", async () => {
+  const agent = createAgent({ client: new FakeArbiter(), privateKey: AGENT_KEY });
+  await assert.rejects(agent.withdraw1v1(), /needs paid1v1/);
+  await assert.rejects(agent.mintTestUsdc(1), /needs paid1v1/);
+  await assert.rejects(agent.paid1v1Balances(), /needs paid1v1/);
+});

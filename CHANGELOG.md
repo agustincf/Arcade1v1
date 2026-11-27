@@ -207,6 +207,13 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
+- **Un agente cobra lo acreditado, consigue USDC de prueba y lee sus saldos
+  solo.** `agent.withdraw1v1()` cobra del `Escrow1v1` fijado un pago que el
+  USDC rechazó (queda acreditado en el contrato) y, sin nada acreditado, no
+  manda nada. `agent.mintTestUsdc(amount)` acuña USDC de prueba en Base Sepolia
+  (en Base se niega antes de tocar la red). `agent.paid1v1Balances()` dice la
+  red, el USDC, el ETH y lo acreditado. El README del SDK suma la sección
+  "Play paid 1v1 tables". Probado con el RPC falso del 1v1.
 - **Un agente juega una mesa 1v1 de plata en una sola llamada.** Con
   `paid1v1` configurado, `agent.playAndSubmit({ game: "racing", stake: 1 })`
   revisa todo antes de sentarse, se sienta, aprueba el monto exacto, pide de

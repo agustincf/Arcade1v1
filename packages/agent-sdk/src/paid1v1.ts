@@ -418,5 +418,73 @@ export function createPaid1v1(d: {
     return { step: fn, role, txHash };
   }
 
-  return { preflight, verifySeat, approveIfNeeded, deposit, depositedRole, pub, w, account };
+  /** Lo que el escrow le tiene ACREDITADO a esta wallet (pagos o reembolsos
+   *  que el USDC rechazó al mandarlos) y se cobra con `withdraw()`. Sin nada
+   *  acreditado no se manda ninguna transacción. */
+  async function withdraw(): Promise<{ amount: bigint; txHash?: Hex }> {
+    const amount = await pub.readContract({
+      address: escrow,
+      abi: escrow1v1Abi,
+      functionName: "owed",
+      args: [account.address],
+    });
+    if (amount === 0n) return { amount };
+    const txHash = await send(escrow, escrow1v1Abi, "withdraw", []);
+    return { amount, txHash };
+  }
+
+  /** USDC de PRUEBA (el TestUSDC tiene `mint` abierto). Solo en las redes de
+   *  prueba: en Base se niega antes de tocar la red. */
+  async function mintTestUsdc(amountUsdc: number): Promise<{ amount: bigint; txHash: Hex }> {
+    if (cfg.chainId === 8453) {
+      throw new Error("mintTestUsdc only works on test networks (84532, 31337): not minting");
+    }
+    if (!(Number.isFinite(amountUsdc) && amountUsdc > 0)) {
+      throw new Error(`mintTestUsdc needs a positive amount of USDC (got ${amountUsdc})`);
+    }
+    const amount = stakeToUnits(amountUsdc);
+    const usdc = await pub.readContract({
+      address: escrow,
+      abi: escrow1v1Abi,
+      functionName: "usdc",
+    });
+    const txHash = await send(usdc, erc20MinimalAbi, "mint", [account.address, amount]);
+    return { amount, txHash };
+  }
+
+  /** La red, el USDC, el ETH (wei) y lo acreditado de esta wallet. */
+  async function balances(): Promise<{ chainId: number; usdc: bigint; eth: bigint; owed: bigint }> {
+    const usdcAddress = await pub.readContract({
+      address: escrow,
+      abi: escrow1v1Abi,
+      functionName: "usdc",
+    });
+    const [usdc, eth, owed] = await Promise.all([
+      pub.readContract({
+        address: usdcAddress,
+        abi: erc20MinimalAbi,
+        functionName: "balanceOf",
+        args: [account.address],
+      }),
+      pub.getBalance({ address: account.address }),
+      pub.readContract({
+        address: escrow,
+        abi: escrow1v1Abi,
+        functionName: "owed",
+        args: [account.address],
+      }),
+    ]);
+    return { chainId: cfg.chainId, usdc, eth, owed };
+  }
+
+  return {
+    preflight,
+    verifySeat,
+    approveIfNeeded,
+    deposit,
+    depositedRole,
+    withdraw,
+    mintTestUsdc,
+    balances,
+  };
 }
