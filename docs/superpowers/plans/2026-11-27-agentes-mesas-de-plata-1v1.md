@@ -8,6 +8,7 @@ mismas mesas que las personas y solo en juegos en vivo.
 
 **Architecture:** el SDK gana un bloque de configuración `paid1v1` y un módulo
 nuevo (`paid1v1.ts`) con cuatro pasos:
+
 1. una revisión previa sin efectos;
 2. la verificación del asiento contra el contrato que fijó el operador;
 3. un depósito exacto (`open`/`join`) siguiendo el patrón de `alephDeposit`;
@@ -56,16 +57,17 @@ se apoya en ella.
   `receipt.status === "success"`.
 - **Valores fijos:**
 
-  | Constante | Valor | Para qué |
-  | --- | --- | --- |
-  | `DEFAULT_MAX_FEE_BPS` | `1500` | comisión máxima por defecto |
-  | `MAX_FUND_AHEAD_S` | `75 * 60` | tope de `fundDeadline − ahora` |
-  | `MAX_PLAY_AHEAD_S` | `6 * 3600` | tope de `playDeadline − ahora` |
-  | `CHAIN_MARGIN_S` | `60` | margen de tiempo de cadena antes de `join` |
-  | `SEAT_DEPOSIT_WINDOW_MS` | `9 * 60_000` | 10 min de `OPEN_GRACE_MS`/`JOIN_WINDOW_MS` menos 60 s |
-  | `LIVE_START_RETRY_DELAYS_MS` | `[2000, 4000, 8000, 8000, 8000, 10000, 10000, 10000]` | 60 s en total |
-  | `CIRCLE_USDC_BASE` | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | USDC de Circle en Base |
-  | redes aceptadas | `8453`, `84532`, `31337` | — |
+  | Constante                    | Valor                                                 | Para qué                                              |
+  | ---------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+  | `DEFAULT_MAX_FEE_BPS`        | `1500`                                                | comisión máxima por defecto                           |
+  | `MAX_FUND_AHEAD_S`           | `75 * 60`                                             | tope de `fundDeadline − ahora`                        |
+  | `MAX_PLAY_AHEAD_S`           | `6 * 3600`                                            | tope de `playDeadline − ahora`                        |
+  | `CHAIN_MARGIN_S`             | `60`                                                  | margen de tiempo de cadena antes de `join`            |
+  | `SEAT_DEPOSIT_WINDOW_MS`     | `9 * 60_000`                                          | 10 min de `OPEN_GRACE_MS`/`JOIN_WINDOW_MS` menos 60 s |
+  | `LIVE_START_RETRY_DELAYS_MS` | `[2000, 4000, 8000, 8000, 8000, 10000, 10000, 10000]` | 60 s en total                                         |
+  | `CIRCLE_USDC_BASE`           | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`          | USDC de Circle en Base                                |
+  | redes aceptadas              | `8453`, `84532`, `31337`                              | —                                                     |
+
 - **Idioma:**
   - comentarios de código, en español (como el resto del repo);
   - errores nuevos del SDK y descripciones de herramientas del MCP, en inglés;
@@ -106,13 +108,14 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 5. **El modelo pide en el MCP un stake mayor que `ARCADE_1V1_MAX_STAKE` o uno
    que no es una mesa (por ejemplo 3).** Se espera un rechazo sin tocar la red
    (Tarea 8, `play_paid rechaza un stake fuera de tope o de mesa sin tocar la
-   red`).
+red`).
 
 ---
 
 ### Task 1: el contrato 1v1 en el game-sdk (`/escrow1v1`)
 
 **Files:**
+
 - Create: `packages/game-sdk/src/escrow1v1.ts`
 - Modify: `packages/game-sdk/package.json` (exports: `"./escrow1v1": "./src/escrow1v1.ts"`)
 - Modify: `packages/game-sdk/README.md` (sección del subpath)
@@ -120,6 +123,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 - Test: `apps/server/test/seat-domain.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `escrow1v1Abi`: `as const`, con `open`, `join`, `matches` (8 salidas, sin
     `frozenFeeBps`, igual que `apps/server/src/abi.ts:137-141`), `arbiter`,
@@ -151,8 +155,9 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
   Run: `node --import tsx --test packages/game-sdk/test/escrow1v1.test.ts apps/server/test/seat-domain.test.ts`
 
   Expected: FAIL, "Cannot find module …/escrow1v1".
+
 - [ ] **Step 3: Implement `packages/game-sdk/src/escrow1v1.ts`** sin importar
-  viem (como `aleph-escrow.ts`), y agregar el export a `package.json`.
+      viem (como `aleph-escrow.ts`), y agregar el export a `package.json`.
 - [ ] **Step 4: Run them and see them pass.** Mismo comando. Expected: PASS.
 - [ ] **Step 5: Documentar y commitear**
   - README del game-sdk: una sección sobre `/escrow1v1`.
@@ -167,6 +172,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 ### Task 2: árbitro, errores de depósito con su código, rutas 1v1 en un router y `rules` en `/health`
 
 **Files:**
+
 - Create: `apps/server/src/http-errors.ts` (pasan acá `ERRORES_ESPERABLES` y `responderError`, desde `index.ts:94-116`)
 - Create: `apps/server/src/match-routes.ts`
 - Create: `apps/server/src/health.ts`
@@ -182,6 +188,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 - Test: `apps/server/test/health-rules.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `export class DepositUnverifiedError extends Error`, en `onchain.ts`, con el
     mensaje `could not verify your deposit on-chain — retry in a moment`.
@@ -220,19 +227,20 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
   Run: `node --import tsx --test apps/server/test/deposit-errors-http.test.ts apps/server/test/health-rules.test.ts`
 
   Expected: FAIL, porque no existen los módulos.
+
 - [ ] **Step 3: Implementar.** Mover el código sin cambiar comportamiento, salvo
-  lo que dice Interfaces. `assertDepositOnchain` lanza `DepositUnverifiedError`
-  en el `catch` de la lectura de la cadena. `live.ts` la deja pasar tal cual
-  (`if (e instanceof DepositUnverifiedError) throw e;` antes del `LiveError`).
-  El demo `apps/server/src/agent.ts` pasa a stake 0, con un comentario que
-  apunta a `playAndSubmit` con `paid1v1`.
+      lo que dice Interfaces. `assertDepositOnchain` lanza `DepositUnverifiedError`
+      en el `catch` de la lectura de la cadena. `live.ts` la deja pasar tal cual
+      (`if (e instanceof DepositUnverifiedError) throw e;` antes del `LiveError`).
+      El demo `apps/server/src/agent.ts` pasa a stake 0, con un comentario que
+      apunta a `playAndSubmit` con `paid1v1`.
 - [ ] **Step 4: Run them and see them pass.** Correr también, sin tocarlas,
-  `apps/server/test/live-deposit.test.ts`, `deposito-onchain.test.ts`,
-  `paid-settle.test.ts` y `escrow-gate-matchmake.test.ts`. Expected: PASS.
+      `apps/server/test/live-deposit.test.ts`, `deposito-onchain.test.ts`,
+      `paid-settle.test.ts` y `escrow-gate-matchmake.test.ts`. Expected: PASS.
 - [ ] **Step 5: Web.** Si `live/start` en la web trata un no-400 como
-  "error interno", hacer que un 503 muestre el aviso de reintento
-  (`err.*`, patrón de `apps/web/app/lib/errors.ts`). Correr las pruebas web que
-  toquen esa llamada.
+      "error interno", hacer que un 503 muestre el aviso de reintento
+      (`err.*`, patrón de `apps/web/app/lib/errors.ts`). Correr las pruebas web que
+      toquen esa llamada.
 - [ ] **Step 6: Documentar y commitear**
   - CHANGELOG, en Corregido: "**Un depósito que el árbitro todavía no ve ya no
     contesta 'error interno'**…".
@@ -247,6 +255,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 ### Task 3: SDK, configuración `paid1v1`, mensajes de rechazo y `getResult`
 
 **Files:**
+
 - Create: `packages/agent-sdk/src/paid1v1-config.ts`
 - Modify: `packages/agent-sdk/src/agent.ts`
   - opciones de `createAgent`, `:98-130`;
@@ -257,6 +266,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 - Test: `packages/agent-sdk/test/agent.test.ts:68-81` (se reescribe)
 
 **Interfaces:**
+
 - Produces:
   - `export interface Paid1v1Config { rpcUrl: string; escrow: `0x${string}`; chainId: 8453 | 84532 | 31337; maxStake: number; maxFeeBps?: number }`
   - `export function validatePaid1v1(cfg: unknown, hasPrivateKey: boolean): Paid1v1Config | undefined`.
@@ -293,17 +303,19 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 - [ ] **Step 2: Run them and see them fail.**
 
   Run: `node --import tsx --test packages/agent-sdk/test/paid1v1-config.test.ts packages/agent-sdk/test/agent.test.ts`
+
 - [ ] **Step 3: Implementar.** `playAndSubmit` con `stake > 0` y sin `paid1v1`
-  tira `playAndSubmit with stake > 0 needs paid1v1 { rpcUrl, escrow, chainId, maxStake } and privateKey in createAgent — not taking a seat`.
-  Con `paid1v1`, por ahora tira `not implemented` (lo completa la Tarea 5).
+      tira `playAndSubmit with stake > 0 needs paid1v1 { rpcUrl, escrow, chainId, maxStake } and privateKey in createAgent — not taking a seat`.
+      Con `paid1v1`, por ahora tira `not implemented` (lo completa la Tarea 5).
 - [ ] **Step 4: Run them and see them pass.** Además, el resto de
-  `packages/agent-sdk/test/*.test.ts` sin cambios.
+      `packages/agent-sdk/test/*.test.ts` sin cambios.
 - [ ] **Step 5: Commit.** CHANGELOG, en Agregado (SDK): "**Configuración
-  `paid1v1`**…".
+      `paid1v1`**…".
 
 ### Task 4: SDK, revisión previa, verificación del asiento y depósito
 
 **Files:**
+
 - Create: `packages/agent-sdk/src/paid1v1.ts`
 - Create: `packages/agent-sdk/src/tx-lock.ts`
 - Create: `packages/agent-sdk/test/fake-rpc-1v1.ts`. Es un archivo **aparte**:
@@ -314,6 +326,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 - Test: `packages/agent-sdk/test/tx-lock.test.ts`
 
 **Interfaces:**
+
 - Consumes:
   - de la Tarea 1: `escrow1v1Abi`, `escrow1v1MatchFeeAbi`, `ESCROW1V1_STATUS`,
     `SEAT_TYPES`, `seatDomain`, `CIRCLE_USDC_BASE`, `stakeToUnits`,
@@ -353,8 +366,8 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
     `calls` y `broadcasts`, como `fake-rpc.ts`.
 
 - [ ] **Step 1: Write the failing tests.** En `agent-1v1-money.test.ts`, los
-  asientos los firma una llave de prueba en el dominio real (`seatDomain`). El
-  árbitro falso registra un `calls`.
+      asientos los firma una llave de prueba en el dominio real (`seatDomain`). El
+      árbitro falso registra un `calls`.
   - `revisión previa: cada falla corta antes de emparejar`. Una prueba por
     caso: red distinta, sin código en el pin, `arbiter()` distinto de
     `/arbiter`, `usdc()` distinto del de Circle en 8453, `feeBps` 1600,
@@ -384,15 +397,16 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
     sellado. Positivo: un `open` minado.
   - `revert minado`: `minedRevert` termina en error con `deposited: false`.
   - **Review Focus 4.** `sin ETH para el depósito: error claro y el permiso se
-    reusa`: con `ethForGas: "approveOnly"` el primer intento hace el approve y
+reusa`: con `ethForGas: "approveOnly"` el primer intento hace el approve y
     falla antes del `open` con `deposited: false`. Al restaurar el ETH, el
     segundo intento transmite solo `open`.
   - `tx-lock.test.ts`: `dos envíos concurrentes se serializan` (el segundo
     `fn` arranca después de que el primero resuelve) y `un error libera el
-    candado`.
+candado`.
 - [ ] **Step 2: Run them and see them fail.**
 
   Run: `node --import tsx --test packages/agent-sdk/test/agent-1v1-money.test.ts packages/agent-sdk/test/tx-lock.test.ts`
+
 - [ ] **Step 3: Implementar `paid1v1.ts`.**
   - Seguir el orden y los controles de `alephDeposit` (`agent.ts:561-838`).
   - Usar `chainFor`: se mueve sin cambios de `agent.ts:89-96` a un archivo
@@ -405,14 +419,15 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
   - En `alephDeposit` y `alephWithdraw`, cada `writeContract` + recibo +
     sellado pasa por el mismo `txLock` de la wallet.
 - [ ] **Step 4: Run them and see them pass.** Además,
-  `node --import tsx --test packages/agent-sdk/test/agent-aleph.test.ts apps/mcp/test/tools-aleph.test.ts`
-  tiene que pasar sin cambios.
+      `node --import tsx --test packages/agent-sdk/test/agent-aleph.test.ts apps/mcp/test/tools-aleph.test.ts`
+      tiene que pasar sin cambios.
 - [ ] **Step 5: Commit.** CHANGELOG, en Seguridad: "**Los agentes verifican el
-  asiento contra el contrato fijado antes de pagar**…".
+      asiento contra el contrato fijado antes de pagar**…".
 
 ### Task 5: SDK, `playAndSubmit` con plata y `resume1v1`
 
 **Files:**
+
 - Modify: `packages/agent-sdk/src/agent.ts`
   - `playAndSubmit`, `:248-278`;
   - `playLive`, `:303-375`: `live/start` pasa a reintentarse;
@@ -422,6 +437,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 - Test: `packages/agent-sdk/test/agent-1v1-play.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createPaid1v1`, `Paid1v1Error`, `Paid1v1Deposit`, `createTxLock`
   (Tarea 4) y `validatePaid1v1` (Tarea 3).
 - Produces:
@@ -430,9 +446,9 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
   - `agent.resume1v1(matchId: string, opts?: { liveStrategy?: LiveStrategy }): Promise<MatchView & { liveReceipt?: LiveReceipt }>`
 
 - [ ] **Step 1: Write the failing tests.** Con el árbitro falso de la Tarea 4
-  más `liveStart`/`liveCommit` que sirven una partida de Carrera corta (el
-  formato de `packages/agent-sdk/test/live-client.test.ts`) y el
-  `fakeRpc1v1`.
+      más `liveStart`/`liveCommit` que sirven una partida de Carrera corta (el
+      formato de `packages/agent-sdk/test/live-client.test.ts`) y el
+      `fakeRpc1v1`.
   - `flujo pagado completo como p1`: el orden de llamadas es `health`,
     `arbiter`, `matchmake`, approve, `matchmake` (el re-pedido, con firma
     nueva), `open`, `liveStart`, commits. `onPaidStep` recibe `seated` y
@@ -441,7 +457,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
     `matchmake` devuelve otro `matchId` con rol p2, y se transmite `join` sobre
     ese `matchId`. `deposit.reseatedFrom` es el primero.
   - **Review Focus 3.** `re-pedido que cambia a p2 inválido aborta sin
-    depositar`: el segundo `matchmake` trae stake 2 en vez de 1. Termina en
+depositar`: el segundo `matchmake` trae stake 2 en vez de 1. Termina en
     `Paid1v1Error` con stage `"seat"`, y ningún `open`/`join` en
     `broadcasts`.
   - `nunca se re-pide después de mandar`: si el `open` tira después de
@@ -460,25 +476,24 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
     `{ over: true }`. Devuelve `waitingForRival: true` y
     `deposit.step === "already"`, sin transmitir ni comprometer jugadas.
   - **Review Focus 2.** `una segunda partida pagada en juego se rechaza sin
-    emparejar`: dos `playAndSubmit` pagados a la vez. El segundo tira
+emparejar`: dos `playAndSubmit` pagados a la vez. El segundo tira
     `Paid1v1Error` con stage `"check"` y `matchmake` se llama una sola vez. Un
     `playAndSubmit` con stake 0 en paralelo sí pasa.
   - `live/start reintenta el depósito todavía no visible`: dos respuestas 400
     `no on-chain deposit found…` y después éxito. Un solo intento, y nunca dos
     `liveStart` a menos de 2 s, con reloj falso.
   - **Review Focus 1.** `resume1v1 juega una partida cuyo live/start falló de
-    más`:
-    - `live/start` falla todo el presupuesto (los 60 s de
-      `LIVE_START_RETRY_DELAYS_MS`, con reloj falso). Se espera
-      `Paid1v1Error` con stage `"play"`, `deposited: true` y el `matchId`, y
-      un mensaje que menciona `resume1v1`.
-    - Después `resume1v1(matchId)` juega con `liveStart` OK y sin transmitir
-      nada.
+más`: - `live/start` falla todo el presupuesto (los 60 s de
+    `LIVE_START_RETRY_DELAYS_MS`, con reloj falso). Se espera
+    `Paid1v1Error` con stage `"play"`, `deposited: true` y el `matchId`, y
+    un mensaje que menciona `resume1v1`. - Después `resume1v1(matchId)` juega con `liveStart` OK y sin transmitir
+    nada.
   - `resume1v1 sin depósito en la cadena se niega`.
   - `stake 0 sigue sin tocar el RPC`: `fakeRpc1v1.calls` vacío.
 - [ ] **Step 2: Run them and see them fail.**
 
   Run: `node --import tsx --test packages/agent-sdk/test/agent-1v1-play.test.ts`
+
 - [ ] **Step 3: Implementar.**
   - **El orden:** preflight; `matchmake` firmado; verificación; approve si hace
     falta; re-pedido una vez; verificación de nuevo si cambió algo; marca
@@ -491,13 +506,14 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
   - **El plazo de 9 minutos:** si pasaron más de `SEAT_DEPOSIT_WINDOW_MS` desde
     el primer `matchmake`, no se deposita.
 - [ ] **Step 4: Run them and see them pass.** Además, toda la carpeta
-  `packages/agent-sdk/test`.
+      `packages/agent-sdk/test`.
 - [ ] **Step 5: Commit.** CHANGELOG, en Agregado: "**Un agente juega una mesa
-  1v1 de plata en una sola llamada**…".
+      1v1 de plata en una sola llamada**…".
 
 ### Task 6: SDK, `withdraw1v1`, `mintTestUsdc`, `paid1v1Balances` y README
 
 **Files:**
+
 - Modify: `packages/agent-sdk/src/paid1v1.ts`
 - Modify: `packages/agent-sdk/src/agent.ts` (el objeto que devuelve)
 - Modify: `packages/agent-sdk/README.md`: se reemplazan `:312-319`, entra una
@@ -506,6 +522,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 - Test: `packages/agent-sdk/test/agent-1v1-money.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `agent.withdraw1v1(): Promise<{ amount: bigint; txHash?: `0x${string}` }>`
   - `agent.mintTestUsdc(amountUsdc: number): Promise<{ amount: bigint; txHash: `0x${string}` }>`:
@@ -523,7 +540,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
   - Cualquiera de estos sin `paid1v1` tira `/needs paid1v1/`.
 - [ ] **Step 2: Run them and see them fail.**
 - [ ] **Step 3: Implementar**, como espejo de `alephWithdraw`
-  (`agent.ts:840-885`), contra `paid1v1.escrow`.
+      (`agent.ts:840-885`), contra `paid1v1.escrow`.
 - [ ] **Step 4: Run them and see them pass.**
 - [ ] **Step 5: README y commit.**
   - El README cubre: la configuración, el ejemplo de la spec, qué juegos, cómo
@@ -535,6 +552,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 ### Task 7: de punta a punta en anvil (CI)
 
 **Files:**
+
 - Create: `apps/server/src/sdk-1v1-onchain-e2e.ts`, sobre el modelo de
   `apps/server/src/aleph-onchain-e2e.ts`
 - Create: `packages/contracts/check-payment-sdk-e2e.sh`, una copia de
@@ -545,6 +563,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
   pasan a los valores medidos × 1,5)
 
 **Interfaces:**
+
 - Consumes: `matchRouter` y `healthBody` (Tarea 2), `liveRouter`, y
   `createAgent({ privateKey, paid1v1 })` (Tareas 3 a 6).
 
@@ -568,14 +587,15 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
     `withdraw1v1()` cobra.
   - **La medición:** se imprime el gas usado por `approve`, `open` y `join`.
 - [ ] **Step 2: Correrlo.** `bash packages/contracts/check-payment-sdk-e2e.sh`.
-  Expected: los tres escenarios en OK y el gas impreso.
+      Expected: los tres escenarios en OK y el gas impreso.
 - [ ] **Step 3: Ajustar** `APPROVE_GAS` y `DEPOSIT_GAS` a lo medido × 1,5 y
-  volver a correr las Tareas 4 y 5.
+      volver a correr las Tareas 4 y 5.
 - [ ] **Step 4: Commit.** `docs/TESTING.md`: la fila del e2e nueva.
 
 ### Task 8: MCP, `play_paid`, `resume_paid`, `withdraw_1v1`, `mint_test_usdc`
 
 **Files:**
+
 - Modify: `apps/mcp/src/config.ts` (`WalletEnv.paid1v1` y su validación)
 - Modify: `apps/mcp/src/index.ts` (pasar `paid1v1` a `createAgent` y
   `paid1v1Enabled` a `buildServer`, y el comentario de cabecera)
@@ -594,6 +614,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
   `apps/mcp/test/present.test.ts`
 
 **Interfaces:**
+
 - Consumes: `playAndSubmit`, `resume1v1`, `withdraw1v1`, `mintTestUsdc` y
   `paid1v1Balances` (Tareas 5 y 6).
 - Produces:
@@ -601,21 +622,14 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
     `ARCADE_1V1_ESCROW_ADDRESS`, `ARCADE_1V1_RPC_URL`, `ARCADE_1V1_CHAIN_ID` y
     `ARCADE_1V1_MAX_STAKE`. Van las cuatro o ninguna, y cualquiera exige
     `ARCADE_PRIVATE_KEY`. El error nombra las variables, no los valores.
-  - En `tools.ts`:
-    - `export interface PaidLedger { inFlight?: Promise<PaidResult>; undelivered?: PaidResult }`,
-      donde `PaidResult` es lo que devuelve `agent.playAndSubmit` con `stake > 0`.
-    - `export function createPaidLedger(): PaidLedger`. Guarda la promesa en
-      curso y el resultado que todavía no se le entregó al modelo. Un resultado
-      cuenta como entregado cuando la herramienta lo devolvió.
-    - `playPaidTool(agent, ledger, game, stake, enabled)`
-    - `resumePaidTool(agent, matchId)`
-    - `withdraw1v1Tool(agent)`
-    - `mintTestUsdcTool(agent, amount)`
-    - Si `enabled` es falso, todas tiran: `<refused>: paid 1v1 tables are off
-      on this MCP server. Its operator has to set ARCADE_1V1_ESCROW_ADDRESS,
-      ARCADE_1V1_RPC_URL, ARCADE_1V1_CHAIN_ID and ARCADE_1V1_MAX_STAKE,
-      together with ARCADE_PRIVATE_KEY, and restart it. The free ladder
-      (stake 0) needs none of them.`
+  - En `tools.ts`: - `export interface PaidLedger { inFlight?: Promise<PaidResult>; undelivered?: PaidResult }`,
+    donde `PaidResult` es lo que devuelve `agent.playAndSubmit` con `stake > 0`. - `export function createPaidLedger(): PaidLedger`. Guarda la promesa en
+    curso y el resultado que todavía no se le entregó al modelo. Un resultado
+    cuenta como entregado cuando la herramienta lo devolvió. - `playPaidTool(agent, ledger, game, stake, enabled)` - `resumePaidTool(agent, matchId)` - `withdraw1v1Tool(agent)` - `mintTestUsdcTool(agent, amount)` - Si `enabled` es falso, todas tiran: `<refused>: paid 1v1 tables are off
+on this MCP server. Its operator has to set ARCADE_1V1_ESCROW_ADDRESS,
+ARCADE_1V1_RPC_URL, ARCADE_1V1_CHAIN_ID and ARCADE_1V1_MAX_STAKE,
+together with ARCADE_PRIVATE_KEY, and restart it. The free ladder
+(stake 0) needs none of them.`
   - Las herramientas:
     - `play_paid {game, stake}`: `destructiveHint: true`,
       `idempotentHint: true`.
@@ -632,16 +646,10 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
     - `ARCADE_1V1_* sin ARCADE_PRIVATE_KEY no arranca`;
     - `ARCADE_PRIVATE_KEY sola sigue valiendo`;
     - ninguna repite el valor.
-  - `tools-paid.test.ts` (agente real con `fakeRpc1v1` y árbitro falso):
-    - `play_paid sin configuración falla cerrado y nombra las variables`;
-    - **Review Focus 5.** `play_paid rechaza un stake fuera de tope o de mesa
-      sin tocar la red`: stake 5 con tope 2, y stake 3. En los dos casos
-      `calls` y el conteo de `matchmake` quedan vacíos;
-    - `un error de plata no muestra la URL del RPC`;
-    - `reintentar mientras sigue en curso devuelve el mismo resultado`;
-    - `un resultado sin entregar se devuelve en el siguiente play_paid` (la
-      segunda llamada no empareja);
-    - `play_and_submit y matchmake con stake > 0 siguen rechazando`.
+  - `tools-paid.test.ts` (agente real con `fakeRpc1v1` y árbitro falso): - `play_paid sin configuración falla cerrado y nombra las variables`; - **Review Focus 5.** `play_paid rechaza un stake fuera de tope o de mesa
+sin tocar la red`: stake 5 con tope 2, y stake 3. En los dos casos
+    `calls` y el conteo de `matchmake` quedan vacíos; - `un error de plata no muestra la URL del RPC`; - `reintentar mientras sigue en curso devuelve el mismo resultado`; - `un resultado sin entregar se devuelve en el siguiente play_paid` (la
+    segunda llamada no empareja); - `play_and_submit y matchmake con stake > 0 siguen rechazando`.
   - `server.test.ts`:
     - la lista de herramientas incluye las cuatro nuevas;
     - `play_paid` tiene `destructiveHint: true`;
@@ -655,6 +663,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 - [ ] **Step 2: Run them and see them fail.**
 
   Run: `node --import tsx --test apps/mcp/test/*.test.ts`
+
 - [ ] **Step 3: Implementar.**
   - Los errores de plata pasan por `errorWithoutUrls` (`tools.ts:222-256`).
   - Las herramientas gratis siguen mandando `stake` al SDK, que ya rechaza
@@ -669,6 +678,7 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 ### Task 9: web, aviso "tu rival puede ser un agente" y `/agents`
 
 **Files:**
+
 - Modify: `apps/web/app/lib/i18n/en.ts`, `es.ts` y `fr.ts` (claves
   `table.agentNotice` y `match.agentNotice`)
 - Modify: `apps/web/app/game/[gameId]/TableClient.tsx`: el aviso va después
@@ -693,18 +703,19 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
     contiene `Agents play the free ladder (stake 0)`.
 - [ ] **Step 2: Run it and see it fail.**
 - [ ] **Step 3: Implementar.** Textos iniciales; quien lo construye puede
-  ajustarlos:
+      ajustarlos:
   - en: "Your rival may be an autonomous AI agent. Agents sit at these same tables, deposit the same stake and are verified by replay like everyone else."
   - es: "Tu rival puede ser un agente de IA autónomo. Los agentes se sientan en estas mismas mesas, depositan lo mismo y se verifican por replay como todos."
   - fr: "Votre adversaire peut être un agent IA autonome. Les agents jouent à ces mêmes tables, déposent la même mise et sont vérifiés par replay comme tout le monde."
   - `/terms` y `table.norisk` no se tocan.
 - [ ] **Step 4: Run it and see it pass**, junto con `apps/web/test/i18n.test.ts`
-  y `npm run typecheck:web`.
+      y `npm run typecheck:web`.
 - [ ] **Step 5: Commit.** CHANGELOG, en Agregado (web).
 
 ### Task 10: documentación transversal y prueba de testnet
 
 **Files:**
+
 - Modify:
   - `AGENTS.md`: se van `:213-217` y `:228`, entra la sección "Paid 1v1 tables
     for agents", se actualizan la lista de herramientas del MCP, `:334`
@@ -728,12 +739,12 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
   `playAndSubmit({ stake: 1 })` con `paid1v1` y `mintTestUsdc`.
 
 - [ ] **Step 1: Buscar lo que quedó viejo**, con
-  `grep -rnE "stake: 0\`?\.?\*\*|Use stake 0|cannot fund a USDC table|Phase 1|no las juegan agentes|only transaction" AGENTS.md apps/web/public/llms.txt docs packages/agent-sdk/README.md apps/mcp/README.md`.
-  Expected: cada línea encontrada se corrige o se justifica.
+      `grep -rnE "stake: 0\`?\.?\*\*|Use stake 0|cannot fund a USDC table|Phase 1|no las juegan agentes|only transaction" AGENTS.md apps/web/public/llms.txt docs packages/agent-sdk/README.md apps/mcp/README.md`.
+      Expected: cada línea encontrada se corrige o se justifica.
 - [ ] **Step 2: Editar los archivos de la lista.** Cualquier enlace nuevo a
-  arcade1v1.com en `llms.txt` tiene que estar en el sitemap.
+      arcade1v1.com en `llms.txt` tiene que estar en el sitemap.
 - [ ] **Step 3: Verificar.** `node --import tsx --test apps/web/test/seo.test.ts`
-  y `npm run check`.
+      y `npm run check`.
 - [ ] **Step 4: Commit.** CHANGELOG, en Cambiado: la documentación.
 
 ### Task 11: rebase sobre el #77, versión y publicación
@@ -741,12 +752,12 @@ alguien. Cada uno tiene su prueba en la tarea que es dueña del código:
 Esta tarea arranca **solo cuando el dueño mergeó el #77** en `main`.
 
 - [ ] **Step 1: Rebasar.** `git fetch origin && git rebase origin/main`, y
-  resolver los conflictos de documentación y versiones a favor de lo que trajo
-  el #77, sumando lo de este PR. El `[Sin publicar]` de este PR queda arriba
-  del `[3.13.0]`.
+      resolver los conflictos de documentación y versiones a favor de lo que trajo
+      el #77, sumando lo de este PR. El `[Sin publicar]` de este PR queda arriba
+      del `[3.13.0]`.
 - [ ] **Step 2: Invaders.** Con el #77 adentro, `isLiveMatch("invaders", RULES_V.invaders)`
-  es verdadero. Correr el flujo pagado de la Tarea 5 con `"invaders"` (agregar
-  ese caso a `agent-1v1-play.test.ts`).
+      es verdadero. Correr el flujo pagado de la Tarea 5 con `"invaders"` (agregar
+      ese caso a `agent-1v1-play.test.ts`).
 - [ ] **Step 3: Versiones.**
   - Paquetes a `0.8.0`: `packages/game-sdk`, `packages/strategies`,
     `packages/agent-sdk`, `apps/mcp/package.json` y `server.json`
@@ -754,11 +765,11 @@ Esta tarea arranca **solo cuando el dueño mergeó el #77** en `main`.
   - La app a `3.14.0`: `[Sin publicar]` pasa a `## [3.14.0] — <fecha>`.
   - Los encabezados de versión de `AGENTS.md` y `llms.txt`.
 - [ ] **Step 4: Verificar.** `npm run check`,
-  `bash packages/contracts/check-payment-e2e.sh`,
-  `bash packages/contracts/check-payment-sdk-e2e.sh` y
-  `bash packages/contracts/check-aleph-e2e.sh`, todo en OK.
+      `bash packages/contracts/check-payment-e2e.sh`,
+      `bash packages/contracts/check-payment-sdk-e2e.sh` y
+      `bash packages/contracts/check-aleph-e2e.sh`, todo en OK.
 - [ ] **Step 5: Commit, push y PR.** Push y PR con el OK del dueño. El merge lo
-  hace el dueño desde GitHub.
+      hace el dueño desde GitHub.
 - [ ] **Step 6: Producción, después del merge.**
   - `curl -s https://arcade1v1.onrender.com/health` trae `rules` y el `commit`
     del merge.

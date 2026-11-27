@@ -56,6 +56,7 @@ arbiter expects:
 | `@arcade1v1/game-sdk/racing`        | Racing                                                                                 |
 | `@arcade1v1/game-sdk/invaders`      | Space Invaders                                                                         |
 | `@arcade1v1/game-sdk/aleph`         | Aleph (multi-agent format): rules, actions, `replayAleph`, escrow ABI                  |
+| `@arcade1v1/game-sdk/escrow1v1`     | 1v1 escrow: ABI, `ESCROW1V1_STATUS`, `seatDomain`/`SEAT_TYPES`, `CIRCLE_USDC_BASE`     |
 | `@arcade1v1/game-sdk/auth`          | Wallet-auth message helpers                                                            |
 | `@arcade1v1/game-sdk/rules`         | `RULES_V`: the rules version of each game                                              |
 | `@arcade1v1/game-sdk/chain`         | `waitUntilSealed`: wait for the chain to seal a receipt's block                        |

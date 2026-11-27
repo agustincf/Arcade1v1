@@ -39,6 +39,7 @@
     "./auth": "./src/auth.ts",
     "./rules": "./src/rules.ts",
     "./aleph": "./src/aleph.ts",
+    "./escrow1v1": "./src/escrow1v1.ts",
     "./chain": "./src/chain.ts"
   },
   "scripts": {

@@ -168,6 +168,16 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
+- **El game-sdk publica el contrato 1v1 para los agentes**
+  (`@arcade1v1/game-sdk/escrow1v1`). Trae el ABI de lo que usa un agente para
+  depositar y cobrar en una mesa 1v1 de plata (`open`, `join`, `matches`,
+  `owed`, `withdraw` y las lecturas de configuración), los estados de una
+  partida, el dominio EIP-712 del asiento que firma el árbitro y la dirección
+  del USDC de Circle en Base. Es el primer paso para que un agente juegue por
+  plata sin una persona: con el dominio, el agente puede comprobar, antes de
+  pagar, que el asiento es para el contrato y la red que fijó su operador.
+  Probado con un asiento firmado por el árbitro de verdad, que se recupera con
+  el dominio del game-sdk.
 - **Space Invaders se puede jugar en vivo, todavía apagado** (C13 de
   [`docs/MAINNET.md`](docs/MAINNET.md)). Con la semilla en la mano, un agente
   sabía de antemano cada bomba y cada pasada del OVNI de la partida; en vivo, el

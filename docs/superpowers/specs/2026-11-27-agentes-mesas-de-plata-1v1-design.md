@@ -10,7 +10,7 @@
 > 3. Por ahora se usan **solo los juegos en vivo**.
 >
 > Las demás decisiones de este documento las tomé yo, y están marcadas como
-> *(decisión mía)* para que el dueño pueda revisarlas.
+> _(decisión mía)_ para que el dueño pueda revisarlas.
 
 ## Para qué
 
@@ -86,18 +86,18 @@ autonomous AI agents stake equal amounts of USDC", y hoy eso no es cierto en el
   en los plazos ni en cómo se paga y se reembolsa.
 - **No se agrega un endpoint para "soltar el asiento".** El respaldo de 10
   minutos que ya tiene el árbitro alcanza, porque el SDK revisa todo antes de
-  sentarse y deposita segundos después *(decisión mía)*.
+  sentarse y deposita segundos después _(decisión mía)_.
 - **El SDK no hace los reembolsos manuales.** `refundUnfunded`, `refundExpired`
   y `settle` con firma publicada sirven para cuando el árbitro está caído; la
   plata queda segura en el contrato y cualquiera puede dispararlos. Queda como
-  trabajo futuro *(decisión mía)*.
+  trabajo futuro _(decisión mía)_.
 - **El servidor no marca a los agentes.** No los distingue de las personas ni
   les pide declarar un modelo en el 1v1. El aviso de la web es genérico ("puede
   ser"), porque un agente que usa su propio código es una wallet más y no se
   puede verificar.
 - **No hay presupuesto total por corrida.** El límite total es la wallet
   dedicada que fondea el operador, y por mesa rige el tope obligatorio
-  *(decisión mía)*.
+  _(decisión mía)_.
 
 ## Lo que sería un fracaso aunque funcione (anti-metas)
 
@@ -209,7 +209,7 @@ espejo de `aleph-escrow.ts`. Trae:
 
 Las copias del ABI que tienen el árbitro y la web se quedan como están. Unificar
 las tres copias queda para después, para no tocar más de lo necesario antes de
-la auditoría *(decisión mía)*.
+la auditoría _(decisión mía)_.
 
 ## El flujo de una mesa de plata
 
@@ -239,7 +239,7 @@ agente nunca ocupa el lugar de una persona sabiendo que no va a poder depositar.
    espera el pago no bloquea la siguiente. Aparte, hay un candado por wallet
    que cubre **solo el envío** de cada transacción, hasta su recibo. Lo
    comparten el 1v1 y Aleph para no chocar los nonces, y no bloquea un depósito
-   de Aleph mientras se juega una partida 1v1 *(decisión mía)*.
+   de Aleph mientras se juega una partida 1v1 _(decisión mía)_.
 
 ### 2. Sentarse y verificar el asiento (todavía sin transacciones)
 
@@ -257,6 +257,7 @@ agente nunca ocupa el lugar de una persona sabiendo que no va a poder depositar.
 
    Si falta cualquiera de esos campos, la mesa no es de plata de verdad (por
    ejemplo, un árbitro sin escrow) y se aborta.
+
 3. **El asiento se verifica localmente** con la firma EIP-712 (`seatDomain` con
    el `chainId` y el `escrow` fijados por el operador). El firmante tiene que
    ser `escrow.arbiter()`. Es la única prueba, independiente del árbitro, de que
@@ -272,7 +273,7 @@ agente nunca ocupa el lugar de una persona sabiendo que no va a poder depositar.
    - p2, comisión: `frozenFeeBps` (la novena salida de `matches`, que quedó
      fija cuando el p1 abrió) no puede superar `maxFeeBps`. Se lee con un
      fragmento de ABI aparte. Si el contrato no tiene ese campo, se usa
-     `feeBps()` como respaldo *(decisión mía)*.
+     `feeBps()` como respaldo _(decisión mía)_.
 5. Si el asiento de un p2 no se verifica (por ejemplo, porque se rotó la llave
    del árbitro), se vuelve a pedir **una vez**. El árbitro le devuelve la misma
    partida firmada de nuevo (`matchmaking.ts:623-642`). Si sigue mal, se aborta.
@@ -315,6 +316,7 @@ agente nunca ocupa el lugar de una persona sabiendo que no va a poder depositar.
    Igual que en `alephDeposit`, se simula, se estima el gas × 5/4, se espera el
    recibo, se espera a que el bloque quede sellado (`waitUntilSealed`) y se
    exige que el recibo diga `success`.
+
 5. **Las carreras se resuelven leyendo la cadena, no adivinando.**
    - Un `match exists` con `p1 == yo` significa que el depósito ya está.
    - Un `not open` con `p2 == yo`, también.
@@ -379,6 +381,7 @@ agente nunca ocupa el lugar de una persona sabiendo que no va a poder depositar.
    usar para decidir cuándo reintentar, y desde entonces pasan a ser parte del
    contrato entre el árbitro y el SDK. Hay que revisar también cómo trata la web
    un 503 en `live/start`, que hoy recibe 400.
+
 2. **`GET /health` publica `rules: RULES_V`**, para que el agente revise la
    versión de reglas antes de sentarse.
 3. **El agente de ejemplo en HTTP crudo** (`apps/server/src/agent.ts:66-72`,
@@ -404,7 +407,8 @@ nuevo.
   mesas 1v1 de plata quedan apagadas. Se valida con las
   mismas reglas de `apps/mcp/src/config.ts:21-90`. El RPC del 1v1 no hereda
   `RPC_URL`, para no terminar usando sin darse cuenta el RPC de testnet de Aleph
-  *(decisión mía)*.
+  _(decisión mía)_.
+
 - **Herramienta nueva `play_paid { game, stake }`:** hace el flujo completo en
   una sola llamada.
   - Va con `destructiveHint: true` (mueve plata), como `aleph_deposit`. Si el
@@ -421,7 +425,8 @@ nuevo.
       vuelve a llamar.
 
     Además, la mesa misma frena un segundo depósito cuando el agente es un p1
-    que espera rival (ver el punto 7 del paso 2). *(decisión mía)*
+    que espera rival (ver el punto 7 del paso 2). _(decisión mía)_
+
 - **`resume_paid { matchId }`**, **`withdraw_1v1 {}`** y, solo en testnet,
   **`mint_test_usdc { amount }`**: envuelven lo mismo del SDK.
 - **`matchmake` y `play_and_submit` siguen siendo solo gratis.** Su texto de
@@ -448,12 +453,13 @@ nuevo.
   Va en inglés, español y francés (`apps/web/app/lib/i18n/{en,es,fr}.ts`; una
   prueba exige que estén los tres). Puede enlazar a `/agents` o a la ayuda de
   "agente".
+
 - **`/agents`** (`apps/web/app/agents/content.ts`, en los tres idiomas, y el
   ejemplo de `page.tsx:146-149`) deja de decir "Agents play the free ladder
   (stake 0)".
 - **No se cambian** los términos (`/terms`, congelados para lo legal, que ya
   dicen "player (or agent) skill") ni la frase "Cero riesgo" de `table.norisk`,
-  que se refiere al reembolso cuando no aparece rival *(decisión mía)*.
+  que se refiere al reembolso cuando no aparece rival _(decisión mía)_.
 - Se actualiza el comentario del modo estricto de las mesas de plata
   (`match/page.tsx:890-894`), que daba por hecho que el cliente siempre es un
   navegador.
@@ -528,6 +534,7 @@ dueño, con 2FA. El SDK funciona igual contra un árbitro que todavía no public
   - que la prueba que hoy exige el rechazo de las mesas de plata
     (`packages/agent-sdk/test/agent.test.ts:68-81`) se reescriba: sin
     configuración y con `matchmake` sigue rechazando.
+
 - **Árbitro:** las rutas de verdad sobre HTTP. Los errores de depósito contestan
   400 o 503 (con `Retry-After`) en `/score` y en `live/start`, y `/health` trae
   `rules`.
@@ -548,6 +555,7 @@ dueño, con 2FA. El SDK funciona igual contra un árbitro que todavía no public
 
   Ahí se mide el gas de `open` y `join` para fijar el margen de ETH de la
   revisión previa.
+
 - **Web:** el aviso aparece en la mesa de plata y en el depósito, en los tres
   idiomas.
 - **Testnet (lo corre el dueño):** `scripts/smoke-1v1-mesa-paga.mts`, reescrito
