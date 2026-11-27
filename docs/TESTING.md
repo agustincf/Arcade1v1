@@ -252,9 +252,11 @@ starts a fresh one, tears it down on exit) — they are not part of the
 `scripts/wc-billetera-prueba.mjs` is a throwaway wallet that connects to the web
 through the same WalletConnect QR that MetaMask Mobile scans, and logs every
 request it gets (the matchmaking signature, network switches, transactions). It
-signs messages with an ephemeral key and rejects transactions. Open the web
-(local or `arcade1v1.com`), pick WalletConnect → the official modal → "Copy
-link", and pass that `wc:…` URI:
+signs messages with an ephemeral key and rejects transactions. When it accepts
+a network switch to a network that was not in the session, it adds it (with its
+account) and announces the change, like a real wallet. Open the web (local or
+`arcade1v1.com`), pick WalletConnect → the official modal → "Copy link", and
+pass that `wc:…` URI:
 
 ```bash
 node scripts/wc-billetera-prueba.mjs "wc:…@2?relay-protocol=irn&symKey=…"
@@ -267,7 +269,8 @@ Environment flags simulate the failures a phone produces: `NO_RESPONDER=1`
 `NO_RESPONDER_RED=1` (with `CADENA`: does not allow adding networks and fails
 the network switch the web asks for while connecting, so the connection lands
 on the other network; later switches are never answered, like a phone the
-request never reaches) and `NO_RESPONDER_TX=1` (never answers transactions,
+request never reaches; `NO_RESPONDER_RED=todos` does not answer even the first
+one, which used to leave the connection hanging) and `NO_RESPONDER_TX=1` (never answers transactions,
 like the approve or the deposit). It is a manual tool, not part of `npm test`.
 
 By default it behaves like a wallet without batches: it rejects

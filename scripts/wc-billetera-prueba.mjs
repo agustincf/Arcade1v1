@@ -15,7 +15,8 @@
 //                      de red (el que la web pide al conectar) falla, así que
 //                      la conexión queda en la otra red; los cambios
 //                      siguientes no se contestan (como el celular al que el
-//                      pedido nunca le llega)
+//                      pedido nunca le llega). Con NO_RESPONDER_RED=todos no
+//                      contesta ni el primero: la conexión queda colgada
 //   PASAR_A=eip155:1   a los 8 s avisa que cambió a esa red (como cambiarla en la app)
 //   NO_RESPONDER_TX=1  no contesta las transacciones (aprobar, depositar)
 //   LOTES_RPC=http://127.0.0.1:8545  se porta como una cuenta inteligente:
@@ -148,7 +149,7 @@ client.on("session_request", async ({ id, topic, params }) => {
     process.env.NO_RESPONDER_RED &&
     (method === "wallet_switchEthereumChain" || method === "wallet_addEthereumChain")
   ) {
-    if (!cambiosDeRed++) {
+    if (!cambiosDeRed++ && process.env.NO_RESPONDER_RED !== "todos") {
       await client.respond({
         topic,
         response: { id, jsonrpc: "2.0", error: { code: -32603, message: "red no disponible" } },
@@ -188,7 +189,33 @@ client.on("session_request", async ({ id, topic, params }) => {
       });
       log("  cambio de red RECHAZADO");
     } else if (method === "wallet_switchEthereumChain" || method === "wallet_addEthereumChain") {
+      // Como una wallet de verdad: si la red no estaba en la sesión, la agrega
+      // (con la cuenta), contesta, y avisa que cambió de red.
+      const numero = Number(p?.[0]?.chainId);
+      const destino = `eip155:${numero}`;
+      const ns = client.session.get(topic).namespaces.eip155;
+      if (method === "wallet_switchEthereumChain" && !ns.chains?.includes(destino)) {
+        const { acknowledged } = await client.update({
+          topic,
+          namespaces: {
+            eip155: {
+              ...ns,
+              chains: [...(ns.chains ?? []), destino],
+              accounts: [...ns.accounts, `${destino}:${cuenta.address}`],
+            },
+          },
+        });
+        await acknowledged();
+        log("  sesión actualizada con", destino);
+      }
       await client.respond({ topic, response: { id, jsonrpc: "2.0", result: null } });
+      if (method === "wallet_switchEthereumChain") {
+        await client.emit({
+          topic,
+          event: { name: "chainChanged", data: numero },
+          chainId: destino,
+        });
+      }
       log("  cambio de red aceptado");
     } else if (local && method === "wallet_getCapabilities") {
       const caps = { [toHex(84532)]: { atomic: { status: "supported" } } };
