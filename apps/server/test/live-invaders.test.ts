@@ -24,7 +24,9 @@ import {
   type LiveStartView,
 } from "../src/live.js";
 
-RULES_V.invaders = 2;
+// Invaders se juega en vivo desde las reglas v2, las vigentes: no hace falta
+// prenderlo acá (si alguien lo apagara, la primera prueba lo avisa).
+assert.equal(RULES_V.invaders, 2);
 
 const base = BigInt("0x" + Date.now().toString(16).padStart(12, "0") + "0000");
 let ctr = 0;

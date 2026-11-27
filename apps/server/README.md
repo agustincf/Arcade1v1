@@ -14,12 +14,14 @@ interno (`private: true`, no se publica a npm).
   pierde el lugar (W3: `OPEN_GRACE_MS`, `JOIN_WINDOW_MS` en `matchmaking.ts`).
 - **Semilla compartida:** los dos jugadores reciben la misma semilla → juego
   justo, nadie puede practicar la suya offline.
-- **Juegos en vivo (Flappy desde las reglas v2, Carrera desde las v3):** sin
+- **Juegos en vivo (Flappy desde las reglas v2, Carrera desde las v3, Space
+  Invaders desde las v2):** sin
   semilla. El árbitro guarda un secreto de 32 bytes (al emparejar entrega solo
   su `secretHash`), revela el azar de a poco a medida que el jugador compromete
   sus jugadas y simula a la par: no hay puntaje que enviar. Un solo intento por jugador (se reanuda,
   nunca se reinicia). Al decidirse la partida publica el `secret` para que
-  cualquiera re-verifique. Los otros cuatro juegos siguen con semilla.
+  cualquiera re-verifique. Los otros tres juegos (2048, Tetris y Snake) siguen con
+  semilla.
 - **Anti-trampa por replay:** cada juego tiene un verificador propio que
   re-simula el replay entero y exige que el puntaje declarado coincida con el
   verificado. Semilla forzada, un solo intento por jugador, ventana de envío,
@@ -93,9 +95,10 @@ interno (`private: true`, no se publica a npm).
   firma. Límite de rate estricto (re-simular es caro de CPU).
 - `POST /match/:id/live/start` `{ address, signature, ts }` → abre (o
   reanuda, con un `token` nuevo) tu único intento en un juego en vivo (firmar
-  `liveStartAuthMessage`). Devuelve `{ token, tick, flaps, reveal, revealed }`
-- `POST /match/:id/live/commit` `{ address, token, from, to, flaps, have,
-final? }` → compromete los aleteos de `[from, to)` y trae los valores
+  `liveStartAuthMessage`). Devuelve `{ token, tick, reveal, revealed }` y lo que
+  ya comprometiste (`flaps` en Flappy, `inputs` en los otros juegos en vivo)
+- `POST /match/:id/live/commit` `{ address, token, from, to, flaps | inputs,
+have, final? }` → compromete las jugadas de `[from, to)` y trae los valores
   revelados desde `have`; avisa si el intento terminó (`over`, `score`). Un
   `409` trae el `tick` del árbitro para resincronizar
 - `POST /match/:id/bot` → completa la partida contra un bot de prueba (solo
@@ -161,7 +164,8 @@ npm run selftest -w @arcade1v1/server  # prueba sin red (firma válida, empate, 
 
 > Estado: árbitro completo y verificado (selftest OK): emparejamiento firmado,
 > anti-trampa por replay en los 6 juegos (semilla forzada, un intento, ventana
-> de envío, puntaje del rival oculto hasta decidir), Flappy en vivo, Aleph con
+> de envío, puntaje del rival oculto hasta decidir), Flappy, Carrera e Invaders en
+> vivo, Aleph con
 > mesa gratis y de 2 USDC en testnet, traspaso sin cortes en cada deploy,
 > mesas permitidas, tope de
 > 3 agentes por wallet, firma EIP-712, reembolso on-chain automático de

@@ -196,9 +196,16 @@ BYO-agent por webhook, y todo lo de mainnet.
   modo en vivo pasó a ser genérico (una definición por juego), así que los que
   siguen lo reusan
   ([spec](superpowers/specs/2026-10-10-carrera-en-vivo-design.md)).
-- **Los otros cuatro juegos** (2048, Tetris, Snake, Space Invaders) siguen con
-  semilla anticipada: pasarlos al mismo modelo. 2048 primero tiene que elegir
-  entre esperar al árbitro en cada movimiento o mostrar la ficha que viene.
+- **✅ Space Invaders en vivo (3.13.0)**: las bombas de los aliens y el paso del
+  OVNI salen de un valor por bloque de 60 ticks (un segundo), que el árbitro
+  revela 0,25 s antes de que empiece: una bomba se conoce como mucho 1,23 s
+  antes de caer. Para eso el registro de cada intento en vivo pasó a guardar
+  solo lo nuevo de cada compromiso
+  ([spec](superpowers/specs/2026-11-18-invaders-en-vivo-design.md)).
+- **Los otros tres juegos** (2048, Tetris, Snake) siguen con semilla
+  anticipada: pasarlos al mismo modelo. En los tres el azar lo dispara la
+  jugada (la ficha, la fruta, la pieza), así que primero hay que elegir entre
+  esperar al árbitro en cada jugada o mostrar lo que viene.
 - **✅ Cada intento en vivo, guardado antes de revelar**: su propio registro
   (`arcade:live`), escrito antes de mandar valores nuevos o el final; una caída
   dura ya no rebobina un intento.

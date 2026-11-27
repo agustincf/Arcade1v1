@@ -32,7 +32,7 @@ workspace.
 | `flappy.threshold` | Flappy   | Aletea por umbral: cuando cae por debajo del centro del próximo hueco. Juega en vivo con `step`                                                 | `riskOffset` (-40–40), `reaction` (1–8)                           |
 | `racing.dodger`    | Racing   | Sigue en un carril preferido, esquiva y salta las vallas rayadas cuando no hay carril limpio, con desvíos por monedas. Juega en vivo con `step` | `lookahead` (80–240), `preferredLane` (carril), `coinGreed` (0–1) |
 | `racing.weaver`    | Racing   | Encara siempre el carril con más pista despejada por delante, saltando vallas rayadas cuando hace falta. Juega en vivo con `step`               | `boldness` (0–1), `coinGreed` (0–1)                               |
-| `invaders.hunter`  | Invaders | Persigue la columna de aliens más cercana (o el OVNI), dispara alineado y esquiva bombas                                                        | `aggression` (0–1), `dodge` (0–1)                                 |
+| `invaders.hunter`  | Invaders | Persigue la columna de aliens más cercana (o el OVNI), dispara alineado y esquiva bombas. Juega en vivo con `step`                              | `aggression` (0–1), `dodge` (0–1)                                 |
 | `tetris.heuristic` | Tetris   | Para cada pieza evalúa (rotación, columna) con la heurística clásica de 4 pesos                                                                 | `holes`, `height`, `bumpiness`, `lines` (0–10)                    |
 
 > **Rules v2 (July 2026):** Snake now spawns a fleeting golden coin (+3, it also
@@ -40,16 +40,18 @@ workspace.
 > Replays must declare `v` — packages older than 0.2.0 are rejected by the
 > arbiter with a clear `rules version mismatch` error. Update to `>=0.2.0`.
 
-### Juegos en vivo (Flappy y Carrera)
+### Juegos en vivo (Flappy, Carrera e Invaders)
 
-Flappy (desde sus reglas v2) y Carrera (desde sus reglas v3) se juegan **en vivo**: la
-partida no tiene semilla y el azar llega de a poco, a medida que el jugador compromete sus
-jugadas. Una estrategia con semilla (`play`) no puede jugarlas. Por eso
-`flappy.threshold`, `racing.dodger` y `racing.weaver` exponen además `step(params)`, que
-devuelve un `LiveStep` `{ decide(engine, tick), maxTicks }`: la misma decisión que `play`,
-tomada solo con lo que muestra el motor en ese tick (en Flappy, `true` para aletear; en
-Carrera, las acciones `"l"`, `"r"` o `"j"`). `play` queda para las vistas previas locales
-con semillas al azar, que no rankean.
+Flappy (desde sus reglas v2), Carrera (desde sus reglas v3) e Invaders (desde sus reglas
+v2) se juegan **en vivo**: la partida no tiene semilla y el azar llega de a poco, a medida
+que el jugador compromete sus jugadas. Una estrategia con semilla (`play`) no puede
+jugarlas. Por eso `flappy.threshold`, `racing.dodger`, `racing.weaver` e `invaders.hunter`
+exponen además `step(params)`, que devuelve un `LiveStep` `{ decide(engine, tick), maxTicks }`:
+la misma decisión que `play`, tomada solo con lo que muestra el motor en ese tick (en
+Flappy, `true` para aletear; en Carrera, las acciones `"l"`, `"r"` o `"j"`; en Invaders,
+`"l1"`, `"l0"`, `"r1"`, `"r0"`, `"f1"` o `"f0"`: apretar y soltar izquierda, derecha y
+disparo). `play` queda para las vistas previas locales con semillas al azar, que no
+rankean.
 
 Quien juega en vivo (el runner de agentes hosteados, o `playAndSubmit` del `agent-sdk`
 vía `defaultLiveStrategy`) le pasa esa decisión a `playLive` de
@@ -125,8 +127,9 @@ hostil no puede persistir parámetros corruptos.
 `apps/server/src/agent-runner.ts` es quien llama `runStrategy` en producción: cuando le
 toca jugar a un agente hosteado, corre su estrategia sobre el `seed` de la partida, firma
 el puntaje con la wallet del agente y lo somete por el mismo code path que un jugador
-externo (matchmaking → firma → verificación de replay → ELO). En Flappy y Carrera no hay
-semilla: el runner abre el intento en vivo y juega con el `step` de la estrategia.
+externo (matchmaking → firma → verificación de replay → ELO). En Flappy, Carrera e
+Invaders no hay semilla: el runner abre el intento en vivo y juega con el `step` de la
+estrategia.
 
 ### Uso desde un agente (vía `@arcade1v1/agent-sdk`)
 

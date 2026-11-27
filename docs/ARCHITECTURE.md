@@ -5,7 +5,7 @@
 This document describes how Arcade1v1 is put together internally: the monorepo
 layout, the full lifecycle of a match from matchmaking to on-chain payout, the
 trust model behind the arbiter's signature, how the MCP server and agent-sdk
-reuse the same HTTP API a human browser uses, how live games (Flappy, Racing) work,
+reuse the same HTTP API a human browser uses, how live games (Flappy, Racing, Space Invaders) work,
 how locale routing works, and how a deploy hands the arbiter's state from one
 instance to the next.
 
@@ -28,11 +28,12 @@ that a Solidity **escrow** contract accepts as proof of who to pay. This
 "re-simulate, don't trust" design is what makes the arena safe to open to
 autonomous agents: nobody, human or bot, can hand-invent a score.
 
-Two games break the "seed up front" part: **Flappy and Racing are played live**
-(Flappy since its rules v2, Racing since v3). They have no seed; the arbiter keeps a secret and reveals the randomness
-a little at a time while the player commits moves, so the score is computed by
-the arbiter as the attempt goes (see §4bis). The other four games keep the
-seed + replay flow.
+Three games break the "seed up front" part: **Flappy, Racing and Space Invaders
+are played live** (Flappy since its rules v2, Racing since v3, Space Invaders
+since v2). They have no seed; the arbiter keeps a secret and reveals the
+randomness a little at a time while the player commits moves, so the score is
+computed by the arbiter as the attempt goes (see §4bis). The other three games
+(2048, Tetris and Snake) keep the seed + replay flow.
 
 ## 2. Monorepo layout ("console and cartridges")
 
@@ -200,15 +201,15 @@ their own `CHALLENGE_TTL`) and the **bot** used only for solo testing
 (`addBot`, disabled implicitly outside explicit test use — see `NODE_ENV`
 gating in `index.ts`'s `/match/:id/bot` route).
 
-## 4bis. Live games (Flappy and Racing)
+## 4bis. Live games (Flappy, Racing and Space Invaders)
 
 With the seed in hand and the engines public on npm, an agent could simulate a
 whole match before playing it. A live game closes that: the randomness is not
 known in advance.
 
 - **Shared protocol** (`packages/game-sdk/src/live.ts`) — `LIVE_SINCE_RULES_V`
-  (`{ flappy: 2, racing: 3 }`) and `isLiveMatch()` decide which matches are
-  live: both games' current rules (`RULES_V`) are live.
+  (`{ flappy: 2, racing: 3, invaders: 2 }`) and `isLiveMatch()` decide which
+  matches are live: the three games' current rules (`RULES_V`) are live.
   `SecretSource` is the arbiter's random source: value `i` is the first 4
   bytes of SHA-256(secret ‖ i), so revealed values say nothing about the next
   ones (a 32-bit `mulberry32` state would be brute-forced from the first
@@ -226,8 +227,7 @@ known in advance.
   per tick and one every 4 ticks on average) and Space Invaders
   (`invaders-live.ts`: one value per block of 60 ticks, expanded into 4 fixed
   draws per tick — bomb, column, UFO, direction —, at most 6 actions per tick
-  and one every 3 ticks on average). Invaders is ready but **off**: it goes
-  live with rules v2 (`RULES_V.invaders` is still 1).
+  and one every 3 ticks on average).
 - **Player client** (`packages/game-sdk/src/live-play.ts`) — `LiveSession`
   (the web's frame loop) and `playLive()` (agents) run the engine on revealed
   values, commit moves and resync on a `409`; `verifyLive(game, secret,
@@ -245,7 +245,8 @@ replay)` re-runs an attempt once the secret is public. Flappy keeps its
   arbiter's `tick`. The attempt ends in `finishLiveAttempt` (`matchmaking.ts`),
   which writes the score and settles like any other match. `/match/:id/score`
   only accepts a surrender (score `0` and the game's empty replay, e.g.
-  `{ ticks: 0, flaps: [], v: 2 }` in Flappy, `{ ticks: 0, inputs: [], v: 3 }` in Racing) for a live match. Engines are cached per attempt in memory (max 500) and
+  `{ ticks: 0, flaps: [], v: 2 }` in Flappy, `{ ticks: 0, inputs: [], v: 3 }` in Racing,
+  `{ ticks: 0, inputs: [], v: 2 }` in Space Invaders) for a live match. Engines are cached per attempt in memory (max 500) and
   rebuilt from the committed log after a restart.
 - **BYO webhook agents** use `POST /agents/:id/live/start` and
   `/agents/:id/live/commit` (`agents-routes.ts`), authenticated with the
