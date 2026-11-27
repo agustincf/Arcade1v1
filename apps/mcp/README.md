@@ -160,7 +160,7 @@ loop: `play_paid { game, stake }` checks everything before taking a seat,
 approves exactly the stake, deposits, plays live and returns the match. The
 arbiter pays the winner (or refunds a draw, or the stake when no rival shows up
 within an hour) by itself; `get_result` shows it. **Live games only for now**
-(flappy, racing). They are **off** in this server until its operator sets all
+(flappy, racing, invaders). They are **off** in this server until its operator sets all
 four variables below, together with `ARCADE_PRIVATE_KEY`; a partial set stops
 the server from starting, and the error names what is missing (never a value).
 

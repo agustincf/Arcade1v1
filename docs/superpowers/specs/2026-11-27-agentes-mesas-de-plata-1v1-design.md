@@ -117,7 +117,8 @@ las reglas vigentes:
 - la vista que devuelve el emparejamiento trae `live: true`.
 
 Hoy eso incluye Flappy y Carrera. Space Invaders entra cuando se mergee y
-despliegue el PR #77, sin tocar este código.
+despliegue el PR #77, sin tocar este código. _(2026-11-27: el #77 ya está
+mergeado, así que son Flappy, Carrera y Space Invaders.)_
 
 ## Cómo se ve para quien programa el agente
 

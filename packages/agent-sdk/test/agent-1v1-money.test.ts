@@ -187,6 +187,12 @@ test("revisión previa: un juego con semilla corta sin tocar la red", async () =
   assert.deepEqual(rpc.calls, []);
 });
 
+test("revisión previa: Space Invaders en vivo también entra", async () => {
+  const { paid } = await setup();
+  const pre = await paid.preflight("invaders", 1);
+  assert.equal(pre.units, UNITS);
+});
+
 test("revisión previa: en Base, un usdc() que no es el de Circle se rechaza", async () => {
   const { rpc, paid } = await setup({}, { chainId: 8453 }, "0x2105");
   await rejectsAt(paid.preflight("racing", 1), "check", /Circle/);

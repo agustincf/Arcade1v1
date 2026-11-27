@@ -46,7 +46,7 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   o la devuelve esperando rival si ya la jugó. Un error después del depósito
   avisa con `deposited: true` y el `matchId`, y `agent.resume1v1(matchId)`
   retoma la partida sin depositar. Por ahora, solo los juegos en vivo
-  (Flappy y Carrera): en los de semilla el agente podría simular la partida
+  (Flappy, Carrera y Space Invaders): en los de semilla el agente podría simular la partida
   entera antes de jugar contra una persona. Probado con un árbitro falso que
   sirve una partida de Carrera en vivo de verdad y un RPC que mina como Base.
   Y de punta a punta en una cadena local con el contrato y el árbitro reales

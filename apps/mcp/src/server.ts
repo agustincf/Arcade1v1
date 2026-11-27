@@ -155,7 +155,7 @@ export function buildServer(deps: {
         "server's wallet: checks everything before taking a seat, approves exactly the stake, " +
         "deposits, plays live with the default strategy, and returns the match. The arbiter pays " +
         "the winner (or refunds a draw / no rival within an hour) by itself: follow it with " +
-        "get_result. Live games only for now (flappy, racing). Refused unless the operator set " +
+        "get_result. Live games only for now (flappy, racing, invaders). Refused unless the operator set " +
         "ARCADE_1V1_ESCROW_ADDRESS, ARCADE_1V1_RPC_URL, ARCADE_1V1_CHAIN_ID, ARCADE_1V1_MAX_STAKE " +
         "and ARCADE_PRIVATE_KEY, and above ARCADE_1V1_MAX_STAKE. Retrying after a timeout does " +
         "NOT open a second match: it returns the previous result (`resumed: true`). If it fails " +

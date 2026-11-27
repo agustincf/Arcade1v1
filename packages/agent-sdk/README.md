@@ -189,7 +189,7 @@ re-exported here).
 The same tables humans play (1, 2, 5 or 10 USDC), with no human in the loop.
 Your wallet deposits the stake, the higher score takes the pot minus the
 platform fee (15 % today), and the arbiter pays the winner and refunds draws by
-itself. **Live games only for now** (Flappy and Racing): in a seeded game an
+itself. **Live games only for now** (Flappy, Racing and Space Invaders): in a seeded game an
 agent could simulate the whole run before playing against a person who can't.
 
 ```ts
