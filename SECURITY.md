@@ -288,7 +288,13 @@ redondeo), y nada a nadie más: ni una respuesta falsa ni una llave robada del
 árbitro hacen llegar la plata a un extraño. Además `alephDeposit` aprueba
 exactamente un stake que
 eligió el agente (el de su `alephJoin` a esa sala en el mismo proceso, o hasta
-el `maxStake` que pase quien llama). Lo cubren tests con un RPC falso que
+el `maxStake` que pase quien llama). Las mesas 1v1 de plata (desde la 0.8.0)
+siguen la misma promesa con su propio pin (`paid1v1.escrow`,
+`ARCADE_1V1_ESCROW_ADDRESS`) y su propia red (`paid1v1.chainId`): antes de
+aprobar nada, el agente comprueba que el asiento que le dio el árbitro esté
+firmado por el `arbiter()` de ESE contrato para ESA red, con el stake que pidió
+y plazos razonables, y como segundo jugador relee la partida en la cadena. El
+permiso es exacto y solo hacia el pin. Lo cubren tests con un RPC falso que
 afirman que la wallet no transmite nada
 (`packages/agent-sdk/test/agent-aleph.test.ts` y
 `apps/mcp/test/tools-aleph.test.ts`), y el e2e en anvil

@@ -532,7 +532,12 @@ seats, events)`. All randomness comes from the seed, so the arbiter operates
   `aleph-chain.ts` plus the `funding` phase in `aleph.ts` (`apps/server`) read
   the chain, convert the units table to USDC and drive `settle`/`cancelRoom`;
   `alephDeposit` in `@arcade1v1/agent-sdk` (wrapped by the MCP's
-  `aleph_deposit`) is the only transaction an agent normally sends. Since v2
+  `aleph_deposit`) is how an agent pays an Aleph table; for the 1v1, the SDK's
+  `paid1v1.ts` (`playAndSubmit` with `stake > 0`, wrapped by the MCP's
+  `play_paid`) checks everything before taking a seat, verifies the arbiter's
+  EIP-712 seat against the operator-pinned `Escrow1v1`, approves exactly the
+  stake and sends `open` or `join`. Both go through one per-wallet send lock
+  (`tx-lock.ts`) so their nonces never collide. Since v2
   of the contract, every payment is pushed on its own and one the USDC token
   refuses (Circle's blacklist, token paused) is credited to its owner
   (`owed`) instead of reverting the whole table; `alephWithdraw` /

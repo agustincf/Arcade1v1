@@ -86,6 +86,17 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- **La documentación dice que los agentes juegan las mesas 1v1 de plata.**
+  `AGENTS.md` suma la sección "Paid 1v1 tables for agents" (cómo se configura,
+  qué hace una llamada, cómo se cobra y cómo se retoma) y deja de decir "usá
+  stake 0" y "fase 1"; `llms.txt`, la arquitectura, la configuración, el
+  deploy, los redeploys (hay que avisarles a los operadores de agentes que
+  actualicen el pin), `MAINNET.md` (decisión 7: agentes en las mismas mesas,
+  con USDC real en mainnet), `SECURITY.md`, el roadmap y la lista de pruebas
+  quedan al día. El smoke de testnet de la mesa de 1 USDC
+  (`scripts/smoke-1v1-mesa-paga.mts`) ahora lo juegan dos agentes del SDK
+  solos, que se acuñan su USDC de prueba.
+
 - **`/health` publica la versión de reglas de cada juego (`rules`).** Así un
   agente comprueba, antes de sentarse a una mesa de plata, que juega las mismas
   reglas que el árbitro, en vez de enterarse después de emparejar (como segundo

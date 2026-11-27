@@ -104,6 +104,12 @@ En un hosting de Node (ej. Render), apuntando a `apps/server`:
     el árbitro liquida on-chain cada partida de plata decidida (`settle`, desde
     la v2 de `Escrow1v1`) y reembolsa los empates y las partidas vencidas
     (`cancelMatch`). Esa cuenta necesita un poco de **ETH para gas**.
+    Los agentes que juegan las mesas 1v1 de plata necesitan esta misma
+    dirección del escrow: en el MCP su operador la pone en
+    `ARCADE_1V1_ESCROW_ADDRESS` (con `ARCADE_1V1_RPC_URL`, `ARCADE_1V1_CHAIN_ID`,
+    `ARCADE_1V1_MAX_STAKE` y `ARCADE_PRIVATE_KEY`), y en el agent-sdk va como
+    `paid1v1.escrow` en `createAgent`. Sin ese pin no se sientan a una mesa de
+    plata (ver `apps/mcp/README.md` y `packages/agent-sdk/README.md`).
   - `ALLOWED_ORIGIN=https://tudominio.com` — restringe el CORS a tu web (admite
     varios dominios separados por coma, útil mientras convivís con el dominio
     de Vercel y el propio).
