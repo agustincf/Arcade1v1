@@ -11,6 +11,11 @@
 //   NO_RESPONDER=1     no contesta la firma (como una sesión del celular vencida)
 //   CADENA=eip155:1    se conecta solo en esa red
 //   RECHAZAR_RED=1     rechaza los pedidos de cambiar de red
+//   NO_RESPONDER_RED=1 (con CADENA) no deja agregar redes y el primer cambio
+//                      de red (el que la web pide al conectar) falla, así que
+//                      la conexión queda en la otra red; los cambios
+//                      siguientes no se contestan (como el celular al que el
+//                      pedido nunca le llega)
 //   PASAR_A=eip155:1   a los 8 s avisa que cambió a esa red (como cambiarla en la app)
 //   NO_RESPONDER_TX=1  no contesta las transacciones (aprobar, depositar)
 //   LOTES_RPC=http://127.0.0.1:8545  se porta como una cuenta inteligente:
@@ -98,7 +103,9 @@ client.on("session_proposal", async ({ id, params }) => {
           ...(process.env.PASAR_A ? [process.env.PASAR_A] : []),
         ]),
       ];
-  const methods = [...new Set([...(req.methods ?? []), ...(opt.methods ?? []), "personal_sign"])];
+  const methods = [
+    ...new Set([...(req.methods ?? []), ...(opt.methods ?? []), "personal_sign"]),
+  ].filter((m) => !(process.env.NO_RESPONDER_RED && m === "wallet_addEthereumChain"));
   const events = [...new Set([...(req.events ?? []), ...(opt.events ?? [])])];
   log("propuesta de sesión de", params.proposer?.metadata?.url, "· cadenas:", chains.join(","));
   try {
@@ -128,12 +135,28 @@ client.on("session_proposal", async ({ id, params }) => {
   }
 });
 
+let cambiosDeRed = 0;
 client.on("session_request", async ({ id, topic, params }) => {
   const { method, params: p } = params.request;
   log("PEDIDO RECIBIDO:", method, "· cadena", params.chainId);
   // NO_RESPONDER=1 simula la sesión muerta del celular: el pedido no se contesta.
   if (process.env.NO_RESPONDER && method === "personal_sign") {
     log("  (NO_RESPONDER: no se contesta)");
+    return;
+  }
+  if (
+    process.env.NO_RESPONDER_RED &&
+    (method === "wallet_switchEthereumChain" || method === "wallet_addEthereumChain")
+  ) {
+    if (!cambiosDeRed++) {
+      await client.respond({
+        topic,
+        response: { id, jsonrpc: "2.0", error: { code: -32603, message: "red no disponible" } },
+      });
+      log("  primer cambio de red: falla (la conexión sigue en la otra red)");
+    } else {
+      log("  (NO_RESPONDER_RED: el cambio de red no se contesta)");
+    }
     return;
   }
   try {

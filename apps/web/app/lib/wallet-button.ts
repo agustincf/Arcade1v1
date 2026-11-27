@@ -4,7 +4,8 @@
 // Con la wallet en una red que la app no usa, RainbowKit deja `openAccountModal`
 // en un no-op: tocar la dirección no hacía nada y no había forma de desconectar
 // (pasaba con MetaMask del celular conectado por el QR y parado en otra red).
-// Ahí va el menú de red, que permite cambiar de red y también desconectar.
+// Ahí va la ventana de red (components/WrongNetworkDialog.tsx), que permite
+// cambiar de red y también desconectar.
 
 export type WalletButtonMode = "connect" | "account" | "chain";
 

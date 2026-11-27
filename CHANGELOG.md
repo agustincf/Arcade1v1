@@ -29,6 +29,19 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Corregido
 
+- **Con la wallet en otra red, el cambio de red podía quedar esperando para
+  siempre.** Conectado con el QR de MetaMask, el pedido de pasar a Base Sepolia
+  a veces no llega al celular, y la ventana de red de RainbowKit decía
+  "Confirmar en la cartera" sin ofrecer otra salida que desconectar. Ahora
+  "RED EQUIVOCADA" abre una ventana propia: dice en qué red funciona la web y
+  dónde confirmar el cambio. Si en 15 segundos no hubo respuesta, explica cómo
+  cambiar la red a mano en la app de la wallet (en MetaMask, con el selector de
+  red; si Base Sepolia no aparece, con "Mostrar redes de prueba") y que, si la
+  web no se entera, hay que desconectar y volver a conectar. Se cierra sola
+  apenas la wallet queda en la red buena, también si el cambio se hizo a mano.
+  Probado con la wallet de prueba por WalletConnect (`NO_RESPONDER_RED`, nuevo)
+  en los tres casos: sin respuesta, desconectar y cambio que sí llega.
+
 - **Conectado con el QR de MetaMask, la web podía quedarse esperando una firma
   que nunca llegaba.** La sesión entre el navegador y la app del celular se
   corta sola (la app estuvo cerrada un rato, o la conexión es de días atrás), y
