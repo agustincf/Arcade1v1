@@ -229,6 +229,10 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   (Flappy y Carrera): en los de semilla el agente podría simular la partida
   entera antes de jugar contra una persona. Probado con un árbitro falso que
   sirve una partida de Carrera en vivo de verdad y un RPC que mina como Base.
+  Y de punta a punta en una cadena local con el contrato y el árbitro reales
+  (`check-payment-sdk-e2e.sh`, en CI): el que gana cobra 1,70 USDC, un empate
+  se reembolsa, y un ganador en la blacklist del USDC cobra después con
+  `withdraw1v1()`.
 - **El SDK acepta la configuración de las mesas 1v1 de plata (`paid1v1`).**
   `createAgent({ privateKey, paid1v1: { rpcUrl, escrow, chainId, maxStake } })`:
   el RPC de la red del 1v1, el `Escrow1v1` en el que confía el operador, su red

@@ -46,10 +46,11 @@ export const MAX_PLAY_AHEAD_S = 6 * 3600;
 /** Lo mínimo que tiene que faltar, en hora de la cadena, para `fundDeadline`
  *  antes de un `join`. */
 export const CHAIN_MARGIN_S = 60;
-/** Gas que se presupuesta para el approve y para el depósito al revisar el ETH
- *  (lo medido en el e2e de anvil, con margen). */
+/** Gas que se presupuesta para el approve y para el depósito al revisar el ETH:
+ *  lo medido en el e2e de anvil (sdk-1v1-onchain-e2e.ts: approve 46.354, open
+ *  148.980, join 93.185) con un 50 % de margen. */
 export const APPROVE_GAS = 70_000n;
-export const DEPOSIT_GAS = 250_000n;
+export const DEPOSIT_GAS = 225_000n;
 
 export type Paid1v1Stage = "check" | "seat" | "deposit" | "play";
 

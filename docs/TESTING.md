@@ -219,6 +219,18 @@ monorepo's Node dependencies installed (`npm install` at the repo root).
   ```bash
   bash packages/contracts/check-payment-e2e.sh
   ```
+- **`check-payment-sdk-e2e.sh`** — An SDK agent plays a paid 1v1 table on its
+  own, on a local `anvil` chain: deploys `BlacklistUSDC` + `Escrow1v1` and runs
+  `apps/server/src/sdk-1v1-onchain-e2e.ts`, where each agent is a
+  `createAgent({ privateKey, paid1v1 })` calling
+  `playAndSubmit({ game: "racing", stake: 1 })` against the real arbiter routes
+  (`matchRouter`, `liveRouter`, `/health`) over HTTP. Scenarios: one wins and is
+  paid, a draw is refunded, and a blacklisted winner collects the credited
+  prize with `withdraw1v1()` once it is off the list. It prints the gas of
+  approve, open and join (the SDK's ETH margin comes from it).
+  ```bash
+  bash packages/contracts/check-payment-sdk-e2e.sh
+  ```
 - **`check-aleph-deploy.sh`** — Runs the real Aleph deploy script
   (`script/DeployAleph.s.sol`) against a local `anvil` chain and verifies the
   2 USDC table ends up enabled on the deployed `EscrowAleph`. Catches the same
@@ -298,7 +310,8 @@ every pull request. Three jobs (the third is not required for merging):
   scripts depend on anvil's gas estimation and mempool ordering, so a new
   release is adopted through a PR), runs `forge test -vv` in
   `packages/contracts`, then (with Node 24 + `npm ci`) runs
-  `check-integration.sh`, `check-payment-e2e.sh`, `check-deploy.sh`,
+  `check-integration.sh`, `check-payment-e2e.sh`, `check-payment-sdk-e2e.sh`,
+  `check-deploy.sh`,
   `check-aleph-deploy.sh`, and `check-aleph-e2e.sh` in sequence. No script
   reads a key from a `.env` or a GitHub secret: the arbiter signs with public
   `anvil` accounts fixed in each script (no real funds involved).
