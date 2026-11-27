@@ -37,6 +37,8 @@ async function main() {
     privateKey: wallet.privateKey,
     rpcUrl: wallet.rpcUrl,
     escrow: wallet.escrow,
+    // Mesas 1v1 de plata (ARCADE_1V1_*): su propio RPC, contrato, red y tope.
+    paid1v1: wallet.paid1v1,
     // Aleph: el modelo que este servidor declara al sentarse, si el operador lo
     // fijó. El parámetro `model` de aleph_join le gana.
     model: process.env.ARCADE_MODEL?.trim() || undefined,
@@ -48,6 +50,8 @@ async function main() {
     // Links a la web para la persona: solo con una web conocida (present.ts).
     webUrl: webUrlFor(arbiterUrl, process.env.ARCADE_WEB_URL),
     fixedWallet: wallet.privateKey !== undefined,
+    // El tope por mesa del 1v1 también lo hacen cumplir las herramientas.
+    paid1v1: wallet.paid1v1 ? { maxStake: wallet.paid1v1.maxStake } : undefined,
   });
   await server.connect(new StdioServerTransport());
 }

@@ -15,7 +15,7 @@ import {
   type LiveCommitView,
   type LiveStartView,
   type MatchView,
-} from "../src/client.ts";
+} from "../src/client";
 
 // Claves de anvil (públicas, sin valor): el agente, el árbitro y otra cualquiera.
 export const AGENT_KEY =

@@ -38,7 +38,7 @@ async function connected(
 const textOf = (res: unknown) =>
   ((res as { content: unknown }).content as { type: string; text: string }[])[0].text;
 
-test("buildServer publica las 6 herramientas 1v1, whoami y las 7 de Aleph", async () => {
+test("buildServer publica las herramientas 1v1 (gratis y de plata), whoami y las 7 de Aleph", async () => {
   const { mcp, close } = await connected();
   try {
     const { tools } = await mcp.listTools();
@@ -54,9 +54,13 @@ test("buildServer publica las 6 herramientas 1v1, whoami y las 7 de Aleph", asyn
       "leaderboard",
       "list_games",
       "matchmake",
+      "mint_test_usdc",
       "play_and_submit",
+      "play_paid",
       "rating",
+      "resume_paid",
       "whoami",
+      "withdraw_1v1",
     ]);
     const mm = tools.find((t) => t.name === "matchmake")!;
     assert.match(
@@ -203,6 +207,37 @@ test("whoami: dirección en minúsculas, rating y aviso de wallet efímera", asy
     assert.deepEqual(w.ratings, { snake: 1180 });
     assert.equal(w.links.leaderboard, "https://arcade1v1.com/leaderboard");
     assert.match(res.content[1].text, /ephemeral.*ARCADE_PRIVATE_KEY/);
+  } finally {
+    await close();
+  }
+});
+
+test("play_paid mueve plata y las herramientas gratis apuntan a ella", async () => {
+  const { mcp, close } = await connected();
+  try {
+    const { tools } = await mcp.listTools();
+    const paid = tools.find((t) => t.name === "play_paid")!;
+    assert.equal(paid.annotations?.destructiveHint, true, "mover plata pide confirmación");
+    assert.equal(paid.annotations?.idempotentHint, true, "reintentar no abre otra partida");
+    for (const name of ["matchmake", "play_and_submit"]) {
+      const t = tools.find((x) => x.name === name)!;
+      const stake = (t.inputSchema as { properties: Record<string, { description?: string }> })
+        .properties.stake;
+      assert.match(String(stake.description), /stake 0 only.*play_paid/, name);
+    }
+  } finally {
+    await close();
+  }
+});
+
+test("la versión del servidor MCP es la del package.json", async () => {
+  const { mcp, close } = await connected();
+  try {
+    const { readFileSync } = await import("node:fs");
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+      version: string;
+    };
+    assert.equal(mcp.getServerVersion()?.version, pkg.version);
   } finally {
     await close();
   }

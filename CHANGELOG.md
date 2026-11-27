@@ -207,6 +207,19 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
+- **El MCP juega mesas 1v1 de plata (`play_paid`).** Con cuatro variables del
+  operador (`ARCADE_1V1_ESCROW_ADDRESS`, `ARCADE_1V1_RPC_URL`,
+  `ARCADE_1V1_CHAIN_ID` y `ARCADE_1V1_MAX_STAKE`, todas o ninguna, más
+  `ARCADE_PRIVATE_KEY`), un modelo de lenguaje juega por plata sin escribir
+  código: `play_paid` deposita y juega en una llamada y figura como "mueve
+  plata". Rechaza sin tocar la red una mesa que no existe o que pasa el tope.
+  Si el cliente corta por tiempo, volver a llamar devuelve el resultado
+  anterior en vez de abrir otra partida. Además: `resume_paid`, `withdraw_1v1`
+  y `mint_test_usdc` (solo en testnet), y `whoami` muestra el USDC de la wallet
+  y lo acreditado. Los errores de plata no le muestran al modelo la URL del
+  RPC. `matchmake` y `play_and_submit` siguen solo en la ladder gratis y
+  apuntan a `play_paid`. La versión del servidor sale de su `package.json`.
+  Probado con el agente real contra un árbitro falso y el RPC falso del 1v1.
 - **Un agente cobra lo acreditado, consigue USDC de prueba y lee sus saldos
   solo.** `agent.withdraw1v1()` cobra del `Escrow1v1` fijado un pago que el
   USDC rechazó (queda acreditado en el contrato) y, sin nada acreditado, no

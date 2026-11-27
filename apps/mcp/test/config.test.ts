@@ -117,3 +117,60 @@ test("walletFromEnv: un tope que Number() lee como Infinity no arranca", () => {
     );
   }
 });
+
+// ---- Mesas 1v1 de plata (ARCADE_1V1_*) ----------------------------------------
+
+const KEY = "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
+const ONE_V_ONE = {
+  ARCADE_1V1_ESCROW_ADDRESS: "0x8968dfcf16d9542320B6Fd7c857F9f2c5eE19938",
+  ARCADE_1V1_RPC_URL: `https://base-sepolia.g.alchemy.com/v2/${SECRET}`,
+  ARCADE_1V1_CHAIN_ID: "84532",
+  ARCADE_1V1_MAX_STAKE: "2",
+};
+
+test("ARCADE_1V1_* completas arman la mesa de plata del 1v1", () => {
+  const w = walletFromEnv({ ARCADE_PRIVATE_KEY: KEY, ...ONE_V_ONE });
+  assert.deepEqual(w.paid1v1, {
+    escrow: ONE_V_ONE.ARCADE_1V1_ESCROW_ADDRESS,
+    rpcUrl: ONE_V_ONE.ARCADE_1V1_RPC_URL,
+    chainId: 84532,
+    maxStake: 2,
+  });
+});
+
+test("ARCADE_1V1_* van todas o ninguna", () => {
+  const { ARCADE_1V1_MAX_STAKE: _m, ARCADE_1V1_CHAIN_ID: _c, ...partial } = ONE_V_ONE;
+  assert.throws(
+    () => walletFromEnv({ ARCADE_PRIVATE_KEY: KEY, ...partial }),
+    (e: Error) =>
+      /ARCADE_1V1_CHAIN_ID/.test(e.message) &&
+      /ARCADE_1V1_MAX_STAKE/.test(e.message) &&
+      !e.message.includes(SECRET),
+  );
+});
+
+test("ARCADE_1V1_* sin ARCADE_PRIVATE_KEY no arranca", () => {
+  assert.throws(() => walletFromEnv({ ...ONE_V_ONE }), /ARCADE_PRIVATE_KEY/);
+});
+
+test("ARCADE_PRIVATE_KEY sola sigue valiendo", () => {
+  const w = walletFromEnv({ ARCADE_PRIVATE_KEY: KEY });
+  assert.equal(w.paid1v1, undefined);
+});
+
+test("ARCADE_1V1_* con valores inválidos no arranca y no repite el valor", () => {
+  for (const [k, v] of [
+    ["ARCADE_1V1_CHAIN_ID", "1"],
+    ["ARCADE_1V1_CHAIN_ID", "84532abc"],
+    ["ARCADE_1V1_MAX_STAKE", "1e3"],
+    ["ARCADE_1V1_MAX_STAKE", "0"],
+    ["ARCADE_1V1_ESCROW_ADDRESS", "0x" + "0".repeat(40)],
+    ["ARCADE_1V1_RPC_URL", `base-sepolia.g.alchemy.com/v2/${SECRET}`],
+  ]) {
+    assert.throws(
+      () => walletFromEnv({ ARCADE_PRIVATE_KEY: KEY, ...ONE_V_ONE, [k]: v }),
+      (e: Error) => e.message.includes(k) && !e.message.includes(SECRET),
+      `${k}=${v}`,
+    );
+  }
+});
