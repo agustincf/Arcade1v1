@@ -10,6 +10,73 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Agregado
+
+- **El MCP juega mesas 1v1 de plata (`play_paid`).** Con cuatro variables del
+  operador (`ARCADE_1V1_ESCROW_ADDRESS`, `ARCADE_1V1_RPC_URL`,
+  `ARCADE_1V1_CHAIN_ID` y `ARCADE_1V1_MAX_STAKE`, todas o ninguna, más
+  `ARCADE_PRIVATE_KEY`), un modelo de lenguaje juega por plata sin escribir
+  código: `play_paid` deposita y juega en una llamada y figura como "mueve
+  plata". Rechaza sin tocar la red una mesa que no existe o que pasa el tope.
+  Si el cliente corta por tiempo, volver a llamar devuelve el resultado
+  anterior en vez de abrir otra partida. Además: `resume_paid`, `withdraw_1v1`
+  y `mint_test_usdc` (solo en testnet), y `whoami` muestra el USDC de la wallet
+  y lo acreditado. Los errores de plata no le muestran al modelo la URL del
+  RPC. `matchmake` y `play_and_submit` siguen solo en la ladder gratis y
+  apuntan a `play_paid`. La versión del servidor sale de su `package.json`.
+  Probado con el agente real contra un árbitro falso y el RPC falso del 1v1.
+
+- **Un agente cobra lo acreditado, consigue USDC de prueba y lee sus saldos
+  solo.** `agent.withdraw1v1()` cobra del `Escrow1v1` fijado un pago que el
+  USDC rechazó (queda acreditado en el contrato) y, sin nada acreditado, no
+  manda nada. `agent.mintTestUsdc(amount)` acuña USDC de prueba en Base Sepolia
+  (en Base se niega antes de tocar la red). `agent.paid1v1Balances()` dice la
+  red, el USDC, el ETH y lo acreditado. El README del SDK suma la sección
+  "Play paid 1v1 tables". Probado con el RPC falso del 1v1.
+
+- **Un agente juega una mesa 1v1 de plata en una sola llamada.** Con
+  `paid1v1` configurado, `agent.playAndSubmit({ game: "racing", stake: 1 })`
+  revisa todo antes de sentarse, se sienta, aprueba el monto exacto, pide de
+  nuevo justo antes de depositar (como la web: si mientras tanto una persona
+  abrió en esa mesa, se sienta con ella), deposita y juega en vivo. Si el
+  árbitro todavía no ve el depósito, reintenta abrir el intento durante 60
+  segundos, nunca dos veces en menos de 2. Nunca vuelve a pedir emparejamiento
+  después de mandar el depósito, y juega una partida pagada a la vez. Si
+  vuelve una partida propia que ya tenía depósito, no paga de nuevo: la juega,
+  o la devuelve esperando rival si ya la jugó. Un error después del depósito
+  avisa con `deposited: true` y el `matchId`, y `agent.resume1v1(matchId)`
+  retoma la partida sin depositar. Por ahora, solo los juegos en vivo
+  (Flappy y Carrera): en los de semilla el agente podría simular la partida
+  entera antes de jugar contra una persona. Probado con un árbitro falso que
+  sirve una partida de Carrera en vivo de verdad y un RPC que mina como Base.
+  Y de punta a punta en una cadena local con el contrato y el árbitro reales
+  (`check-payment-sdk-e2e.sh`, en CI): el que gana cobra 1,70 USDC, un empate
+  se reembolsa, y un ganador en la blacklist del USDC cobra después con
+  `withdraw1v1()`.
+
+- **El SDK acepta la configuración de las mesas 1v1 de plata (`paid1v1`).**
+  `createAgent({ privateKey, paid1v1: { rpcUrl, escrow, chainId, maxStake } })`:
+  el RPC de la red del 1v1, el `Escrow1v1` en el que confía el operador, su red
+  y el tope por mesa en USDC (obligatorio). Va aparte de las opciones de Aleph,
+  porque en mainnet los dos formatos van a estar en redes distintas. Se valida
+  al crear el agente, sin tocar la red, y ningún error repite un valor (en el
+  campo del contrato se puede pegar una clave por error). `agent.matchmake`
+  sigue tomando solo asientos gratis, ahora con un mensaje que apunta a
+  `playAndSubmit`, y firma con el reloj del agente. Nuevo
+  `agent.getResult(matchId)`. Probado campo por campo, comprobando que el
+  mensaje no incluye el valor.
+
+- **El game-sdk publica el contrato 1v1 para los agentes**
+  (`@arcade1v1/game-sdk/escrow1v1`). Trae el ABI de lo que usa un agente para
+  depositar y cobrar en una mesa 1v1 de plata (`open`, `join`, `matches`,
+  `owed`, `withdraw` y las lecturas de configuración), los estados de una
+  partida, el dominio EIP-712 del asiento que firma el árbitro y la dirección
+  del USDC de Circle en Base. Es el primer paso para que un agente juegue por
+  plata sin una persona: con el dominio, el agente puede comprobar, antes de
+  pagar, que el asiento es para el contrato y la red que fijó su operador.
+  Probado con un asiento firmado por el árbitro de verdad, que se recupera con
+  el dominio del game-sdk.
+
 ### Cambiado
 
 - **`/health` publica la versión de reglas de cada juego (`rules`).** Así un
@@ -22,6 +89,58 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   producción. El agente de ejemplo en HTTP crudo (`apps/server/src/agent.ts`)
   juega la ladder gratis: antes pedía una mesa de 5 USDC sin firma ni
   depósito, algo que solo funcionaba en un árbitro sin escrow.
+
+### Corregido
+
+- **Un depósito que el árbitro todavía no ve ya no contesta "error interno".**
+  En una mesa de plata, enviar el puntaje sin depósito en la cadena, o cuando
+  el árbitro no pudo leer la cadena, contestaba `500 internal error` y se
+  perdía el motivo; lo mismo con "not a player" y "too many failed
+  verifications". Ahora el que no depositó recibe un 400 con el motivo, y si el
+  árbitro no pudo leer la cadena contesta 503 con `Retry-After` (en el envío de
+  puntaje y al abrir un intento en vivo, donde antes era un 400 que no se
+  reintentaba): no se procesó nada y el cliente reintenta solo. Los textos no
+  cambiaron. Probado sobre las rutas de verdad, con una cadena falsa que no
+  contesta y otra que no tiene el depósito.
+
+### Seguridad
+
+- **Un agente verifica el asiento contra el contrato fijado antes de pagar.**
+  Es la pieza de seguridad del depósito 1v1 del SDK (`paid1v1.ts`). Antes de
+  sentarse, revisa todo lo que puede fallar sin gastar: que el RPC esté en la
+  red fijada, que haya un contrato en esa dirección y su `arbiter()` sea el que
+  firma (`GET /arbiter`), que en Base el `usdc()` sea el de Circle, la comisión,
+  la mesa permitida, el saldo de USDC y el de ETH para el gas, y que el árbitro
+  tenga las mesas abiertas y las mismas reglas. Antes de transmitir comprueba
+  que el asiento esté firmado por ese árbitro para ese contrato y esa red, que
+  el stake sea el que pidió y que los plazos sean razonables. Como segundo
+  jugador, además, que la partida esté abierta en la cadena con lo mismo, que
+  falte al menos un minuto de cadena y que la comisión congelada no pase el
+  tope. El permiso es exacto, solo hacia el escrow fijado, y se reusa si quedó.
+  Las carreras se resuelven leyendo la cadena. Los envíos de una misma wallet
+  (1v1 y Aleph) van de a uno, para no chocar en el nonce. Probado con un RPC
+  falso que mina como Base (recibos preconfirmados), un árbitro que miente de
+  siete maneras distintas sin que se transmita nada, y los casos de carrera
+  perdida, revert minado y falta de ETH a mitad de camino.
+
+## [3.13.0] — 2026-11-19
+
+**Space Invaders se juega en vivo.** Invaders pasa a sus reglas v2: sin semilla,
+las bombas de los aliens y el paso del OVNI salen de un valor por segundo de
+juego que el árbitro revela 0,25 s antes de que ese segundo empiece, y al
+decidirse la partida publica el secreto para que cualquiera la re-verifique; la
+física no cambia. Para poder hacerlo sin llenar el plan gratis de la base de
+datos, el registro de cada intento en vivo pasó a guardar solo lo nuevo de cada
+compromiso. Quedan con semilla 2048, Tetris y Snake: en ellos el azar lo
+dispara la jugada y pasarlos a vivo es una decisión de producto. Los paquetes de
+npm pasan a **0.7.0**, los cuatro juntos (game-sdk, strategies, agent-sdk y
+mcp), porque Invaders v2 los necesita. La misma versión suma, para mainnet, la
+auditoría externa con opciones y mail listos, el contrato que va a auditarse
+corriendo en testnet, los avisos de seguridad prendidos y las librerías de
+wallets de la web sin los avisos que tenían arreglo; y arregla la repetición de
+Invaders, que se cortaba en negro.
+
+### Cambiado
 
 - **Entrar a una mesa de plata pide UNA confirmación en la wallet, no dos.**
   Antes había que aprobar el USDC y después depositar: dos pedidos seguidos que,
@@ -40,16 +159,20 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Corregido
 
-- **Un depósito que el árbitro todavía no ve ya no contesta "error interno".**
-  En una mesa de plata, enviar el puntaje sin depósito en la cadena, o cuando
-  el árbitro no pudo leer la cadena, contestaba `500 internal error` y se
-  perdía el motivo; lo mismo con "not a player" y "too many failed
-  verifications". Ahora el que no depositó recibe un 400 con el motivo, y si el
-  árbitro no pudo leer la cadena contesta 503 con `Retry-After` (en el envío de
-  puntaje y al abrir un intento en vivo, donde antes era un 400 que no se
-  reintentaba): no se procesó nada y el cliente reintenta solo. Los textos no
-  cambiaron. Probado sobre las rutas de verdad, con una cadena falsa que no
-  contesta y otra que no tiene el depósito.
+- **Conectar con el QR desde otra red podía quedar colgado mostrando el QR.**
+  Si MetaMask aprobaba la conexión parado en otra red, la web le pedía pasarse
+  a Base Sepolia y esperaba antes de dar la conexión por hecha. Esa espera no
+  terminaba nunca si el pedido no llegaba al celular, y tampoco si la wallet
+  aceptaba: el conector de WalletConnect de wagmi espera un aviso de "cambió la
+  red" que durante la conexión todavía no escucha. La página seguía mostrando
+  el QR como si nadie lo hubiera escaneado. Ahora, mientras conecta, la web se
+  fija sola si la wallet ya cambió de red y, si cambió, conecta ahí al
+  instante. Si en 15 segundos no pasó nada, la conexión termina en la red de la
+  wallet y se abre sola la ventana de "otra red", explicando cómo cambiarla a
+  mano. Probado con la wallet de prueba por el QR de MetaMask en los tres
+  casos: wallet que acepta (conecta en Base Sepolia en un segundo), wallet que
+  no contesta (a los 15 s, la ventana) y, de vuelta, conexión que ya está en
+  la red buena.
 
 - **Con la wallet en otra red, el cambio de red podía quedar esperando para
   siempre.** Conectado con el QR de MetaMask, el pedido de pasar a Base Sepolia
@@ -88,23 +211,6 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Seguridad
 
-- **Un agente verifica el asiento contra el contrato fijado antes de pagar.**
-  Es la pieza de seguridad del depósito 1v1 del SDK (`paid1v1.ts`). Antes de
-  sentarse, revisa todo lo que puede fallar sin gastar: que el RPC esté en la
-  red fijada, que haya un contrato en esa dirección y su `arbiter()` sea el que
-  firma (`GET /arbiter`), que en Base el `usdc()` sea el de Circle, la comisión,
-  la mesa permitida, el saldo de USDC y el de ETH para el gas, y que el árbitro
-  tenga las mesas abiertas y las mismas reglas. Antes de transmitir comprueba
-  que el asiento esté firmado por ese árbitro para ese contrato y esa red, que
-  el stake sea el que pidió y que los plazos sean razonables. Como segundo
-  jugador, además, que la partida esté abierta en la cadena con lo mismo, que
-  falte al menos un minuto de cadena y que la comisión congelada no pase el
-  tope. El permiso es exacto, solo hacia el escrow fijado, y se reusa si quedó.
-  Las carreras se resuelven leyendo la cadena. Los envíos de una misma wallet
-  (1v1 y Aleph) van de a uno, para no chocar en el nonce. Probado con un RPC
-  falso que mina como Base (recibos preconfirmados), un árbitro que miente de
-  siete maneras distintas sin que se transmita nada, y los casos de carrera
-  perdida, revert minado y falta de ETH a mitad de camino.
 - **Las librerías de wallets de la web, sin los avisos que tenían arreglo**
   (C17 de [`docs/MAINNET.md`](docs/MAINNET.md)). La web sigue en wagmi 2 con
   RainbowKit: el modal para conectar la wallet no cambia. Migrar a wagmi 3 (el
@@ -175,6 +281,38 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- **⚠️ Space Invaders se juega en vivo (reglas v2)** (C13 de
+  [`docs/MAINNET.md`](docs/MAINNET.md); diseño:
+  [`docs/superpowers/specs/2026-11-18-invaders-en-vivo-design.md`](docs/superpowers/specs/2026-11-18-invaders-en-vivo-design.md)).
+  Con la semilla en la mano, un agente sabía de antemano cada bomba y cada
+  pasada del OVNI de la partida. En vivo, el azar sale de un secreto del árbitro
+  que se revela de a un segundo: cada bloque de 60 ticks sale de un solo valor y
+  se conoce 15 ticks antes de empezar, así que una bomba se sabe como mucho
+  1,23 s antes de caer (tarda unos 2 s en bajar a la vista de todos). Al
+  decidirse la partida el árbitro publica el secreto y `verifyInvadersLive` la
+  re-verifica. La física no cambia, y con una semilla (la práctica de la web y
+  las vistas previas del builder) el motor juega exactamente igual que antes.
+  Lo saben el motor, el árbitro (rutas públicas y de agentes BYO), los agentes
+  de la casa (que ahora deciden tick a tick), el SDK, el MCP y la web; el
+  selftest del árbitro juega en vivo una partida de Flappy, otra de Carrera y
+  otra de Invaders. En vivo, Invaders acepta a lo sumo 6 jugadas por tick y una
+  cada 3 ticks en promedio, para que nadie infle su registro; el SDK y la web
+  recortan antes de jugar, así un jugador honesto nunca recibe un rechazo.
+  **Los clientes necesitan `@arcade1v1/*` 0.7.0:** con uno anterior, Invaders da
+  `rules version mismatch` (los otros juegos no cambian). Una partida de
+  Invaders que esté a medio jugar cuando se despliegue (nacida con las reglas
+  v1) ya no se puede terminar, porque el envío exige las reglas vigentes: al
+  vencer su ventana se anula con empate y reembolso, sin cambio de rating (la
+  regla de siempre cuando un deploy cambia las reglas de un juego). La pregunta frecuente "¿Por qué Flappy y Carrera no tienen
+  semilla?" y la página `/agents` incluyen a Invaders, en en/es/fr. Salió en
+  tres PRs: el #71 dejó todo listo con las reglas en 1, el #73 cambió el
+  registro de los intentos y este las pasó a 2.
+- **Paquetes de npm 0.7.0, los cuatro juntos.** `@arcade1v1/game-sdk` (reglas
+  v2 de Invaders, `invadersLive`, `verifyInvadersLive` y el motor con una fuente
+  de azar por bloque de 60 ticks), `@arcade1v1/strategies` (`step` en
+  `invaders.hunter`), `@arcade1v1/agent-sdk` (`playAndSubmit` juega Invaders en
+  vivo y re-exporta `verifyInvadersLive`) y `@arcade1v1/mcp` (Invaders en vivo),
+  y la entrada del registro oficial de MCP.
 - **El registro de cada partida en vivo sube solo lo nuevo** (requisito para
   jugar Space Invaders en vivo). Hasta ahora, en cada compromiso el árbitro
   volvía a subir a Upstash el intento entero, con todas sus jugadas: con las
@@ -206,82 +344,6 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   sus eventos con un nodo público que no responde.
 
 ### Agregado
-
-- **El MCP juega mesas 1v1 de plata (`play_paid`).** Con cuatro variables del
-  operador (`ARCADE_1V1_ESCROW_ADDRESS`, `ARCADE_1V1_RPC_URL`,
-  `ARCADE_1V1_CHAIN_ID` y `ARCADE_1V1_MAX_STAKE`, todas o ninguna, más
-  `ARCADE_PRIVATE_KEY`), un modelo de lenguaje juega por plata sin escribir
-  código: `play_paid` deposita y juega en una llamada y figura como "mueve
-  plata". Rechaza sin tocar la red una mesa que no existe o que pasa el tope.
-  Si el cliente corta por tiempo, volver a llamar devuelve el resultado
-  anterior en vez de abrir otra partida. Además: `resume_paid`, `withdraw_1v1`
-  y `mint_test_usdc` (solo en testnet), y `whoami` muestra el USDC de la wallet
-  y lo acreditado. Los errores de plata no le muestran al modelo la URL del
-  RPC. `matchmake` y `play_and_submit` siguen solo en la ladder gratis y
-  apuntan a `play_paid`. La versión del servidor sale de su `package.json`.
-  Probado con el agente real contra un árbitro falso y el RPC falso del 1v1.
-- **Un agente cobra lo acreditado, consigue USDC de prueba y lee sus saldos
-  solo.** `agent.withdraw1v1()` cobra del `Escrow1v1` fijado un pago que el
-  USDC rechazó (queda acreditado en el contrato) y, sin nada acreditado, no
-  manda nada. `agent.mintTestUsdc(amount)` acuña USDC de prueba en Base Sepolia
-  (en Base se niega antes de tocar la red). `agent.paid1v1Balances()` dice la
-  red, el USDC, el ETH y lo acreditado. El README del SDK suma la sección
-  "Play paid 1v1 tables". Probado con el RPC falso del 1v1.
-- **Un agente juega una mesa 1v1 de plata en una sola llamada.** Con
-  `paid1v1` configurado, `agent.playAndSubmit({ game: "racing", stake: 1 })`
-  revisa todo antes de sentarse, se sienta, aprueba el monto exacto, pide de
-  nuevo justo antes de depositar (como la web: si mientras tanto una persona
-  abrió en esa mesa, se sienta con ella), deposita y juega en vivo. Si el
-  árbitro todavía no ve el depósito, reintenta abrir el intento durante 60
-  segundos, nunca dos veces en menos de 2. Nunca vuelve a pedir emparejamiento
-  después de mandar el depósito, y juega una partida pagada a la vez. Si
-  vuelve una partida propia que ya tenía depósito, no paga de nuevo: la juega,
-  o la devuelve esperando rival si ya la jugó. Un error después del depósito
-  avisa con `deposited: true` y el `matchId`, y `agent.resume1v1(matchId)`
-  retoma la partida sin depositar. Por ahora, solo los juegos en vivo
-  (Flappy y Carrera): en los de semilla el agente podría simular la partida
-  entera antes de jugar contra una persona. Probado con un árbitro falso que
-  sirve una partida de Carrera en vivo de verdad y un RPC que mina como Base.
-  Y de punta a punta en una cadena local con el contrato y el árbitro reales
-  (`check-payment-sdk-e2e.sh`, en CI): el que gana cobra 1,70 USDC, un empate
-  se reembolsa, y un ganador en la blacklist del USDC cobra después con
-  `withdraw1v1()`.
-- **El SDK acepta la configuración de las mesas 1v1 de plata (`paid1v1`).**
-  `createAgent({ privateKey, paid1v1: { rpcUrl, escrow, chainId, maxStake } })`:
-  el RPC de la red del 1v1, el `Escrow1v1` en el que confía el operador, su red
-  y el tope por mesa en USDC (obligatorio). Va aparte de las opciones de Aleph,
-  porque en mainnet los dos formatos van a estar en redes distintas. Se valida
-  al crear el agente, sin tocar la red, y ningún error repite un valor (en el
-  campo del contrato se puede pegar una clave por error). `agent.matchmake`
-  sigue tomando solo asientos gratis, ahora con un mensaje que apunta a
-  `playAndSubmit`, y firma con el reloj del agente. Nuevo
-  `agent.getResult(matchId)`. Probado campo por campo, comprobando que el
-  mensaje no incluye el valor.
-- **El game-sdk publica el contrato 1v1 para los agentes**
-  (`@arcade1v1/game-sdk/escrow1v1`). Trae el ABI de lo que usa un agente para
-  depositar y cobrar en una mesa 1v1 de plata (`open`, `join`, `matches`,
-  `owed`, `withdraw` y las lecturas de configuración), los estados de una
-  partida, el dominio EIP-712 del asiento que firma el árbitro y la dirección
-  del USDC de Circle en Base. Es el primer paso para que un agente juegue por
-  plata sin una persona: con el dominio, el agente puede comprobar, antes de
-  pagar, que el asiento es para el contrato y la red que fijó su operador.
-  Probado con un asiento firmado por el árbitro de verdad, que se recupera con
-  el dominio del game-sdk.
-- **Space Invaders se puede jugar en vivo, todavía apagado** (C13 de
-  [`docs/MAINNET.md`](docs/MAINNET.md)). Con la semilla en la mano, un agente
-  sabía de antemano cada bomba y cada pasada del OVNI de la partida; en vivo, el
-  azar sale de un secreto del árbitro que se revela de a un segundo: cada bloque
-  de 60 ticks sale de un solo valor y se conoce 15 ticks antes de empezar, así
-  que una bomba se sabe como mucho 1,23 s antes de caer (tarda unos 2 s en bajar
-  a la vista de todos). La física no cambia. El motor, la definición en vivo
-  (`@arcade1v1/game-sdk/invaders-live`, con `verifyInvadersLive`), la
-  estrategia de la casa (que ahora decide tick a tick), el SDK y la web quedan
-  listos, y el árbitro no necesitó cambios. Sigue apagado: Invaders sigue en
-  las reglas v1 con semilla, y nada cambia en producción. Antes de prenderlo
-  (reglas v2, en otro PR) el registro de cada intento en vivo tiene que guardar
-  solo lo nuevo de cada compromiso: con las ~850 jugadas de una partida de
-  Invaders, reescribirlo entero subiría unos 780 KB a Upstash por jugador.
-  Diseño: [`docs/superpowers/specs/2026-11-18-invaders-en-vivo-design.md`](docs/superpowers/specs/2026-11-18-invaders-en-vivo-design.md).
 
 - **`scripts/smoke-1v1-mesa-paga.mts`**: el smoke de una mesa de plata del 1v1
   en testnet, como el de Aleph. Dos wallets descartables (las fondea la wallet

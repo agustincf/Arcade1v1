@@ -8,8 +8,12 @@
 import { mulberry32, groupByTick, type RandomSource } from "./replay";
 
 // ---- Reglas -----------------------------------------------------------------
-// v1: con semilla. v2 (todavía apagada): se juega EN VIVO; la física no cambia.
-export const INVADERS_RULES_V = 1;
+// v1: con semilla. v2: se juega EN VIVO, sin semilla: cada bloque de
+// INVADERS_LIVE_BLOCK ticks sale de un valor que el árbitro revela 15 ticks
+// antes de que empiece (ver el constructor y ./invaders-live). La física no
+// cambia: con una semilla (la práctica de la web y las vistas previas de las
+// estrategias) el motor juega exactamente igual que en v1.
+export const INVADERS_RULES_V = 2;
 
 /** En vivo: cada cuántos ticks llega un valor nuevo del árbitro (un segundo a
  *  60 ticks por segundo). Los aliens tiran los dados en cada tick; un valor por

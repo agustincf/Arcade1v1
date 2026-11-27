@@ -1,7 +1,7 @@
 "use client";
 
 import { LocaleLink as Link } from "@/app/components/LocaleLink";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
 import { Logo } from "@/app/components/Logo";
@@ -19,12 +19,23 @@ export function Header() {
   // La ventana de "otra red" se cierra sola cuando la wallet ya está en la red
   // de la app (la cambió desde la ventana o a mano en el celular) o se
   // desconectó: así no reaparece abierta la próxima vez.
-  const [netOpen, setNetOpen] = useState(false);
-  const { isConnected, chainId } = useAccount();
+  // "click": la abrió el usuario desde "RED EQUIVOCADA". "connect": se abrió
+  // sola al terminar de conectar en otra red (el cambio de red que pide la
+  // conexión no llegó a tiempo: ver lib/tope-cambio-de-red.ts).
+  const [netOpen, setNetOpen] = useState<false | "click" | "connect">(false);
+  const { isConnected, chainId, status } = useAccount();
   const wrongNet = isConnected && chainId !== undefined && chainId !== CHAIN.id;
   useEffect(() => {
     if (!wrongNet) setNetOpen(false);
   }, [wrongNet]);
+  // Recién conectada (no al recargar con la sesión guardada) y en otra red: la
+  // ventana se abre sola, ya explicando cómo cambiarla a mano.
+  const prevStatus = useRef(status);
+  useEffect(() => {
+    const before = prevStatus.current;
+    prevStatus.current = status;
+    if (before === "connecting" && status === "connected" && wrongNet) setNetOpen("connect");
+  }, [status, wrongNet]);
   return (
     <header className="sticky top-0 z-40 border-b border-(--color-border) bg-(--color-ink)/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
@@ -72,7 +83,7 @@ export function Header() {
                 mode === "connect"
                   ? openConnectModal
                   : mode === "chain"
-                    ? () => setNetOpen(true)
+                    ? () => setNetOpen("click")
                     : openAccountModal;
               return (
                 <>
@@ -98,7 +109,10 @@ export function Header() {
                     )}
                   </button>
                   {mode === "chain" && netOpen && (
-                    <WrongNetworkDialog onClose={() => setNetOpen(false)} />
+                    <WrongNetworkDialog
+                      initialPhase={netOpen === "connect" ? "failed" : "idle"}
+                      onClose={() => setNetOpen(false)}
+                    />
                   )}
                 </>
               );

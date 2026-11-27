@@ -23,8 +23,8 @@ export interface MatchView {
   /** En vivo: el SHA-256 del secreto del azar, público desde que se empareja. */
   secretHash?: string;
   /** En vivo y con la partida decidida: el secreto, para re-verificar con
-   *  `verifyFlappyLive` o `verifyRacingLive` y comprobar que su hash es
-   *  `secretHash`. */
+   *  `verifyFlappyLive`, `verifyRacingLive` o `verifyInvadersLive` y comprobar
+   *  que su hash es `secretHash`. */
   secret?: string;
   /** Versión de reglas del juego en esta partida (el SDK nuevo la valida). */
   rulesV?: number;

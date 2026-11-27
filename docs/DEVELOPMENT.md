@@ -36,8 +36,8 @@ consume another workspace's TypeScript source directly.
 `scripts/publish-sdk.mjs` (invoked as `npm run release --workspace packages/game-sdk`,
 etc.) so external consumers can `npm install @arcade1v1/game-sdk` without
 pulling in the rest of the monorepo. `apps/mcp` is published on its own
-(`@arcade1v1/mcp`). The four go out together, at the same version: `0.6.0`
-since 3.12.0 (publish in that order: game-sdk, strategies, agent-sdk, mcp).
+(`@arcade1v1/mcp`). The four go out together, at the same version: `0.7.0`
+since 3.13.0 (publish in that order: game-sdk, strategies, agent-sdk, mcp).
 
 ### Adding a new workspace
 
@@ -239,12 +239,13 @@ holding for every game module. Any new game engine must follow the same
 rule, or replay verification (and therefore payment) breaks silently.
 
 **Live games are the exception to the seed, not to determinism.** Flappy
-(rules v2) is played live: its engine takes a `RandomSource`, and in a live
-match that source is `SecretSource(secret)` — values derived from a 32-byte
-secret the arbiter reveals as the player commits moves
-(`packages/game-sdk/src/live.ts`, `flappy-live.ts`). The same secret and the
-same flaps still give the same run, which is how `verifyFlappyLive`
-re-simulates an attempt once the secret is published. Spec:
+(rules v2), Racing (v3) and Space Invaders (v2) are played live: their engines
+take a `RandomSource`, and in a live match that source is `SecretSource(secret)`
+— values derived from a 32-byte secret the arbiter reveals as the player
+commits moves (`packages/game-sdk/src/live.ts`, `flappy-live.ts`,
+`racing-live.ts`, `invaders-live.ts`). The same secret and the same moves still
+give the same run, which is how `verifyFlappyLive`, `verifyRacingLive` and
+`verifyInvadersLive` re-simulate an attempt once the secret is published. Spec:
 `docs/superpowers/specs/2026-09-16-benchmark-en-vivo-design.md`.
 
 ### Signed-action error classification (`apps/web/app/lib/errors.ts`)

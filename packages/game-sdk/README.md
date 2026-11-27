@@ -11,10 +11,11 @@ Same seed → same game. Both players get the same seed, each plays their own ru
 arbiter **re-simulates every replay with this exact engine** — any score that doesn't match
 its replay is rejected. That's what makes the competition fair, even bot vs. bot.
 
-**Flappy and Racing are played live** (Flappy since rules v2, Racing since rules v3): no
-seed. Their randomness comes from a secret the arbiter reveals as you commit your moves, so
-nobody can simulate the match before playing it; the engines are the same, fed by a
-`SecretSource`. See [Live games](#live-games-flappy-and-racing).
+**Flappy, Racing and Space Invaders are played live** (Flappy since rules v2, Racing since
+rules v3, Space Invaders since rules v2): no seed. Their randomness comes from a secret the
+arbiter reveals as you commit your moves, so nobody can simulate the match before playing
+it; the engines are the same, fed by a `SecretSource`. See
+[Live games](#live-games-flappy-racing-and-space-invaders).
 
 ## Install
 
@@ -41,29 +42,29 @@ while (!g.over && moves.length < 5000) {
 Each game ships as its own subpath export with its engine and the replay shape the
 arbiter expects:
 
-| Import                              | Game                                                                                   |
-| ----------------------------------- | -------------------------------------------------------------------------------------- |
-| `@arcade1v1/game-sdk/g2048`         | 2048                                                                                   |
-| `@arcade1v1/game-sdk/tetris`        | Tetris                                                                                 |
-| `@arcade1v1/game-sdk/snake`         | Snake                                                                                  |
-| `@arcade1v1/game-sdk/flappy`        | Flappy                                                                                 |
-| `@arcade1v1/game-sdk/live`          | Live games: `SecretSource`, `liveSecretHash`, `checkLiveReveals`, `isLiveMatch`        |
-| `@arcade1v1/game-sdk/flappy-live`   | Flappy live: `playFlappyLive`, `verifyFlappyLive`                                      |
-| `@arcade1v1/game-sdk/live-play`     | Any live game: `playLive`, `LiveSession`, `verifyLive`                                 |
-| `@arcade1v1/game-sdk/live-games`    | `liveGameFor(game)`: the live definition of each game                                  |
-| `@arcade1v1/game-sdk/racing-live`   | Racing live: `racingLive`, `verifyRacingLive`                                          |
-| `@arcade1v1/game-sdk/invaders-live` | Space Invaders live (ready, still off: rules v1): `invadersLive`, `verifyInvadersLive` |
-| `@arcade1v1/game-sdk/racing`        | Racing                                                                                 |
-| `@arcade1v1/game-sdk/invaders`      | Space Invaders                                                                         |
-| `@arcade1v1/game-sdk/aleph`         | Aleph (multi-agent format): rules, actions, `replayAleph`, escrow ABI                  |
-| `@arcade1v1/game-sdk/escrow1v1`     | 1v1 escrow: ABI, `ESCROW1V1_STATUS`, `seatDomain`/`SEAT_TYPES`, `CIRCLE_USDC_BASE`     |
-| `@arcade1v1/game-sdk/auth`          | Wallet-auth message helpers                                                            |
-| `@arcade1v1/game-sdk/rules`         | `RULES_V`: the rules version of each game                                              |
-| `@arcade1v1/game-sdk/chain`         | `waitUntilSealed`: wait for the chain to seal a receipt's block                        |
+| Import                              | Game                                                                               |
+| ----------------------------------- | ---------------------------------------------------------------------------------- |
+| `@arcade1v1/game-sdk/g2048`         | 2048                                                                               |
+| `@arcade1v1/game-sdk/tetris`        | Tetris                                                                             |
+| `@arcade1v1/game-sdk/snake`         | Snake                                                                              |
+| `@arcade1v1/game-sdk/flappy`        | Flappy                                                                             |
+| `@arcade1v1/game-sdk/live`          | Live games: `SecretSource`, `liveSecretHash`, `checkLiveReveals`, `isLiveMatch`    |
+| `@arcade1v1/game-sdk/flappy-live`   | Flappy live: `playFlappyLive`, `verifyFlappyLive`                                  |
+| `@arcade1v1/game-sdk/live-play`     | Any live game: `playLive`, `LiveSession`, `verifyLive`                             |
+| `@arcade1v1/game-sdk/live-games`    | `liveGameFor(game)`: the live definition of each game                              |
+| `@arcade1v1/game-sdk/racing-live`   | Racing live: `racingLive`, `verifyRacingLive`                                      |
+| `@arcade1v1/game-sdk/invaders-live` | Space Invaders live: `invadersLive`, `verifyInvadersLive`                          |
+| `@arcade1v1/game-sdk/racing`        | Racing                                                                             |
+| `@arcade1v1/game-sdk/invaders`      | Space Invaders                                                                     |
+| `@arcade1v1/game-sdk/aleph`         | Aleph (multi-agent format): rules, actions, `replayAleph`, escrow ABI              |
+| `@arcade1v1/game-sdk/escrow1v1`     | 1v1 escrow: ABI, `ESCROW1V1_STATUS`, `seatDomain`/`SEAT_TYPES`, `CIRCLE_USDC_BASE` |
+| `@arcade1v1/game-sdk/auth`          | Wallet-auth message helpers                                                        |
+| `@arcade1v1/game-sdk/rules`         | `RULES_V`: the rules version of each game                                          |
+| `@arcade1v1/game-sdk/chain`         | `waitUntilSealed`: wait for the chain to seal a receipt's block                    |
 
 Games evolve their rules without changing their id; the version lives in `RULES_V`
 (`/rules`). Today: `2048` 1, `tetris` 1, `flappy` **2** (live), `racing` **3** (live),
-`snake` 2, `invaders` 1, `aleph` 2. `/matchmake` returns the match's `rulesV`: if it doesn't
+`snake` 2, `invaders` **2** (live), `aleph` 2. `/matchmake` returns the match's `rulesV`: if it doesn't
 match your package's `RULES_V`, upgrade the package.
 
 > **Rules v2 (July 2026):** Snake now spawns a fleeting golden coin (+3, it also
@@ -96,23 +97,32 @@ match your package's `RULES_V`, upgrade the package.
 > now generic: `playLive` and `verifyLive` (`/live-play`) play and re-verify any live game
 > from its definition (`flappyLive`, `racingLive`, or `liveGameFor(id)` from `/live-games`).
 
-## Live games (Flappy and Racing)
+> **0.7.0 (November 2026):** ⚠️ Space Invaders is played **live** too (`RULES_V.invaders =
+2`): `/matchmake` returns `live: true` and `secretHash` instead of a seed, and the alien
+> bombs and the UFO are revealed one second at a time (a 60-tick block), each block about
+> 0.25 s before it starts. Same physics. New: `invadersLive` and `verifyInvadersLive`
+> (`/invaders-live`). Older packages get `rules version mismatch` on Space Invaders; the
+> other games are unchanged (2048, Tetris and Snake keep the seed).
+
+## Live games (Flappy, Racing and Space Invaders)
 
 A live match has no seed. You open one attempt (`POST /match/:id/live/start`, signed with
 `liveStartAuthMessage`) and commit your moves (`POST /match/:id/live/commit`): Flappy sends
 `flaps` (the ticks it flaps on), Racing sends `inputs` (`{ t, a }`, with `a` = `l` / `r` /
-`j`). Each reply brings the random values the engine will consume next, about 15 ticks
-ahead. The arbiter simulates alongside you, so there's no score to submit.
+`j`), Space Invaders sends `inputs` too (`a` = `l1` / `l0` / `r1` / `r0` / `f1` / `f0`: press
+and release left, right and fire). Each reply brings the random values the engine will
+consume next, about 15 ticks ahead. The arbiter simulates alongside you, so there's no score
+to submit.
 
 - `playLive(game, { start, decide, commit, maxTicks })` (`/live-play`) drives an attempt
-  end to end: `game` is the live definition (`flappyLive`, `racingLive`, or
-  `liveGameFor(id)`), `decide(engine, tick)` is your policy (`true` to flap; Racing's
-  actions, one or a list; it may return a promise) and `commit` is your transport (HTTP,
+  end to end: `game` is the live definition (`flappyLive`, `racingLive`, `invadersLive`
+  or `liveGameFor(id)`), `decide(engine, tick)` is your policy (`true` to flap; Racing's or
+  Space Invaders' actions, one or a list; it may return a promise) and `commit` is your transport (HTTP,
   or in-process). `playFlappyLive` (`/flappy-live`) does the same for Flappy.
 - When the match is decided the view publishes `secret`: check
-  `liveSecretHash(secret) === secretHash`, then `verifyFlappyLive(secret, { ticks, flaps })`
-  or `verifyRacingLive(secret, { ticks, inputs })` re-simulates any attempt and returns its
-  score. `checkLiveReveals(secret, secretHash, reveals)`
+  `liveSecretHash(secret) === secretHash`, then `verifyFlappyLive(secret, { ticks, flaps })`,
+  `verifyRacingLive(secret, { ticks, inputs })` or `verifyInvadersLive(secret, { ticks,
+inputs })` re-simulates any attempt and returns its score. `checkLiveReveals(secret, secretHash, reveals)`
   checks the hash and that every value you were revealed came from that secret.
 
 [`@arcade1v1/agent-sdk`](https://www.npmjs.com/package/@arcade1v1/agent-sdk) does all of it
