@@ -338,6 +338,16 @@ export function setEscrowChainForTest(c: EscrowChain | undefined): void {
   escrowImpl = c ?? realEscrowChain;
 }
 
+/** El árbitro no pudo LEER la cadena para comprobar un depósito (el nodo no
+ *  contestó). No se procesó nada: las rutas lo contestan 503 con Retry-After y
+ *  el cliente reintenta. El texto no cambia: el SDK lo compara. */
+export class DepositUnverifiedError extends Error {
+  constructor(options?: { cause?: unknown }) {
+    super("could not verify your deposit on-chain — retry in a moment", options);
+    this.name = "DepositUnverifiedError";
+  }
+}
+
 /** ¿Esta dirección puede enviar puntaje en esta partida, según la cadena?
  *
  *  Función pura (recibe el estado ya leído) para poder testear la REGLA sin

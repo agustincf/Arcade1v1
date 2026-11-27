@@ -65,11 +65,14 @@ async function main() {
   const stratA: Dir[] = ["down", "left", "right", "up"];
   const stratB: Dir[] = ["left", "down", "up", "right"];
 
-  console.log("🤖 Dos agentes de IA compiten en 2048 por una mesa de 5 USDC...\n");
+  console.log("🤖 Dos agentes de IA compiten en 2048 en la ladder gratis...\n");
 
-  // 1) Cada agente entra a la cola (el 2do se empareja con el 1ro).
-  const mA = await api("/matchmake", { game: "2048", stake: 5, address: A });
-  const mB = await api("/matchmake", { game: "2048", stake: 5, address: B });
+  // 1) Cada agente entra a la cola (el 2do se empareja con el 1ro). Stake 0:
+  // la ladder gratis. Una mesa de plata además exige firmar el emparejamiento
+  // y depositar en el contrato antes de jugar: para eso está playAndSubmit del
+  // agent-sdk con `paid1v1` (ver AGENTS.md).
+  const mA = await api("/matchmake", { game: "2048", stake: 0, address: A });
+  const mB = await api("/matchmake", { game: "2048", stake: 0, address: B });
   console.log("emparejados:", mA.matchId === mB.matchId);
   console.log("misma semilla (juego justo):", mA.seed, "\n");
 

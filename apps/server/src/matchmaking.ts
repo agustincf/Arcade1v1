@@ -30,6 +30,7 @@ import {
   chain,
   escrowChain,
   razonRechazoDeposito,
+  DepositUnverifiedError,
   ONCHAIN_STATUS,
   ESCROW_REFUND_GRACE_S,
   type OnchainMatch,
@@ -1030,7 +1031,7 @@ export async function assertDepositOnchain(
     // El nodo no respondió. No aceptamos a ciegas con plata en juego: se pide
     // reintentar, que es recuperable, en vez de seguir sin poder verificar.
     console.error("[onchain] no se pudo leer la partida:", (e as Error).message);
-    throw new Error("could not verify your deposit on-chain — retry in a moment", { cause: e });
+    throw new DepositUnverifiedError({ cause: e });
   }
   const motivo = razonRechazoDeposito(enCadena, address);
   if (motivo) throw new Error(motivo);

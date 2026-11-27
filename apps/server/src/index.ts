@@ -6,9 +6,6 @@ import "./persist-on.js"; // enciende la persistencia de partidas (antes de matc
 import express from "express";
 import { cuerpoJson } from "./cuerpo-json.js";
 import {
-  matchmake,
-  submitScore,
-  getMatch,
   addBot,
   AUTH_REQUIRED,
   recentMatches,
@@ -27,7 +24,10 @@ import { restoreProfiles, resolveDisplay } from "./profiles.js";
 import { challengeRouter } from "./challenge-routes.js";
 import { alephRouter } from "./aleph-routes.js";
 import { liveRouter } from "./live-routes.js";
-import { LiveUnavailableError, restoreLiveAttempts } from "./live.js";
+import { restoreLiveAttempts } from "./live.js";
+import { responderError } from "./http-errors.js";
+import { matchRouter } from "./match-routes.js";
+import { healthBody } from "./health.js";
 import { restoreAleph, startAlephTicker, stopAlephTicker } from "./aleph.js";
 import { restoreAlephHouse } from "./aleph-house-seats.js";
 import { restoreAlephModels } from "./aleph-models.js";
@@ -44,11 +44,10 @@ import {
   installShutdown,
   type HandoverDeps,
 } from "./handover.js";
-import { readinessGate, getMode, setMode, waitForIdle, HANDOVER_PATH } from "./readiness.js";
-import { deployedCommit } from "./version.js";
+import { readinessGate, setMode, waitForIdle, HANDOVER_PATH } from "./readiness.js";
 import { arbiterAddress } from "./sign.js";
 import { moneyAuthErrors, productionConfigErrors, parseTrustProxy } from "./config-guard.js";
-import { escrowGate, startEscrowCheck, stopEscrowCheck } from "./escrow-check.js";
+import { startEscrowCheck, stopEscrowCheck } from "./escrow-check.js";
 import { onchainEnabled } from "./onchain.js";
 import { agentsRouter, agentsPostLimit } from "./agents-routes.js";
 import { gasSnapshot, startGasMonitor, stopGasMonitor } from "./gas-monitor.js";
@@ -81,38 +80,6 @@ const handoverDeps: HandoverDeps = {
   log: (m) => console.log(m),
   exit: (code) => process.exit(code),
 };
-
-/** Responde el error de un endpoint y —esto es lo nuevo— DEJA RASTRO.
- *
- *  Antes todo terminaba en `res.status(400).json({ error: e.message })`, sin un
- *  solo log: daba igual que fuera un pedido mal formado del cliente (400 real)
- *  o que el árbitro se hubiera roto por dentro (500). Con los logs de Render
- *  como única ventana, un incidente de producción era literalmente invisible —
- *  no quedaba ni la línea para saber que había pasado algo.
- *
- *  Los errores esperables (validación, partida vencida, mesa no permitida) son
- *  400 y no se loguean: son ruido. Cualquier otro es 500 y SÍ se loguea con su
- *  stack, la ruta y el método. */
-const ERRORES_ESPERABLES =
-  /not found|already|invalid|required|expired|too long|mismatch|not allowed|not open|unknown game|bad |missing |limit|forbidden|disabled/i;
-
-function responderError(req: express.Request, res: express.Response, e: unknown): void {
-  const err = e as Error;
-  const msg = err?.message ?? String(e);
-  // La rendición de un juego en vivo guarda el intento antes de contestar; si
-  // no pudo, se reintenta (no es un error del cliente ni un bug).
-  if (e instanceof LiveUnavailableError) {
-    res.setHeader("Retry-After", "2");
-    res.status(503).json({ error: msg });
-    return;
-  }
-  if (ERRORES_ESPERABLES.test(msg)) {
-    res.status(400).json({ error: msg });
-    return;
-  }
-  console.error(`[error] ${req.method} ${req.path}:`, err?.stack ?? msg);
-  res.status(500).json({ error: "internal error" });
-}
 
 const app = express();
 
@@ -210,18 +177,9 @@ rlSweep.unref?.();
 
 // Salud + qué versión corre y en qué modo está la instancia (ver readiness.ts):
 // alcanza para confirmar desde afuera que un deploy salió y cómo quedó el
-// traspaso.
-const COMMIT = deployedCommit();
-// `escrow` (solo con el escrow del 1v1 activo): "ok", "blocked" o "unverified",
-// el veredicto del chequeo contra la cadena (escrow-check.ts).
-app.get("/health", (_req, res) =>
-  res.json({
-    ok: true,
-    commit: COMMIT,
-    mode: getMode(),
-    ...(onchainEnabled() ? { escrow: escrowGate().status } : {}),
-  }),
-);
+// traspaso. También el estado del escrow del 1v1 y las reglas de cada juego
+// (health.ts).
+app.get("/health", (_req, res) => res.json(healthBody()));
 
 // MÉTRICAS públicas (página /status): datos reales del árbitro, sin inflar.
 // activeAgents se cuenta en vivo acá (vive en agents.ts) y se inyecta al
@@ -293,42 +251,9 @@ app.get("/", (_req, res) =>
   }),
 );
 
-// Direccion publica del arbitro (debe coincidir con la del contrato).
-app.get("/arbiter", (_req, res) => res.json({ address: arbiterAddress() }));
-
-// Emparejar: el 2do en llegar se junta con el 1ro. En producción exige la firma
-// del jugador ({ signature, ts }; ver matchmakeAuthMessage en el game-sdk).
-app.post("/matchmake", async (req, res) => {
-  const { game, stake, address, signature, ts } = req.body ?? {};
-  // Ojo: stake 0 (ladder gratis) es válido -> chequear presencia, no truthiness.
-  if (!game || stake === undefined || stake === null || !address) {
-    return res.status(400).json({ error: "faltan game, stake o address" });
-  }
-  try {
-    const auth = signature ? { signature: String(signature), ts: Number(ts) } : undefined;
-    res.json(await matchmake(String(game), Number(stake), String(address), auth));
-  } catch (e) {
-    responderError(req, res, e);
-  }
-});
-
-// Enviar puntaje. Cuando estan los dos, decide y firma.
-// (límite estricto: la verificación re-simula el replay entero, es CPU-cara)
-app.post("/match/:id/score", strictLimit, async (req, res) => {
-  try {
-    const { address, score, replay, signature } = req.body ?? {};
-    const out = await submitScore(
-      String(req.params.id),
-      String(address),
-      Number(score),
-      replay,
-      signature,
-    );
-    res.json(out);
-  } catch (e) {
-    responderError(req, res, e);
-  }
-});
+// Las rutas del 1v1: /arbiter, /matchmake, /match/:id/score y GET /match/:id
+// (match-routes.ts).
+app.use(matchRouter({ score: strictLimit }));
 
 // PARTIDAS EN VIVO: abrir el intento y comprometer jugadas (ver live.ts).
 app.use(liveRouter({ start: strictLimit, commit: liveLimit }));
@@ -344,13 +269,6 @@ app.post("/match/:id/bot", async (req, res) => {
   } catch (e) {
     responderError(req, res, e);
   }
-});
-
-// Consultar estado/resultado de una partida.
-app.get("/match/:id", (req, res) => {
-  const m = getMatch(req.params.id, req.query.address as string | undefined);
-  if (!m) return res.status(404).json({ error: "match not found" });
-  res.json(m);
 });
 
 // ESPECTADOR: partidas recientes ya decididas (para mirar replays).

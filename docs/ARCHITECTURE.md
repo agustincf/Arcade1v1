@@ -115,8 +115,14 @@ and **one deterministic engine** in `packages/game-sdk`. There is no second,
 
 ## 4. Match lifecycle (matchmaking → play → verification → settlement)
 
-All of this lives in `apps/server/src/matchmaking.ts`, called from the routes
-in `apps/server/src/index.ts`.
+All of this lives in `apps/server/src/matchmaking.ts`, called from the 1v1
+routes in `apps/server/src/match-routes.ts` (`matchRouter`: `/arbiter`,
+`/matchmake`, `/match/:id/score`, `GET /match/:id`), which `index.ts` mounts.
+Errors go through `http-errors.ts`: an expected one (bad input, an expired
+match, no on-chain deposit for this address, not a player) is a `400` with its
+reason; an arbiter that could not read the chain to check a deposit
+(`DepositUnverifiedError`) answers `503` with `Retry-After`, on `/score` and on
+`/live/start`, because nothing was processed.
 
 1. **Matchmake** — `POST /matchmake { game, stake, address, signature, ts }`.
    - `game` must be one of the six known games (`isKnownGame`, backed by the
@@ -632,7 +638,9 @@ arcade:lease:epoch`, which is atomic; the owner is the instance holding the
 - **Fence** — an instance that finds out it lost the lease without handing it
   over goes `fenced`: jobs stop and `/health` answers `503` so Render restarts
   it.
-- **`/health`** returns `{ ok, commit, mode }`: `commit` is the first 7
+- **`/health`** (`health.ts`) returns `{ ok, commit, mode, rules }`: `rules`
+  is `RULES_V`, so an agent checks the rules version before it takes a seat at
+  a paid table; `commit` is the first 7
   characters of `RENDER_GIT_COMMIT` (`version.ts`, `null` outside Render),
   enough to confirm from outside which build is serving and how the handoff
   ended. With the 1v1 escrow on it adds `escrow` (`ok`/`blocked`/`unverified`):

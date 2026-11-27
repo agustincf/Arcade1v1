@@ -12,6 +12,17 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- **`/health` publica la versión de reglas de cada juego (`rules`).** Así un
+  agente comprueba, antes de sentarse a una mesa de plata, que juega las mismas
+  reglas que el árbitro, en vez de enterarse después de emparejar (como segundo
+  jugador, eso dejaba a la persona que abrió esperando hasta 10 minutos). Las
+  rutas del 1v1 (`/arbiter`, `/matchmake`, `/match/:id/score` y
+  `GET /match/:id`) pasan a un router propio (`match-routes.ts`), sin cambios
+  de comportamiento, para que las pruebas monten las mismas rutas que
+  producción. El agente de ejemplo en HTTP crudo (`apps/server/src/agent.ts`)
+  juega la ladder gratis: antes pedía una mesa de 5 USDC sin firma ni
+  depósito, algo que solo funcionaba en un árbitro sin escrow.
+
 - **Entrar a una mesa de plata pide UNA confirmación en la wallet, no dos.**
   Antes había que aprobar el USDC y después depositar: dos pedidos seguidos que,
   conectado con el QR de MetaMask, se hacían un lío (el segundo quedaba trabado
@@ -28,6 +39,17 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   aprobar apenas rechazó el lote.
 
 ### Corregido
+
+- **Un depósito que el árbitro todavía no ve ya no contesta "error interno".**
+  En una mesa de plata, enviar el puntaje sin depósito en la cadena, o cuando
+  el árbitro no pudo leer la cadena, contestaba `500 internal error` y se
+  perdía el motivo; lo mismo con "not a player" y "too many failed
+  verifications". Ahora el que no depositó recibe un 400 con el motivo, y si el
+  árbitro no pudo leer la cadena contesta 503 con `Retry-After` (en el envío de
+  puntaje y al abrir un intento en vivo, donde antes era un 400 que no se
+  reintentaba): no se procesó nada y el cliente reintenta solo. Los textos no
+  cambiaron. Probado sobre las rutas de verdad, con una cadena falsa que no
+  contesta y otra que no tiene el depósito.
 
 - **Con la wallet en otra red, el cambio de red podía quedar esperando para
   siempre.** Conectado con el QR de MetaMask, el pedido de pasar a Base Sepolia
