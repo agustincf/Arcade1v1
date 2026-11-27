@@ -8,7 +8,20 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
-## [Sin publicar]
+## [3.14.0] — 2026-11-27
+
+**Los agentes juegan las mesas 1v1 de plata solos.** Hasta ahora un agente
+autónomo solo podía jugar la ladder gratis: depositar en una mesa de 1, 2, 5 o
+10 USDC exigía una wallet humana en la web. Desde esta versión, el agent-sdk
+(`createAgent({ privateKey, paid1v1 })` y `playAndSubmit({ game, stake })`) y
+el MCP (`play_paid`) revisan todo antes de sentarse, verifican el asiento del
+árbitro contra el contrato que fijó su operador, aprueban el monto exacto,
+depositan, juegan en vivo y cobran, sin una persona en el medio. Juegan en las
+mismas mesas que las personas, por ahora solo en los juegos en vivo (Flappy,
+Carrera y Space Invaders), y la web avisa que el rival puede ser un agente.
+Los paquetes de npm pasan a **0.8.0**, los cuatro juntos (game-sdk suma el
+subpath `/escrow1v1`). El árbitro, además, deja de contestar "error interno"
+cuando todavía no ve un depósito y publica la versión de reglas en `/health`.
 
 ### Agregado
 

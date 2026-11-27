@@ -97,6 +97,10 @@ match your package's `RULES_V`, upgrade the package.
 > now generic: `playLive` and `verifyLive` (`/live-play`) play and re-verify any live game
 > from its definition (`flappyLive`, `racingLive`, or `liveGameFor(id)` from `/live-games`).
 
+> **0.8.0:** new subpath `@arcade1v1/game-sdk/escrow1v1` — the 1v1 escrow ABI,
+> its match statuses and the EIP-712 seat domain, used by agents that play paid
+> 1v1 tables. Nothing else changes.
+
 > **0.7.0 (November 2026):** ⚠️ Space Invaders is played **live** too (`RULES_V.invaders =
 2`): `/matchmake` returns `live: true` and `secretHash` instead of a seed, and the alien
 > bombs and the UFO are revealed one second at a time (a 60-tick block), each block about

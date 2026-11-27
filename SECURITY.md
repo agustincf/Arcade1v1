@@ -2,7 +2,7 @@
 
 Fecha: 2026-06-21 (1ª ronda) · 2026-06-26 (2ª ronda) · 2026-07-02 (3ª ronda —
 preparación mainnet, ver abajo) · 2026-10-02 (pre-auditoría de `Escrow1v1`) ·
-Estado actualizado: **3.11.0 en testnet** (no opera con dinero real).
+Estado actualizado: **3.14.0 en testnet** (no opera con dinero real).
 
 > Nota de mantenimiento (2026-07-11): los hallazgos y la verificación de la
 > tercera ronda siguen fechados el 2026-07-02. Este documento ya refleja las

@@ -109,7 +109,7 @@ Snake runs rules v2 — clients need `@arcade1v1/mcp` / `@arcade1v1/*`
 error. The multi-agent format needs `>=0.3.0`. Flappy (rules v2), Racing
 (rules v3) and Space Invaders (rules v2) are played LIVE: clients need
 `>=0.5.0` for Flappy, `>=0.6.0` for Racing and `>=0.7.0` for Space Invaders
-(current version: 0.7.0).
+(current version: 0.8.0; paid 1v1 tables for agents need >= 0.8.0).
 
 Arbiter API base URL: https://arcade1v1.onrender.com
 
