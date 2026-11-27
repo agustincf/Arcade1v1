@@ -29,6 +29,21 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Corregido
 
+- **Conectar con el QR desde otra red podía quedar colgado mostrando el QR.**
+  Si MetaMask aprobaba la conexión parado en otra red, la web le pedía pasarse
+  a Base Sepolia y esperaba antes de dar la conexión por hecha. Esa espera no
+  terminaba nunca si el pedido no llegaba al celular, y tampoco si la wallet
+  aceptaba: el conector de WalletConnect de wagmi espera un aviso de "cambió la
+  red" que durante la conexión todavía no escucha. La página seguía mostrando
+  el QR como si nadie lo hubiera escaneado. Ahora, mientras conecta, la web se
+  fija sola si la wallet ya cambió de red y, si cambió, conecta ahí al
+  instante. Si en 15 segundos no pasó nada, la conexión termina en la red de la
+  wallet y se abre sola la ventana de "otra red", explicando cómo cambiarla a
+  mano. Probado con la wallet de prueba por el QR de MetaMask en los tres
+  casos: wallet que acepta (conecta en Base Sepolia en un segundo), wallet que
+  no contesta (a los 15 s, la ventana) y, de vuelta, conexión que ya está en
+  la red buena.
+
 - **Con la wallet en otra red, el cambio de red podía quedar esperando para
   siempre.** Conectado con el QR de MetaMask, el pedido de pasar a Base Sepolia
   a veces no llega al celular, y la ventana de red de RainbowKit decía

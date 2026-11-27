@@ -22,11 +22,20 @@ import {
   type SwitchPhase,
 } from "@/app/lib/cambio-de-red";
 
-export function WrongNetworkDialog({ onClose }: { onClose: () => void }) {
+/** `initialPhase`: "failed" cuando se abre sola al conectar, porque el cambio
+ *  de red que pidió la conexión no llegó a tiempo (ya explica cómo hacerlo a
+ *  mano); "idle" cuando la abre el usuario. */
+export function WrongNetworkDialog({
+  onClose,
+  initialPhase = "idle",
+}: {
+  onClose: () => void;
+  initialPhase?: SwitchPhase;
+}) {
   const { t } = useT();
   const { switchChainAsync } = useSwitchChain();
   const { disconnectAsync } = useDisconnect();
-  const [phase, setPhase] = useState<SwitchPhase>("idle");
+  const [phase, setPhase] = useState<SwitchPhase>(initialPhase);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const primary = useRef<HTMLButtonElement>(null);
   const send = (e: SwitchEvent) => setPhase((p) => nextSwitchPhase(p, e));

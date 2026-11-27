@@ -1,12 +1,29 @@
-import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { getDefaultConfig, getDefaultWallets, type WalletList } from "@rainbow-me/rainbowkit";
 import { base, baseSepolia } from "wagmi/chains";
 import { http } from "wagmi";
+import { conTopeAlConectar } from "./tope-cambio-de-red";
 
 // Red: Base Sepolia (test, POR DEFECTO) o Base mainnet (dinero real). Se cambia
 // con NEXT_PUBLIC_CHAIN_ID=8453 para mainnet. Por defecto queda en testnet
 // (seguro): el dinero real solo se activa al setearlo explicitamente.
 const MAINNET = process.env.NEXT_PUBLIC_CHAIN_ID === "8453";
 export const CHAIN = MAINNET ? base : baseSepolia;
+
+// Las wallets de siempre (las que RainbowKit trae por defecto), con tope al
+// cambio de red que pide la conexión: si la wallet aprueba la conexión parada en
+// otra red y no contesta el cambio, la conexión termina igual y la web muestra
+// "RED EQUIVOCADA" en vez de quedarse colgada mostrando el QR. Ver
+// lib/tope-cambio-de-red.ts.
+const wallets: WalletList = getDefaultWallets().wallets.map((grupo) => ({
+  ...grupo,
+  wallets: grupo.wallets.map((crearWallet) => (params) => {
+    const wallet = crearWallet(params);
+    return {
+      ...wallet,
+      createConnector: (detalles) => conTopeAlConectar(wallet.createConnector(detalles)),
+    };
+  }),
+}));
 
 // El "projectId" es un identificador gratuito de WalletConnect/Reown.
 // Si no esta configurado, igual funcionan las extensiones (MetaMask), pero
@@ -15,6 +32,7 @@ export const wagmiConfig = getDefaultConfig({
   appName: "Arcade1v1",
   projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID || "ce6f7a5715f885bc1ce1e91d06f02bff",
   chains: [CHAIN],
+  wallets,
   transports: {
     // RPC propio (Alchemy/Infura/etc.) via NEXT_PUBLIC_RPC_URL; sin setear usa
     // el publico de la red (alcanza para test, corto de rate-limit para prod).
