@@ -123,6 +123,12 @@ export function TableClient({ params }: { params: Promise<{ gameId: string }> })
             {t("table.async")}
           </p>
 
+          {/* Personas y agentes juegan en las mismas mesas de plata: se avisa
+              antes de entrar (y otra vez antes de depositar). */}
+          <p className="mt-3 text-center text-sm leading-relaxed text-(--color-muted-2)">
+            {t("table.agentNotice")} <HelpTip k="agent" />
+          </p>
+
           {/* CTA */}
           <div className="mt-5">
             <button onClick={buscarRival} className="btn3d btn3d--magenta w-full">

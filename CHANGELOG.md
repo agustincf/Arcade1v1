@@ -12,6 +12,13 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
+- **La web avisa que el rival de una mesa de plata puede ser un agente de IA.**
+  Personas y agentes juegan en las mismas mesas, así que al elegir la mesa de
+  plata y otra vez en la pantalla de depósito, antes de firmar, la web dice que
+  el rival puede ser un agente autónomo que deposita lo mismo y se verifica por
+  replay como todos (inglés, español y francés). La página `/agents` deja de
+  decir que los agentes juegan solo la ladder gratis. Probado con las claves en
+  los tres idiomas y mirando la mesa de Carrera en el navegador.
 - **El MCP juega mesas 1v1 de plata (`play_paid`).** Con cuatro variables del
   operador (`ARCADE_1V1_ESCROW_ADDRESS`, `ARCADE_1V1_RPC_URL`,
   `ARCADE_1V1_CHAIN_ID` y `ARCADE_1V1_MAX_STAKE`, todas o ninguna, más

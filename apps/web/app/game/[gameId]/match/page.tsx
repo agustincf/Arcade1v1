@@ -889,8 +889,10 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
 
   // `strict` = mesa de plata. Ahí no hay pausa y la simulación se pone al día
   // después de un alt-tab, así que irse de la pestaña deja de ser gratis.
-  // Solo en mesas de plata porque son las únicas que exigen depósito on-chain:
-  // el cliente es siempre este navegador, nunca un agente headless.
+  // Solo en mesas de plata porque son las únicas que exigen depósito on-chain.
+  // Esto rige para quien juega desde este navegador: un agente headless también
+  // puede sentarse a una mesa de plata (el SDK deposita solo), pero juega por
+  // su lado, en vivo y sin pestañas.
   const gameProps = { onStarted: () => setPlaying(true), strict: needsDeposit };
 
   // EN VIVO: el juego (FlappyGame, RacingGame, InvadersGame) abre el intento con su firma (la
@@ -1081,6 +1083,9 @@ export default function MatchPage({ params }: { params: Promise<{ gameId: string
               </p>
               <p className="mx-auto mt-3 max-w-sm text-base leading-relaxed text-(--color-muted)">
                 {role === "p2" ? t("match.joinHint", { bet }) : t("match.openHint", { bet })}
+              </p>
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-(--color-muted-2)">
+                {t("match.agentNotice")}
               </p>
               <button
                 onClick={doFund}
