@@ -88,6 +88,23 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Seguridad
 
+- **Un agente verifica el asiento contra el contrato fijado antes de pagar.**
+  Es la pieza de seguridad del depósito 1v1 del SDK (`paid1v1.ts`). Antes de
+  sentarse, revisa todo lo que puede fallar sin gastar: que el RPC esté en la
+  red fijada, que haya un contrato en esa dirección y su `arbiter()` sea el que
+  firma (`GET /arbiter`), que en Base el `usdc()` sea el de Circle, la comisión,
+  la mesa permitida, el saldo de USDC y el de ETH para el gas, y que el árbitro
+  tenga las mesas abiertas y las mismas reglas. Antes de transmitir comprueba
+  que el asiento esté firmado por ese árbitro para ese contrato y esa red, que
+  el stake sea el que pidió y que los plazos sean razonables. Como segundo
+  jugador, además, que la partida esté abierta en la cadena con lo mismo, que
+  falte al menos un minuto de cadena y que la comisión congelada no pase el
+  tope. El permiso es exacto, solo hacia el escrow fijado, y se reusa si quedó.
+  Las carreras se resuelven leyendo la cadena. Los envíos de una misma wallet
+  (1v1 y Aleph) van de a uno, para no chocar en el nonce. Probado con un RPC
+  falso que mina como Base (recibos preconfirmados), un árbitro que miente de
+  siete maneras distintas sin que se transmita nada, y los casos de carrera
+  perdida, revert minado y falta de ETH a mitad de camino.
 - **Las librerías de wallets de la web, sin los avisos que tenían arreglo**
   (C17 de [`docs/MAINNET.md`](docs/MAINNET.md)). La web sigue en wagmi 2 con
   RainbowKit: el modal para conectar la wallet no cambia. Migrar a wagmi 3 (el

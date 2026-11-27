@@ -1,7 +1,8 @@
 // Helpers de alto nivel: crear un agente y "jugá y enviá" en una sola llamada.
 import { privateKeyToAccount } from "viem/accounts";
-import { createPublicClient, createWalletClient, http, type Chain, type Hex } from "viem";
-import { foundry, base, baseSepolia } from "viem/chains";
+import { createPublicClient, createWalletClient, http, type Hex } from "viem";
+import { chainFor } from "./chains";
+import { createTxLock } from "./tx-lock";
 import {
   ArbiterClient,
   type MatchView,
@@ -80,20 +81,6 @@ export interface AlephDepositResult {
   txHash?: Hex;
   /** La vista privada que se leyó antes de depositar. */
   view: AlephRoomView;
-}
-
-/** Red según el `chainId` que manda el árbitro en `deposit`. Un id desconocido
- *  NO cae a una red por defecto: caer a baseSepolia hacía que la wallet siguiera
- *  hasta el primer write con una red que nadie eligió, y el error que viem tira
- *  ahí nombra la red equivocada. Un valor del árbitro que no entendemos se
- *  rechaza acá, antes de leer ni gastar nada. */
-function chainFor(id: number): Chain {
-  if (id === 31337) return foundry;
-  if (id === 8453) return base;
-  if (id === 84532) return baseSepolia;
-  throw new Error(
-    `unknown chainId ${id} from the arbiter: this SDK knows 8453 (base), 84532 (base sepolia) and 31337 (anvil)`,
-  );
 }
 
 export function createAgent(opts: {
@@ -230,6 +217,9 @@ export function createAgent(opts: {
     opts.client ??
     new ArbiterClient(opts.arbiterUrl ?? "http://localhost:4000", { timeoutMs: opts.timeoutMs });
   const clock = opts.clock ?? Date.now;
+  // UN candado por wallet para todas sus transacciones (Aleph y 1v1): solo el
+  // envío, el recibo y el sellado, para no chocar en el nonce (tx-lock.ts).
+  const txLock = createTxLock();
 
   // `matchmake` solo toma asientos GRATIS. Un asiento de plata sin depósito deja
   // a la persona del otro lado esperando (hasta 10 minutos, hasta que el árbitro
@@ -737,27 +727,31 @@ export function createAgent(opts: {
       // Si el depósito de abajo falla, el permiso queda puesto: vale un stake,
       // contra ese contrato, y el próximo intento lo reutiliza en vez de
       // aprobar (y pagar gas) de nuevo.
-      const hash = await w.writeContract({
-        address: usdc,
-        abi: erc20MinimalAbi,
-        functionName: "approve",
-        args: [escrow, stake],
-        account,
-        chain,
+      await txLock(async () => {
+        const hash = await w.writeContract({
+          address: usdc,
+          abi: erc20MinimalAbi,
+          functionName: "approve",
+          args: [escrow, stake],
+          account,
+          chain,
+        });
+        const receipt = await pub.waitForTransactionReceipt({ hash });
+        if (receipt.status !== "success") {
+          throw new Error(`USDC approve reverted on-chain: ${usdc} spender ${escrow} (tx ${hash})`);
+        }
+        // El recibo puede ser PRECONFIRMADO: sin esperar a que se selle su bloque,
+        // la simulación de abajo lee `latest` sin el permiso y revierte con
+        // ERC20InsufficientAllowance (ver waitUntilSealed).
+        await waitUntilSealed(pub, receipt.blockNumber);
       });
-      const receipt = await pub.waitForTransactionReceipt({ hash });
-      if (receipt.status !== "success") {
-        throw new Error(`USDC approve reverted on-chain: ${usdc} spender ${escrow} (tx ${hash})`);
-      }
-      // El recibo puede ser PRECONFIRMADO: sin esperar a que se selle su bloque,
-      // la simulación de abajo lee `latest` sin el permiso y revierte con
-      // ERC20InsufficientAllowance (ver waitUntilSealed).
-      await waitUntilSealed(pub, receipt.blockNumber);
     }
 
     // Simular antes de mandar: un revert seguro no quema gas, y el motivo del
     // contrato ("fund expired", "not a seat", "already paid") llega entero.
-    const send = async (
+    const send = (functionName: "open" | "deposit", args: readonly unknown[]): Promise<Hex> =>
+      txLock(() => sendUnlocked(functionName, args));
+    const sendUnlocked = async (
       functionName: "open" | "deposit",
       args: readonly unknown[],
     ): Promise<Hex> => {
@@ -898,11 +892,14 @@ export function createAgent(opts: {
       account,
       chain,
     });
-    const hash = await w.writeContract(request);
-    const receipt = await pub.waitForTransactionReceipt({ hash });
-    // Mismo cuidado que el depósito: un recibo preconfirmado todavía no está en
-    // `latest`, y un revert minado no lanza.
-    await waitUntilSealed(pub, receipt.blockNumber);
+    const { hash, receipt } = await txLock(async () => {
+      const hash = await w.writeContract(request);
+      const receipt = await pub.waitForTransactionReceipt({ hash });
+      // Mismo cuidado que el depósito: un recibo preconfirmado todavía no está en
+      // `latest`, y un revert minado no lanza.
+      await waitUntilSealed(pub, receipt.blockNumber);
+      return { hash, receipt };
+    });
     if (receipt.status !== "success") {
       throw new Error(`aleph withdraw reverted on-chain (tx ${hash})`);
     }

@@ -6,6 +6,7 @@ export {
 } from "./client";
 export type {
   ArbiterClientOptions,
+  ArbiterHealth,
   MatchView,
   LeaderRow,
   LiveStartView,
