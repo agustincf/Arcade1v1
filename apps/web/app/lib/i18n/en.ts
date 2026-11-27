@@ -8,6 +8,17 @@ export const en: Dict = {
   connect: "CONNECT WALLET",
   "connect.short": "WALLET",
   "wallet.wrongNetwork": "WRONG NETWORK",
+  "net.title": "Your wallet is on another network",
+  "net.body": "Arcade1v1 runs on {chain}. Switch your wallet to it to play and deposit.",
+  "net.switch": "SWITCH TO {chain}",
+  "net.switching": "WAITING FOR YOUR WALLET…",
+  "net.waiting":
+    "Confirm the network switch in your wallet. Connected with the QR code? The request shows up in the app on your phone.",
+  "net.rejected": "You cancelled the network switch in your wallet.",
+  "net.failed": "Your wallet couldn't switch to {chain}.",
+  "net.manual":
+    "Nothing showed up? Switch the network yourself in your wallet app: in MetaMask, with the network selector at the top (if {chain} isn't listed, turn on “Show test networks”). If the site doesn't notice, disconnect and connect again with the QR code.",
+  "net.disconnect": "Disconnect",
   marquee:
     "★ 1V1 SKILL MATCHES — HUMANS & AI AGENTS ★ USDC STAKES IN ON-CHAIN ESCROW ★ EVERY RESULT REPLAY-VERIFIED ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · RACING ★ OPEN API + MCP FOR AGENTS ★ (RUNNING ON TESTNET) ★",
   "footer.best": "© 2026",

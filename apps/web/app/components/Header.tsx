@@ -1,17 +1,30 @@
 "use client";
 
 import { LocaleLink as Link } from "@/app/components/LocaleLink";
+import { useEffect, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
 import { Logo } from "@/app/components/Logo";
 import { SoundToggle } from "@/app/components/SoundToggle";
 import { LanguageSelector } from "@/app/components/LanguageSelector";
 import { useT } from "@/app/lib/i18n";
 import { walletButtonMode } from "@/app/lib/wallet-button";
+import { CHAIN } from "@/app/lib/wagmi";
+import { WrongNetworkDialog } from "@/app/components/WrongNetworkDialog";
 
 // Header minimalista: logo + controles. Ranking vive en el footer y la red
 // (testnet) se informa en el footer — acá no compite con la acción principal.
 export function Header() {
   const { t } = useT();
+  // La ventana de "otra red" se cierra sola cuando la wallet ya está en la red
+  // de la app (la cambió desde la ventana o a mano en el celular) o se
+  // desconectó: así no reaparece abierta la próxima vez.
+  const [netOpen, setNetOpen] = useState(false);
+  const { isConnected, chainId } = useAccount();
+  const wrongNet = isConnected && chainId !== undefined && chainId !== CHAIN.id;
+  useEffect(() => {
+    if (!wrongNet) setNetOpen(false);
+  }, [wrongNet]);
   return (
     <header className="sticky top-0 z-40 border-b border-(--color-border) bg-(--color-ink)/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
@@ -45,10 +58,12 @@ export function Header() {
 
           {/* Boton de conexion (MetaMask / WalletConnect) */}
           <ConnectButton.Custom>
-            {({ account, chain, openConnectModal, openAccountModal, openChainModal, mounted }) => {
+            {({ account, chain, openConnectModal, openAccountModal, mounted }) => {
               const connected = mounted && account && chain;
               // En otra red, el menú de la cuenta no abre (RainbowKit lo deja en
-              // un no-op): va el de red, que cambia de red o desconecta.
+              // un no-op): va la ventana de red propia, que cambia de red o
+              // desconecta, y explica qué hacer si el pedido no llega a la
+              // wallet (la de RainbowKit esperaba para siempre).
               const mode = walletButtonMode({
                 connected: !!connected,
                 unsupportedChain: !!chain?.unsupported,
@@ -57,30 +72,35 @@ export function Header() {
                 mode === "connect"
                   ? openConnectModal
                   : mode === "chain"
-                    ? openChainModal
+                    ? () => setNetOpen(true)
                     : openAccountModal;
               return (
-                <button
-                  onClick={onClick}
-                  className={`btn3d min-w-0 whitespace-nowrap !px-3 !py-2 ${mode === "account" ? "btn3d--cyan" : "btn3d--magenta"}`}
-                >
-                  {mode === "chain" ? (
-                    <span className="block max-w-[7.5rem] truncate sm:max-w-none">
-                      {t("wallet.wrongNetwork")}
-                    </span>
-                  ) : connected ? (
-                    // normal-case: el botón va en mayúsculas, pero "0x…" no se
-                    // escribe "0X…" (y un nombre ENS tampoco se grita).
-                    <span className="block max-w-[7.5rem] truncate normal-case sm:max-w-none">
-                      ● {account.displayName}
-                    </span>
-                  ) : (
-                    <>
-                      <span className="sm:hidden">{t("connect.short")}</span>
-                      <span className="hidden sm:inline">{t("connect")}</span>
-                    </>
+                <>
+                  <button
+                    onClick={onClick}
+                    className={`btn3d min-w-0 whitespace-nowrap !px-3 !py-2 ${mode === "account" ? "btn3d--cyan" : "btn3d--magenta"}`}
+                  >
+                    {mode === "chain" ? (
+                      <span className="block max-w-[7.5rem] truncate sm:max-w-none">
+                        {t("wallet.wrongNetwork")}
+                      </span>
+                    ) : connected ? (
+                      // normal-case: el botón va en mayúsculas, pero "0x…" no se
+                      // escribe "0X…" (y un nombre ENS tampoco se grita).
+                      <span className="block max-w-[7.5rem] truncate normal-case sm:max-w-none">
+                        ● {account.displayName}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="sm:hidden">{t("connect.short")}</span>
+                        <span className="hidden sm:inline">{t("connect")}</span>
+                      </>
+                    )}
+                  </button>
+                  {mode === "chain" && netOpen && (
+                    <WrongNetworkDialog onClose={() => setNetOpen(false)} />
                   )}
-                </button>
+                </>
               );
             }}
           </ConnectButton.Custom>

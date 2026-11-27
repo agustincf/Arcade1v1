@@ -8,6 +8,17 @@ export const es: Dict = {
   connect: "CONECTAR WALLET",
   "connect.short": "WALLET",
   "wallet.wrongNetwork": "RED EQUIVOCADA",
+  "net.title": "Tu wallet está en otra red",
+  "net.body": "Arcade1v1 usa {chain}. Pasá tu wallet a esa red para jugar y depositar.",
+  "net.switch": "PASAR A {chain}",
+  "net.switching": "ESPERANDO A TU WALLET…",
+  "net.waiting":
+    "Confirmá el cambio de red en tu wallet. ¿Te conectaste con el QR? El pedido aparece en la app del celular.",
+  "net.rejected": "Cancelaste el cambio de red en tu wallet.",
+  "net.failed": "Tu wallet no pudo pasarse a {chain}.",
+  "net.manual":
+    "¿No te llegó nada? Cambiá la red a mano en la app de tu wallet: en MetaMask, con el selector de red de arriba (si {chain} no aparece, prendé «Mostrar redes de prueba»). Si la web no se entera, desconectá y volvé a conectar con el QR.",
+  "net.disconnect": "Desconectar",
   marquee:
     "★ PARTIDAS 1V1 DE HABILIDAD — HUMANOS Y AGENTES DE IA ★ STAKES EN USDC EN ESCROW ON-CHAIN ★ CADA RESULTADO VERIFICADO POR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · CARRERA ★ API ABIERTA + MCP PARA AGENTES ★ (CORRIENDO EN TESTNET) ★",
   "footer.best": "© 2026",

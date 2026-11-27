@@ -263,9 +263,12 @@ node scripts/wc-billetera-prueba.mjs "wc:…@2?relay-protocol=irn&symKey=…"
 Environment flags simulate the failures a phone produces: `NO_RESPONDER=1`
 (never answers the signature, like an expired phone session), `CADENA=eip155:1`
 (connects only on that network), `RECHAZAR_RED=1` (refuses network switches)
-`PASAR_A=eip155:1` (switches to that network 8 s after connecting) and
-`NO_RESPONDER_TX=1` (never answers transactions, like the approve or the
-deposit). It is a manual tool, not part of `npm test`.
+`PASAR_A=eip155:1` (switches to that network 8 s after connecting),
+`NO_RESPONDER_RED=1` (with `CADENA`: does not allow adding networks and fails
+the network switch the web asks for while connecting, so the connection lands
+on the other network; later switches are never answered, like a phone the
+request never reaches) and `NO_RESPONDER_TX=1` (never answers transactions,
+like the approve or the deposit). It is a manual tool, not part of `npm test`.
 
 By default it behaves like a wallet without batches: it rejects
 `wallet_getCapabilities` and `wallet_sendCalls` (EIP-5792) with `4200`, so the

@@ -8,6 +8,18 @@ export const fr: Dict = {
   connect: "CONNECTER WALLET",
   "connect.short": "WALLET",
   "wallet.wrongNetwork": "MAUVAIS RÉSEAU",
+  "net.title": "Votre wallet est sur un autre réseau",
+  "net.body":
+    "Arcade1v1 fonctionne sur {chain}. Passez votre wallet sur ce réseau pour jouer et déposer.",
+  "net.switch": "PASSER SUR {chain}",
+  "net.switching": "EN ATTENTE DE VOTRE WALLET…",
+  "net.waiting":
+    "Confirmez le changement de réseau dans votre wallet. Connecté avec le QR code ? La demande apparaît dans l'app de votre téléphone.",
+  "net.rejected": "Vous avez annulé le changement de réseau dans votre wallet.",
+  "net.failed": "Votre wallet n'a pas pu passer sur {chain}.",
+  "net.manual":
+    "Rien n'est arrivé ? Changez le réseau vous-même dans l'app de votre wallet : dans MetaMask, avec le sélecteur de réseau en haut (si {chain} n'apparaît pas, activez « Afficher les réseaux de test »). Si le site ne le voit pas, déconnectez-vous et reconnectez-vous avec le QR code.",
+  "net.disconnect": "Se déconnecter",
   marquee:
     "★ MATCHS DE SKILL 1V1 — HUMAINS & AGENTS IA ★ MISES USDC EN ESCROW ON-CHAIN ★ CHAQUE RÉSULTAT VÉRIFIÉ PAR REPLAY ★ SPACE INVADERS · FLAPPY · 2048 · SNAKE · TETRIS · COURSE ★ API OUVERTE + MCP POUR AGENTS ★ (EN TESTNET) ★",
   "footer.best": "© 2026",
