@@ -28,6 +28,7 @@ import { checkLiveReveals, isLiveMatch } from "@arcade1v1/game-sdk/live";
 import { playLive as playLiveGame, type LiveReply } from "@arcade1v1/game-sdk/live-play";
 import { liveGameFor } from "@arcade1v1/game-sdk/live-games";
 import { waitUntilSealed } from "@arcade1v1/game-sdk/chain";
+import { validatePaid1v1, type Paid1v1Config } from "./paid1v1-config";
 import { normalizeModel } from "@arcade1v1/game-sdk/auth";
 import {
   ALEPH_RULES_V,
@@ -127,10 +128,19 @@ export function createAgent(opts: {
    *  ve en público como "declarado", con su fila en la tabla por modelo
    *  (`GET /aleph/models`). Se normaliza con `normalizeModel`. Nadie lo verifica. */
   model?: string;
+  /** Mesas 1v1 de plata: el RPC, el Escrow1v1 en el que confía el operador, su
+   *  red y el tope por mesa (USDC). Con esto y una `privateKey` fondeada,
+   *  `playAndSubmit({ game, stake > 0 })` deposita y juega solo. Se valida al
+   *  crear el agente, sin tocar la red (paid1v1-config.ts). */
+  paid1v1?: Paid1v1Config;
 }): {
   address: Hex;
   client: ArbiterClient;
   matchmake(game: string, stake: number): Promise<MatchView>;
+  /** La vista de una partida con la dirección de este agente: el resultado, y
+   *  en una mesa de plata `settleTx` o `refund` cuando el árbitro pagó o
+   *  reembolsó. */
+  getResult(matchId: string): Promise<MatchView>;
   /** Empareja y juega. En un juego EN VIVO (la vista dice `live: true`) abre el
    *  intento firmado y compromete las jugadas mientras recibe el azar de a poco;
    *  `liveStrategy` reemplaza a la estrategia por defecto, y la vista vuelve con
@@ -198,6 +208,9 @@ export function createAgent(opts: {
   // cero, sin recortar espacios ni exigir checksum EIP-55; el cruce con el escrow
   // del árbitro sigue sin distinguir mayúsculas. El mensaje NO repite el valor:
   // en este campo se puede pegar una clave privada por error.
+  // Las mesas 1v1 de plata se validan ANTES que todo lo demás: un campo mal
+  // puesto no puede llegar a la red.
+  const paid1v1 = validatePaid1v1(opts.paid1v1, opts.privateKey !== undefined);
   const pin: unknown = opts.escrow;
   if (
     pin !== undefined &&
@@ -218,31 +231,34 @@ export function createAgent(opts: {
     new ArbiterClient(opts.arbiterUrl ?? "http://localhost:4000", { timeoutMs: opts.timeoutMs });
   const clock = opts.clock ?? Date.now;
 
-  // En el 1v1 la wallet del SDK SOLO firma mensajes: no manda transacciones
-  // on-chain, así que no puede depositar en una mesa de plata. Dejar pasar
-  // stake > 0 crea una partida fantasma que nunca se fondea, y el humano que se
-  // empareja del otro lado quema gas contra un contrato que revierte. Mejor
-  // fallar acá, claro. (En Aleph sí hay camino: `rpcUrl`, `privateKey` y
-  // `escrow` + `alephDeposit`.)
-  function assertFreeTable(stake: number): void {
+  // `matchmake` solo toma asientos GRATIS. Un asiento de plata sin depósito deja
+  // a la persona del otro lado esperando (hasta 10 minutos, hasta que el árbitro
+  // libere el lugar), así que las mesas de plata se juegan con `playAndSubmit`,
+  // que revisa todo antes de sentarse y deposita enseguida.
+  function assertFreeSeat(stake: number): void {
     if (stake > 0) {
       throw new Error(
-        `el SDK no deposita on-chain, así que no puede jugar la mesa de ${stake} USDC: ` +
-          `usá stake 0 (la ladder rankeada gratis, mismo ELO) o el flujo web para mesas de plata`,
+        `matchmake only takes free seats (stake 0): paid tables go through playAndSubmit({ game, stake }) ` +
+          `with paid1v1 configured in createAgent`,
       );
     }
   }
 
   // Emparejar FIRMADO (el árbitro en producción lo exige: anti-suplantación).
   async function matchmake(game: string, stake: number): Promise<MatchView> {
-    assertFreeTable(stake);
+    assertFreeSeat(stake);
     const auth = await signMatchmake({
       game,
       stake,
       address: wallet.address,
       privateKey: wallet.privateKey,
+      ts: clock(),
     });
     return client.matchmake(game, stake, wallet.address, auth);
+  }
+
+  async function getResult(matchId: string): Promise<MatchView> {
+    return client.getMatch(matchId, wallet.address);
   }
 
   async function playAndSubmit(args: {
@@ -251,6 +267,15 @@ export function createAgent(opts: {
     strategy?: Strategy;
     liveStrategy?: LiveStrategy;
   }): Promise<MatchView & { liveReceipt?: LiveReceipt }> {
+    if (args.stake > 0) {
+      if (!paid1v1) {
+        throw new Error(
+          `playAndSubmit with stake > 0 needs paid1v1 { rpcUrl, escrow, chainId, maxStake } and privateKey ` +
+            `in createAgent — not taking a seat`,
+        );
+      }
+      throw new Error("paid 1v1 tables: not implemented yet");
+    }
     // Un juego en vivo se valida ANTES de emparejar: si esta llamada no puede
     // jugarlo, emparejar dejaría una partida que se pierde por no jugarla.
     if (isLiveMatch(args.game, RULES_V[args.game])) liveStrategyFor(args);
@@ -888,6 +913,7 @@ export function createAgent(opts: {
     address: wallet.address,
     client,
     matchmake,
+    getResult,
     playAndSubmit,
     alephJoin,
     alephView,

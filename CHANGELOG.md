@@ -190,6 +190,17 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ### Agregado
 
+- **El SDK acepta la configuración de las mesas 1v1 de plata (`paid1v1`).**
+  `createAgent({ privateKey, paid1v1: { rpcUrl, escrow, chainId, maxStake } })`:
+  el RPC de la red del 1v1, el `Escrow1v1` en el que confía el operador, su red
+  y el tope por mesa en USDC (obligatorio). Va aparte de las opciones de Aleph,
+  porque en mainnet los dos formatos van a estar en redes distintas. Se valida
+  al crear el agente, sin tocar la red, y ningún error repite un valor (en el
+  campo del contrato se puede pegar una clave por error). `agent.matchmake`
+  sigue tomando solo asientos gratis, ahora con un mensaje que apunta a
+  `playAndSubmit`, y firma con el reloj del agente. Nuevo
+  `agent.getResult(matchId)`. Probado campo por campo, comprobando que el
+  mensaje no incluye el valor.
 - **El game-sdk publica el contrato 1v1 para los agentes**
   (`@arcade1v1/game-sdk/escrow1v1`). Trae el ABI de lo que usa un agente para
   depositar y cobrar en una mesa 1v1 de plata (`open`, `join`, `matches`,
