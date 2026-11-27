@@ -5,6 +5,7 @@
 // del operador (MoneyConfig, más abajo).
 import {
   ArbiterClient,
+  Paid1v1Error,
   createAgent,
   describeAlephRules,
   legalActions,
@@ -109,6 +110,20 @@ export function createPaidLedger(): PaidLedger {
   return {};
 }
 
+/** El error de una partida pagada para el modelo: sin URLs y, si es un
+ *  `Paid1v1Error`, con el `matchId` y si la plata entró al final del mensaje
+ *  (el SDK del MCP solo le pasa `error.message` al cliente). Con depósito, le
+ *  dice que retome esa partida y no juegue otra. */
+function paidError(e: unknown): Error {
+  const base = errorWithoutUrls(e);
+  if (!(e instanceof Paid1v1Error)) return base;
+  const tail = e.deposited
+    ? ` [matchId=${e.matchId ?? "unknown"}, deposited=true — the stake is (or may be) in: ` +
+      `call resume_paid with this matchId, do not start another match]`
+    : ` [matchId=${e.matchId ?? "none"}, deposited=false]`;
+  return new Error(base.message + tail);
+}
+
 function assertPaidOn(paid: Paid1v1Money | undefined, refused: string): asserts paid {
   if (!paid) {
     throw new Error(
@@ -130,8 +145,15 @@ export async function playPaidTool(
   assertGame(game);
   const refused = `not taking a seat at the ${stake} USDC table`;
   assertPaidOn(paid, refused);
-  // Una llamada anterior sigue en curso: su resultado es el de esta.
-  if (ledger.inFlight) return { ...(await ledger.inFlight), resumed: true };
+  // Una llamada anterior sigue en curso: su resultado es el de esta (y su
+  // error, saneado igual).
+  if (ledger.inFlight) {
+    try {
+      return { ...(await ledger.inFlight), resumed: true };
+    } catch (e) {
+      throw paidError(e);
+    }
+  }
   // Una anterior terminó y el modelo nunca vio el resultado: se lo da ahora.
   if (ledger.undelivered) {
     const { result, error } = ledger.undelivered;
@@ -154,7 +176,7 @@ export async function playPaidTool(
     if (signal?.aborted) ledger.undelivered = { result };
     return result;
   } catch (e) {
-    const error = errorWithoutUrls(e);
+    const error = paidError(e);
     if (signal?.aborted) ledger.undelivered = { error };
     throw error;
   } finally {
@@ -171,7 +193,7 @@ export async function resumePaidTool(
   try {
     return await agent.resume1v1(matchId);
   } catch (e) {
-    throw errorWithoutUrls(e);
+    throw paidError(e);
   }
 }
 

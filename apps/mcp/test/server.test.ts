@@ -218,7 +218,9 @@ test("play_paid mueve plata y las herramientas gratis apuntan a ella", async () 
     const { tools } = await mcp.listTools();
     const paid = tools.find((t) => t.name === "play_paid")!;
     assert.equal(paid.annotations?.destructiveHint, true, "mover plata pide confirmación");
-    assert.equal(paid.annotations?.idempotentHint, true, "reintentar no abre otra partida");
+    // Volver a llamar DESPUÉS de recibir el resultado juega otra partida y
+    // mueve plata: no es idempotente (un cliente podría reintentarlo solo).
+    assert.equal(paid.annotations?.idempotentHint, false, "otra llamada juega otra partida");
     for (const name of ["matchmake", "play_and_submit"]) {
       const t = tools.find((x) => x.name === name)!;
       const stake = (t.inputSchema as { properties: Record<string, { description?: string }> })

@@ -303,3 +303,15 @@ test("stake 0 sigue sin tocar el RPC", async () => {
   await agent.playAndSubmit({ game: "2048", stake: 0 });
   assert.deepEqual(rpc.calls, []);
 });
+
+test("resume1v1 con la cadena caída no dice que no hay depósito", async () => {
+  const { rpc, agent } = await setup();
+  rpc.close();
+  await assert.rejects(agent.resume1v1(newId(), { liveStrategy: LIVE }), (e: unknown) => {
+    assert.ok(e instanceof Paid1v1Error);
+    assert.equal(e.deposited, true, "puede haber depósito: hay que reintentar");
+    assert.match(e.message, /could not read the chain/);
+    assert.doesNotMatch(e.message, /nothing to resume/);
+    return true;
+  });
+});

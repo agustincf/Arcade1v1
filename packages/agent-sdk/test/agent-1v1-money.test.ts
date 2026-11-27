@@ -7,6 +7,7 @@
 // no sabe llegar al envío).
 // Correr: node --import tsx --test packages/agent-sdk/test/agent-1v1-money.test.ts
 import { test, after } from "node:test";
+import { inspect } from "node:util";
 import assert from "node:assert/strict";
 import { privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
@@ -118,6 +119,7 @@ async function setup(
     client,
     clock: () => NOW_MS,
     txLock: createTxLock(),
+    sleep: async () => {},
   });
   return { rpc, client, paid };
 }
@@ -229,6 +231,7 @@ const lies: [string, (v: MatchView) => Promise<Partial<MatchView>>][] = [
     }),
   ],
   ["live falso", async () => ({ live: undefined })],
+  ["juego distinto del pedido", async () => ({ game: "flappy", rulesV: RULES_V.flappy })],
   ["rulesV distinto", async () => ({ rulesV: 99 })],
 ];
 
@@ -543,4 +546,60 @@ test("sin paid1v1, cobrar, acuñar y leer saldos se niegan", async () => {
   await assert.rejects(agent.withdraw1v1(), /needs paid1v1/);
   await assert.rejects(agent.mintTestUsdc(1), /needs paid1v1/);
   await assert.rejects(agent.paid1v1Balances(), /needs paid1v1/);
+});
+
+// ---- Hallazgos de la revisión final -------------------------------------------
+
+test("un depósito transmitido cuyo recibo falla, y que después aparece, cuenta como hecho", async () => {
+  const { rpc, paid } = await setup();
+  const pre = await paid.preflight("racing", 1);
+  const v = await paidView("p1");
+  await paid.verifySeat(v, 1, pre);
+  await paid.approveIfNeeded(pre);
+  rpc.state.receiptFails = true; // el open se transmite y se mina, pero no hay recibo
+  const d = await paid.deposit(v, pre);
+  assert.equal(d.step, "open");
+  assert.ok(d.txHash);
+  assert.equal(await paid.depositedRole(v.matchId), "p1");
+});
+
+test("un depósito transmitido que no se confirma avisa deposited: true con el tx", async () => {
+  const { rpc, paid } = await setup();
+  const pre = await paid.preflight("racing", 1);
+  const v = await paidView("p1");
+  await paid.verifySeat(v, 1, pre);
+  await paid.approveIfNeeded(pre);
+  rpc.state.receiptFails = true;
+  rpc.state.dropNext = true; // se transmite y queda colgado
+  await assert.rejects(paid.deposit(v, pre), (e: unknown) => {
+    assert.ok(e instanceof Paid1v1Error);
+    assert.equal(e.stage, "deposit");
+    assert.equal(e.deposited, true, "puede entrar todavía: no es seguro volver a emparejar");
+    assert.equal(e.matchId, v.matchId);
+    assert.ok(e.txHash, "lleva el tx para revisarlo");
+    assert.match(e.message, new RegExp(v.matchId));
+    assert.match(e.message, /do not matchmake again/);
+    return true;
+  });
+});
+
+test("la URL del RPC no aparece ni en el mensaje ni en la causa", async () => {
+  const { rpc } = await setup();
+  const client = new FakeArbiter();
+  const paid = createPaid1v1({
+    cfg: { rpcUrl: `${rpc.url}/v2/SECRETO123`, escrow: ESCROW, chainId: 31337, maxStake: 2 },
+    privateKey: AGENT_KEY,
+    client,
+    clock: () => NOW_MS,
+    txLock: createTxLock(),
+    sleep: async () => {},
+  });
+  const pre = await paid.preflight("racing", 1);
+  rpc.close(); // el RPC se cae justo antes de leer el permiso
+  await assert.rejects(paid.approveIfNeeded(pre), (e: unknown) => {
+    assert.ok(e instanceof Paid1v1Error, "sale como Paid1v1Error");
+    assert.ok(!e.message.includes("SECRETO123"), e.message);
+    assert.ok(!inspect(e, { depth: 10 }).includes("SECRETO123"), "ni en la causa");
+    return true;
+  });
 });

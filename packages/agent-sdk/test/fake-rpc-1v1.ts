@@ -69,6 +69,11 @@ export interface Fake1v1State {
   /** Después del approve, la wallet se queda sin ETH: la estimación de gas del
    *  depósito falla con "insufficient funds". */
   ethForGas?: "approveOnly";
+  /** El RPC falla al pedir recibos (un 429 que no cede): la transacción ya se
+   *  transmitió, pero la wallet no puede confirmarla. */
+  receiptFails?: boolean;
+  /** La próxima transacción se transmite pero NO se mina (queda colgada). */
+  dropNext?: boolean;
 }
 
 export interface FakeRpc1v1 {
@@ -320,6 +325,7 @@ export async function fakeRpc1v1(chainIdHex: string, state: Fake1v1State): Promi
           case "eth_gasPrice":
             return ok("0x1");
           case "eth_getTransactionReceipt": {
+            if (state.receiptFails) return fail("rate limited");
             const m = mined.find((x) => x.hash === msg.params![0]);
             if (!m) return ok(null);
             return ok({
@@ -349,6 +355,10 @@ export async function fakeRpc1v1(chainIdHex: string, state: Fake1v1State): Promi
             const block = nextBlock();
             const sealAt = Date.now() + (state.sealMs ?? 0);
             const base = { from, to: tx.to ?? undefined, functionName, args, block, sealAt };
+            if (state.dropNext) {
+              state.dropNext = false;
+              return ok(hash);
+            }
             if (functionName === "join" && state.rivalJoinsFirst) {
               mined.push({
                 ...base,

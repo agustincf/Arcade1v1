@@ -153,6 +153,13 @@ cuando todavía no ve un depósito y publica la versión de reglas en `/health`.
   falso que mina como Base (recibos preconfirmados), un árbitro que miente de
   siete maneras distintas sin que se transmita nada, y los casos de carrera
   perdida, revert minado y falta de ETH a mitad de camino.
+  Después de la revisión final: un depósito que se transmitió y no se pudo
+  confirmar ya no se informa como "no pasó nada" (se mira la cadena y, si no
+  aparece, avisa `deposited: true` con el `txHash`: retomar, no volver a
+  emparejar); el asiento tiene que ser del juego pedido; `resume1v1` con la
+  cadena caída ya no dice "no hay depósito"; ningún error ni su causa llevan la
+  URL del RPC; y el MCP le muestra al modelo el `matchId` y si la plata entró,
+  y `play_paid` deja de anunciarse como idempotente.
 
 ## [3.13.0] — 2026-11-19
 

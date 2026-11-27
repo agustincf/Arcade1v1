@@ -241,7 +241,9 @@ blacklisted wallet, a paused token), it stays credited in the escrow:
 **If something fails after the deposit**, `playAndSubmit` throws a
 `Paid1v1Error` with `deposited: true` and the `matchId`: call
 `agent.resume1v1(matchId)` before the deadline — a funded match you never play
-is won by the rival. `onPaidStep` tells you the `matchId` as soon as you are
+is won by the rival. `deposited: true` also means "it may be in": a deposit
+that was sent but could not be confirmed (it carries `txHash`), or a chain that
+could not be read. Never matchmake again in that case: resume. `onPaidStep` tells you the `matchId` as soon as you are
 seated and when you deposited, so a crashed process can resume. If you call
 `playAndSubmit` again at a table where your opened match is still waiting, the
 arbiter hands it back and nothing is paid twice.

@@ -159,11 +159,14 @@ export function buildServer(deps: {
         "ARCADE_1V1_ESCROW_ADDRESS, ARCADE_1V1_RPC_URL, ARCADE_1V1_CHAIN_ID, ARCADE_1V1_MAX_STAKE " +
         "and ARCADE_PRIVATE_KEY, and above ARCADE_1V1_MAX_STAKE. Retrying after a timeout does " +
         "NOT open a second match: it returns the previous result (`resumed: true`). If it fails " +
-        "after the deposit (`deposited: true` in the error), call resume_paid with the matchId.",
+        "after the deposit, the error ends with `[matchId=…, deposited=true …]`: call resume_paid " +
+        "with that matchId instead of playing again.",
+      // NO idempotente: reintentar tras un corte devuelve el resultado anterior,
+      // pero llamar de nuevo después de recibirlo juega otra partida y mueve plata.
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        idempotentHint: true,
+        idempotentHint: false,
         openWorldHint: true,
       },
       inputSchema: {

@@ -7,7 +7,7 @@
 // Correr: node --import tsx --test apps/mcp/test/tools-paid.test.ts
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { createAgent } from "@arcade1v1/agent-sdk";
+import { createAgent, Paid1v1Error } from "@arcade1v1/agent-sdk";
 import {
   createPaidLedger,
   matchmakeTool,
@@ -138,4 +138,40 @@ test("withdraw_1v1 y mint_test_usdc devuelven montos como texto", async () => {
   const m = await mintTestUsdcTool(agent, 5, { maxStake: 2 });
   assert.equal(m.amount, "5000000");
   assert.ok(m.txHash);
+});
+
+/** Un agente de mentira cuyo playAndSubmit falla como se le pida. */
+const failingAgent = (fail: () => Promise<never>) =>
+  ({ playAndSubmit: fail, resume1v1: fail }) as unknown as Parameters<typeof playPaidTool>[0];
+
+test("un error con depósito le dice al modelo el matchId y que retome", async () => {
+  const agent = failingAgent(async () => {
+    throw new Paid1v1Error("the deposit is in, but playing failed", {
+      stage: "play",
+      matchId: "0xabc",
+      deposited: true,
+    });
+  });
+  await assert.rejects(
+    playPaidTool(agent, createPaidLedger(), "racing", 1, { maxStake: 2 }),
+    (e: Error) =>
+      /matchId=0xabc/.test(e.message) &&
+      /deposited=true/.test(e.message) &&
+      /resume_paid/.test(e.message),
+  );
+});
+
+test("reintentar mientras sigue en curso no le muestra la URL del RPC al modelo", async () => {
+  let release!: () => void;
+  const agent = failingAgent(async () => {
+    await new Promise<void>((r) => (release = r));
+    throw new Error("HTTP request failed. URL: http://rpc.example/v2/SECRETKEY123");
+  });
+  const ledger = createPaidLedger();
+  const first = playPaidTool(agent, ledger, "racing", 1, { maxStake: 2 });
+  const second = playPaidTool(agent, ledger, "racing", 1, { maxStake: 2 });
+  release();
+  for (const p of [first, second]) {
+    await assert.rejects(p, (e: Error) => !e.message.includes("SECRETKEY123"));
+  }
 });

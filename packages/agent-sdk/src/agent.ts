@@ -272,7 +272,7 @@ export function createAgent(opts: {
 
   // Las mesas 1v1 de plata (paid1v1.ts). Una partida pagada en juego por agente.
   const paid = paid1v1
-    ? createPaid1v1({ cfg: paid1v1, privateKey: wallet.privateKey, client, clock, txLock })
+    ? createPaid1v1({ cfg: paid1v1, privateKey: wallet.privateKey, client, clock, txLock, sleep })
     : undefined;
   let paidInPlay = false;
 
@@ -464,8 +464,10 @@ export function createAgent(opts: {
       return { ...played, deposit, waitingForRival: played.status === "waiting" };
     } catch (e) {
       if (e instanceof Paid1v1Error) throw e;
-      // Un error que no es de la plata (el árbitro no contestó al emparejar).
-      throw new Paid1v1Error(`${(e as Error).message}`, {
+      // Un error que no es de la plata (el árbitro no contestó al emparejar). El
+      // mensaje corto: el largo de viem repite la URL del RPC.
+      const msg = (e as { shortMessage?: string }).shortMessage ?? (e as Error).message;
+      throw new Paid1v1Error(msg, {
         stage: deposited ? "play" : "seat",
         matchId,
         deposited,
@@ -496,7 +498,17 @@ export function createAgent(opts: {
         "resume1v1 needs paid1v1 { rpcUrl, escrow, chainId, maxStake } in createAgent",
       );
     }
-    const role = await paid.depositedRole(matchId).catch(() => null);
+    let role: "p1" | "p2" | null;
+    try {
+      role = await paid.depositedRole(matchId);
+    } catch (e) {
+      // No poder leer la cadena NO es "no hay depósito": hay que reintentar.
+      throw new Paid1v1Error(
+        `could not read the chain to check the deposit in match ${matchId} — retry ` +
+          `resume1v1("${matchId}"): this does not mean there is no deposit`,
+        { stage: "play", matchId, deposited: true, cause: e },
+      );
+    }
     if (!role) {
       throw new Paid1v1Error(
         `this agent has no deposit on-chain in match ${matchId}: there is nothing to resume`,

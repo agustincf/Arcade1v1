@@ -54,24 +54,62 @@ export const DEPOSIT_GAS = 225_000n;
 
 export type Paid1v1Stage = "check" | "seat" | "deposit" | "play";
 
-/** Un error de una mesa de plata, con en qué paso pasó y si la plata ya entró.
- *  Con `deposited: true` el agente TIENE que jugar la partida (`resume1v1`):
- *  una partida con depósito que no se juega la gana el rival por no presentarse. */
+/** Una URL entera (con cualquier esquema), para taparla: la del RPC del
+ *  operador puede traer una API key en el path, y viem la repite en sus
+ *  mensajes. */
+const URL_RE = /[a-z][a-z0-9+.-]*:\/\/\S+/gi;
+const redactUrls = (s: string) => s.replace(URL_RE, "[url redacted]");
+
+/** Un error de una mesa de plata, con en qué paso pasó y si la plata entró.
+ *  `deposited: true` quiere decir que el depósito está, O PUEDE ESTAR (se
+ *  transmitió y no se pudo confirmar, o no se pudo leer la cadena): el agente
+ *  TIENE que retomar la partida (`resume1v1`) y no volver a emparejar. Una
+ *  partida con depósito que no se juega la gana el rival por no presentarse.
+ *  Ni el mensaje ni la causa llevan URLs: la causa es una copia saneada del
+ *  error original (el de viem trae la URL del RPC entera). */
 export class Paid1v1Error extends Error {
   readonly stage: Paid1v1Stage;
   readonly matchId?: string;
   readonly deposited: boolean;
+  /** El depósito que se transmitió y no se pudo confirmar, para revisarlo. */
+  readonly txHash?: Hex;
   constructor(
     message: string,
-    opts: { stage: Paid1v1Stage; matchId?: string; deposited?: boolean; cause?: unknown },
+    opts: {
+      stage: Paid1v1Stage;
+      matchId?: string;
+      deposited?: boolean;
+      txHash?: Hex;
+      cause?: unknown;
+    },
   ) {
-    super(message, opts.cause === undefined ? undefined : { cause: opts.cause });
+    super(
+      redactUrls(message),
+      opts.cause === undefined ? undefined : { cause: new Error(redactUrls(short(opts.cause))) },
+    );
     this.name = "Paid1v1Error";
     this.stage = opts.stage;
     this.matchId = opts.matchId;
     this.deposited = opts.deposited ?? false;
+    this.txHash = opts.txHash;
   }
 }
+
+/** Una transacción que SE TRANSMITIÓ y no se pudo confirmar (el recibo no
+ *  llegó, o el RPC falló al pedirlo): puede minarse igual. */
+class BroadcastUnconfirmedError extends Error {
+  constructor(
+    readonly hash: Hex,
+    cause: unknown,
+  ) {
+    super(`transaction ${hash} was sent but could not be confirmed: ${short(cause)}`);
+  }
+}
+
+/** Cuántas veces, y cada cuánto, se mira la cadena para ver si entró un
+ *  depósito que se transmitió y no se pudo confirmar. */
+const UNCONFIRMED_POLLS = 10;
+const UNCONFIRMED_POLL_MS = 3_000;
 
 export interface Paid1v1Deposit {
   /** `open` (abrió la partida), `join` (se unió) o `already` (ya figuraba). */
@@ -85,6 +123,8 @@ export interface Paid1v1Deposit {
 
 /** Lo que dejó la revisión previa, para no volver a leerlo. */
 export interface Preflight {
+  /** El juego que pidió el agente: el asiento tiene que ser de este juego. */
+  game: string;
   units: bigint;
   usdc: Hex;
   arbiter: Hex;
@@ -110,8 +150,11 @@ export function createPaid1v1(d: {
   client: ArbiterClient;
   clock: () => number;
   txLock: TxLock;
+  /** Espera inyectable (tests). */
+  sleep?: (ms: number) => Promise<void>;
 }) {
   const { cfg, client, clock, txLock } = d;
+  const sleep = d.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const account = privateKeyToAccount(d.privateKey);
   const me = lc(account.address);
   const chain = chainFor(cfg.chainId);
@@ -217,7 +260,7 @@ export function createPaid1v1(d: {
       const { maxFeePerGas } = await pub.estimateFeesPerGas();
       const need = ((APPROVE_GAS + DEPOSIT_GAS) * (maxFeePerGas ?? 0n) * 3n) / 2n;
       if (eth < need) fail(`insufficient ETH for gas: have ${eth}, need about ${need} (wei)`);
-      return { units, usdc, arbiter: onchainArbiter, chainId: cfg.chainId, rulesChecked };
+      return { game, units, usdc, arbiter: onchainArbiter, chainId: cfg.chainId, rulesChecked };
     } catch (e) {
       if (e instanceof Paid1v1Error) throw e;
       return fail(`could not read the chain: ${short(e)}`, e);
@@ -232,6 +275,11 @@ export function createPaid1v1(d: {
         cause,
       });
     };
+    if (view.game !== pre.game) {
+      fail(
+        `the arbiter seated this agent at a ${view.game} table, not the ${pre.game} it asked for`,
+      );
+    }
     if (view.stake !== stake) {
       fail(
         `the arbiter seated this agent at a ${view.stake} USDC table, not the ${stake} it asked for`,
@@ -344,8 +392,15 @@ export function createPaid1v1(d: {
         ...(request as object),
         gas: (gas * 5n) / 4n,
       } as never);
-      const receipt = await pub.waitForTransactionReceipt({ hash });
-      await waitUntilSealed(pub, receipt.blockNumber);
+      // Desde acá la transacción ya salió: si confirmarla falla, puede minarse
+      // igual, y quien llama no puede tratarla como "no pasó nada".
+      let receipt;
+      try {
+        receipt = await pub.waitForTransactionReceipt({ hash });
+        await waitUntilSealed(pub, receipt.blockNumber);
+      } catch (e) {
+        throw new BroadcastUnconfirmedError(hash, e);
+      }
       if (receipt.status !== "success") {
         throw new Error(`${functionName} reverted on-chain (tx ${hash})`);
       }
@@ -354,14 +409,14 @@ export function createPaid1v1(d: {
   }
 
   async function approveIfNeeded(pre: Preflight): Promise<Hex | undefined> {
-    const allowance = await pub.readContract({
-      address: pre.usdc,
-      abi: erc20MinimalAbi,
-      functionName: "allowance",
-      args: [account.address, escrow],
-    });
-    if (allowance >= pre.units) return undefined;
     try {
+      const allowance = await pub.readContract({
+        address: pre.usdc,
+        abi: erc20MinimalAbi,
+        functionName: "allowance",
+        args: [account.address, escrow],
+      });
+      if (allowance >= pre.units) return undefined;
       // EXACTAMENTE el stake, nunca un permiso infinito, y al escrow fijado, que
       // solo puede tomarlo dentro de open/join con el asiento de ESTA wallet. Si
       // el depósito falla, el permiso queda y el próximo intento lo reusa.
@@ -393,6 +448,20 @@ export function createPaid1v1(d: {
     try {
       txHash = await send(escrow, escrow1v1Abi, fn, args);
     } catch (e) {
+      // Se transmitió y no se pudo confirmar: se mira la cadena un rato. Si
+      // entra, quedó hecho; si no, NO es "no pasó nada" (puede entrar todavía).
+      if (e instanceof BroadcastUnconfirmedError) {
+        for (let i = 0; i < UNCONFIRMED_POLLS; i++) {
+          if (await already()) return { step: fn, role, txHash: e.hash };
+          await sleep(UNCONFIRMED_POLL_MS);
+        }
+        if (await already()) return { step: fn, role, txHash: e.hash };
+        throw new Paid1v1Error(
+          `${fn} for match ${view.matchId} was sent (tx ${e.hash}) but is not confirmed yet and may ` +
+            `still land — do not matchmake again: check the tx, then call resume1v1("${view.matchId}")`,
+          { stage: "deposit", matchId: view.matchId, deposited: true, txHash: e.hash, cause: e },
+        );
+      }
       // Se confirma con la cadena, no se adivina: si el depósito está, quedó
       // hecho (un recibo que se perdió, una carrera con uno mismo).
       if (await already()) return { step: "already", role };
@@ -412,8 +481,9 @@ export function createPaid1v1(d: {
     }
     if (!(await already())) {
       throw new Paid1v1Error(
-        `${fn} was mined (tx ${txHash}) but the deposit is not visible on-chain yet — call resume1v1(matchId)`,
-        { stage: "deposit", matchId: view.matchId, deposited: true },
+        `${fn} for match ${view.matchId} was mined (tx ${txHash}) but the deposit is not visible ` +
+          `on-chain yet — call resume1v1("${view.matchId}")`,
+        { stage: "deposit", matchId: view.matchId, deposited: true, txHash },
       );
     }
     return { step: fn, role, txHash };
