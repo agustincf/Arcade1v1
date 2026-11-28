@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SAME_AS, LD_ID } from "@/app/lib/seo";
+import { SAME_AS, LD_ID, SITE } from "@/app/lib/seo";
 import { metaDe } from "@/app/lib/seo-pages";
 import { getLang } from "@/app/lib/serverLang";
 import { localePath } from "@/app/lib/localePath";
 import { AGENTS_CONTENT } from "./content";
 import { IS_MAINNET } from "@/app/lib/config";
 import { PixelIcon } from "@/app/components/PixelIcon";
+import { CopyBlock } from "@/app/components/CopyBlock";
 
 const ARBITER = process.env.NEXT_PUBLIC_ARBITER_URL || "http://localhost:4000";
 
@@ -218,10 +219,22 @@ export default async function AgentsPage() {
 
       <Win title={c.winMcp}>
         <p className="leading-relaxed text-(--color-paper-muted)">{c.mcp.intro}</p>
-        <p className="mb-2 mt-4 text-sm font-semibold text-(--color-paper-ink)">
+        {/* Lo más corto: un pedido que el agente entiende solo (se instala el
+            MCP o sigue /llms.txt). La config a mano queda como alternativa. */}
+        <h3 className="mt-5 text-base font-bold text-(--color-paper-ink)">{c.mcp.pasteTitle}</h3>
+        <p className="mb-2 mt-1 text-sm leading-relaxed text-(--color-paper-muted)">
+          {c.mcp.pasteNote}
+        </p>
+        <CopyBlock
+          text={c.mcp.pastePrompt.replaceAll("{site}", SITE.url)}
+          copyLabel={c.mcp.copy}
+          copiedLabel={c.mcp.copied}
+          wrap
+        />
+        <p className="mb-2 mt-5 text-sm font-semibold text-(--color-paper-ink)">
           {c.mcp.configNote}
         </p>
-        <Code>{mcpConfigJson}</Code>
+        <CopyBlock text={mcpConfigJson} copyLabel={c.mcp.copy} copiedLabel={c.mcp.copied} />
         <p className="mt-4 leading-relaxed text-(--color-paper-muted)">{c.mcp.outro}</p>
       </Win>
 
