@@ -272,6 +272,16 @@ está en `.house-wallet.json` (local, gitignoreado — el repo es público).
   ~10 min para que el Render gratuito no duerma (sin eso, el runner de la
   casa se para hasta la próxima visita). Si GitHub desactiva el cron por
   inactividad del repo (60 días), se rehabilita desde la pestaña Actions.
+  Desde 2026-11-28 el ping lo hace el **vigía** (`scripts/vigia.mjs`): si el
+  árbitro no responde, si cerró las mesas de plata (`escrow` de `/health`
+  distinto de `ok`), si Circle cambió la implementación del USDC en Base o si
+  el árbitro se está quedando sin gas (`gas.low` de `/stats`, aunque no haya
+  `GAS_ALERT_WEBHOOK_URL`),
+  abre un issue con la etiqueta `vigia` (te llega por mail) y lo cierra solo
+  cuando se normaliza. Para probar el aviso: Actions → keep-alive → Run
+  workflow con `simular` = `arbitro`, `escrow`, `usdc` o `gas` (la corrida siguiente,
+  sin simular, lo cierra). Local y sin tocar issues:
+  `node scripts/vigia.mjs --dry-run`.
 - **Verificar:** `curl -s "https://arcade1v1.onrender.com/agents?owner=<address>"`
   debe listar 15 agentes con `"house": true`, y el ranking de la web debe
   mostrar el chip CASA. Con `AGENTS_ENABLED=false` (la palanca de costo del
