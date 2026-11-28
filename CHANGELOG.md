@@ -10,6 +10,16 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [3.15.0] — 2026-11-28
+
+**Detalles del flujo pagado de los agentes, y "pegá esto en tu agente".** Los
+nueve detalles menores que dejó la revisión final de la 3.14.0, ninguno de los
+cuales permitía perder plata: el MCP ya no entrega dos veces el mismo
+resultado, los errores dicen en qué partida pasaron y el agente se niega antes
+de sentarse en más casos. Además, `/agents` trae un pedido listo para pegarle a
+tu agente. Solo cambian el agent-sdk y el MCP, que pasan a **0.8.1**; game-sdk
+y strategies siguen en 0.8.0.
+
 ### Agregado
 
 - **"Pegá esto en tu agente" en `/agents`.** El panel "Jugá sin código" abre
@@ -22,6 +32,47 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   versión publicada del MCP (los juegos en vivo piden una mínima). La config
   del MCP, que ya estaba, queda abajo como alternativa y también tiene botón
   de copiar. `/agents/start` lo menciona en el camino sin código.
+
+### Corregido
+
+- **`play_paid` entregaba dos veces el mismo resultado.** Si el cliente MCP
+  cortaba por tiempo la primera llamada y una segunda, que llegaba mientras la
+  partida seguía, recibía el resultado, la primera lo guardaba igual "sin
+  entregar" y la tercera llamada lo devolvía otra vez en vez de jugar. Ahora
+  cada partida sabe si alguna de las llamadas que la esperaban entregó su
+  resultado, sin importar en qué orden terminan.
+- **Un approve que falla dice en qué partida.** El `Paid1v1Error` del approve
+  de USDC trae el `matchId` del asiento que el agente ya tenía.
+- **Un `onPaidStep` que tira ya no corta el flujo.** El aviso a quien llama se
+  hace aparte: si su callback falla, el depósito y el juego siguen igual.
+- **Una estrategia que no sirve se rechaza sin tocar la red.** Pasar
+  `strategy` (con semilla) para un juego en vivo en una mesa de plata falla con
+  `stage: "check"` antes de preguntarle nada al árbitro o al RPC.
+- **El tope de 60 s de los reintentos de `live/start` cuenta cada pedido.**
+  Antes sumaba solo las esperas: con un árbitro que tardaba en contestar (el
+  cliente reintenta solo los 503 de un despliegue, hasta 30 s), los reintentos
+  podían pasar de varios minutos. Ahora se mide con el reloj desde la primera
+  apertura.
+- **El candado de transacciones es por wallet, no por agente.** Dos
+  `createAgent` con la misma clave en un mismo proceso comparten el candado y
+  no chocan en el nonce. Una wallet efímera sigue con el suyo.
+- **La documentación ya no promete que "nada se paga dos veces".** Pedir de
+  nuevo en una mesa donde la partida abierta sigue esperando normalmente la
+  devuelve y el SDK ve en la cadena que ya depositó; pero si el árbitro ya no la
+  devuelve, la llamada nueva es otra partida con su propio stake (y la vieja se
+  reembolsa si no aparece rival en la hora). AGENTS.md y el README del SDK lo
+  dicen así.
+
+### Seguridad
+
+- **Con `paid1v1`, el árbitro va por https.** `createAgent` rechaza un
+  `arbiterUrl` `http://` que no sea la máquina propia (localhost, 127.0.0.1,
+  [::1]): por http, alguien en el medio podría cambiar las vistas que el agente
+  usa para decidir. Vale también para el MCP con las mesas de plata prendidas.
+- **Sin versión de reglas a la vista, no se deposita.** Si ni `/health` trae
+  `rules` ni el asiento trae `rulesV`, el agente no puede comprobar que el
+  árbitro juegue las mismas reglas que su SDK y se niega con `stage: "seat"`,
+  antes de aprobar nada.
 
 ## [3.14.0] — 2026-11-27
 

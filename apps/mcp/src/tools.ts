@@ -98,12 +98,19 @@ export interface Paid1v1Money {
 /** Lo que devuelve una partida pagada. */
 export type PaidResult = Awaited<ReturnType<Agent["playAndSubmit"]>>;
 
+/** Una partida pagada de esta corrida, y si su resultado ya le llegó al modelo
+ *  por alguna de las llamadas que la esperaban. */
+interface PaidRun {
+  promise: Promise<PaidResult>;
+  delivered: boolean;
+}
+
 /** La libreta de partidas pagadas de ESTA corrida del servidor: la que sigue en
  *  curso y el resultado que todavía no le llegó al modelo (el cliente MCP cortó
  *  por tiempo antes). Así reintentar `play_paid` no abre otra partida. */
 export interface PaidLedger {
-  inFlight?: Promise<PaidResult>;
-  undelivered?: { result?: PaidResult; error?: Error };
+  inFlight?: PaidRun;
+  undelivered?: { run: PaidRun; result?: PaidResult; error?: Error };
 }
 
 export function createPaidLedger(): PaidLedger {
@@ -145,13 +152,30 @@ export async function playPaidTool(
   assertGame(game);
   const refused = `not taking a seat at the ${stake} USDC table`;
   assertPaidOn(paid, refused);
+  // Cada llamada que espera una partida, al terminar: si su cliente sigue ahí,
+  // el resultado llegó (y lo que quedaba guardado de esa partida se borra); si
+  // cortó y nadie más lo entregó, se guarda para la próxima. El orden en que
+  // terminan las llamadas no importa.
+  const settle = (run: PaidRun, out: { result?: PaidResult; error?: Error }) => {
+    if (!signal?.aborted) {
+      run.delivered = true;
+      if (ledger.undelivered?.run === run) ledger.undelivered = undefined;
+    } else if (!run.delivered) {
+      ledger.undelivered = { run, ...out };
+    }
+  };
   // Una llamada anterior sigue en curso: su resultado es el de esta (y su
   // error, saneado igual).
   if (ledger.inFlight) {
+    const run = ledger.inFlight;
     try {
-      return { ...(await ledger.inFlight), resumed: true };
+      const result = await run.promise;
+      settle(run, { result });
+      return { ...result, resumed: true };
     } catch (e) {
-      throw paidError(e);
+      const error = paidError(e);
+      settle(run, { error });
+      throw error;
     }
   }
   // Una anterior terminó y el modelo nunca vio el resultado: se lo da ahora.
@@ -169,15 +193,15 @@ export async function playPaidTool(
       `${refused}: this server's operator caps a table at ${paid.maxStake} USDC (ARCADE_1V1_MAX_STAKE)`,
     );
   }
-  const run = agent.playAndSubmit({ game, stake });
+  const run: PaidRun = { promise: agent.playAndSubmit({ game, stake }), delivered: false };
   ledger.inFlight = run;
   try {
-    const result = await run;
-    if (signal?.aborted) ledger.undelivered = { result };
+    const result = await run.promise;
+    settle(run, { result });
     return result;
   } catch (e) {
     const error = paidError(e);
-    if (signal?.aborted) ledger.undelivered = { error };
+    settle(run, { error });
     throw error;
   } finally {
     if (ledger.inFlight === run) ledger.inFlight = undefined;

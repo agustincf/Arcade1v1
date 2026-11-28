@@ -106,6 +106,8 @@ export class FakePaidArbiter extends ArbiterClient {
   public finalStatus: MatchView["status"] = "waiting";
   /** Se llama en cada emparejamiento (para ver qué pasó antes en la cadena). */
   public onMatchmake?: () => void;
+  /** Se llama en cada apertura del intento (para simular cuánto tarda). */
+  public onStart?: () => void;
   private src = new SecretSource(SECRET);
   constructor(private clock: () => number = Date.now) {
     super("http://fake");
@@ -144,6 +146,7 @@ export class FakePaidArbiter extends ArbiterClient {
   async liveStart(): Promise<LiveStartView> {
     this.calls.push("liveStart");
     this.starts.push(this.clock());
+    this.onStart?.();
     if (this.startFailures > 0) {
       this.startFailures--;
       throw Object.assign(
