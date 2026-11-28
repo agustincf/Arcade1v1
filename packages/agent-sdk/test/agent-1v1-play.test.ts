@@ -57,7 +57,10 @@ async function setup(state: Partial<Fake1v1State> = {}) {
       now += ms;
     },
   });
-  return { rpc, fake, agent, sleeps };
+  const advance = (ms: number) => {
+    now += ms;
+  };
+  return { rpc, fake, agent, sleeps, advance, clock };
 }
 
 /** Una partida abierta en la cadena por una persona, esperando rival. */
@@ -314,4 +317,108 @@ test("resume1v1 con la cadena caída no dice que no hay depósito", async () => 
     assert.doesNotMatch(e.message, /nothing to resume/);
     return true;
   });
+});
+
+// ---- Detalles de la revisión final ---------------------------------------------
+
+test("un error del approve lleva el matchId", async () => {
+  const { fake, agent } = await setup({ minedRevert: "approve" });
+  const v = await paidView("p1", NOW);
+  fake.script = [v];
+  await assert.rejects(
+    agent.playAndSubmit({ game: "racing", stake: 1, liveStrategy: LIVE }),
+    (e) => {
+      assert.ok(e instanceof Paid1v1Error);
+      assert.equal(e.stage, "deposit");
+      assert.equal(e.deposited, false);
+      assert.equal(e.matchId, v.matchId, "dice en qué asiento quedó sentado");
+      return true;
+    },
+  );
+});
+
+test("un onPaidStep que tira no corta el flujo de plata", async () => {
+  const { rpc, fake, agent } = await setup();
+  fake.script = [await paidView("p1", NOW)];
+  const r = await agent.playAndSubmit({
+    game: "racing",
+    stake: 1,
+    liveStrategy: LIVE,
+    onPaidStep: () => {
+      throw new Error("el callback de quien llama se rompió");
+    },
+  });
+  assert.equal(r.deposit?.step, "open");
+  assert.deepEqual(fns(rpc), ["approve", "open"]);
+  assert.ok(fake.commits >= 1, "la partida se jugó igual");
+});
+
+test("una estrategia que no sirve para un juego en vivo se rechaza antes de tocar la red", async () => {
+  const { rpc, fake, agent } = await setup();
+  fake.script = [await paidView("p1", NOW)];
+  await assert.rejects(
+    agent.playAndSubmit({ game: "racing", stake: 1, strategy: () => ({ score: 0, replay: {} }) }),
+    (e) => {
+      assert.ok(e instanceof Paid1v1Error);
+      assert.equal(e.stage, "check");
+      return true;
+    },
+  );
+  assert.deepEqual(rpc.calls, []);
+  assert.deepEqual(fake.calls, []);
+});
+
+test("un árbitro sin rules en /health y una vista sin rulesV no depositan", async () => {
+  const { rpc, fake, agent } = await setup();
+  fake.healthBody = { ok: true, escrow: "ok" };
+  fake.script = [await paidView("p1", NOW, { rulesV: undefined })];
+  await assert.rejects(
+    agent.playAndSubmit({ game: "racing", stake: 1, liveStrategy: LIVE }),
+    (e) => {
+      assert.ok(e instanceof Paid1v1Error);
+      assert.equal(e.stage, "seat");
+      assert.match(e.message, /rules version/);
+      return true;
+    },
+  );
+  assert.deepEqual(rpc.broadcasts, []);
+});
+
+test("el tope de reintentos de live/start cuenta lo que tarda cada intento", async () => {
+  const { fake, agent, advance, clock } = await setup();
+  fake.script = [await paidView("p1", NOW)];
+  fake.startFailures = 1000;
+  // Cada apertura fallida tarda 25 s (el cliente reintenta solo los 503).
+  fake.onStart = () => advance(25_000);
+  const t0 = clock();
+  await assert.rejects(
+    agent.playAndSubmit({ game: "racing", stake: 1, liveStrategy: LIVE }),
+    (e) => {
+      assert.ok(e instanceof Paid1v1Error);
+      assert.equal(e.stage, "play");
+      return true;
+    },
+  );
+  assert.ok(
+    fake.starts.length <= 3,
+    `${fake.starts.length} aperturas: el tope no cuenta el tiempo de cada una`,
+  );
+  assert.ok(clock() - t0 <= 85_000, `se fue a ${clock() - t0} ms`);
+});
+
+test("con paid1v1, un árbitro por http a otra máquina no arranca", () => {
+  const paid1v1 = {
+    rpcUrl: "http://127.0.0.1:9",
+    escrow: ESCROW,
+    chainId: 31337 as const,
+    maxStake: 2,
+  };
+  assert.throws(
+    () => createAgent({ arbiterUrl: "http://arbiter.example.com", privateKey: AGENT_KEY, paid1v1 }),
+    /https/,
+  );
+  // Local, o https: arranca.
+  createAgent({ arbiterUrl: "http://localhost:4000", privateKey: AGENT_KEY, paid1v1 });
+  createAgent({ arbiterUrl: "http://127.0.0.1:4000", privateKey: AGENT_KEY, paid1v1 });
+  createAgent({ arbiterUrl: "https://arcade1v1.onrender.com", privateKey: AGENT_KEY, paid1v1 });
 });

@@ -2,7 +2,7 @@
 import { privateKeyToAccount } from "viem/accounts";
 import { createPublicClient, createWalletClient, http, type Hex } from "viem";
 import { chainFor } from "./chains";
-import { createTxLock } from "./tx-lock";
+import { createTxLock, txLockFor } from "./tx-lock";
 import {
   ArbiterClient,
   type MatchView,
@@ -65,9 +65,22 @@ const SEAT_DEPOSIT_WINDOW_MS = 9 * 60_000;
 
 /** Mesa de plata: las esperas entre aperturas del intento en vivo cuando el
  *  árbitro todavía no ve el depósito (su RPC puede ir atrasado aunque el bloque
- *  ya esté sellado). 60 s en total, nunca dos pedidos a menos de 2 s:
- *  `live/start` está bajo el límite de 12 pedidos cada 10 s. */
+ *  ya esté sellado). Nunca dos pedidos a menos de 2 s: `live/start` está bajo
+ *  el límite de 12 pedidos cada 10 s. */
 const LIVE_START_RETRY_DELAYS_MS = [2000, 4000, 8000, 8000, 8000, 10000, 10000, 10000];
+/** Y el tope de esos reintentos, contado con el reloj desde la primera
+ *  apertura: incluye lo que tarda cada pedido (el cliente reintenta solo los
+ *  503 de un despliegue, hasta 30 s), no solo las esperas. */
+const LIVE_START_RETRY_BUDGET_MS = 60_000;
+
+/** Con `paid1v1`, el árbitro va por https: por http, alguien en el medio podría
+ *  cambiar las vistas (y el árbitro firma los asientos, pero no las vistas). Se
+ *  admite http solo a la máquina propia, para correr un árbitro local. */
+function isLocalHost(host: string): boolean {
+  return (
+    host === "localhost" || host.endsWith(".localhost") || host === "127.0.0.1" || host === "[::1]"
+  );
+}
 
 /** Lo que contesta el árbitro mientras no ve el depósito (onchain.ts). */
 const DEPOSIT_NOT_VISIBLE =
@@ -246,6 +259,22 @@ export function createAgent(opts: {
   // Las mesas 1v1 de plata se validan ANTES que todo lo demás: un campo mal
   // puesto no puede llegar a la red.
   const paid1v1 = validatePaid1v1(opts.paid1v1, opts.privateKey !== undefined);
+  if (paid1v1 && opts.arbiterUrl !== undefined) {
+    let url: URL | undefined;
+    try {
+      url = new URL(opts.arbiterUrl);
+    } catch {
+      url = undefined;
+    }
+    if (
+      !url ||
+      !(url.protocol === "https:" || (url.protocol === "http:" && isLocalHost(url.hostname)))
+    ) {
+      throw new Error(
+        "createAgent: with paid1v1, arbiterUrl must be https (plain http only to localhost)",
+      );
+    }
+  }
   const pin: unknown = opts.escrow;
   if (
     pin !== undefined &&
@@ -267,7 +296,9 @@ export function createAgent(opts: {
   const clock = opts.clock ?? Date.now;
   // UN candado por wallet para todas sus transacciones (Aleph y 1v1): solo el
   // envío, el recibo y el sellado, para no chocar en el nonce (tx-lock.ts).
-  const txLock = createTxLock();
+  // Con una clave dada, compartido con todo agente del proceso que use la misma;
+  // una wallet efímera no la comparte nadie.
+  const txLock = opts.privateKey ? txLockFor(wallet.address) : createTxLock();
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
 
   // Las mesas 1v1 de plata (paid1v1.ts). Una partida pagada en juego por agente.
@@ -404,15 +435,32 @@ export function createAgent(opts: {
     paidInPlay = true;
     let matchId: string | undefined;
     let deposited = false;
+    // El aviso a quien llama nunca corta el flujo de la plata: si su callback
+    // tira a mitad de camino, el depósito o el juego siguen igual.
+    const notify = (e: PaidStepEvent) => {
+      try {
+        args.onPaidStep?.(e);
+      } catch {
+        // es de quien llama
+      }
+    };
     try {
+      // Una estrategia que no sirve, antes de tocar la red (sin preguntarle nada
+      // al árbitro ni al RPC). Un juego que no es en vivo lo rechaza el preflight.
+      if (isLiveMatch(args.game, RULES_V[args.game])) {
+        try {
+          liveStrategyFor(args);
+        } catch (e) {
+          throw new Paid1v1Error(`${(e as Error).message} — not taking a seat`, { stage: "check" });
+        }
+      }
       // Todo lo que puede fallar sin gastar, ANTES de sentarse.
       const pre = await paid.preflight(args.game, args.stake);
-      liveStrategyFor(args);
       const seatedAt = clock();
       let view = await seatPaid(args.game, args.stake);
       matchId = view.matchId;
       view = await verifyOrReask(view, args.stake, pre);
-      args.onPaidStep?.({ step: "seated", matchId: view.matchId });
+      notify({ step: "seated", matchId: view.matchId });
 
       let deposit: Paid1v1Deposit;
       const role = view.role as "p1" | "p2";
@@ -421,7 +469,7 @@ export function createAgent(opts: {
         // jugó y espera rival). No se deposita de nuevo; se juega o se devuelve.
         deposit = { step: "already", role };
       } else {
-        const approveTx = await paid.approveIfNeeded(pre);
+        const approveTx = await paid.approveIfNeeded(pre, view.matchId);
         // Pedir de nuevo justo antes de depositar, como la web: si mientras
         // tanto una persona abrió en esta mesa, el árbitro lo sienta con ella en
         // vez de dejar dos partidas esperando a un tercero. Nunca después de
@@ -449,7 +497,7 @@ export function createAgent(opts: {
         if (view.matchId !== first) deposit.reseatedFrom = first;
       }
       deposited = true;
-      args.onPaidStep?.({ step: "deposited", matchId: view.matchId });
+      notify({ step: "deposited", matchId: view.matchId });
 
       let played: MatchView & { liveReceipt?: LiveReceipt };
       try {
@@ -523,6 +571,7 @@ export function createAgent(opts: {
   // todavía no ve el depósito, se reintenta con esperas crecientes.
   async function startLive(matchId: string, retryDeposit: boolean) {
     const delays = retryDeposit ? LIVE_START_RETRY_DELAYS_MS : [];
+    const t0 = clock();
     for (let i = 0; ; i++) {
       const auth = await signLiveStart({
         matchId,
@@ -534,6 +583,7 @@ export function createAgent(opts: {
         return await client.liveStart(matchId, wallet.address, auth);
       } catch (e) {
         if (i >= delays.length || !DEPOSIT_NOT_VISIBLE.test((e as Error).message)) throw e;
+        if (clock() - t0 + delays[i] > LIVE_START_RETRY_BUDGET_MS) throw e;
         await sleep(delays[i]);
       }
     }

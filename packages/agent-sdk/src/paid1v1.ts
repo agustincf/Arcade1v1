@@ -291,6 +291,14 @@ export function createPaid1v1(d: {
     }
     if (view.live !== true) fail(`match ${view.matchId} is not played live`);
     const localV = RULES_V[view.game];
+    // Sin `rules` en /health ni `rulesV` en el asiento, nada dice con qué reglas
+    // juega el árbitro: no se deposita a ciegas.
+    if (view.rulesV === undefined && !pre.rulesChecked) {
+      fail(
+        `neither the arbiter's /health nor the seat says its rules version for ${view.game}: ` +
+          `cannot check it against the SDK's v${localV}`,
+      );
+    }
     if (view.rulesV !== undefined && view.rulesV !== localV) {
       fail(
         `rules version mismatch for ${view.game}: arbiter v${view.rulesV}, SDK v${localV} ` +
@@ -408,7 +416,7 @@ export function createPaid1v1(d: {
     });
   }
 
-  async function approveIfNeeded(pre: Preflight): Promise<Hex | undefined> {
+  async function approveIfNeeded(pre: Preflight, matchId?: string): Promise<Hex | undefined> {
     try {
       const allowance = await pub.readContract({
         address: pre.usdc,
@@ -424,6 +432,7 @@ export function createPaid1v1(d: {
     } catch (e) {
       throw new Paid1v1Error(`USDC approve failed: ${short(e)} — not depositing`, {
         stage: "deposit",
+        matchId,
         cause: e,
       });
     }

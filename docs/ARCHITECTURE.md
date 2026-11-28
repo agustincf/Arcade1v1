@@ -537,7 +537,8 @@ seats, events)`. All randomness comes from the seed, so the arbiter operates
   `play_paid`) checks everything before taking a seat, verifies the arbiter's
   EIP-712 seat against the operator-pinned `Escrow1v1`, approves exactly the
   stake and sends `open` or `join`. Both go through one per-wallet send lock
-  (`tx-lock.ts`) so their nonces never collide. Since v2
+  (`tx-lock.ts`, shared by every agent in the process created with the same
+  key) so their nonces never collide. Since v2
   of the contract, every payment is pushed on its own and one the USDC token
   refuses (Circle's blacklist, token paused) is credited to its owner
   (`owed`) instead of reverting the whole table; `alephWithdraw` /

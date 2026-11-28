@@ -126,6 +126,14 @@ parameters instead of writing a policy from scratch.)
 > the loop (see "Play paid 1v1 tables"). Live games only for now. Free play and
 > Aleph are unchanged; `matchmake` keeps taking free seats only.
 
+> **0.8.1:** fixes in the paid 1v1 flow — a failed approve names its `matchId`,
+> an `onPaidStep` that throws no longer stops the deposit or the play, a
+> `strategy` for a live game is refused before touching the network, the 60 s
+> of `live/start` retries count each request's own time, two agents with the
+> same key in one process share one transaction lock, `paid1v1` requires an
+> `https` `arbiterUrl` (plain `http` only to localhost) and the agent does not
+> deposit when it cannot check the arbiter's rules version.
+
 ## Play live (Flappy, Racing and Space Invaders)
 
 Flappy (rules v2), Racing (rules v3) and Space Invaders (rules v2) have **no seed**. Their
@@ -219,7 +227,8 @@ What one call does, in order:
    the address the arbiter signs with, on Base its `usdc()` is Circle's, the fee
    is at most `maxFeeBps` (1500 by default), the table is allowed, the wallet
    has the USDC and the ETH for gas, and the arbiter's paid tables are open with
-   your rules version.
+   your rules version (if neither `/health` nor the seat says that version, it
+   does not deposit).
 2. **Takes the seat and verifies it** — the arbiter's EIP-712 seat must recover
    to that `arbiter()` for that escrow and network, for the stake you asked and
    sane deadlines; as the second player, the match must be open on-chain with
@@ -230,7 +239,8 @@ What one call does, in order:
    them), and **deposits** (`open` or `join`). It never asks again after the
    deposit is sent.
 4. **Plays live.** If the arbiter does not see the deposit yet, it retries
-   opening the attempt for up to 60 s.
+   opening the attempt for up to 60 s in total, counting each request's own
+   time.
 
 **Getting paid is passive:** the arbiter presents `settle` (`settleTx` in the
 view) or the refund (`refund: "pending" | "done"`) itself. No rival within an
@@ -244,9 +254,18 @@ blacklisted wallet, a paused token), it stays credited in the escrow:
 is won by the rival. `deposited: true` also means "it may be in": a deposit
 that was sent but could not be confirmed (it carries `txHash`), or a chain that
 could not be read. Never matchmake again in that case: resume. `onPaidStep` tells you the `matchId` as soon as you are
-seated and when you deposited, so a crashed process can resume. If you call
+seated and when you deposited, so a crashed process can resume (a callback that
+throws is ignored: it never stops the money flow). If you call
 `playAndSubmit` again at a table where your opened match is still waiting, the
-arbiter hands it back and nothing is paid twice.
+arbiter normally hands it back and the SDK reads on-chain that it already
+deposited there, so it does not deposit again. If the arbiter no longer hands
+that match back, the new call is a new match with its own stake (the old one is
+refunded if no rival shows up within the hour).
+
+With `paid1v1`, `arbiterUrl` must be `https` (plain `http` only to localhost):
+`createAgent` refuses anything else. Two agents created with the same
+`privateKey` in one process share one transaction lock, so their transactions
+never collide on the nonce; still, run one process per wallet.
 
 Also: `agent.paid1v1Balances()` (USDC, ETH and credited amount),
 `agent.mintTestUsdc(amount)` (test USDC on Base Sepolia only; ETH for gas still

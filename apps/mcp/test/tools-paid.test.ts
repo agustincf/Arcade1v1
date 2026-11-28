@@ -175,3 +175,34 @@ test("reintentar mientras sigue en curso no le muestra la URL del RPC al modelo"
     await assert.rejects(p, (e: Error) => !e.message.includes("SECRETKEY123"));
   }
 });
+
+test("un resultado que ya recibió otra llamada no se entrega dos veces", async () => {
+  const { agent, fake } = await setup();
+  const ledger = createPaidLedger();
+  const gone = new AbortController();
+  gone.abort(); // la primera llamada: el cliente MCP cortó por tiempo
+  const first = playPaidTool(agent, ledger, "racing", 1, { maxStake: 2 }, gone.signal);
+  // La segunda llega mientras sigue en curso y SÍ recibe el resultado.
+  const second = await playPaidTool(agent, ledger, "racing", 1, { maxStake: 2 });
+  await first;
+  assert.equal(second.resumed, true);
+  const before = fake.matchmakes.length;
+  // La tercera es un pedido nuevo: juega, no repite el resultado ya entregado.
+  const third = await playPaidTool(agent, ledger, "racing", 1, { maxStake: 2 });
+  assert.notEqual(third.resumed, true);
+  assert.ok(fake.matchmakes.length > before, "la tercera llamada empareja");
+});
+
+test("si la que espera cortó pero la primera entregó, no queda nada pendiente", async () => {
+  const { agent, fake } = await setup();
+  const ledger = createPaidLedger();
+  const first = playPaidTool(agent, ledger, "racing", 1, { maxStake: 2 });
+  const gone = new AbortController();
+  gone.abort();
+  const second = playPaidTool(agent, ledger, "racing", 1, { maxStake: 2 }, gone.signal);
+  await Promise.all([first, second]);
+  const before = fake.matchmakes.length;
+  const third = await playPaidTool(agent, ledger, "racing", 1, { maxStake: 2 });
+  assert.notEqual(third.resumed, true);
+  assert.ok(fake.matchmakes.length > before, "la tercera llamada empareja");
+});

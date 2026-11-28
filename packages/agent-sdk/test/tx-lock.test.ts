@@ -4,7 +4,7 @@
 // Correr: node --import tsx --test packages/agent-sdk/test/tx-lock.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createTxLock } from "../src/tx-lock.ts";
+import { createTxLock, txLockFor } from "../src/tx-lock.ts";
 
 test("dos envíos concurrentes se serializan", async () => {
   const lock = createTxLock();
@@ -36,4 +36,10 @@ test("un error libera el candado", async () => {
     /revirtió/,
   );
   assert.equal(await lock(async () => "sigue"), "sigue");
+});
+
+test("el candado es por wallet: la misma dirección comparte candado", () => {
+  const a = "0x" + "ab".repeat(20);
+  assert.equal(txLockFor(a), txLockFor(a.toUpperCase().replace("0X", "0x")));
+  assert.notEqual(txLockFor(a), txLockFor("0x" + "cd".repeat(20)));
 });

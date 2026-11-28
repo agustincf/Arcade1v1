@@ -7,6 +7,21 @@
 
 export type TxLock = <T>(fn: () => Promise<T>) => Promise<T>;
 
+// Uno por dirección en todo el proceso: dos `createAgent` con la MISMA clave
+// comparten candado (si no, cada uno tendría el suyo y chocarían en el nonce).
+const byWallet = new Map<string, TxLock>();
+
+/** El candado de esta wallet, compartido por todos los agentes del proceso. */
+export function txLockFor(address: string): TxLock {
+  const key = address.toLowerCase();
+  let lock = byWallet.get(key);
+  if (!lock) {
+    lock = createTxLock();
+    byWallet.set(key, lock);
+  }
+  return lock;
+}
+
 export function createTxLock(): TxLock {
   let tail: Promise<unknown> = Promise.resolve();
   return <T>(fn: () => Promise<T>): Promise<T> => {
