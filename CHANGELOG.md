@@ -22,6 +22,17 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   versión publicada del MCP (los juegos en vivo piden una mínima). La config
   del MCP, que ya estaba, queda abajo como alternativa y también tiene botón
   de copiar. `/agents/start` lo menciona en el camino sin código.
+- **El vigía: avisos por mail si el árbitro se cae, si cierra las mesas de
+  plata o si cambia el USDC** (O4 de [`docs/MAINNET.md`](docs/MAINNET.md)). El
+  ping que mantiene despierto al árbitro cada ~10 minutos ahora lo hace
+  `scripts/vigia.mjs`, que además mira el `escrow` de `/health` y la
+  implementación del proxy del USDC de Circle en Base. Ante un problema abre un
+  issue en GitHub con la etiqueta `vigia`, uno solo por problema, y lo cierra
+  solo cuando se normaliza. Antes, un árbitro caído dejaba el job en rojo sin
+  avisarle a nadie. Un USDC nuevo pide volver a correr las pruebas contra el
+  USDC real en un bloque nuevo (`AUDIT.md`, A6); el issue trae el comando y el
+  bloque. Se prueba a mano desde Actions con `simular`. Gratis y sin servicios
+  nuevos: corre en GitHub Actions.
 
 ## [3.14.0] — 2026-11-27
 
