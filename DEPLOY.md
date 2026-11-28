@@ -341,12 +341,22 @@ A diferencia de testnet, mainnet usa el **USDC real de Base**
       solo): desplegado en testnet el 2026-09-24.
 - [~] **`Escrow1v1` revisado en la pre-auditoría** (tope al vencimiento del
   resultado, presupuesto fijo de gas por pago, duración máxima, comisión
-  congelada): hecho en el código y listo para la auditoría
-  ([`packages/contracts/AUDIT.md`](packages/contracts/AUDIT.md)); falta el
-  redespliegue en testnet
-  ([runbook](docs/REDEPLOY-escrow1v1-preauditoria.md)) y la auditoría.
+  congelada): hecho en el código, listo para la auditoría
+  ([`packages/contracts/AUDIT.md`](packages/contracts/AUDIT.md)) y
+  redesplegado en testnet el 2026-11-18
+  ([runbook](docs/REDEPLOY-escrow1v1-preauditoria.md)); falta la auditoría.
 - [ ] **El resto de la lista** (la operación, la auditoría y lo legal):
       [`docs/MAINNET.md`](docs/MAINNET.md).
+
+**El día del deploy, en orden** (qué tener listo antes, vaciar testnet, el
+deploy, Render, Vercel, la primera partida con plata real y cómo volver atrás):
+[`docs/DIA-DEL-DEPLOY-MAINNET.md`](docs/DIA-DEL-DEPLOY-MAINNET.md).
+
+**Antes de cambiar de red, vaciá testnet**: `STAKES_ALLOWED` vacía en Render y
+esperá a que `/health` diga `"paidOpen":0`. Las partidas no guardan su red: si
+quedan mesas de plata abiertas al cambiar, el árbitro de la red nueva no abre
+las suyas hasta que esas terminen solas (hasta ~3 h), y los depósitos quedan
+para reembolsar a mano en el contrato viejo (`network-switch.ts`).
 
 **Desplegar** (firma una Ledger, sin claves en disco). Primero, en
 `packages/contracts/.env.mainnet`:
@@ -381,7 +391,9 @@ Al final relee el contrato desplegado y dice los pasos que siguen:
    `bash packages/contracts/deploy-base-mainnet.sh verificar <dirección>` tiene
    que decir `✓ [duenio] la dueña es la Safe`.
 2. **El árbitro** (Render): `CHAIN_ID=8453`, `ESCROW_ADDRESS` y el RPC de
-   mainnet; `curl -s https://<árbitro>/health` tiene que dar `"escrow":"ok"`.
+   mainnet (y borrar el `STAKES_ALLOWED` vacío del vaciado);
+   `curl -s https://<árbitro>/health` tiene que dar `"escrow":"ok"` y no traer
+   `networkSwitch`.
 3. **La web** (Vercel): `NEXT_PUBLIC_CHAIN_ID=8453`,
    `NEXT_PUBLIC_ESCROW_ADDRESS` y `NEXT_PUBLIC_USDC_ADDRESS`.
 

@@ -7,7 +7,7 @@ and an external contract audit). The critical path is **final contracts →
 external audit → mainnet deploy**, with the legal work running in parallel from
 day one. Details below are in Spanish, the project's working language.
 
-> Estado: **2026-11-19**, versión 3.13.0 en testnet (Base Sepolia, dinero de
+> Estado: **2026-11-28**, versión 3.14.0 en testnet (Base Sepolia, dinero de
 > juego), con la pre-auditoría de `Escrow1v1` hecha y esa versión ya desplegada
 > en testnet
 > ([informe](auditorias/2026-10-02-preauditoria-escrow1v1.md); paquete para el
@@ -168,7 +168,12 @@ El orden acordado el 2026-09-29, en tres tandas de código más lo del dueño:
    arranca con mesas de plata de Aleph en mainnet; la web cambia los textos de
    testnet por los de mainnet cuando corre en Base. Los términos legales
    (`/terms`) siguen diciendo testnet a propósito: los reescribe lo legal (L1).
-4. **Del dueño, en paralelo:** prueba con usuarios reales (O6) sobre el
+4. **El día del deploy**, en orden y en palabras simples:
+   [`DIA-DEL-DEPLOY-MAINNET.md`](DIA-DEL-DEPLOY-MAINNET.md). Incluye vaciar
+   testnet antes de cambiar de red: si quedan mesas de plata abiertas, el
+   árbitro de la red nueva no abre las suyas hasta que terminen
+   (`network-switch.ts`, `paidOpen` y `networkSwitch` en `/health`).
+5. **Del dueño, en paralelo:** prueba con usuarios reales (O6) sobre el
    contrato revisado, lo legal (L1), la Safe y el Ledger (O1), la custodia de
    la llave del árbitro (C12, O2), RPC propio y ETH real (O3).
 

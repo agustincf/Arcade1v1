@@ -652,7 +652,13 @@ arcade:lease:epoch`, which is atomic; the owner is the instance holding the
   ended. With the 1v1 escrow on it adds `escrow` (`ok`/`blocked`/`unverified`):
   the `escrow-check` job compares the chain, `arbiter()`, `feeBps()` and
   `allowedStake` with the arbiter's config every minute, and paid tables stay
-  closed until they match.
+  closed until they match. It also adds `paidOpen` (the paid matches not yet
+  closed on chain) and, during a network change, `networkSwitch`
+  (`network-switch.ts`): the arbiter records its network (chain + escrow) in
+  Redis (`arcade:network1v1`); if it boots with another one while paid matches
+  of the previous network are still open, paid tables stay closed
+  (`escrow: "blocked"`) until those matches finish on their own, and the log
+  lists which deposits to refund by hand on the old network.
 
 Design: `docs/superpowers/specs/2026-09-18-traspaso-con-timbre-design.md`.
 

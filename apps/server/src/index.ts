@@ -15,6 +15,7 @@ import {
   startSweeper,
   stopSweeper,
   escrowExpect,
+  openPaidMatches,
 } from "./matchmaking.js";
 import { leaderboard, ratingsOf, restoreRatings } from "./ratings.js";
 import { restoreAgents, listAgents, hostedAgentByAddress, isHouseWallet } from "./agents.js";
@@ -49,6 +50,8 @@ import { arbiterAddress } from "./sign.js";
 import { moneyAuthErrors, productionConfigErrors, parseTrustProxy } from "./config-guard.js";
 import { startEscrowCheck, stopEscrowCheck } from "./escrow-check.js";
 import { onchainEnabled } from "./onchain.js";
+import { redisGet, redisSet } from "./redis.js";
+import { networkSwitchPending, networkTag, reviewNetworkSwitch } from "./network-switch.js";
 import { agentsRouter, agentsPostLimit } from "./agents-routes.js";
 import { gasSnapshot, startGasMonitor, stopGasMonitor } from "./gas-monitor.js";
 import { startAgentRunner, stopAgentRunner } from "./agent-runner.js";
@@ -353,6 +356,34 @@ if (onchainEnabled()) {
   });
 }
 
+// CAMBIO DE RED DEL 1v1 (network-switch.ts): la red de trabajo queda anotada en
+// Redis (con escrow, Redis es obligatorio). Si el árbitro arrancó con otra y
+// quedan partidas de plata de la anterior, se vuelve a mirar cada minuto hasta
+// que terminen; ahí anota la nueva y abre las mesas de plata.
+const networkSwitchOn = onchainEnabled() && persistenceBackend === "redis";
+const networkSwitchDeps = () => ({
+  current: networkTag(escrowExpect().chainId, escrowExpect().escrow),
+  read: redisGet,
+  write: redisSet,
+  openPaid: openPaidMatches,
+});
+let networkSwitchTimer: NodeJS.Timeout | undefined;
+if (networkSwitchOn) {
+  registerJob({
+    name: "network-switch",
+    start: () => {
+      networkSwitchTimer = setInterval(() => {
+        if (!networkSwitchPending()) return;
+        reviewNetworkSwitch(networkSwitchDeps()).catch((e) =>
+          console.error("[cambio-de-red] no se pudo revisar:", (e as Error).message),
+        );
+      }, 60_000);
+      networkSwitchTimer.unref?.();
+    },
+    stop: async () => clearInterval(networkSwitchTimer),
+  });
+}
+
 // PROBAR REDIS ANTES DE ESCUCHAR: si Upstash no responde, el proceso termina sin
 // haber escuchado, el deploy falla y la instancia vieja sigue atendiendo.
 if (handoverEnabled) await readLease();
@@ -397,6 +428,10 @@ try {
     restoreAlephHouse(),
     restoreAlephModels(),
   ]);
+  // Con las partidas ya cargadas: ¿cambió la red del 1v1 con mesas de plata
+  // todavía abiertas? (network-switch.ts). Un error de Redis aborta el arranque,
+  // como cualquier restauración.
+  if (networkSwitchOn) await reviewNetworkSwitch(networkSwitchDeps());
 
   // Embudo (v4.1): el settle clasifica cada partida por origen (casa/mixta/
   // terceros). El checker vive acá para no crear el ciclo matchmaking→agents.

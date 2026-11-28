@@ -1268,6 +1268,24 @@ function needsSettle(m: Match): boolean {
   );
 }
 
+/** ¿Es una mesa de plata que todavía no cerró en la cadena? Esperando rival o
+ *  jugándose; decidida y sin firmar o sin liquidar (cuando la liquida el
+ *  árbitro); o con un reembolso que la cadena no confirmó. Es lo que hay que
+ *  vaciar antes de cambiar de red (network-switch.ts, `paidOpen` de /health). */
+export function paidStillOpen(m: Match): boolean {
+  if (m.stake <= 0) return false;
+  if (m.status === "waiting" || m.status === "ready") return true;
+  if (m.refund === "pending") return true;
+  if (m.status === "settled" && m.winner && !m.settleTx && !m.settleOutcome)
+    return !m.signature || m.signatureDeadline !== undefined;
+  return false;
+}
+
+/** Las mesas de plata que todavía no cerraron en la cadena (sus ids). */
+export function openPaidMatches(): Hex[] {
+  return [...matches.values()].filter(paidStillOpen).map((m) => m.id);
+}
+
 /** Espera entre intentos: 15 s, 30 s, 1 min, 2 min, 4 min y de ahí 5 min. */
 export function settleBackoffMs(attempts: number): number {
   return Math.min(15_000 * 2 ** Math.max(0, attempts - 1), 5 * 60_000);

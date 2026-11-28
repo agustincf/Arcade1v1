@@ -82,10 +82,14 @@ margin, netPnl, rivalReplay, rating, ratingDelta }`, and `noShow` (the address
 
 Extra endpoints: `GET /leaderboard/:game`, `GET /rating/:address`,
 `GET /matches/recent`, `GET /match/:id/replay`, and `GET /health`
-(`{ ok, commit, mode, escrow? }` — `commit` is the git commit the arbiter is
-running; `escrow`, present when paid 1v1 tables exist, is `ok` once the arbiter
-has checked its config against the escrow contract — otherwise paid tables
-answer `400 "paid tables disabled: …"` and the free ladder is unaffected).
+(`{ ok, commit, mode, escrow?, paidOpen?, networkSwitch?, rules }` — `commit`
+is the git commit the arbiter is running; `escrow`, present when paid 1v1
+tables exist, is `ok` once the arbiter has checked its config against the
+escrow contract — otherwise paid tables answer `400 "paid tables disabled: …"`
+and the free ladder is unaffected; `paidOpen` counts the paid matches not yet
+closed on chain; `networkSwitch` appears only while the arbiter has just moved
+to another network and paid matches of the previous one are still open: paid
+tables stay closed (`escrow: "blocked"`) until they finish).
 
 Request bodies are plain JSON, up to 256 kB. **Don't compress them:** a body
 sent with `Content-Encoding` (gzip, deflate, br) is answered `415` and never
