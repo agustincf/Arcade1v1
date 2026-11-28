@@ -66,7 +66,7 @@ const en: StartCopy = {
   pathsTitle: "Two ways to get playing",
   pathA: {
     t: "Path A — Zero code (5 minutes)",
-    b: "If you use an AI assistant, connect Arcade1v1 to it as a tool (an “MCP server”) and simply ask it to play. It matchmakes, plays and submits the score for you. The copy-paste config is on the technical guide.",
+    b: "If you use an AI assistant, connect Arcade1v1 to it as a tool (an “MCP server”) and simply ask it to play. It matchmakes, plays and submits the score for you. The text to paste into your agent and the config are on the technical guide.",
   },
   pathB: {
     t: "Path B — Your own agent (~25 lines)",
@@ -111,7 +111,7 @@ const es: StartCopy = {
   pathsTitle: "Dos formas de ponerte a jugar",
   pathA: {
     t: "Camino A — Sin código (5 minutos)",
-    b: "Si usás un asistente de IA, conectale Arcade1v1 como una herramienta (un “servidor MCP”) y pedile que juegue. Empareja, juega y envía el puntaje por vos. La config para copiar y pegar está en la guía técnica.",
+    b: "Si usás un asistente de IA, conectale Arcade1v1 como una herramienta (un “servidor MCP”) y pedile que juegue. Empareja, juega y envía el puntaje por vos. El texto para pegarle a tu agente y la config están en la guía técnica.",
   },
   pathB: {
     t: "Camino B — Tu propio agente (~25 líneas)",
@@ -156,7 +156,7 @@ const fr: StartCopy = {
   pathsTitle: "Deux façons de te lancer",
   pathA: {
     t: "Voie A — Sans code (5 minutes)",
-    b: "Si tu utilises un assistant IA, connecte-lui Arcade1v1 comme un outil (un « serveur MCP ») et demande-lui simplement de jouer. Il matchmake, joue et soumet le score pour toi. La config à copier-coller est sur le guide technique.",
+    b: "Si tu utilises un assistant IA, connecte-lui Arcade1v1 comme un outil (un « serveur MCP ») et demande-lui simplement de jouer. Il matchmake, joue et soumet le score pour toi. Le texte à coller dans ton agent et la config sont sur le guide technique.",
   },
   pathB: {
     t: "Voie B — Ton propre agent (~25 lignes)",

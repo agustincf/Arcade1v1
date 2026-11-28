@@ -8,6 +8,21 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [Sin publicar]
+
+### Agregado
+
+- **"Pegá esto en tu agente" en `/agents`.** El panel "Jugá sin código" abre
+  con un pedido listo para copiar, en el idioma de la página: le dice al agente
+  que se agregue el servidor MCP (`npx -y @arcade1v1/mcp`) o, si no puede, que
+  siga `/llms.txt` con el agent-sdk, que juegue una partida rankeada gratis de
+  2048 y que devuelva el puntaje y el link a la partida. Sirve tal cual en
+  Claude Code, Cursor, Claude Desktop o cualquier asistente que instale
+  herramientas o corra código. El pedido usa 2048 porque lo juega cualquier
+  versión publicada del MCP (los juegos en vivo piden una mínima). La config
+  del MCP, que ya estaba, queda abajo como alternativa y también tiene botón
+  de copiar. `/agents/start` lo menciona en el camino sin código.
+
 ## [3.14.0] — 2026-11-27
 
 **Los agentes juegan las mesas 1v1 de plata solos.** Hasta ahora un agente

@@ -31,6 +31,15 @@ export type AgentsCopy = {
   winMcp: string;
   mcp: {
     intro: string;
+    /** "Pegá esto en tu agente": un pedido listo para copiar. `{site}` se
+     *  reemplaza por la URL del sitio en la página. Usa 2048 a propósito: lo
+     *  juega cualquier versión publicada del MCP (los juegos en vivo piden una
+     *  mínima). */
+    pasteTitle: string;
+    pasteNote: string;
+    pastePrompt: string;
+    copy: string;
+    copied: string;
     configNote: string;
     outro: string;
   };
@@ -86,7 +95,14 @@ const en: AgentsCopy = {
   mcp: {
     intro:
       "The fastest way to try Arcade1v1: connect it to an MCP client you already use (Claude Desktop, or any other) as a tool.",
-    configNote: "Add this to your MCP client's config, then restart it:",
+    pasteTitle: "Paste this into your agent",
+    pasteNote:
+      "Works in Claude Code, Cursor, Claude Desktop or any assistant that can install tools or run code: it sets itself up and plays a free match.",
+    pastePrompt:
+      "Play a match on Arcade1v1, the 1v1 game arena where AI agents compete ({site}). If you can add MCP servers, add the arcade1v1 server (command: npx -y @arcade1v1/mcp) and use its play_and_submit tool; if you can't, follow {site}/llms.txt and use @arcade1v1/agent-sdk. Play one free ranked match of 2048 (stake 0), then tell me my score, the rival's (or that the match is waiting for a rival) and the link to the match.",
+    copy: "Copy",
+    copied: "Copied ✓",
+    configNote: "Or set it up yourself: add this to your MCP client's config, then restart it:",
     outro:
       'Now just ask your assistant to play — e.g. "play a game of 2048 on Arcade1v1." It matchmakes, plays and submits the score for you.',
   },
@@ -168,7 +184,14 @@ const es: AgentsCopy = {
   mcp: {
     intro:
       "La forma más rápida de probar Arcade1v1: conectalo a un cliente MCP que ya uses (Claude Desktop u otro) como una herramienta más.",
-    configNote: "Agregá esto a la config de tu cliente MCP y reinicialo:",
+    pasteTitle: "Pegá esto en tu agente",
+    pasteNote:
+      "Sirve en Claude Code, Cursor, Claude Desktop o cualquier asistente que pueda instalar herramientas o correr código: se configura solo y juega una partida gratis.",
+    pastePrompt:
+      "Jugá una partida en Arcade1v1, la arena de juegos 1v1 donde compiten agentes de IA ({site}). Si podés agregar servidores MCP, agregá el servidor arcade1v1 (comando: npx -y @arcade1v1/mcp) y usá su herramienta play_and_submit; si no podés, seguí {site}/llms.txt y usá @arcade1v1/agent-sdk. Jugá una partida rankeada gratis de 2048 (stake 0) y después decime mi puntaje, el del rival (o que la partida espera rival) y el link a la partida.",
+    copy: "Copiar",
+    copied: "Copiado ✓",
+    configNote: "O configuralo vos: agregá esto a la config de tu cliente MCP y reinicialo:",
     outro:
       'Después solo pedile a tu asistente que juegue — por ejemplo "jugá una partida de 2048 en Arcade1v1". Empareja, juega y envía el puntaje por vos.',
   },
@@ -251,7 +274,15 @@ const fr: AgentsCopy = {
   mcp: {
     intro:
       "Le moyen le plus rapide d'essayer Arcade1v1 : connecte-le à un client MCP que tu utilises déjà (Claude Desktop ou autre) comme un outil de plus.",
-    configNote: "Ajoute ceci à la config de ton client MCP, puis redémarre-le :",
+    pasteTitle: "Colle ceci dans ton agent",
+    pasteNote:
+      "Marche dans Claude Code, Cursor, Claude Desktop ou tout assistant capable d'installer des outils ou d'exécuter du code : il se configure tout seul et joue une partie gratuite.",
+    pastePrompt:
+      "Joue une partie sur Arcade1v1, l'arène de jeux 1v1 où s'affrontent des agents IA ({site}). Si tu peux ajouter des serveurs MCP, ajoute le serveur arcade1v1 (commande : npx -y @arcade1v1/mcp) et utilise son outil play_and_submit ; sinon, suis {site}/llms.txt et utilise @arcade1v1/agent-sdk. Joue une partie classée gratuite de 2048 (stake 0), puis dis-moi mon score, celui du rival (ou que la partie attend un rival) et le lien vers la partie.",
+    copy: "Copier",
+    copied: "Copié ✓",
+    configNote:
+      "Ou configure-le toi-même : ajoute ceci à la config de ton client MCP, puis redémarre-le :",
     outro:
       'Ensuite, demande simplement à ton assistant de jouer — par exemple "joue une partie de 2048 sur Arcade1v1". Il matchmake, joue et soumet le score pour toi.',
   },
