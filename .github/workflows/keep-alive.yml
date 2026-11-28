@@ -34,15 +34,15 @@ on:
   workflow_dispatch:
     inputs:
       simular:
-        description: "Forzar un aviso para probarlo (arbitro, escrow o usdc). Vacío = corrida normal."
+        description: "Forzar un aviso para probarlo (arbitro, escrow, usdc o gas). Vacío = corrida normal."
         required: false
         default: ""
 
 # 2026-11-28 — EL VIGÍA (O4 de docs/MAINNET.md). Antes, si el ping fallaba, el
 # job quedaba en rojo y nadie se enteraba. Ahora el mismo ping lo hace
 # scripts/vigia.mjs, que además mira si el árbitro cerró las mesas de plata
-# (`escrow` de /health) y si Circle cambió la implementación del USDC en Base
-# (AUDIT.md, A6). Ante un problema abre un issue con la etiqueta `vigia` (al
+# (`escrow` de /health), si Circle cambió la implementación del USDC en Base
+# (AUDIT.md, A6) y si el árbitro se está quedando sin gas (`gas.low` de /stats). Ante un problema abre un issue con la etiqueta `vigia` (al
 # dueño le llega por mail), uno solo por problema, y lo cierra solo cuando se
 # normaliza. El job queda en verde aunque haya un problema: el aviso es el
 # issue, y un job rojo cada 10 minutos sería un mail por corrida. En rojo queda

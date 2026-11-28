@@ -116,3 +116,24 @@ test("cuerpoIssue: lleva la marca que lo identifica y qué hacer", () => {
   assert.match(b, /2026-11-28T12:00:00.000Z/);
   assert.match(v.tituloIssue("arbitro"), /no responde/);
 });
+
+test("gas: avisa con gas.low, con la dirección y el saldo; si no, ok", async () => {
+  const gas = { enabled: true, address: "0xabc", balanceEth: "0.001", thresholdEth: "0.005" };
+  const bajo = fetchFalso({ "/stats": () => json({ gas: { ...gas, low: true } }) });
+  const r = v.evaluarGas(await v.leerGas({ url: URL_ARB, fetchImpl: bajo.f }));
+  assert.equal(r.problema, "0.001 ETH en 0xabc (umbral 0.005 ETH)");
+  const bien = fetchFalso({
+    "/stats": () => json({ gas: { ...gas, balanceEth: "0.02", low: false } }),
+  });
+  assert.equal(v.evaluarGas(await v.leerGas({ url: URL_ARB, fetchImpl: bien.f })).problema, null);
+  assert.match(v.cuerpoIssue("gas", r.problema), /mandar ETH/);
+});
+
+test("gas: sin /stats o con el monitor apagado no hay veredicto (ni abre ni cierra)", async () => {
+  const caido = fetchFalso({ "/stats": () => json({}, 503) });
+  const r1 = v.evaluarGas(await v.leerGas({ url: URL_ARB, fetchImpl: caido.f }));
+  assert.equal(r1.sinDatos, true);
+  const apagado = v.evaluarGas({ gas: { enabled: false } });
+  assert.equal(apagado.sinDatos, true);
+  assert.deepEqual(v.decidir([r1, apagado], [{ number: 9, body: "<!-- vigia:gas -->" }]), []);
+});

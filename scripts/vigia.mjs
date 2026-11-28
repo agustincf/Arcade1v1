@@ -2,7 +2,7 @@
 // .github/workflows/keep-alive.yml cada ~10 minutos, y de paso despierta al
 // árbitro (el Render gratuito duerme sin tráfico).
 //
-// Mira tres cosas y, si algo anda mal, abre un issue en GitHub (al dueño del
+// Mira cuatro cosas y, si algo anda mal, abre un issue en GitHub (al dueño del
 // repo le llega por mail). Cuando se normaliza, comenta y lo cierra solo. Un
 // problema que sigue abierto no vuelve a avisar: un issue por problema.
 //
@@ -15,11 +15,16 @@
 //                implementación que la de las pruebas contra el USDC real
 //                (packages/contracts/test/fork/, AUDIT.md A6): hay que volver a
 //                correrlas sobre un bloque nuevo.
+//   4. gas     — la wallet del árbitro tiene menos ETH que su propio umbral
+//                (`gas.low` de `/stats`, el monitor de gas del árbitro): sin gas
+//                no paga a los ganadores ni reembolsa. El monitor del árbitro
+//                avisa a un webhook solo si `GAS_ALERT_WEBHOOK_URL` está puesta;
+//                el vigía avisa siempre. Mira la red del 1v1, sea cual sea.
 //
 // Sin dependencias (Node 18+ y la CLI `gh`, que ya está en los runners de
 // GitHub). Uso local, sin tocar issues:
 //   node scripts/vigia.mjs --dry-run
-// Variables: ARBITER_URL, BASE_RPC_URL, VIGIA_SIMULAR=<arbitro|escrow|usdc>
+// Variables: ARBITER_URL, BASE_RPC_URL, VIGIA_SIMULAR=<arbitro|escrow|usdc|gas>
 // (fuerza ese problema, para probar el aviso de punta a punta).
 
 /** El USDC de Circle en Base mainnet (`FiatTokenProxy`). */
@@ -39,6 +44,7 @@ const TITULOS = {
   arbitro: "[vigía] El árbitro no responde",
   escrow: "[vigía] Las mesas de plata están cerradas: el árbitro no coincide con el contrato",
   usdc: "[vigía] El USDC de Base cambió de versión: hay que volver a correr las pruebas",
+  gas: "[vigía] El árbitro se está quedando sin gas",
 };
 
 const QUE_HACER = {
@@ -73,6 +79,15 @@ const QUE_HACER = {
     "implementación nueva (y el bloque de las pruebas en su comentario): con eso",
     "este issue se cierra solo. Si fallan, el presupuesto no alcanza: avisar al",
     "auditor antes de tocar el contrato.",
+  ],
+  gas: [
+    "Sin ETH para el gas, el árbitro no puede presentar los pagos a los ganadores",
+    "ni los reembolsos (las partidas siguen jugándose, pero la plata queda",
+    "esperando; el ganador puede cobrar él mismo con la firma hasta que venza).",
+    "",
+    "Qué hacer: mandar ETH a la dirección del árbitro, en la red del 1v1 (Base",
+    "Sepolia en testnet, Base en mainnet). Con la recarga, este issue se cierra",
+    "solo en la próxima vuelta.",
   ],
 };
 
@@ -136,6 +151,34 @@ export function evaluarEscrow(health) {
   if (health.escrow === "ok") return { tipo: "escrow", problema: null, detalle: "ok" };
   if (health.escrow === "unverified") return { tipo: "escrow", problema: null, reintentar: true };
   return { tipo: "escrow", problema: `/health dice escrow: ${JSON.stringify(health.escrow)}` };
+}
+
+/** El gas del árbitro, de su propio monitor (`/stats` → `gas`). Sin `/stats` o
+ *  con el monitor apagado no hay veredicto: ni abre ni cierra. */
+export async function leerGas({ url, fetchImpl = fetch }) {
+  try {
+    const r = await fetchConTope(fetchImpl, `${url}/stats`, {}, 30_000);
+    if (!r.ok) return { motivo: `HTTP ${r.status}` };
+    return { gas: (await r.json())?.gas };
+  } catch (err) {
+    return { motivo: String(err?.message ?? err) };
+  }
+}
+
+export function evaluarGas(lectura) {
+  const g = lectura.gas;
+  if (lectura.motivo || !g)
+    return {
+      tipo: "gas",
+      problema: null,
+      sinDatos: true,
+      detalle: `no se pudo leer /stats: ${lectura.motivo ?? "sin gas"}`,
+    };
+  if (!g.enabled)
+    return { tipo: "gas", problema: null, sinDatos: true, detalle: "monitor de gas apagado" };
+  const saldo = `${g.balanceEth ?? "?"} ETH en ${g.address ?? "?"} (umbral ${g.thresholdEth ?? "?"} ETH)`;
+  if (g.low === true) return { tipo: "gas", problema: saldo };
+  return { tipo: "gas", problema: null, detalle: saldo };
 }
 
 async function rpc(fetchImpl, url, method, params) {
@@ -239,8 +282,11 @@ async function main() {
       };
   }
   const usdc = await evaluarUsdc({ rpcUrl });
+  const gas = arbitro.problema
+    ? { tipo: "gas", problema: null, sinDatos: true, detalle: "el árbitro no respondió" }
+    : evaluarGas(await leerGas({ url }));
 
-  const resultados = [arbitro, escrow, usdc].map((r) =>
+  const resultados = [arbitro, escrow, usdc, gas].map((r) =>
     r.tipo === simular
       ? { tipo: r.tipo, problema: `SIMULADO (VIGIA_SIMULAR=${simular}): es una prueba del aviso.` }
       : r,
