@@ -5,6 +5,7 @@
 // del operador (MoneyConfig, más abajo).
 import {
   ArbiterClient,
+  Paid1v1Error,
   createAgent,
   describeAlephRules,
   legalActions,
@@ -54,8 +55,20 @@ export async function ratingTool(
   return { address, ratings };
 }
 
+// Las herramientas de siempre son SOLO de la ladder gratis: un asiento de plata
+// que no deposita deja a una persona esperando. Para plata está play_paid.
+function assertFree(stake: number): void {
+  if (stake > 0) {
+    throw new Error(
+      `this tool only plays the free ladder (stake 0): for a ${stake} USDC table use play_paid, ` +
+        `which deposits and plays in one call`,
+    );
+  }
+}
+
 export async function matchmakeTool(agent: Agent, game: string, stake: number): Promise<MatchView> {
   assertGame(game);
+  assertFree(stake);
   // Firmado con la wallet del agente (el árbitro en producción lo exige).
   return agent.matchmake(game, stake);
 }
@@ -66,7 +79,149 @@ export async function playAndSubmitTool(
   stake: number,
 ): Promise<MatchView> {
   assertGame(game);
+  assertFree(stake);
   return agent.playAndSubmit({ game, stake });
+}
+
+// ---- Mesas 1v1 de plata ----------------------------------------------------
+
+/** Las mesas 1v1 de plata que existen (USDC). */
+export const PAID_TABLES = [1, 2, 5, 10] as const;
+
+/** Las mesas 1v1 de plata del operador (config.ts). Ausente = apagadas. El
+ *  tope sale del entorno, nunca de los argumentos: el modelo no elige cuánto
+ *  puede poner como máximo. */
+export interface Paid1v1Money {
+  maxStake: number;
+}
+
+/** Lo que devuelve una partida pagada. */
+export type PaidResult = Awaited<ReturnType<Agent["playAndSubmit"]>>;
+
+/** La libreta de partidas pagadas de ESTA corrida del servidor: la que sigue en
+ *  curso y el resultado que todavía no le llegó al modelo (el cliente MCP cortó
+ *  por tiempo antes). Así reintentar `play_paid` no abre otra partida. */
+export interface PaidLedger {
+  inFlight?: Promise<PaidResult>;
+  undelivered?: { result?: PaidResult; error?: Error };
+}
+
+export function createPaidLedger(): PaidLedger {
+  return {};
+}
+
+/** El error de una partida pagada para el modelo: sin URLs y, si es un
+ *  `Paid1v1Error`, con el `matchId` y si la plata entró al final del mensaje
+ *  (el SDK del MCP solo le pasa `error.message` al cliente). Con depósito, le
+ *  dice que retome esa partida y no juegue otra. */
+function paidError(e: unknown): Error {
+  const base = errorWithoutUrls(e);
+  if (!(e instanceof Paid1v1Error)) return base;
+  const tail = e.deposited
+    ? ` [matchId=${e.matchId ?? "unknown"}, deposited=true — the stake is (or may be) in: ` +
+      `call resume_paid with this matchId, do not start another match]`
+    : ` [matchId=${e.matchId ?? "none"}, deposited=false]`;
+  return new Error(base.message + tail);
+}
+
+function assertPaidOn(paid: Paid1v1Money | undefined, refused: string): asserts paid {
+  if (!paid) {
+    throw new Error(
+      `${refused}: paid 1v1 tables are off on this MCP server. Its operator has to set ` +
+        `ARCADE_1V1_ESCROW_ADDRESS, ARCADE_1V1_RPC_URL, ARCADE_1V1_CHAIN_ID and ARCADE_1V1_MAX_STAKE, ` +
+        `together with ARCADE_PRIVATE_KEY, and restart it. The free ladder (stake 0) needs none of them.`,
+    );
+  }
+}
+
+export async function playPaidTool(
+  agent: Agent,
+  ledger: PaidLedger,
+  game: string,
+  stake: number,
+  paid: Paid1v1Money | undefined,
+  signal?: AbortSignal,
+): Promise<PaidResult & { resumed?: boolean }> {
+  assertGame(game);
+  const refused = `not taking a seat at the ${stake} USDC table`;
+  assertPaidOn(paid, refused);
+  // Una llamada anterior sigue en curso: su resultado es el de esta (y su
+  // error, saneado igual).
+  if (ledger.inFlight) {
+    try {
+      return { ...(await ledger.inFlight), resumed: true };
+    } catch (e) {
+      throw paidError(e);
+    }
+  }
+  // Una anterior terminó y el modelo nunca vio el resultado: se lo da ahora.
+  if (ledger.undelivered) {
+    const { result, error } = ledger.undelivered;
+    ledger.undelivered = undefined;
+    if (error) throw error;
+    return { ...result!, resumed: true };
+  }
+  if (!PAID_TABLES.includes(stake as never)) {
+    throw new Error(`${refused}: the paid 1v1 tables are 1, 2, 5 and 10 USDC`);
+  }
+  if (stake > paid.maxStake) {
+    throw new Error(
+      `${refused}: this server's operator caps a table at ${paid.maxStake} USDC (ARCADE_1V1_MAX_STAKE)`,
+    );
+  }
+  const run = agent.playAndSubmit({ game, stake });
+  ledger.inFlight = run;
+  try {
+    const result = await run;
+    if (signal?.aborted) ledger.undelivered = { result };
+    return result;
+  } catch (e) {
+    const error = paidError(e);
+    if (signal?.aborted) ledger.undelivered = { error };
+    throw error;
+  } finally {
+    if (ledger.inFlight === run) ledger.inFlight = undefined;
+  }
+}
+
+export async function resumePaidTool(
+  agent: Agent,
+  matchId: string,
+  paid: Paid1v1Money | undefined,
+): Promise<MatchView> {
+  assertPaidOn(paid, `not resuming match ${matchId}`);
+  try {
+    return await agent.resume1v1(matchId);
+  } catch (e) {
+    throw paidError(e);
+  }
+}
+
+export async function withdraw1v1Tool(
+  agent: Agent,
+  paid: Paid1v1Money | undefined,
+): Promise<{ amount: string; txHash?: string }> {
+  assertPaidOn(paid, "not withdrawing");
+  try {
+    const r = await agent.withdraw1v1();
+    return { amount: r.amount.toString(), ...(r.txHash ? { txHash: r.txHash } : {}) };
+  } catch (e) {
+    throw errorWithoutUrls(e);
+  }
+}
+
+export async function mintTestUsdcTool(
+  agent: Agent,
+  amount: number,
+  paid: Paid1v1Money | undefined,
+): Promise<{ amount: string; txHash: string }> {
+  assertPaidOn(paid, "not minting");
+  try {
+    const r = await agent.mintTestUsdc(amount);
+    return { amount: r.amount.toString(), txHash: r.txHash };
+  } catch (e) {
+    throw errorWithoutUrls(e);
+  }
 }
 
 export async function getResultTool(
@@ -313,13 +468,16 @@ export interface WhoAmI {
   ratings: Record<string, number>;
   /** Páginas de la web para la persona; ausentes sin web conocida. */
   links: { leaderboard?: string; agents?: string };
+  /** Las mesas 1v1 de plata, si el operador las prendió: la red y los saldos
+   *  de la wallet (micro-USDC y wei, como texto). */
+  paid1v1?: { chainId: number; usdc: string; eth: string; owed: string };
   summary: string;
 }
 
 export async function whoamiTool(
   agent: Agent,
   client: ArbiterClient,
-  opts: { webUrl?: string; fixedWallet: boolean },
+  opts: { webUrl?: string; fixedWallet: boolean; paid1v1Enabled?: boolean },
 ): Promise<WhoAmI> {
   const address = agent.address.toLowerCase();
   const ratings = await client.rating(address);
@@ -328,6 +486,21 @@ export async function whoamiTool(
     ? { leaderboard: `${opts.webUrl}/leaderboard`, agents: `${opts.webUrl}/agents` }
     : {};
   const played = Object.entries(ratings).map(([g, r]) => `${g} ${r}`);
+  // Los saldos de las mesas de plata: si la red no contesta, whoami no falla.
+  let paid1v1: WhoAmI["paid1v1"];
+  if (opts.paid1v1Enabled) {
+    try {
+      const b = await agent.paid1v1Balances();
+      paid1v1 = {
+        chainId: b.chainId,
+        usdc: b.usdc.toString(),
+        eth: b.eth.toString(),
+        owed: b.owed.toString(),
+      };
+    } catch {
+      paid1v1 = undefined;
+    }
+  }
   const summary = [
     `This server plays as ${address}.`,
     played.length ? `Ratings: ${played.join(", ")}.` : "No rated games yet.",
@@ -335,8 +508,14 @@ export async function whoamiTool(
     wallet === "ephemeral"
       ? "The wallet is ephemeral: a new one each time this server starts, so its history and rating start over. To keep one identity, the operator sets ARCADE_PRIVATE_KEY (a dedicated wallet)."
       : "",
+    paid1v1
+      ? `Paid 1v1 tables are on (chain ${paid1v1.chainId}): ${(Number(paid1v1.usdc) / 1e6).toFixed(2)} USDC in the wallet` +
+        (paid1v1.owed !== "0"
+          ? `, ${(Number(paid1v1.owed) / 1e6).toFixed(2)} USDC credited in the escrow (collect it with withdraw_1v1).`
+          : ".")
+      : "",
   ]
     .filter(Boolean)
     .join(" ");
-  return { address, wallet, ratings, links, summary };
+  return { address, wallet, ratings, links, ...(paid1v1 ? { paid1v1 } : {}), summary };
 }

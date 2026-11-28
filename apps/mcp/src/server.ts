@@ -19,10 +19,17 @@ import {
   alephDepositTool,
   alephWithdrawTool,
   whoamiTool,
+  createPaidLedger,
+  playPaidTool,
+  resumePaidTool,
+  withdraw1v1Tool,
+  mintTestUsdcTool,
+  type Paid1v1Money,
   type MoneyConfig,
   type AlephAgentView,
 } from "./tools";
 import { summarizeMatch, summarizeAleph } from "./present";
+import pkg from "../package.json" with { type: "json" };
 
 type Agent = ReturnType<typeof createAgent>;
 // El JSON va PRIMERO y entero (quien ya parseaba `content[0].text` sigue
@@ -51,11 +58,15 @@ export function buildServer(deps: {
   webUrl?: string;
   /** ¿La wallet es la fija del operador (ARCADE_PRIVATE_KEY) o una efímera? */
   fixedWallet?: boolean;
+  /** Las mesas 1v1 de plata del operador (ARCADE_1V1_*). Ausente = apagadas. */
+  paid1v1?: Paid1v1Money;
 }): McpServer {
-  const { agent, client, money = {}, webUrl, fixedWallet = false } = deps;
+  const { agent, client, money = {}, webUrl, fixedWallet = false, paid1v1 } = deps;
+  // Las partidas pagadas de esta corrida: reintentar play_paid no abre otra.
+  const ledger = createPaidLedger();
   const match = (v: MatchView) => ok(v, summarizeMatch(v, webUrl));
   const room = <T extends AlephAgentView>(v: T) => ok(v, summarizeAleph(v, webUrl, v.me, v.msLeft));
-  const server = new McpServer({ name: "arcade1v1", version: "0.7.0" });
+  const server = new McpServer({ name: "arcade1v1", version: pkg.version });
 
   server.registerTool(
     "list_games",
@@ -100,9 +111,8 @@ export function buildServer(deps: {
         stake: z
           .number()
           .describe(
-            "Usá 0: la ladder rankeada gratis, con el mismo ELO que las mesas de plata. " +
-              "Este servidor firma mensajes pero no manda transacciones, así que no puede " +
-              "depositar USDC — un stake mayor a 0 se rechaza.",
+            "stake 0 only: la ladder rankeada gratis, con el mismo ELO que las mesas de plata. " +
+              "Para una mesa de plata (1, 2, 5 o 10 USDC) usá play_paid, que deposita y juega.",
           )
           .default(0),
       },
@@ -124,14 +134,90 @@ export function buildServer(deps: {
         stake: z
           .number()
           .describe(
-            "Usá 0: la ladder rankeada gratis, con el mismo ELO que las mesas de plata. " +
-              "Este servidor firma mensajes pero no manda transacciones, así que no puede " +
-              "depositar USDC — un stake mayor a 0 se rechaza.",
+            "stake 0 only: la ladder rankeada gratis, con el mismo ELO que las mesas de plata. " +
+              "Para una mesa de plata (1, 2, 5 o 10 USDC) usá play_paid, que deposita y juega.",
           )
           .default(0),
       },
     },
     async ({ game, stake }) => match(await playAndSubmitTool(agent, game, stake)),
+  );
+
+  // ---- Mesas 1v1 de plata ------------------------------------------------
+  // Descripciones en inglés, como las de Aleph: es lo que lee el modelo.
+
+  server.registerTool(
+    "play_paid",
+    {
+      title: "Play a paid 1v1 table",
+      description:
+        "Money: plays a paid 1v1 table (1, 2, 5 or 10 USDC) end to end in ONE call, from this " +
+        "server's wallet: checks everything before taking a seat, approves exactly the stake, " +
+        "deposits, plays live with the default strategy, and returns the match. The arbiter pays " +
+        "the winner (or refunds a draw / no rival within an hour) by itself: follow it with " +
+        "get_result. Live games only for now (flappy, racing, invaders). Refused unless the operator set " +
+        "ARCADE_1V1_ESCROW_ADDRESS, ARCADE_1V1_RPC_URL, ARCADE_1V1_CHAIN_ID, ARCADE_1V1_MAX_STAKE " +
+        "and ARCADE_PRIVATE_KEY, and above ARCADE_1V1_MAX_STAKE. Retrying after a timeout does " +
+        "NOT open a second match: it returns the previous result (`resumed: true`). If it fails " +
+        "after the deposit, the error ends with `[matchId=…, deposited=true …]`: call resume_paid " +
+        "with that matchId instead of playing again.",
+      // NO idempotente: reintentar tras un corte devuelve el resultado anterior,
+      // pero llamar de nuevo después de recibirlo juega otra partida y mueve plata.
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+      inputSchema: {
+        game: z.string(),
+        stake: z.number().describe("USDC: one of 1, 2, 5 or 10, at most ARCADE_1V1_MAX_STAKE"),
+      },
+    },
+    async ({ game, stake }, extra) =>
+      match(await playPaidTool(agent, ledger, game, stake, paid1v1, extra.signal)),
+  );
+
+  server.registerTool(
+    "resume_paid",
+    {
+      title: "Resume a paid 1v1 match",
+      description:
+        "Money tables: plays a paid match this server's wallet already deposited in (after a " +
+        "play_paid that failed with `deposited: true`). It never deposits again. A funded match " +
+        "that is never played is won by the rival.",
+      annotations: PLAY,
+      inputSchema: { matchId: z.string() },
+    },
+    async ({ matchId }) => match(await resumePaidTool(agent, matchId, paid1v1)),
+  );
+
+  server.registerTool(
+    "withdraw_1v1",
+    {
+      title: "Collect what the 1v1 escrow credited me",
+      description:
+        "Money tables, rarely needed: a 1v1 prize or refund the USDC token refused (this wallet " +
+        "on Circle's blacklist, or the token paused) stays credited in the escrow. This collects " +
+        "it to this server's wallet; with nothing credited it sends no transaction. Returns " +
+        "`amount` (micro-USDC, as a string) and `txHash` when it sent one.",
+      annotations: { ...PLAY, idempotentHint: true },
+      inputSchema: {},
+    },
+    async () => ok(await withdraw1v1Tool(agent, paid1v1)),
+  );
+
+  server.registerTool(
+    "mint_test_usdc",
+    {
+      title: "Mint test USDC (testnet only)",
+      description:
+        "Testnet only: mints test USDC to this server's wallet on Base Sepolia, to fund paid " +
+        "1v1 tables. Refused on Base mainnet. Gas (ETH) still comes from a faucet.",
+      annotations: PLAY,
+      inputSchema: { amount: z.number().describe("USDC to mint, e.g. 10") },
+    },
+    async ({ amount }) => ok(await mintTestUsdcTool(agent, amount, paid1v1)),
   );
 
   server.registerTool(
@@ -160,7 +246,11 @@ export function buildServer(deps: {
       annotations: READ,
     },
     async () => {
-      const w = await whoamiTool(agent, client, { webUrl, fixedWallet });
+      const w = await whoamiTool(agent, client, {
+        webUrl,
+        fixedWallet,
+        paid1v1Enabled: paid1v1 !== undefined,
+      });
       return ok(w, w.summary);
     },
   );

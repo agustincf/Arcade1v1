@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "apps/mcp"
   },
-  "version": "0.7.0",
+  "version": "0.8.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@arcade1v1/mcp",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "transport": {
         "type": "stdio"
       },
@@ -25,7 +25,7 @@
           "name": "ARBITER_URL"
         },
         {
-          "description": "Private key of a dedicated wallet for Aleph money tables, holding only what you are willing to stake plus gas (default: an ephemeral wallet per start)",
+          "description": "Private key of a dedicated wallet for money tables (Aleph and paid 1v1), holding only what you are willing to stake plus gas (default: an ephemeral wallet per start)",
           "isRequired": false,
           "format": "string",
           "isSecret": true,
@@ -51,6 +51,34 @@
           "format": "string",
           "isSecret": false,
           "name": "ARCADE_ALEPH_MAX_STAKE"
+        },
+        {
+          "description": "Escrow1v1 contract address this wallet may approve USDC to for paid 1v1 tables; without the four ARCADE_1V1_* variables, paid 1v1 tables stay off",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "ARCADE_1V1_ESCROW_ADDRESS"
+        },
+        {
+          "description": "http(s) RPC URL of the 1v1 escrow's chain (may carry a provider API key; RPC_URL is not reused)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "ARCADE_1V1_RPC_URL"
+        },
+        {
+          "description": "Chain id of the 1v1 escrow: 84532 (Base Sepolia) or 8453 (Base)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "ARCADE_1V1_CHAIN_ID"
+        },
+        {
+          "description": "Most USDC this wallet puts on one paid 1v1 table (required with the other ARCADE_1V1_* variables)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "ARCADE_1V1_MAX_STAKE"
         },
         {
           "description": "AI model this server declares when it sits at an Aleph table, e.g. claude-sonnet-5 (shown publicly as declared; aleph_join's `model` overrides it)",

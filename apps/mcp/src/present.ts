@@ -42,6 +42,16 @@ function verdictOf(v: MatchView, head: string): string | undefined {
   return `${word} the ${head}: ${v.yourScore} to ${v.rivalScore}.`;
 }
 
+/** Qué pasó con la plata de una mesa de plata ya decidida. */
+function moneyLines(v: MatchView): string[] {
+  const out: string[] = [];
+  if (v.settleTx) out.push(`Paid on-chain (tx ${v.settleTx}).`);
+  else if (v.settleOutcome === "external") out.push("Paid on-chain.");
+  if (v.refund === "pending") out.push("The stake refund is pending on-chain.");
+  else if (v.refund === "done") out.push("The stake was refunded.");
+  return out;
+}
+
 /** Una partida 1v1 en una o dos frases, desde el lado de quien consulta. */
 export function summarizeMatch(v: MatchView, web: string | undefined): string {
   const head = `${v.game} match ${v.matchId}`;
@@ -58,6 +68,7 @@ export function summarizeMatch(v: MatchView, web: string | undefined): string {
       );
     }
     if (v.stake > 0 && v.netPnl !== undefined) parts.push(`Net: ${signed(v.netPnl)} USDC.`);
+    if (v.stake > 0) parts.push(...moneyLines(v));
   } else if (decided) {
     // Consultada sin `address`: no hay "vos", solo los dos puntajes.
     const scores = Object.entries(v.scores)
@@ -69,7 +80,10 @@ export function summarizeMatch(v: MatchView, web: string | undefined): string {
       `Your score in the ${head}: ${v.yourScore}. ` +
         (v.rivalSubmitted
           ? "The rival already played; the result is being settled."
-          : "Waiting for a rival to play — the result comes when they do (no need to stay online)."),
+          : "Waiting for a rival to play — the result comes when they do (no need to stay online).") +
+        (v.stake > 0 && !v.rivalSubmitted && v.status === "waiting"
+          ? " If no rival within an hour, the stake is refunded."
+          : ""),
     );
   } else {
     parts.push(

@@ -74,6 +74,17 @@ export interface MatchView {
   ratingDelta?: number;
 }
 
+/** Lo que contesta `GET /health`. `escrow` aparece solo con el escrow del 1v1
+ *  activo ("ok", "blocked" o "unverified"); `rules`, en árbitros desde la
+ *  3.14.0: la versión de reglas de cada juego. */
+export interface ArbiterHealth {
+  ok: boolean;
+  commit?: string | null;
+  mode?: string;
+  escrow?: string;
+  rules?: Record<string, number>;
+}
+
 export interface LeaderRow {
   address: string;
   rating: number;
@@ -515,6 +526,18 @@ export class ArbiterClient {
     }
     if (!r.ok) throw arbiterError(`arbiter ${path} ${r.status}: ${text}`, r.status);
     return JSON.parse(text) as LiveCommitView;
+  }
+
+  /** El estado del árbitro: si sus mesas de plata están abiertas (`escrow`) y
+   *  qué reglas corre (`rules`). */
+  health(): Promise<ArbiterHealth> {
+    return this.get<ArbiterHealth>("/health");
+  }
+
+  /** La dirección con la que firma el árbitro (tiene que ser la `arbiter()` del
+   *  contrato). */
+  async arbiterAddress(): Promise<string> {
+    return (await this.get<{ address: string }>("/arbiter")).address;
   }
 
   async getMatch(id: string, address?: string): Promise<MatchView> {

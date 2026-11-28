@@ -47,6 +47,7 @@ import {
   saveLiveAttempt,
   withLiveLock,
 } from "./live-store.js";
+import { DepositUnverifiedError } from "./onchain.js";
 
 export { LiveUnavailableError } from "./live-store.js";
 
@@ -260,6 +261,9 @@ export async function liveStart(
     try {
       await assertDepositOnchain(m, address);
     } catch (e) {
+      // Si el árbitro no pudo leer la cadena, no se procesó nada: sale tal cual
+      // y la ruta contesta 503 para que el cliente reintente.
+      if (e instanceof DepositUnverifiedError) throw e;
       throw new LiveError((e as Error).message);
     }
     assertOpen(m);

@@ -157,3 +157,19 @@ test("summarizeAleph: lobby, en juego y terminada, siempre con el link a la esce
   assert.match(over, /https:\/\/arcade1v1\.com\/aleph\/0xroom$/);
   assert.doesNotMatch(summarizeAleph(room({}), undefined, "0xa"), /http/);
 });
+
+test("summarizeMatch: una mesa de plata dice qué pasó con la plata", () => {
+  const paid = { ...base, game: "racing", stake: 1 };
+  const settled = summarizeMatch(
+    { ...paid, status: "settled", yourScore: 9, rivalScore: 3, netPnl: 0.7, settleTx: "0xabc" },
+    WEB,
+  );
+  assert.match(settled, /Paid on-chain \(tx 0xabc\)\./);
+  const refunding = summarizeMatch(
+    { ...paid, status: "draw", outcome: "draw", yourScore: 4, rivalScore: 4, refund: "pending" },
+    WEB,
+  );
+  assert.match(refunding, /stake refund is pending on-chain/);
+  const waiting = summarizeMatch({ ...paid, status: "waiting", yourScore: 5 }, WEB);
+  assert.match(waiting, /no rival within an hour, the stake is refunded/i);
+});

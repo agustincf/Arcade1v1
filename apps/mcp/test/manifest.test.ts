@@ -48,3 +48,17 @@ test("server.json: nombre y versiones acompañan al paquete npm", () => {
   assert.equal(npm.identifier, pkg.name);
   assert.equal(npm.version, pkg.version, "publicar el manifiesto apuntando a otra versión rebota");
 });
+
+test("server.json: publica las variables de las mesas 1v1 de plata", () => {
+  const vars = (
+    manifest as unknown as { packages: { environmentVariables?: { name: string }[] }[] }
+  ).packages.flatMap((p) => (p.environmentVariables ?? []).map((v) => v.name));
+  for (const v of [
+    "ARCADE_1V1_ESCROW_ADDRESS",
+    "ARCADE_1V1_RPC_URL",
+    "ARCADE_1V1_CHAIN_ID",
+    "ARCADE_1V1_MAX_STAKE",
+  ]) {
+    assert.ok(vars.includes(v), `falta ${v}`);
+  }
+});

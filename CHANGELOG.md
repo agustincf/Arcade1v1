@@ -8,6 +8,159 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
 > Arcade1v1 corre en **testnet** (Base Sepolia, dinero de juego) mientras se
 > completa la revisión legal y de seguridad previa a mainnet.
 
+## [3.14.0] — 2026-11-27
+
+**Los agentes juegan las mesas 1v1 de plata solos.** Hasta ahora un agente
+autónomo solo podía jugar la ladder gratis: depositar en una mesa de 1, 2, 5 o
+10 USDC exigía una wallet humana en la web. Desde esta versión, el agent-sdk
+(`createAgent({ privateKey, paid1v1 })` y `playAndSubmit({ game, stake })`) y
+el MCP (`play_paid`) revisan todo antes de sentarse, verifican el asiento del
+árbitro contra el contrato que fijó su operador, aprueban el monto exacto,
+depositan, juegan en vivo y cobran, sin una persona en el medio. Juegan en las
+mismas mesas que las personas, por ahora solo en los juegos en vivo (Flappy,
+Carrera y Space Invaders), y la web avisa que el rival puede ser un agente.
+Los paquetes de npm pasan a **0.8.0**, los cuatro juntos (game-sdk suma el
+subpath `/escrow1v1`). El árbitro, además, deja de contestar "error interno"
+cuando todavía no ve un depósito y publica la versión de reglas en `/health`.
+
+### Agregado
+
+- **La web avisa que el rival de una mesa de plata puede ser un agente de IA.**
+  Personas y agentes juegan en las mismas mesas, así que al elegir la mesa de
+  plata y otra vez en la pantalla de depósito, antes de firmar, la web dice que
+  el rival puede ser un agente autónomo que deposita lo mismo y se verifica por
+  replay como todos (inglés, español y francés). La página `/agents` deja de
+  decir que los agentes juegan solo la ladder gratis. Probado con las claves en
+  los tres idiomas y mirando la mesa de Carrera en el navegador.
+- **El MCP juega mesas 1v1 de plata (`play_paid`).** Con cuatro variables del
+  operador (`ARCADE_1V1_ESCROW_ADDRESS`, `ARCADE_1V1_RPC_URL`,
+  `ARCADE_1V1_CHAIN_ID` y `ARCADE_1V1_MAX_STAKE`, todas o ninguna, más
+  `ARCADE_PRIVATE_KEY`), un modelo de lenguaje juega por plata sin escribir
+  código: `play_paid` deposita y juega en una llamada y figura como "mueve
+  plata". Rechaza sin tocar la red una mesa que no existe o que pasa el tope.
+  Si el cliente corta por tiempo, volver a llamar devuelve el resultado
+  anterior en vez de abrir otra partida. Además: `resume_paid`, `withdraw_1v1`
+  y `mint_test_usdc` (solo en testnet), y `whoami` muestra el USDC de la wallet
+  y lo acreditado. Los errores de plata no le muestran al modelo la URL del
+  RPC. `matchmake` y `play_and_submit` siguen solo en la ladder gratis y
+  apuntan a `play_paid`. La versión del servidor sale de su `package.json`.
+  Probado con el agente real contra un árbitro falso y el RPC falso del 1v1.
+
+- **Un agente cobra lo acreditado, consigue USDC de prueba y lee sus saldos
+  solo.** `agent.withdraw1v1()` cobra del `Escrow1v1` fijado un pago que el
+  USDC rechazó (queda acreditado en el contrato) y, sin nada acreditado, no
+  manda nada. `agent.mintTestUsdc(amount)` acuña USDC de prueba en Base Sepolia
+  (en Base se niega antes de tocar la red). `agent.paid1v1Balances()` dice la
+  red, el USDC, el ETH y lo acreditado. El README del SDK suma la sección
+  "Play paid 1v1 tables". Probado con el RPC falso del 1v1.
+
+- **Un agente juega una mesa 1v1 de plata en una sola llamada.** Con
+  `paid1v1` configurado, `agent.playAndSubmit({ game: "racing", stake: 1 })`
+  revisa todo antes de sentarse, se sienta, aprueba el monto exacto, pide de
+  nuevo justo antes de depositar (como la web: si mientras tanto una persona
+  abrió en esa mesa, se sienta con ella), deposita y juega en vivo. Si el
+  árbitro todavía no ve el depósito, reintenta abrir el intento durante 60
+  segundos, nunca dos veces en menos de 2. Nunca vuelve a pedir emparejamiento
+  después de mandar el depósito, y juega una partida pagada a la vez. Si
+  vuelve una partida propia que ya tenía depósito, no paga de nuevo: la juega,
+  o la devuelve esperando rival si ya la jugó. Un error después del depósito
+  avisa con `deposited: true` y el `matchId`, y `agent.resume1v1(matchId)`
+  retoma la partida sin depositar. Por ahora, solo los juegos en vivo
+  (Flappy, Carrera y Space Invaders): en los de semilla el agente podría simular la partida
+  entera antes de jugar contra una persona. Probado con un árbitro falso que
+  sirve una partida de Carrera en vivo de verdad y un RPC que mina como Base.
+  Y de punta a punta en una cadena local con el contrato y el árbitro reales
+  (`check-payment-sdk-e2e.sh`, en CI): el que gana cobra 1,70 USDC, un empate
+  se reembolsa, y un ganador en la blacklist del USDC cobra después con
+  `withdraw1v1()`.
+
+- **El SDK acepta la configuración de las mesas 1v1 de plata (`paid1v1`).**
+  `createAgent({ privateKey, paid1v1: { rpcUrl, escrow, chainId, maxStake } })`:
+  el RPC de la red del 1v1, el `Escrow1v1` en el que confía el operador, su red
+  y el tope por mesa en USDC (obligatorio). Va aparte de las opciones de Aleph,
+  porque en mainnet los dos formatos van a estar en redes distintas. Se valida
+  al crear el agente, sin tocar la red, y ningún error repite un valor (en el
+  campo del contrato se puede pegar una clave por error). `agent.matchmake`
+  sigue tomando solo asientos gratis, ahora con un mensaje que apunta a
+  `playAndSubmit`, y firma con el reloj del agente. Nuevo
+  `agent.getResult(matchId)`. Probado campo por campo, comprobando que el
+  mensaje no incluye el valor.
+
+- **El game-sdk publica el contrato 1v1 para los agentes**
+  (`@arcade1v1/game-sdk/escrow1v1`). Trae el ABI de lo que usa un agente para
+  depositar y cobrar en una mesa 1v1 de plata (`open`, `join`, `matches`,
+  `owed`, `withdraw` y las lecturas de configuración), los estados de una
+  partida, el dominio EIP-712 del asiento que firma el árbitro y la dirección
+  del USDC de Circle en Base. Es el primer paso para que un agente juegue por
+  plata sin una persona: con el dominio, el agente puede comprobar, antes de
+  pagar, que el asiento es para el contrato y la red que fijó su operador.
+  Probado con un asiento firmado por el árbitro de verdad, que se recupera con
+  el dominio del game-sdk.
+
+### Cambiado
+
+- **La documentación dice que los agentes juegan las mesas 1v1 de plata.**
+  `AGENTS.md` suma la sección "Paid 1v1 tables for agents" (cómo se configura,
+  qué hace una llamada, cómo se cobra y cómo se retoma) y deja de decir "usá
+  stake 0" y "fase 1"; `llms.txt`, la arquitectura, la configuración, el
+  deploy, los redeploys (hay que avisarles a los operadores de agentes que
+  actualicen el pin), `MAINNET.md` (decisión 7: agentes en las mismas mesas,
+  con USDC real en mainnet), `SECURITY.md`, el roadmap y la lista de pruebas
+  quedan al día. El smoke de testnet de la mesa de 1 USDC
+  (`scripts/smoke-1v1-mesa-paga.mts`) ahora lo juegan dos agentes del SDK
+  solos, que se acuñan su USDC de prueba.
+
+- **`/health` publica la versión de reglas de cada juego (`rules`).** Así un
+  agente comprueba, antes de sentarse a una mesa de plata, que juega las mismas
+  reglas que el árbitro, en vez de enterarse después de emparejar (como segundo
+  jugador, eso dejaba a la persona que abrió esperando hasta 10 minutos). Las
+  rutas del 1v1 (`/arbiter`, `/matchmake`, `/match/:id/score` y
+  `GET /match/:id`) pasan a un router propio (`match-routes.ts`), sin cambios
+  de comportamiento, para que las pruebas monten las mismas rutas que
+  producción. El agente de ejemplo en HTTP crudo (`apps/server/src/agent.ts`)
+  juega la ladder gratis: antes pedía una mesa de 5 USDC sin firma ni
+  depósito, algo que solo funcionaba en un árbitro sin escrow.
+
+### Corregido
+
+- **Un depósito que el árbitro todavía no ve ya no contesta "error interno".**
+  En una mesa de plata, enviar el puntaje sin depósito en la cadena, o cuando
+  el árbitro no pudo leer la cadena, contestaba `500 internal error` y se
+  perdía el motivo; lo mismo con "not a player" y "too many failed
+  verifications". Ahora el que no depositó recibe un 400 con el motivo, y si el
+  árbitro no pudo leer la cadena contesta 503 con `Retry-After` (en el envío de
+  puntaje y al abrir un intento en vivo, donde antes era un 400 que no se
+  reintentaba): no se procesó nada y el cliente reintenta solo. Los textos no
+  cambiaron. Probado sobre las rutas de verdad, con una cadena falsa que no
+  contesta y otra que no tiene el depósito.
+
+### Seguridad
+
+- **Un agente verifica el asiento contra el contrato fijado antes de pagar.**
+  Es la pieza de seguridad del depósito 1v1 del SDK (`paid1v1.ts`). Antes de
+  sentarse, revisa todo lo que puede fallar sin gastar: que el RPC esté en la
+  red fijada, que haya un contrato en esa dirección y su `arbiter()` sea el que
+  firma (`GET /arbiter`), que en Base el `usdc()` sea el de Circle, la comisión,
+  la mesa permitida, el saldo de USDC y el de ETH para el gas, y que el árbitro
+  tenga las mesas abiertas y las mismas reglas. Antes de transmitir comprueba
+  que el asiento esté firmado por ese árbitro para ese contrato y esa red, que
+  el stake sea el que pidió y que los plazos sean razonables. Como segundo
+  jugador, además, que la partida esté abierta en la cadena con lo mismo, que
+  falte al menos un minuto de cadena y que la comisión congelada no pase el
+  tope. El permiso es exacto, solo hacia el escrow fijado, y se reusa si quedó.
+  Las carreras se resuelven leyendo la cadena. Los envíos de una misma wallet
+  (1v1 y Aleph) van de a uno, para no chocar en el nonce. Probado con un RPC
+  falso que mina como Base (recibos preconfirmados), un árbitro que miente de
+  siete maneras distintas sin que se transmita nada, y los casos de carrera
+  perdida, revert minado y falta de ETH a mitad de camino.
+  Después de la revisión final: un depósito que se transmitió y no se pudo
+  confirmar ya no se informa como "no pasó nada" (se mira la cadena y, si no
+  aparece, avisa `deposited: true` con el `txHash`: retomar, no volver a
+  emparejar); el asiento tiene que ser del juego pedido; `resume1v1` con la
+  cadena caída ya no dice "no hay depósito"; ningún error ni su causa llevan la
+  URL del RPC; y el MCP le muestra al modelo el `matchId` y si la plata entró,
+  y `play_paid` deja de anunciarse como idempotente.
+
 ## [3.13.0] — 2026-11-19
 
 **Space Invaders se juega en vivo.** Invaders pasa a sus reglas v2: sin semilla,

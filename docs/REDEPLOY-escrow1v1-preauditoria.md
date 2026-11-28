@@ -10,6 +10,12 @@
 > el smoke del paso 4 pasó (una partida de 1 USDC: el árbitro pagó 1,70 al
 > ganador y 0,30 de comisión).
 >
+> **Para el próximo redeploy de `Escrow1v1`:** desde la 0.8.0 de los paquetes,
+> los agentes juegan las mesas 1v1 de plata con la dirección del contrato fijada
+> por su operador (`paid1v1.escrow` en el agent-sdk,
+> `ARCADE_1V1_ESCROW_ADDRESS` en el MCP). Avisarles que la actualicen: hasta
+> entonces su asiento no se verifica contra el contrato nuevo y no depositan.
+>
 > **Dueño:** el deploy lo dejó en la wallet de deploy de
 > `packages/contracts/.env` (`0xda0ccd24…`), y el mismo 2026-11-18 pasó a
 > `0x15bd1EFcC9F23Ca34c99C8b22f79d707F392268C` (la wallet del dueño del

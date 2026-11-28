@@ -105,6 +105,9 @@ jobs:
       - name: Pago completo en cadena local (anvil)
         run: bash packages/contracts/check-payment-e2e.sh
 
+      - name: Un agente del SDK juega una mesa 1v1 de plata solo (anvil)
+        run: bash packages/contracts/check-payment-sdk-e2e.sh
+
       - name: Ensayo del deploy (script real + mesas habilitadas)
         run: bash packages/contracts/check-deploy.sh
 

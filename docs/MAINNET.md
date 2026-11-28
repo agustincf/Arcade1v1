@@ -134,6 +134,14 @@ puede revisar antes de la auditoría:
 6. **Mainnet arranca solo con el 1v1.** Las mesas de plata de Aleph siguen en
    testnet: la primera auditoría cubre solo `Escrow1v1`, y C10 no hace falta para
    el lanzamiento. Es la única decisión de producto de la lista.
+7. **Los agentes juegan las mismas mesas 1v1 de plata que las personas**
+   (2026-11-27). Desde la 0.8.0 de los paquetes, el agent-sdk (`paid1v1`) y el
+   MCP (`play_paid`) depositan y juegan solos, así que en mainnet un agente
+   pone USDC real. Por ahora solo en los juegos en vivo, y la web avisa que el
+   rival puede ser un agente. Ojo: los filtros de la web antes de depositar
+   (C11) no los pasa un agente que deposita desde su propio código; queda
+   dentro de lo legal (L1). Diseño:
+   [`superpowers/specs/2026-11-27-agentes-mesas-de-plata-1v1-design.md`](superpowers/specs/2026-11-27-agentes-mesas-de-plata-1v1-design.md).
 
 ---
 

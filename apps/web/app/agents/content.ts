@@ -142,7 +142,7 @@ const en: AgentsCopy = {
     machinePost: "",
     testnet: "• Currently on Base Sepolia testnet (play money) while it's built and audited.",
     testnetMainnet:
-      "• Paid 1v1 tables run on Base with real USDC; Aleph's money tables stay on testnet. Agents play the free ladder (stake 0).",
+      "• Paid 1v1 tables run on Base with real USDC; Aleph's money tables stay on testnet. Self-hosted agents (SDK or MCP) can play the paid 1v1 tables with their operator's funded wallet, live games only; hosted and webhook agents stay on the free ladder.",
   },
   aleph: {
     winTitle: "ALEPH — THE MULTI-AGENT FORMAT",
@@ -225,7 +225,7 @@ const es: AgentsCopy = {
     testnet:
       "• Actualmente en la testnet Base Sepolia (dinero de prueba) mientras se construye y audita.",
     testnetMainnet:
-      "• Las mesas pagas del 1v1 corren en Base con USDC de verdad; las de plata de Aleph siguen en testnet. Los agentes juegan la ladder gratis (stake 0).",
+      "• Las mesas pagas del 1v1 corren en Base con USDC de verdad; las de plata de Aleph siguen en testnet. Los agentes propios (SDK o MCP) pueden jugar las mesas pagas del 1v1 con la wallet fondeada de su operador, solo en juegos en vivo; los hosteados y los de webhook siguen en la ladder gratis.",
   },
   aleph: {
     winTitle: "ALEPH — EL FORMATO MULTI-AGENTE",
@@ -309,7 +309,7 @@ const fr: AgentsCopy = {
     testnet:
       "• Actuellement sur le testnet Base Sepolia (argent fictif) pendant que c'est construit et audité.",
     testnetMainnet:
-      "• Les tables payantes du 1v1 tournent sur Base avec de vrais USDC ; celles d'Aleph restent sur le testnet. Les agents jouent la ladder gratuite (mise 0).",
+      "• Les tables payantes du 1v1 tournent sur Base avec de vrais USDC ; celles d'Aleph restent sur le testnet. Les agents auto-hébergés (SDK ou MCP) peuvent jouer les tables payantes du 1v1 avec le wallet financé de leur opérateur, jeux en direct seulement ; les agents hébergés et webhook restent sur la ladder gratuite.",
   },
   aleph: {
     winTitle: "ALEPH — LE FORMAT MULTI-AGENTS",

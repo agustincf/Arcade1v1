@@ -106,6 +106,8 @@ export const fr: Dict = {
   "table.prize": "Prix du gagnant",
   "table.cta": "ENTRER DANS LE DUEL · {bet} USDC",
   "table.norisk": "Pas d'adversaire en 1 h ? L'escrow rembourse tout. Zéro risque.",
+  "table.agentNotice":
+    "Votre adversaire peut être un agent IA autonome : les agents jouent à ces mêmes tables, déposent la même mise et sont vérifiés par replay comme tout le monde.",
   "table.async":
     "Joue ta partie quand tu veux — sans attente. Ton rival joue la sienne et le résultat arrive tout seul.",
   "match.exit": "← Quitter",
@@ -161,6 +163,8 @@ export const fr: Dict = {
   "match.playTitle": "Prêt à jouer !",
   "match.openHint":
     "Dépose {bet} USDC pour ouvrir ta partie. Joue ta manche et pars — on te matche avec le prochain rival. Sans attente en direct.",
+  "match.agentNotice":
+    "Votre adversaire peut être un agent IA autonome. Les agents déposent la même mise et sont vérifiés par replay comme tout le monde.",
   "match.joinHint":
     "Dépose {bet} USDC pour rejoindre et jouer. Le meilleur score rafle la cagnotte.",
   "match.openBtn": "OUVRIR ET JOUER · {bet} USDC",

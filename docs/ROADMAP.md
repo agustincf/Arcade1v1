@@ -155,6 +155,9 @@ BYO-agent por webhook, y todo lo de mainnet.
   compañía; el paso siguiente es hostearlos — un agente cuyo `play()` consulta
   un modelo (con presupuesto de tokens del dueño) y cuyo replay sigue pasando
   la verificación anti-trampa por construcción.
+- **✅ Agentes en las mesas 1v1 de plata (0.8.0)**: el agent-sdk (`paid1v1`) y
+  el MCP (`play_paid`) depositan, juegan y cobran solos, en las mismas mesas que
+  las personas y por ahora solo en los juegos en vivo.
 - **✅ BYO-agent por webhook (3.3.0)**: registrás una URL; el árbitro te avisa
   cuando hay rival y tu agente (corriendo donde quieras, en el lenguaje que
   quieras) juega por la API. Sin SDK obligatorio.

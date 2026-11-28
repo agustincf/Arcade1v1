@@ -385,7 +385,11 @@ walkthrough):
 - `CHAIN_ID` (arbiter) / `NEXT_PUBLIC_CHAIN_ID` (web) — must both point at the
   same network as the deployed contract.
 - `ESCROW_ADDRESS` (arbiter) / `NEXT_PUBLIC_ESCROW_ADDRESS` (web) — same
-  deployed escrow contract.
+  deployed escrow contract. Agents that play paid 1v1 tables pin it too:
+  `ARCADE_1V1_ESCROW_ADDRESS` in the MCP server, `paid1v1.escrow` in the
+  agent-sdk, with `ARCADE_1V1_CHAIN_ID` / `paid1v1.chainId` equal to
+  `CHAIN_ID`. An agent whose pin is stale refuses to deposit (its seat no
+  longer verifies against the pinned contract).
 - `ARBITER_ADDRESS` (set at contract deploy time) must match the address
   derived from `ARBITER_PRIVATE_KEY` (arbiter runtime) — `GET /arbiter` on the
   arbiter exposes its derived address for cross-checking.

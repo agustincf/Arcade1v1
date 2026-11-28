@@ -2,6 +2,7 @@
 // que decide plata sale de acá y lo fija el OPERADOR: el modelo nunca elige a
 // qué contrato se le aprueba USDC ni cuánto se pone como máximo en una mesa.
 import type { Hex } from "viem";
+import type { Paid1v1Config } from "@arcade1v1/agent-sdk";
 
 export interface WalletEnv {
   /** ARCADE_PRIVATE_KEY: la wallet del operador. Sin ella, una efímera por
@@ -16,6 +17,85 @@ export interface WalletEnv {
   /** ARCADE_ALEPH_MAX_STAKE: lo máximo, en USDC, que esta wallet pone en una
    *  mesa. Opcional. */
   maxStake?: number;
+  /** Las mesas 1v1 de plata, de ARCADE_1V1_ESCROW_ADDRESS, ARCADE_1V1_RPC_URL,
+   *  ARCADE_1V1_CHAIN_ID y ARCADE_1V1_MAX_STAKE: van las cuatro o ninguna, y
+   *  exigen ARCADE_PRIVATE_KEY. Sin ellas, apagadas. Van APARTE de las de Aleph
+   *  (en mainnet el 1v1 corre en Base y Aleph sigue en Base Sepolia), y el RPC
+   *  del 1v1 NO hereda RPC_URL, para no usar sin querer el de la otra red. */
+  paid1v1?: Paid1v1Config;
+}
+
+const ONE_V_ONE_VARS = [
+  "ARCADE_1V1_ESCROW_ADDRESS",
+  "ARCADE_1V1_RPC_URL",
+  "ARCADE_1V1_CHAIN_ID",
+  "ARCADE_1V1_MAX_STAKE",
+] as const;
+const ONE_V_ONE_CHAINS = [8453, 84532, 31337] as const;
+
+/** ¿Una URL que el transporte http de viem puede usar? */
+function httpUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/** Un pin de contrato usable: 0x + 40 hex y no la dirección cero. */
+const contractAddress = (v: string) =>
+  /^0x[0-9a-fA-F]{40}$/.test(v) && v.toLowerCase() !== "0x" + "0".repeat(40);
+
+/** Un decimal positivo LISO y finito ("2", "2.5"): ver ARCADE_ALEPH_MAX_STAKE. */
+const plainPositive = (v: string) =>
+  /^\d+(\.\d+)?$/.test(v) && Number.isFinite(Number(v)) && Number(v) > 0;
+
+function paid1v1FromEnv(
+  env: Record<string, string | undefined>,
+  hasKey: boolean,
+): Paid1v1Config | undefined {
+  const got = ONE_V_ONE_VARS.map((k) => present(env[k]));
+  if (got.every((v) => v === undefined)) return undefined;
+  const missing = ONE_V_ONE_VARS.filter((_, i) => got[i] === undefined);
+  if (missing.length > 0) {
+    throw new Error(
+      `paid 1v1 tables need all four of ${ONE_V_ONE_VARS.join(", ")} — missing: ${missing.join(", ")}`,
+    );
+  }
+  if (!hasKey) {
+    throw new Error(
+      "paid 1v1 tables need ARCADE_PRIVATE_KEY (a dedicated wallet funded with USDC and ETH for gas)",
+    );
+  }
+  const [escrow, rpcUrl, chainRaw, maxRaw] = got as string[];
+  // Ningún mensaje repite el valor: la URL puede traer una API key y en el pin
+  // se puede pegar una clave por error.
+  if (!contractAddress(escrow)) {
+    throw new Error(
+      "ARCADE_1V1_ESCROW_ADDRESS must be the Escrow1v1 address (0x + 40 hex digits), not the zero address",
+    );
+  }
+  if (!httpUrl(rpcUrl)) {
+    throw new Error(
+      "ARCADE_1V1_RPC_URL must be a full URL starting with http:// or https:// (its value is not shown here: it may carry an API key)",
+    );
+  }
+  const chainId = /^\d+$/.test(chainRaw) ? Number(chainRaw) : NaN;
+  if (!ONE_V_ONE_CHAINS.includes(chainId as never)) {
+    throw new Error(`ARCADE_1V1_CHAIN_ID must be one of ${ONE_V_ONE_CHAINS.join(", ")}`);
+  }
+  if (!plainPositive(maxRaw)) {
+    throw new Error(
+      "ARCADE_1V1_MAX_STAKE must be a plain positive decimal number of USDC, like 2 or 10",
+    );
+  }
+  return {
+    escrow: escrow as Hex,
+    rpcUrl,
+    chainId: chainId as Paid1v1Config["chainId"],
+    maxStake: Number(maxRaw),
+  };
 }
 
 // Vacío cuenta como ausente: una config de Claude Desktop con `"RPC_URL": ""`
@@ -81,10 +161,13 @@ export function walletFromEnv(env: Record<string, string | undefined>): WalletEn
     );
   }
   const maxStake = maxRaw === undefined ? undefined : Number(maxRaw);
+  const privateKey = present(env.ARCADE_PRIVATE_KEY) as Hex | undefined;
+  const paid1v1 = paid1v1FromEnv(env, privateKey !== undefined);
   return {
-    privateKey: present(env.ARCADE_PRIVATE_KEY) as Hex | undefined,
+    privateKey,
     rpcUrl,
     escrow: escrow as Hex | undefined,
     maxStake,
+    ...(paid1v1 ? { paid1v1 } : {}),
   };
 }

@@ -172,8 +172,11 @@ que actualicen el pin a la dirección nueva, sus depósitos fallan con
 `escrow mismatch` (es a propósito: la dirección que manda el árbitro no alcanza
 para aprobarle USDC a un contrato). Depositar no exige paquetes nuevos: `open` y
 `deposit` no cambiaron. Cobrar lo acreditado (`alephWithdraw`, `aleph_withdraw`)
-sí: está desde la 0.5.2 de `@arcade1v1/agent-sdk` y `@arcade1v1/mcp`. Las
-mesas 1v1 de plata no las juegan agentes (el SDK no deposita en ellas).
+sí: está desde la 0.5.2 de `@arcade1v1/agent-sdk` y `@arcade1v1/mcp`. Desde la
+0.8.0 los agentes también juegan las mesas 1v1 de plata, con su propio pin
+(`paid1v1.escrow` en `createAgent`, `ARCADE_1V1_ESCROW_ADDRESS` en el MCP): en
+un redeploy de `Escrow1v1` hay que avisarles igual. Hasta que lo actualicen, la
+verificación del asiento falla antes de pagar y no se mueve plata.
 
 ---
 

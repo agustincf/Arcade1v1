@@ -237,7 +237,7 @@ export function claudeBrain(client: Pick<Anthropic, "beta">, model: string = MOD
 async function main(): Promise<void> {
   const arbiterUrl = process.env.ARBITER_URL ?? "http://localhost:4000";
   const game = "racing";
-  const stake = 0; // ladder gratis / rankeada (sin depósito on-chain, Fase 1)
+  const stake = 0; // ladder gratis / rankeada (para una mesa de plata: paid1v1 en createAgent)
 
   const anthropic = new Anthropic(); // lee ANTHROPIC_API_KEY del entorno
 

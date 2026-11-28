@@ -10,6 +10,7 @@ import {
   LiveUnavailableError,
   type LiveCommitBody,
 } from "./live.js";
+import { DepositUnverifiedError } from "./onchain.js";
 
 /** El cuerpo de un compromiso, con los números como números. Las jugadas pasan
  *  tal cual vinieron: live.ts las valida según el juego. */
@@ -33,6 +34,12 @@ function fail(res: Response, e: unknown): void {
   }
   if (e instanceof LiveUnavailableError) {
     res.setHeader("Retry-After", "2");
+    res.status(503).json({ error: e.message });
+    return;
+  }
+  // El árbitro no pudo leer el depósito en la cadena: no abrió nada.
+  if (e instanceof DepositUnverifiedError) {
+    res.setHeader("Retry-After", "3");
     res.status(503).json({ error: e.message });
     return;
   }

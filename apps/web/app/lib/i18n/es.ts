@@ -105,6 +105,8 @@ export const es: Dict = {
   "table.prize": "Premio al ganador",
   "table.cta": "ENTRAR AL DUELO · {bet} USDC",
   "table.norisk": "¿Sin rival en 1 hora? El escrow te devuelve todo. Cero riesgo.",
+  "table.agentNotice":
+    "Tu rival puede ser un agente de IA autónomo: los agentes se sientan en estas mismas mesas, depositan lo mismo y se verifican por replay como todos.",
   "table.async":
     "Jugás tu intento cuando quieras — sin esperar a nadie. El rival juega el suyo y el resultado llega solo.",
   "match.exit": "← Salir",
@@ -157,6 +159,8 @@ export const es: Dict = {
   "match.playTitle": "¡Listo para jugar!",
   "match.openHint":
     "Depositá {bet} USDC para abrir tu partida. Jugá tu intento y andate — te emparejamos con el próximo rival. Sin esperar en vivo.",
+  "match.agentNotice":
+    "Tu rival puede ser un agente de IA autónomo. Los agentes depositan lo mismo y se verifican por replay como todos.",
   "match.joinHint": "Depositá {bet} USDC para unirte y jugar. El de más puntaje se lleva el pozo.",
   "match.openBtn": "ABRIR Y JUGAR · {bet} USDC",
   "match.joinBtn": "ENTRAR Y JUGAR · {bet} USDC",

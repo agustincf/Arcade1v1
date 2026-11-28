@@ -19,6 +19,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AddressInfo } from "node:net";
 import { startFakeUpstash } from "./fake-upstash.js";
+import { RULES_V } from "@arcade1v1/game-sdk/rules";
 
 const INDEX = fileURLToPath(new URL("../src/index.ts", import.meta.url));
 const TSX = import.meta.resolve("tsx");
@@ -182,7 +183,7 @@ test(
       assert.equal(got.status, 200, "la partida creada en A existe en B");
 
       const h = (await (await fetch(`${PUBLIC}/health`)).json()) as Record<string, unknown>;
-      assert.deepEqual(h, { ok: true, commit: COMMIT.slice(0, 7), mode: "ready" });
+      assert.deepEqual(h, { ok: true, commit: COMMIT.slice(0, 7), mode: "ready", rules: RULES_V });
 
       assert.equal(await a.exited, 0, "A sale limpia con el SIGTERM");
       assert.ok(!logged(a, /cercada|abortada/), a.out.join("\n"));
