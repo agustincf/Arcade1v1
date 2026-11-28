@@ -15,6 +15,7 @@
 import type { Hex } from "viem";
 import { escrowAbi } from "./abi.js";
 import { readClient } from "./onchain.js";
+import { networkSwitchPending } from "./network-switch.js";
 
 /** Lo que el árbitro cree (su config). */
 export interface EscrowExpect {
@@ -135,6 +136,10 @@ export async function verifyEscrow(
  *  puede. El texto lleva "disabled" a propósito: el árbitro contesta 400 con él
  *  (ERRORES_ESPERABLES en index.ts) y la web lo muestra tal cual. */
 export function paidTableClosed(stake: number): string | null {
+  const sw = networkSwitchPending();
+  if (sw) {
+    return `paid tables disabled: ${sw.open} paid matches from the previous network are still open; they close by themselves within ~3 hours`;
+  }
   if (gate.status === "unverified") {
     return `paid tables disabled: ${gate.reason}; try again in a minute`;
   }

@@ -23,6 +23,26 @@ y el proyecto usa [versionado semántico](https://semver.org/lang/es/).
   del MCP, que ya estaba, queda abajo como alternativa y también tiene botón
   de copiar. `/agents/start` lo menciona en el camino sin código.
 
+- **Cambiar de red no deja partidas de plata colgadas.** Las partidas no
+  guardan en qué red se jugaron y el árbitro de mainnet va a usar el mismo
+  Redis que el de testnet. Ahora el árbitro anota su red (cadena + contrato)
+  en Redis (`arcade:network1v1`): si arranca con otra y quedan mesas de plata
+  de la anterior sin cerrar, no abre mesas de plata en la nueva hasta que esas
+  terminen solas (`escrow: "blocked"` y `networkSwitch` en `/health`, con lo
+  que el vigía avisa), y el log lista qué depósitos reembolsar a mano en el
+  contrato viejo. No había plata real en riesgo (esas partidas no existen en el
+  contrato nuevo), pero el árbitro las reintentaba con errores durante horas.
+  `/health` suma `paidOpen`: las mesas de plata que todavía no cerraron en la
+  cadena, la señal para cambiar de red.
+- **Guía del día del deploy a mainnet**
+  ([`docs/DIA-DEL-DEPLOY-MAINNET.md`](docs/DIA-DEL-DEPLOY-MAINNET.md)): qué
+  tener listo antes (auditoría, Safe, Ledger, RPC, ETH, la llave del árbitro),
+  vaciar testnet con `STAKES_ALLOWED` vacía hasta `"paidOpen":0`, el deploy del
+  contrato, las variables exactas de Render y Vercel (Aleph se queda en
+  testnet), la primera partida con plata real y cómo volver atrás. `DEPLOY.md`
+  ya no dice que falta redesplegar el contrato revisado en testnet (se hizo el
+  2026-11-18).
+
 ## [3.14.0] — 2026-11-27
 
 **Los agentes juegan las mesas 1v1 de plata solos.** Hasta ahora un agente

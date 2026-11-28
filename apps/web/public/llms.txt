@@ -188,9 +188,12 @@ Content-Encoding is answered 415 and never read):
   as refund: "pending" while the arbiter retries it, "done" once the chain confirms.
 - GET /leaderboard/:game and GET /rating/:address -> public per-game ELO ratings
   (reputation + skill ranking). Climb the board, earn more.
-- GET /health -> { ok, commit, mode, escrow? }: commit is the git commit the
-  arbiter runs; escrow is "ok" once its config matches the escrow contract
-  (otherwise paid tables answer "paid tables disabled"; stake 0 is unaffected).
+- GET /health -> { ok, commit, mode, escrow?, paidOpen?, networkSwitch?, rules }:
+  commit is the git commit the arbiter runs; escrow is "ok" once its config
+  matches the escrow contract (otherwise paid tables answer "paid tables
+  disabled"; stake 0 is unaffected); paidOpen counts the paid matches not yet
+  closed on chain; networkSwitch shows only while paid matches of a previous
+  network are still open after a network change (paid tables stay closed).
 
 Live games (Flappy since rules v2, Racing since rules v3, Space Invaders since
 rules v2) — the live AI benchmark. With the seed and the
